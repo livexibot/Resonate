@@ -57,8 +57,27 @@ Building and testing:
   `EnableWindowsTargeting`). The app compiles only on `windows-latest`.
 - CI has no Spotify account: tests use fakes of the Web API and of the
   media session, and the app has a `--demo` mode with made-up music that CI
-  uses for screenshots (`--screenshots <folder>`) and start-up timing
-  (`--startup-benchmark <file>`).
+  uses for screenshots (`--screenshots <folder>`), start-up timing
+  (`--startup-benchmark <file>`) and the speed and memory test
+  (`--perf <folder>`, `Services/PerformanceTour.cs`).
+- The speed and memory test (pull request #11) runs with 10,000 liked
+  songs and Windows animations on. It times every page, scrolling, each
+  look switch, idle processor use (paused, playing, minimised, Liquid
+  Glass) and memory over four rounds of every page, prints `perf.md` in
+  the job log, and fails CI on: a page holding the interface over 250 ms
+  or first frame over 500 ms, idle over 2 % of a core (4 % while
+  playing), a page still alive after leaving it, memory growing over
+  10 MB in the last round, a warm start over 1 s, or a build warning.
+  GitHub's machines draw without a graphics card, so judge drawing cost
+  on a real PC.
+- Anything that animates for ever (a composition animation with no end,
+  a glide over a whole song) makes the window redraw at the screen's
+  refresh rate; pause it while paused or minimised (`MainWindow.IsShown`
+  and `ShownChanged`). The progress bar is moved by the player's clock
+  about once per screen pixel for this reason. A handler on a
+  `DispatcherQueueTimer` that captures a page keeps the page in memory
+  for good: subscribe while shown, unsubscribe when leaving. Never call
+  `GC.WaitForPendingFinalizers` on the interface thread (it deadlocks).
 - Cloud sessions cannot download CI artifacts or logs (their storage host is
   blocked). CI therefore also stores each pull request's screenshots as a
   commit under the hidden ref `refs/screenshots/pr-<number>`. Fetch them
@@ -266,10 +285,10 @@ GitHub automation:
 
 Targets to measure from the first build: cold launch to a usable window
 under one second (CI prints it for demo data; the first build measured
-748 ms cold and 289 to 435 ms warm on GitHub's Windows machine), page
-changes within one frame
-at the monitor's refresh rate (ask the owner what it is), and play or pause
-audible within about 100 ms.
+748 ms cold and 289 to 435 ms warm on GitHub's Windows machine; 449 ms
+cold and under 200 ms warm by pull request #11), page changes within one
+frame at the monitor's refresh rate (165 Hz, about 6 ms, on the owner's
+5120x2160 display), and play or pause audible within about 100 ms.
 
 ## What the owner wants
 
@@ -565,7 +584,8 @@ Keep it obvious what is what:
 - `tests/` automated tests (`dotnet test`, run on Linux and Windows).
 - `docs/` user-facing guides, once there is something to explain.
 - `.github/workflows/` `ci.yml` (every pull request: format, tests, the
-  Windows build with start-up time and screenshots), `release-please.yml`
+  Windows build with start-up time, screenshots, the install and update
+  test, and the speed and memory test), `release-please.yml`
   (release pull request, then calls `release.yml`), `release.yml` (builds
   the x64 and arm64 installers with Velopack and attaches them).
 - `release-please-config.json`, `.release-please-manifest.json`,
@@ -628,7 +648,8 @@ when the work first needs them, then tick them off here.
 - Decided: the repository becomes public so the updater works without
   tokens (7 October 2026). The choice was offered with the Developer Policy
   question spelled out; the logo question below is still open.
-- Open: the owner's monitor refresh rate, for the frame-time target.
+- Decided: the owner's display is 5120x2160 at 165 Hz (Windows 11), so a
+  frame is about 6 ms.
 - Decided (7 October 2026): Local Files are played by Resonate itself,
   because Spotify refuses to start them for other apps; the owner asked
   for Local Files "just like in Spotify". Only the user's own files.
