@@ -53,14 +53,26 @@ public sealed partial class SearchPage : Page
         QueryBox.Text = query;
         QueryBox.SelectionStart = query.Length;
         QueryBox.Focus(FocusState.Programmatic);
+
+        // Setting the text before the page is shown does not always raise
+        // TextChanged, so search for it here.
+        _ = SearchAsync(query, TimeSpan.Zero);
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e) => _search?.Cancel();
 
-    private async void OnQueryChanged(object sender, TextChangedEventArgs e)
+    private void OnQueryChanged(object sender, TextChangedEventArgs e)
     {
-        var query = QueryBox.Text.Trim();
-        LastQuery = QueryBox.Text;
+        if (QueryBox.Text != LastQuery)
+        {
+            _ = SearchAsync(QueryBox.Text, TypingPause);
+        }
+    }
+
+    private async Task SearchAsync(string text, TimeSpan wait)
+    {
+        var query = text.Trim();
+        LastQuery = text;
         _search?.Cancel();
         _search = new CancellationTokenSource();
         var token = _search.Token;
@@ -74,7 +86,7 @@ public sealed partial class SearchPage : Page
         try
         {
             // Wait for a pause in typing so each key press does not cost a request.
-            await Task.Delay(TypingPause, token);
+            await Task.Delay(wait, token);
             SearchingRing.IsActive = Songs.Count == 0;
             var library = _services.Library;
             var results = await Task.Run(() => library.SearchAsync(query, token), token);
@@ -141,6 +153,7 @@ public sealed partial class SearchPage : Page
             }
         }
 
+        HintText.Text = "Search for songs, albums and playlists. Double-click a song to play it.";
         HintText.Visibility = results is null ? Visibility.Visible : Visibility.Collapsed;
         SongsSection.Visibility = Songs.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         PlaylistsSection.Visibility = PlaylistCards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;

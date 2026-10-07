@@ -34,16 +34,20 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBox
-            x:Name="QueryBox"
-            MaxWidth="560"
-            HorizontalAlignment="Left"
-            AutomationProperties.Name="Search"
-            CornerRadius="22"
-            FontSize="15"
-            Padding="18,11,18,11"
-            PlaceholderText="What do you want to listen to?"
-            TextChanged="OnQueryChanged" />
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MaxWidth="560" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                x:Name="QueryBox"
+                AutomationProperties.Name="Search"
+                CornerRadius="22"
+                FontSize="15"
+                Padding="18,11,18,11"
+                PlaceholderText="What do you want to listen to?"
+                TextChanged="OnQueryChanged" />
+        </Grid>
 
         <ScrollViewer Grid.Row="1">
             <StackPanel Padding="0,0,0,28" Spacing="12">

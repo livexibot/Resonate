@@ -112,7 +112,13 @@ public sealed partial class PlayerBar : UserControl
 
         _artworkKey = key;
         ArtworkImage.Opacity = 0;
-        ArtworkGlyph.Visibility = Visibility.Visible;
+
+        // Until (or unless) a cover arrives, a colour tile for the album.
+        var name = state.Album ?? state.Title;
+        ArtworkFrame.Background = name is null
+            ? App.Services.Theme.GetBrush("ResonateSurfaceHoverBrush")
+            : Artwork.PlaceholderBrush(name);
+        ArtworkGlyph.Visibility = name is null ? Visibility.Visible : Visibility.Collapsed;
 
         if (state.ArtworkUrl is { } url)
         {

@@ -95,7 +95,7 @@
                     <!-- Column headings; widths match the rows below. -->
                     <Grid
                         x:Name="ColumnHeadings"
-                        Padding="12,0,12,8"
+                        Padding="4,0,0,8"
                         BorderBrush="{StaticResource ResonateBorderBrush}"
                         BorderThickness="0,0,0,1"
                         ColumnSpacing="16">
