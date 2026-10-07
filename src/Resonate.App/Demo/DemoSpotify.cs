@@ -114,7 +114,8 @@ public static class DemoCatalog
 /// <summary>A pretend Web API serving <see cref="DemoCatalog"/>.</summary>
 public sealed class DemoWebApi : ISpotifyWebApi
 {
-    private const int LikedCount = 240;
+    /// <summary>How many songs Liked Songs has (the speed test uses a heavy listener's library).</summary>
+    public static int LikedCount { get; set; } = 240;
 
     private readonly DemoPlayer _player;
 
@@ -144,8 +145,8 @@ public sealed class DemoWebApi : ISpotifyWebApi
 
     public Task<Page<SavedTrack>> GetSavedTracksAsync(int offset, int limit, CancellationToken cancellationToken)
     {
-        const int Total = LikedCount;
-        var items = Enumerable.Range(offset, Math.Max(0, Math.Min(limit, Total - offset)))
+        var total = LikedCount;
+        var items = Enumerable.Range(offset, Math.Max(0, Math.Min(limit, total - offset)))
             .Select(i => new SavedTrack
             {
                 Track = DemoCatalog.Track("liked", i),
@@ -155,10 +156,10 @@ public sealed class DemoWebApi : ISpotifyWebApi
         return Task.FromResult(new Page<SavedTrack>
         {
             Items = items,
-            Total = Total,
+            Total = total,
             Offset = offset,
             Limit = limit,
-            Next = offset + items.Count < Total ? "more" : null,
+            Next = offset + items.Count < total ? "more" : null,
         });
     }
 

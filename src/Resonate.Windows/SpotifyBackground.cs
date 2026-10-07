@@ -140,6 +140,12 @@ public sealed class SpotifyBackground : ISpotifyAppWindow, IDisposable
 
     private void Tick()
     {
+        // Both switched off in Settings: nothing to hide or slow down, so no need to look at every window.
+        if (!_keepHidden && !_saveResources)
+        {
+            return;
+        }
+
         var foreground = Windowing.GetForegroundWindow();
         var onScreen = false;
         foreach (var window in SpotifyTaskbarWindows(visibleOnly: true))

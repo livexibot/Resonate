@@ -96,6 +96,7 @@ public sealed partial class MainWindow : Window
         services.Plugins.Notified += (_, note) =>
             DispatcherQueue.TryEnqueue(() => ShowMessage($"{note.PluginName}: {note.Text}", InfoBarSeverity.Informational));
         PlayerBar.AttachPlugins(services.Plugins);
+        AppWindow.Changed += OnAppWindowChanged;
         Closed += OnClosed;
 
         if (services.Account.IsSignedIn)
@@ -110,6 +111,12 @@ public sealed partial class MainWindow : Window
         CompositionTarget.Rendering += OnFirstFrame;
         SetUpLocalFiles();
     }
+
+    /// <summary>False while the window is minimised or hidden: clocks and endless animations rest then.</summary>
+    public bool IsShown { get; private set; } = true;
+
+    /// <summary>Raised on the interface thread when <see cref="IsShown"/> changes.</summary>
+    public event EventHandler? ShownChanged;
 
     public ObservableCollection<NavItem> NavItems { get; } =
     [
@@ -674,6 +681,10 @@ public sealed partial class MainWindow : Window
         {
             _ = new ScreenshotTour(this, (FrameworkElement)Content, folder).RunAsync();
         }
+        else if (options.PerformanceFolder is { } perf)
+        {
+            _ = new PerformanceTour(this, (FrameworkElement)Content, perf, startup.TotalMilliseconds).RunAsync();
+        }
         else if (options is { UpdateCheckFeed: { } feed, UpdateCheckResultFile: { } result })
         {
             _ = CheckForUpdateAndQuitAsync(feed, result);
@@ -777,6 +788,21 @@ public sealed partial class MainWindow : Window
         AppWindow.MoveAndResize(new RectInt32(area.X + ((area.Width - w) / 2), area.Y + ((area.Height - h) / 2), w, h));
     }
 
+    private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
+    {
+        var shown = sender.IsVisible && !IsIconic(WinRT.Interop.WindowNative.GetWindowHandle(this));
+        if (shown != IsShown)
+        {
+            IsShown = shown;
+            PlayerBar.SetWindowShown(shown);
+            ShownChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
     [LibraryImport("user32.dll")]
     private static partial uint GetDpiForWindow(nint hwnd);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool IsIconic(nint hwnd);
 }

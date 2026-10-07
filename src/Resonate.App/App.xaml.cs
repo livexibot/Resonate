@@ -19,6 +19,11 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        if (StartupOptions.Current.PerformanceFolder is not null)
+        {
+            Demo.DemoWebApi.LikedCount = PerformanceTour.LikedSongs;
+        }
+
         Services = StartupOptions.Current.Demo ? AppServices.CreateDemo() : AppServices.Create();
         Services.Theme.Initialize(this);
 

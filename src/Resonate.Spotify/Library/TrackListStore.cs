@@ -26,11 +26,19 @@ public sealed record FullTrackList(IReadOnlyList<TrackInfo> Tracks, bool ItemsHi
 /// Keeps whole song lists on disk (one small JSON file each), so shuffling,
 /// sorting and the daily mixes do not have to ask Spotify for thousands of
 /// songs again. Holds song names and picture links only, never tokens.
-/// Failures are ignored: the store is only a shortcut.
+/// Failures are ignored: the store is only a shortcut. The lists used last
+/// also stay in memory (Liked Songs can be several megabytes of JSON, read
+/// on every visit and every heart click otherwise). Lists handed out are
+/// shared, so callers only read them.
 /// </summary>
 public sealed class TrackListStore
 {
+    /// <summary>How many lists stay in memory, most recently used first.</summary>
+    private const int KeptInMemory = 2;
+
     private readonly string? _folder;
+    private readonly Lock _gate = new();
+    private readonly List<CachedTrackList> _recent = [];
 
     /// <param name="folder">Where the files go; null keeps nothing (demo mode, tests).</param>
     public TrackListStore(string? folder) => _folder = folder;
@@ -42,6 +50,15 @@ public sealed class TrackListStore
             return null;
         }
 
+        lock (_gate)
+        {
+            if (_recent.Find(l => l.Key == key) is { } remembered)
+            {
+                Remember(remembered);
+                return remembered;
+            }
+        }
+
         try
         {
             if (!File.Exists(path))
@@ -49,9 +66,23 @@ public sealed class TrackListStore
                 return null;
             }
 
-            using var stream = File.OpenRead(path);
-            var list = JsonSerializer.Deserialize(stream, SpotifyJsonContext.Default.CachedTrackList);
-            return list?.Key == key ? list : null;
+            CachedTrackList? list;
+            using (var stream = File.OpenRead(path))
+            {
+                list = JsonSerializer.Deserialize(stream, SpotifyJsonContext.Default.CachedTrackList);
+            }
+
+            if (list?.Key != key)
+            {
+                return null;
+            }
+
+            lock (_gate)
+            {
+                Remember(list);
+            }
+
+            return list;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
@@ -64,6 +95,11 @@ public sealed class TrackListStore
         if (PathFor(list.Key) is not { } path)
         {
             return;
+        }
+
+        lock (_gate)
+        {
+            Remember(list);
         }
 
         try
@@ -90,6 +126,11 @@ public sealed class TrackListStore
             return;
         }
 
+        lock (_gate)
+        {
+            _recent.Clear();
+        }
+
         try
         {
             if (Directory.Exists(_folder))
@@ -100,6 +141,17 @@ public sealed class TrackListStore
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             // Best effort.
+        }
+    }
+
+    /// <summary>Puts the list first in memory, replacing an older copy with the same key. Call under the lock.</summary>
+    private void Remember(CachedTrackList list)
+    {
+        _recent.RemoveAll(l => l.Key == list.Key);
+        _recent.Insert(0, list);
+        if (_recent.Count > KeptInMemory)
+        {
+            _recent.RemoveRange(KeptInMemory, _recent.Count - KeptInMemory);
         }
     }
 

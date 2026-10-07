@@ -39,7 +39,7 @@ public sealed class ListeningHistory : IDisposable
     private readonly SemaphoreSlim _syncLock = new(1, 1);
     private readonly Lock _gate = new();
     private IReadOnlyList<PlayRecord> _plays = [];
-    private bool _loaded;
+    private volatile bool _loaded;
     private int _generation;
     private DateTimeOffset _lastSync = DateTimeOffset.MinValue;
 
@@ -57,16 +57,8 @@ public sealed class ListeningHistory : IDisposable
     /// <summary>Every known play, newest first. Empty until <see cref="Load"/> ran.</summary>
     public IReadOnlyList<PlayRecord> Plays => Volatile.Read(ref _plays);
 
-    public bool IsLoaded
-    {
-        get
-        {
-            lock (_gate)
-            {
-                return _loaded;
-            }
-        }
-    }
+    /// <summary>Read without the lock, which is held while the file is read or written.</summary>
+    public bool IsLoaded => _loaded;
 
     /// <summary>Reads the stored history once. Call it off the interface thread.</summary>
     public void Load()

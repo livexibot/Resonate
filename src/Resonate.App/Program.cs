@@ -46,6 +46,9 @@ public sealed record StartupOptions
     /// <summary>Save screenshots of the main pages to this folder, then quit.</summary>
     public string? ScreenshotFolder { get; init; }
 
+    /// <summary>Run the speed and memory test with a large demo library, write its results to this folder, then quit.</summary>
+    public string? PerformanceFolder { get; init; }
+
     /// <summary>
     /// Look for an update in this Velopack feed folder instead of GitHub,
     /// download it, write the outcome to <see cref="UpdateCheckResultFile"/>,
@@ -82,6 +85,10 @@ public sealed record StartupOptions
                     break;
                 case "--screenshots" when next is not null:
                     options = options with { ScreenshotFolder = next, Demo = true };
+                    i++;
+                    break;
+                case "--perf" when next is not null:
+                    options = options with { PerformanceFolder = next, Demo = true };
                     i++;
                     break;
                 case "--update-check" when next is not null && i + 2 < args.Count:
