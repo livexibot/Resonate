@@ -83,6 +83,14 @@ jobs:
           $process = Start-Process -FilePath artifacts/win-x64/Resonate.exe -ArgumentList '--screenshots', $folder -PassThru
           if (-not $process.WaitForExit(120000)) { $process.Kill(); throw 'The screenshot tour did not finish.' }
           Get-ChildItem $folder | Format-Table Name, Length
+          # Previews as text, for reviewers that can read this log but not download artifacts.
+          Write-Output '::group::Screenshot previews (base64 JPEG)'
+          Get-ChildItem $folder -Filter '*.preview.jpg' | ForEach-Object {
+            "BEGIN-SCREENSHOT $($_.Name)"
+            [Convert]::ToBase64String([IO.File]::ReadAllBytes($_.FullName))
+            "END-SCREENSHOT $($_.Name)"
+          }
+          Write-Output '::endgroup::'
 
       - name: Upload screenshots
         if: always()
