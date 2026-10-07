@@ -111,7 +111,9 @@ Spotify Web API (these changed a lot; re-check before relying on them):
   `/playlists/{id}/items`, with `tracks` renamed `items` and each entry's
   `track` renamed `item`; Spotify only lists the songs of playlists the user
   owns or collaborates on (others can still be played as a whole); search
-  returns at most 10 results per type; browse, artist top tracks, other
+  returns at most 10 results per type, and an artist's albums at most 10 per
+  request (a higher `limit` is refused with 400 "Invalid limit", so the
+  artist page asks for pages of 10, up to 50); browse, artist top tracks, other
   users' profiles and batch lookups (several IDs at once) were removed;
   `popularity`, `followers` and the `product` field of `/me` were removed;
   saving and following moved to `/me/library`. The client reads both the old

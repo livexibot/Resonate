@@ -21,6 +21,12 @@ public sealed class SpotifyWebApi : ISpotifyWebApi
     /// <summary>Most list endpoints return at most 50 entries per page.</summary>
     public const int MaxPageLimit = 50;
 
+    /// <summary>
+    /// Since February 2026, an artist's releases come at most 10 per page;
+    /// a higher limit is refused (400 "Invalid limit").
+    /// </summary>
+    public const int MaxArtistAlbumsLimit = 10;
+
     /// <summary>The library endpoints (save, remove, contains) take at most 40 URIs per request.</summary>
     public const int MaxLibraryUris = 40;
 
@@ -289,7 +295,7 @@ public sealed class SpotifyWebApi : ISpotifyWebApi
 
     public Task<Page<SimplifiedAlbum>> GetArtistAlbumsAsync(string artistId, int offset, int limit, CancellationToken cancellationToken) =>
         GetAsync(
-            $"artists/{Uri.EscapeDataString(artistId)}/albums?include_groups=album,single,compilation&offset={offset}&limit={ClampPage(limit)}",
+            $"artists/{Uri.EscapeDataString(artistId)}/albums?include_groups=album,single,compilation&offset={offset}&limit={Math.Clamp(limit, 1, MaxArtistAlbumsLimit)}",
             SpotifyJsonContext.Default.PageSimplifiedAlbum,
             cancellationToken);
 
