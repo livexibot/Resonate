@@ -43,6 +43,10 @@ internal sealed class ScreenshotTour
             await Task.Delay(2000);
             await CaptureAsync("3-search.png");
 
+            _window.OpenSettings();
+            await Task.Delay(1200);
+            await CaptureAsync("6-settings");
+
             App.Services.Theme.Apply(ThemePreset.Daylight);
             _window.ApplyCaptionButtonColors();
             _window.OpenPlaylist("focus");

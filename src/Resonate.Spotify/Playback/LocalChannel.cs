@@ -117,6 +117,22 @@ public sealed class NoLocalMediaChannel : ILocalMediaChannel, IAppVolume
     }
 }
 
+/// <summary>How the player talks to Spotify.</summary>
+public enum ControlChannel
+{
+    /// <summary>
+    /// Windows' media controls first (instant, no internet), the Web API for
+    /// what they can not do. The default.
+    /// </summary>
+    Local,
+
+    /// <summary>
+    /// The Spotify Web API only: every command goes through Spotify's
+    /// servers, and what is playing is read from them.
+    /// </summary>
+    WebApi,
+}
+
 public enum SpotifyAppStatus
 {
     /// <summary>Spotify was already running.</summary>

@@ -11,6 +11,19 @@ public sealed class AppSettings
 
     public string ThemeId { get; set; } = "midnight";
 
+    /// <summary>"local" (Windows' media controls first) or "webapi" (the Spotify Web API only).</summary>
+    public string ControlChannel { get; set; } = "local";
+
+    /// <summary>Keep the Spotify app's window hidden and off the taskbar.</summary>
+    public bool KeepSpotifyHidden { get; set; } = true;
+
+    /// <summary>Put Spotify's window-drawing processes in efficiency mode while hidden.</summary>
+    public bool SaveSpotifyResources { get; set; } = true;
+
+    [JsonIgnore]
+    public Resonate.Spotify.Playback.ControlChannel ParsedControlChannel =>
+        ControlChannel == "webapi" ? Resonate.Spotify.Playback.ControlChannel.WebApi : Resonate.Spotify.Playback.ControlChannel.Local;
+
     /// <summary>The last measured time from starting the process to the first frame.</summary>
     public double? LastStartupMilliseconds { get; set; }
 }

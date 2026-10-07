@@ -22,6 +22,9 @@ public sealed class PlayerController : IDisposable
     internal static readonly TimeSpan VolumeHold = TimeSpan.FromSeconds(2);
     internal static readonly TimeSpan PositionTolerance = TimeSpan.FromSeconds(1.5);
     internal static readonly TimeSpan WebPollInterval = TimeSpan.FromSeconds(5);
+    internal static readonly TimeSpan WebOnlyPollWhilePlaying = TimeSpan.FromSeconds(2);
+    internal static readonly TimeSpan WebOnlyPollWhilePaused = TimeSpan.FromSeconds(6);
+    internal static readonly TimeSpan WebOnlyConfirmDelay = TimeSpan.FromMilliseconds(700);
     internal static readonly TimeSpan WebDetailsDelay = TimeSpan.FromMilliseconds(800);
 
     /// <summary>The Web API takes at most this many track URIs in one request.</summary>
@@ -54,6 +57,7 @@ public sealed class PlayerController : IDisposable
     private bool _needsWebDetails = true;
     private DateTimeOffset _webPausedUntil;
     private bool _started;
+    private volatile ControlChannel _channel = ControlChannel.Local;
 
     public PlayerController(
         ILocalMediaChannel local,
@@ -76,6 +80,49 @@ public sealed class PlayerController : IDisposable
 
     /// <summary>Raised on any thread with a sentence to show when a command failed.</summary>
     public event EventHandler<string>? ErrorOccurred;
+
+    /// <summary>
+    /// How commands and reports travel. Can change at any time; the player
+    /// switches over at once.
+    /// </summary>
+    public ControlChannel Channel
+    {
+        get => _channel;
+        set
+        {
+            if (_channel == value)
+            {
+                return;
+            }
+
+            _channel = value;
+            if (!_started)
+            {
+                return;
+            }
+
+            if (value == ControlChannel.Local)
+            {
+                LocalMediaSnapshot latest;
+                lock (_gate)
+                {
+                    latest = _lastLocal;
+                }
+
+                ApplyLocal(latest);
+                ReadAppVolume();
+            }
+            else
+            {
+                _ = RefreshSoonAsync(TimeSpan.Zero);
+            }
+        }
+    }
+
+    private bool UseLocal => _channel == ControlChannel.Local;
+
+    /// <summary>The local channel's last report, or nothing when the Web API is the only channel.</summary>
+    private LocalMediaSnapshot Local => UseLocal ? _lastLocal : LocalMediaSnapshot.None;
 
     public PlayerState State
     {
@@ -104,6 +151,9 @@ public sealed class PlayerController : IDisposable
         _ = PollWebApiAsync(_stopping.Token);
     }
 
+    private Task<bool> TryLocalAsync(Func<CancellationToken, Task<bool>> command, CancellationToken cancellationToken) =>
+        UseLocal ? command(cancellationToken) : Task.FromResult(false);
+
     public Task TogglePlayPauseAsync() => State.IsPlaying ? PauseAsync() : PlayAsync();
 
     public Task PlayAsync()
@@ -123,7 +173,7 @@ public sealed class PlayerController : IDisposable
         return RunTransportAsync(
             async ct =>
             {
-                if (!await _local.PlayAsync(ct).ConfigureAwait(false))
+                if (!await TryLocalAsync(_local.PlayAsync, ct).ConfigureAwait(false))
                 {
                     await WithLocalDeviceAsync((id, c) => _api.StartPlaybackAsync(null, id, c), ct).ConfigureAwait(false);
                 }
@@ -148,7 +198,7 @@ public sealed class PlayerController : IDisposable
         return RunTransportAsync(
             async ct =>
             {
-                if (!await _local.PauseAsync(ct).ConfigureAwait(false))
+                if (!await TryLocalAsync(_local.PauseAsync, ct).ConfigureAwait(false))
                 {
                     await WithLocalDeviceAsync(_api.PauseAsync, ct).ConfigureAwait(false);
                 }
@@ -162,7 +212,7 @@ public sealed class PlayerController : IDisposable
         return RunTransportAsync(
             async ct =>
             {
-                if (!await _local.NextAsync(ct).ConfigureAwait(false))
+                if (!await TryLocalAsync(_local.NextAsync, ct).ConfigureAwait(false))
                 {
                     await WithLocalDeviceAsync(_api.SkipToNextAsync, ct).ConfigureAwait(false);
                 }
@@ -178,7 +228,7 @@ public sealed class PlayerController : IDisposable
         return RunTransportAsync(
             async ct =>
             {
-                if (!await _local.PreviousAsync(ct).ConfigureAwait(false))
+                if (!await TryLocalAsync(_local.PreviousAsync, ct).ConfigureAwait(false))
                 {
                     await WithLocalDeviceAsync(_api.SkipToPreviousAsync, ct).ConfigureAwait(false);
                 }
@@ -379,6 +429,17 @@ public sealed class PlayerController : IDisposable
 
     private void ApplyLocal(LocalMediaSnapshot snapshot)
     {
+        if (!UseLocal)
+        {
+            lock (_gate)
+            {
+                // Kept for switching back; the Web API drives the player now.
+                _lastLocal = snapshot;
+            }
+
+            return;
+        }
+
         var fetchDetails = false;
         lock (_gate)
         {
@@ -462,7 +523,7 @@ public sealed class PlayerController : IDisposable
     private void ApplyWeb(PlaybackState? playback)
     {
         // Read the mixer outside the lock; it is a call into the audio service.
-        var mixerVolumeKnown = _appVolume.TryGetVolume() is not null;
+        var mixerVolumeKnown = UseLocal && _appVolume.TryGetVolume() is not null;
         lock (_gate)
         {
             var now = _time.GetUtcNow();
@@ -470,11 +531,11 @@ public sealed class PlayerController : IDisposable
             _webConnected = playback?.Device is not null;
             _needsWebDetails = false;
             var item = TrackInfo.From(playback?.Item);
-            var localIsTruth = _lastLocal.HasSession && _lastLocal.HasTimeline;
+            var localIsTruth = Local.HasSession && Local.HasTimeline;
 
             if (playback is null)
             {
-                if (!_lastLocal.HasSession)
+                if (!Local.HasSession)
                 {
                     SetState(s with { IsConnected = false, IsPlaying = false, Position = s.PositionAt(now), PositionTimestamp = now });
                 }
@@ -613,7 +674,7 @@ public sealed class PlayerController : IDisposable
         {
             target = _pendingSeek ?? TimeSpan.Zero;
             _pendingSeek = null;
-            localCanSeek = _lastLocal.HasSession && _lastLocal.CanSeek;
+            localCanSeek = Local.HasSession && Local.CanSeek;
         }
 
         if (localCanSeek && await _local.SeekAsync(target, cancellationToken).ConfigureAwait(false))
@@ -633,7 +694,7 @@ public sealed class PlayerController : IDisposable
             _pendingVolume = null;
         }
 
-        if (_appVolume.TrySetVolume(target))
+        if (UseLocal && _appVolume.TrySetVolume(target))
         {
             return;
         }
@@ -644,6 +705,11 @@ public sealed class PlayerController : IDisposable
 
     private void ReadAppVolume()
     {
+        if (!UseLocal)
+        {
+            return;
+        }
+
         var volume = _appVolume.TryGetVolume();
         if (volume is null)
         {
@@ -721,6 +787,11 @@ public sealed class PlayerController : IDisposable
         try
         {
             await command(cancellationToken).ConfigureAwait(false);
+            if (!UseLocal)
+            {
+                // No local reports in this mode: ask Spotify how things stand.
+                _ = RefreshSoonAsync(WebOnlyConfirmDelay);
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -779,11 +850,17 @@ public sealed class PlayerController : IDisposable
         RaiseStateChanged();
     }
 
-    private async Task FetchWebDetailsSoonAsync()
+    private Task FetchWebDetailsSoonAsync() => RefreshSoonAsync(WebDetailsDelay);
+
+    private async Task RefreshSoonAsync(TimeSpan delay)
     {
         try
         {
-            await Task.Delay(WebDetailsDelay, _time, _stopping.Token).ConfigureAwait(false);
+            if (delay > TimeSpan.Zero)
+            {
+                await Task.Delay(delay, _time, _stopping.Token).ConfigureAwait(false);
+            }
+
             await RefreshFromWebApiAsync(_stopping.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
@@ -797,14 +874,14 @@ public sealed class PlayerController : IDisposable
         try
         {
             await RefreshFromWebApiAsync(cancellationToken).ConfigureAwait(false);
-            using var timer = new PeriodicTimer(WebPollInterval, _time);
-            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
+            while (!cancellationToken.IsCancellationRequested)
             {
+                await Task.Delay(NextPollDelay(), _time, cancellationToken).ConfigureAwait(false);
                 ReadAppVolume();
                 bool needsWeb;
                 lock (_gate)
                 {
-                    needsWeb = !_lastLocal.HasSession || !_lastLocal.HasTimeline || _needsWebDetails;
+                    needsWeb = !UseLocal || !_lastLocal.HasSession || !_lastLocal.HasTimeline || _needsWebDetails;
                 }
 
                 if (needsWeb)
@@ -818,6 +895,14 @@ public sealed class PlayerController : IDisposable
             // Shutting down.
         }
     }
+
+    /// <summary>
+    /// With the local channel the Web API only fills gaps. Without it, the
+    /// Web API is the only way to see what is playing, so it is asked more
+    /// often while music plays (the clock in between runs by itself).
+    /// </summary>
+    private TimeSpan NextPollDelay() =>
+        UseLocal ? WebPollInterval : State.IsPlaying ? WebOnlyPollWhilePlaying : WebOnlyPollWhilePaused;
 
     private void SetState(PlayerState state) => _state = state;
 

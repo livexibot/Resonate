@@ -109,6 +109,20 @@ Spotify Web API (these changed a lot; re-check before relying on them):
   "Open in Spotify"; the official logo is not added yet (open question).
 
 Windows:
+- Resonate keeps the Spotify app in the background (owner's request,
+  7 October 2026): it starts Spotify with a hidden window, and hides any
+  Spotify window that has a taskbar button unless it is the foreground
+  window (so the user can still open Spotify; it hides again when they
+  switch away). While hidden, only Spotify's renderer and GPU processes
+  (`--type=renderer`, `--type=gpu-process`) go into efficiency mode
+  (EcoQoS, idle priority, working set trimmed); the main process and the
+  audio service are never touched. Both are switches in Settings.
+  Measure on the owner's PC: playback, media keys and the media session
+  keep working with the window hidden and in efficiency mode.
+- Settings offer "Spotify Web API only": every control goes through the
+  Web API and the player polls `/me/player` (every 2 s while playing, 6 s
+  paused, and 0.7 s after each command) instead of using the media session
+  and the mixer. Mind the development-mode quota.
 - The system media controls (SMTC) can play, pause, skip, seek (when the app
   allows it) and report the song, cover and timeline. They have no volume.
   Resonate uses Spotify's per-app volume in the Windows mixer (Core Audio),

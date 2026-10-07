@@ -119,6 +119,12 @@ public sealed partial class MainWindow : Window
         Navigate(playlistId);
     }
 
+    public void OpenSettings()
+    {
+        SelectNav(SettingsKey);
+        Navigate(SettingsKey);
+    }
+
     public void OpenSearch()
     {
         SelectNav(SearchKey);
