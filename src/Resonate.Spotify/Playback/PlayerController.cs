@@ -88,6 +88,9 @@ public sealed class PlayerController : IPlayer, IDisposable
     /// <summary>Until then, Spotify may still describe what played before Resonate sent a list.</summary>
     private DateTimeOffset _sessionSettledAt;
 
+    /// <summary>See <see cref="UserCommandCount"/>.</summary>
+    private long _userCommands;
+
     /// <param name="nextInt">Random numbers for shuffling, in [0, max); the system's cryptographic generator when null (tests pass their own).</param>
     public PlayerController(
         ILocalMediaChannel local,
@@ -151,6 +154,14 @@ public sealed class PlayerController : IPlayer, IDisposable
         }
     }
 
+    /// <summary>
+    /// How many commands so far changed what plays or where (play, pause,
+    /// skip, seek, a new song or list). Read it before a slow job that ends
+    /// by putting music back (<see cref="ResumeAsync"/>): when it has grown
+    /// meanwhile, the user did something, and that wins.
+    /// </summary>
+    public long UserCommandCount => Interlocked.Read(ref _userCommands);
+
     private bool UseLocal => _channel == ControlChannel.Local;
 
     /// <summary>The local channel's last report, or nothing when the Web API is the only channel.</summary>
@@ -188,8 +199,16 @@ public sealed class PlayerController : IPlayer, IDisposable
 
     public Task TogglePlayPauseAsync() => State.IsPlaying ? PauseAsync() : PlayAsync();
 
-    public Task PlayAsync()
+    public Task PlayAsync() => PlayAsync(byUser: true);
+
+    /// <param name="byUser">False when Resonate puts back what played (see <see cref="UserCommandCount"/>).</param>
+    private Task PlayAsync(bool byUser)
     {
+        if (byUser)
+        {
+            CountUserCommand();
+        }
+
         PlayerState before;
         long generation;
         lock (_gate)
@@ -215,6 +234,7 @@ public sealed class PlayerController : IPlayer, IDisposable
 
     public Task PauseAsync()
     {
+        CountUserCommand();
         PlayerState before;
         long generation;
         lock (_gate)
@@ -240,6 +260,7 @@ public sealed class PlayerController : IPlayer, IDisposable
 
     public Task NextAsync()
     {
+        CountUserCommand();
         RestartPositionOptimistically();
         return RunTransportAsync(
             async ct =>
@@ -254,6 +275,8 @@ public sealed class PlayerController : IPlayer, IDisposable
 
     public Task PreviousAsync()
     {
+        CountUserCommand();
+
         // Spotify restarts the song when it is more than a few seconds in, and
         // goes to the previous one otherwise; either way the position is 0.
         RestartPositionOptimistically();
@@ -269,8 +292,17 @@ public sealed class PlayerController : IPlayer, IDisposable
     }
 
     /// <summary>Seeks. While the user drags, only the newest position is sent.</summary>
-    public Task SeekAsync(TimeSpan position)
+    public Task SeekAsync(TimeSpan position) => SeekAsync(position, byUser: true);
+
+    /// <param name="position">Where to go in the song.</param>
+    /// <param name="byUser">False when Resonate puts back what played (see <see cref="UserCommandCount"/>).</param>
+    private Task SeekAsync(TimeSpan position, bool byUser)
     {
+        if (byUser)
+        {
+            CountUserCommand();
+        }
+
         lock (_gate)
         {
             var now = _time.GetUtcNow();
@@ -642,6 +674,7 @@ public sealed class PlayerController : IPlayer, IDisposable
         bool? shuffle,
         Func<string?, CancellationToken, Task> send)
     {
+        CountUserCommand();
         PlayerState before;
         ListSession? previous;
         long generation;
@@ -705,24 +738,44 @@ public sealed class PlayerController : IPlayer, IDisposable
     /// starting it would make a burst of sound. So is DJ, which only the
     /// Spotify app can start.
     /// </summary>
-    public async Task<ResumeOutcome> ResumeAsync(PlayerState before, TimeSpan position, TimeSpan timeout, CancellationToken cancellationToken)
+    /// <param name="stillWanted">
+    /// Asked before each step. False once the user played, paused or picked
+    /// something else since the restart began (see <see cref="UserCommandCount"/>):
+    /// then nothing is put back, because what the user did wins.
+    /// </param>
+    public async Task<ResumeOutcome> ResumeAsync(
+        PlayerState before,
+        TimeSpan position,
+        TimeSpan timeout,
+        Func<bool> stillWanted,
+        CancellationToken cancellationToken)
     {
         if (!before.HasTrack)
         {
             return ResumeOutcome.NothingToResume;
         }
 
-        if (UseLocal
-            && await WaitForLocalSessionAsync(timeout, cancellationToken).ConfigureAwait(false) is { } reopened
-            && TitlesMatch(reopened.Title, before.Title))
+        var reopened = UseLocal ? await WaitForLocalSessionAsync(timeout, cancellationToken).ConfigureAwait(false) : null;
+        var commands = UserCommandCount;
+        if (!stillWanted())
         {
-            await SeekAsync(position).ConfigureAwait(false);
+            return ResumeOutcome.NothingToResume;
+        }
+
+        if (reopened is { } local && TitlesMatch(local.Title, before.Title))
+        {
+            await SeekAsync(position, byUser: false).ConfigureAwait(false);
             if (!before.IsPlaying)
             {
                 return ResumeOutcome.Paused;
             }
 
-            await PlayAsync().ConfigureAwait(false);
+            if (!stillWanted())
+            {
+                return ResumeOutcome.NothingToResume;
+            }
+
+            await PlayAsync(byUser: false).ConfigureAwait(false);
             return ResumeOutcome.Playing;
         }
 
@@ -745,6 +798,12 @@ public sealed class PlayerController : IPlayer, IDisposable
         long generation;
         lock (_gate)
         {
+            if (UserCommandCount != commands)
+            {
+                // The user did something just now: that wins.
+                return ResumeOutcome.NothingToResume;
+            }
+
             session = _session;
             if (session is not null && session.Locate(uri, before.Title) is var at and >= 0)
             {
@@ -1717,6 +1776,8 @@ public sealed class PlayerController : IPlayer, IDisposable
     /// </summary>
     private TimeSpan NextPollDelay() =>
         UseLocal ? WebPollInterval : State.IsPlaying ? WebOnlyPollWhilePlaying : WebOnlyPollWhilePaused;
+
+    private void CountUserCommand() => Interlocked.Increment(ref _userCommands);
 
     private void SetState(PlayerState state) => _state = state;
 

@@ -126,7 +126,9 @@ public sealed class SpotifyEqualizerSyncTests : IDisposable
     private readonly FakeTimeProvider _time = new(DateTimeOffset.Parse("2026-10-07T12:00:00Z", System.Globalization.CultureInfo.InvariantCulture));
     private readonly FakeLocalChannel _local = new();
     private readonly FakeWebApi _web = new();
+    private readonly FakeLocalPlayer _files = new();
     private readonly PlayerController _player;
+    private readonly PlayerRouter _router;
     private readonly SpotifyEqualizerSync _sync;
     private int _pendingChanges;
 
@@ -137,13 +139,21 @@ public sealed class SpotifyEqualizerSyncTests : IDisposable
         File.WriteAllText(_prefs, Prefs);
 
         _player = new PlayerController(_local, _local, _web, new LocalDeviceResolver(_web, "MY-PC", _time), _app, _time);
-        _sync = new SpotifyEqualizerSync([Path.Combine(_root, "Spotify")], _app, _app, _player, time: _time);
+        _router = new PlayerRouter(_player, _files);
+        _sync = new SpotifyEqualizerSync(
+            [Path.Combine(_root, "Spotify")],
+            _app,
+            _app,
+            _player,
+            time: _time,
+            resumeAllowed: () => _router.ActiveSource == PlaybackSource.Spotify);
         _sync.PendingChanged += (_, _) => _pendingChanges++;
         _app.BeforeStart = _sync.ApplyPendingBeforeStart;
     }
 
     public void Dispose()
     {
+        _router.Dispose();
         _player.Dispose();
         Directory.Delete(_root, recursive: true);
     }
@@ -302,6 +312,50 @@ public sealed class SpotifyEqualizerSyncTests : IDisposable
         Assert.Equal(ResumeOutcome.Paused, outcome.Resume);
         Assert.Equal(["pause", "seek 60"], _local.Commands);
         Assert.False(_player.State.IsPlaying);
+    }
+
+    [Fact]
+    public async Task A_song_the_user_picks_during_the_restart_is_not_replaced()
+    {
+        await StartPlayingSongA();
+        _sync.Apply(Rock);
+        Task? picked = null;
+        _app.Started = () =>
+        {
+            _local.Report(SongA with { IsPlaying = false, Position = TimeSpan.Zero, PositionUpdatedAt = _time.GetUtcNow() });
+            picked = _router.PlayAsync(new PlayRequest([SongB], 0, null, "Search"));
+        };
+
+        var outcome = await _sync.RestartSpotifyAsync(CancellationToken.None);
+        await picked!;
+
+        Assert.Equal(ResumeOutcome.NothingToResume, outcome.Resume);
+        Assert.Equal(["pause"], _local.Commands);
+        Assert.Equal(["spotify:track:b"], Assert.Single(_web.PlayBodies)!.Uris);
+        Assert.Equal("Song B", _player.State.Title);
+        Assert.Equal("Applied to Spotify.", SpotifyEqualizerSync.Describe(outcome));
+    }
+
+    [Fact]
+    public async Task Spotify_is_not_put_back_once_the_users_own_files_play()
+    {
+        await StartPlayingSongA();
+        _sync.Apply(Rock);
+        var file = SongB with { Uri = null, FilePath = Path.Combine(_root, "Music", "song.flac") };
+        _app.Started = () =>
+        {
+            _ = _router.PlayAsync(new PlayRequest([file], 0, null, "Local Files"));
+            _local.Report(SongA with { IsPlaying = false, Position = TimeSpan.Zero, PositionUpdatedAt = _time.GetUtcNow() });
+        };
+
+        var outcome = await _sync.RestartSpotifyAsync(CancellationToken.None);
+
+        Assert.Equal(ResumeOutcome.NothingToResume, outcome.Resume);
+        Assert.Equal(["pause"], _local.Commands);
+        Assert.Empty(_web.PlayBodies);
+        Assert.Equal(PlaybackSource.LocalFiles, _router.ActiveSource);
+        Assert.True(_files.State.IsPlaying);
+        Assert.Empty(_files.Commands);
     }
 
     [Fact]

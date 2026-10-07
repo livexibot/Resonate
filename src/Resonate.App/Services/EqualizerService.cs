@@ -50,7 +50,9 @@ public sealed class EqualizerService : IDisposable
             services.Launcher,
             restarter,
             services.Player.Spotify,
-            services.Settings.EqualizerPendingForSpotify ? Current : null);
+            services.Settings.EqualizerPendingForSpotify ? Current : null,
+            // Once the user's own music files play, Spotify's song is not put back after a restart.
+            resumeAllowed: () => services.Player.ActiveSource == PlaybackSource.Spotify);
         _sync.PendingChanged += OnPendingChanged;
         if (restarter is not null)
         {

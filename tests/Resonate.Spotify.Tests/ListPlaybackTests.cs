@@ -659,7 +659,7 @@ public sealed class ListPlaybackTests : IDisposable
 
         // Spotify was restarted (to take a new equalizer) and has not opened its media session yet.
         _local.Report(LocalMediaSnapshot.None);
-        var outcome = await _player.ResumeAsync(before, TimeSpan.FromSeconds(30), TimeSpan.Zero, TestContext.Current.CancellationToken);
+        var outcome = await _player.ResumeAsync(before, TimeSpan.FromSeconds(30), TimeSpan.Zero, () => true, TestContext.Current.CancellationToken);
 
         Assert.Equal(ResumeOutcome.Playing, outcome);
         var body = _web.PlayBodies[^1]!;
@@ -675,7 +675,7 @@ public sealed class ListPlaybackTests : IDisposable
         var before = _player.State with { TrackUri = "spotify:track:7", ContextUri = Playlist, IsPlaying = true };
 
         _local.Report(LocalMediaSnapshot.None);
-        var outcome = await _player.ResumeAsync(before, TimeSpan.FromSeconds(12), TimeSpan.Zero, TestContext.Current.CancellationToken);
+        var outcome = await _player.ResumeAsync(before, TimeSpan.FromSeconds(12), TimeSpan.Zero, () => true, TestContext.Current.CancellationToken);
 
         Assert.Equal(ResumeOutcome.Playing, outcome);
         var body = _web.PlayBodies[^1]!;
@@ -701,7 +701,7 @@ public sealed class ListPlaybackTests : IDisposable
 
         // Spotify has not opened its media session (or reopened another song).
         _local.Report(LocalMediaSnapshot.None);
-        var outcome = await _player.ResumeAsync(before, TimeSpan.FromSeconds(12), TimeSpan.Zero, TestContext.Current.CancellationToken);
+        var outcome = await _player.ResumeAsync(before, TimeSpan.FromSeconds(12), TimeSpan.Zero, () => true, TestContext.Current.CancellationToken);
 
         Assert.Equal(ResumeOutcome.NotResumed, outcome);
         Assert.Empty(_web.PlayBodies);
