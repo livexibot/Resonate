@@ -117,6 +117,20 @@ public sealed class ThemeService
         }
     }
 
+    /// <summary>
+    /// Whether the now-playing cover is drawn as a record (round, with a
+    /// centre): in looks with the vinyl cover style, and in every look while
+    /// the user lets covers spin.
+    /// </summary>
+    public bool CoverIsRecord => Current.Cover == CoverStyle.Vinyl || SpinningCover;
+
+    /// <summary>
+    /// Whether a now-playing cover may turn at all: only with the user's
+    /// Spinning cover switch on and Windows' animations allowed. It turns
+    /// only while a song plays.
+    /// </summary>
+    public bool CoverMaySpin => SpinningCover && AnimationsEnabled;
+
     /// <summary>Whether Windows' "Animation effects" setting allows motion.</summary>
     public bool AnimationsEnabled => _systemSettings.AnimationsEnabled;
 

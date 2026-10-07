@@ -11,13 +11,15 @@ using Resonate.Windows;
 namespace Resonate.App.Services;
 
 /// <summary>
-/// Reads the playing song's cover for looks that use it: a heavily blurred
-/// copy for the artwork backdrop, and its most striking colour for an accent
-/// that follows the cover. Works only while the look in use needs it.
+/// Reads the playing song's cover for looks that use it: the picture behind
+/// the song cover backdrop (a soft wash of the cover's colours, or, once the
+/// user allows it, the cover itself, heavily blurred) and its most striking
+/// colour for an accent that follows the cover. Works only while the look in
+/// use needs it.
 /// </summary>
 public sealed class ArtworkSampler : IDisposable
 {
-    // Tiny on purpose: decoding, colour picking and blurring take well under a millisecond.
+    // Tiny on purpose: decoding, colour picking, blurring and the wash take well under a millisecond.
     private const int Size = 40;
     private const int BlurRadius = 3;
 
@@ -28,6 +30,13 @@ public sealed class ArtworkSampler : IDisposable
     private CancellationTokenSource? _sampling;
     private object? _key;
     private int _updateQueued;
+
+    // The cover in _key at Size × Size once read, kept so switching the
+    // blurred cover on or off redraws at once, without downloading it again.
+    private byte[]? _pixels;
+
+    // Whether Blurred holds the blurred cover (true) or the wash (false).
+    private bool _showsBlurredCover;
 
     /// <summary>Call on the interface thread.</summary>
     public ArtworkSampler(PlayerRouter player, ThemeService theme, HttpClient http)
@@ -43,7 +52,11 @@ public sealed class ArtworkSampler : IDisposable
     /// <summary>Raised on the interface thread when <see cref="Blurred"/> changes.</summary>
     public event EventHandler? Changed;
 
-    /// <summary>The blurred cover, or null when nothing is playing.</summary>
+    /// <summary>
+    /// What the song cover backdrop shows: a wash of the cover's colours, or
+    /// the blurred cover when the user allows it; null when nothing is
+    /// playing.
+    /// </summary>
     public ImageSource? Blurred { get; private set; }
 
     public void Dispose()
@@ -78,16 +91,22 @@ public sealed class ArtworkSampler : IDisposable
         var state = _player.State;
         var name = state.Album ?? state.Title;
         object? key = state.ArtworkUrl ?? (object?)state.ArtworkBytes ?? name;
-        if (Equals(key, _key))
+        if (!Equals(key, _key))
         {
+            _key = key;
+            _pixels = null;
+            _sampling?.Cancel();
+            _sampling?.Dispose();
+            _sampling = new CancellationTokenSource();
+            _ = SampleAsync(state.ArtworkUrl, state.ArtworkBytes, name, _sampling.Token);
             return;
         }
 
-        _key = key;
-        _sampling?.Cancel();
-        _sampling?.Dispose();
-        _sampling = new CancellationTokenSource();
-        _ = SampleAsync(state.ArtworkUrl, state.ArtworkBytes, name, _sampling.Token);
+        // The same cover, but the user may have switched the blurred cover on or off.
+        if (_pixels is not null && _showsBlurredCover != _theme.BlurredCoverBackground)
+        {
+            ShowBackdrop(_pixels);
+        }
     }
 
     private async Task SampleAsync(string? url, byte[]? image, string? name, CancellationToken cancellationToken)
@@ -125,19 +144,38 @@ public sealed class ArtworkSampler : IDisposable
             pixels = ArtworkColors.Gradient(from, to, Size);
         }
 
-        ThemeColor? accent = null;
-        WriteableBitmap? blurred = null;
+        _pixels = pixels;
+        ShowBackdrop(pixels);
+        _theme.SetArtworkAccent(pixels is null ? null : ArtworkColors.PickAccent(pixels, Size, Size));
+    }
+
+    /// <summary>
+    /// Draws the backdrop picture from the cover: blurred only when the user
+    /// allows it, otherwise a wash made of its colours alone.
+    /// </summary>
+    private void ShowBackdrop(byte[]? pixels)
+    {
+        _showsBlurredCover = _theme.BlurredCoverBackground;
+        WriteableBitmap? picture = null;
         if (pixels is not null)
         {
-            accent = ArtworkColors.PickAccent(pixels, Size, Size);
-            ArtworkColors.Blur(pixels, Size, Size, BlurRadius);
-            blurred = new WriteableBitmap(Size, Size);
-            pixels.CopyTo(blurred.PixelBuffer);
-            blurred.Invalidate();
+            byte[] shown;
+            if (_showsBlurredCover)
+            {
+                shown = (byte[])pixels.Clone();
+                ArtworkColors.Blur(shown, Size, Size, BlurRadius);
+            }
+            else
+            {
+                shown = ArtworkColors.ColourWash(pixels, Size, Size, Size, Size);
+            }
+
+            picture = new WriteableBitmap(Size, Size);
+            shown.CopyTo(picture.PixelBuffer);
+            picture.Invalidate();
         }
 
-        Blurred = blurred;
+        Blurred = picture;
         Changed?.Invoke(this, EventArgs.Empty);
-        _theme.SetArtworkAccent(accent);
     }
 }

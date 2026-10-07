@@ -17,7 +17,8 @@ namespace Resonate.App.Controls;
 /// The Look section of Settings. Picking a card switches looks with the
 /// chosen animation; everything under Customize edits the look in use
 /// (a preset is copied first, so presets never change). Sliders and the
-/// colour picker apply continuously; choices animate briefly.
+/// colour picker apply continuously; choices animate briefly. The cover art
+/// switches are the user's own and apply to every look.
 /// </summary>
 public sealed partial class ThemeStudio : UserControl
 {
@@ -50,7 +51,7 @@ public sealed partial class ThemeStudio : UserControl
     {
         ["midnight"] = "Calm and dark, soft violet",
         ["daylight"] = "Bright and airy, floating player",
-        ["glass"] = "Frosted glass over the cover",
+        ["glass"] = "Frosted glass over the song's colours",
         ["pure-black"] = "True black, sharp edges",
         ["synthwave"] = "Neon glow on a dusk gradient",
         ["paper"] = "Ink on paper, hard shadows",
@@ -193,6 +194,7 @@ public sealed partial class ThemeStudio : UserControl
             GapSlider.Value = look.PanelGap;
             AdaptiveAccentSwitch.IsOn = look.AdaptiveAccent;
             ShowSliderValues();
+            ShowCoverArt(look);
 
             foreach (var swatch in _swatches)
             {
@@ -222,6 +224,24 @@ public sealed partial class ThemeStudio : UserControl
         {
             _looksTimer.Stop();
             _looksTimer.Start();
+        }
+    }
+
+    /// <summary>
+    /// The cover art switches, and a word when the blurred cover is on but
+    /// the look in use has a background of its own, so nothing seems to happen.
+    /// </summary>
+    private void ShowCoverArt(ThemeDefinition look)
+    {
+        SpinningCoverSwitch.IsOn = _theme.SpinningCover;
+        BlurredCoverSwitch.IsOn = _theme.BlurredCoverBackground;
+
+        var hint = _theme.BlurredCoverBackground && look.Backdrop != WindowBackdrop.Artwork;
+        BlurredCoverHint.Visibility = hint ? Visibility.Visible : Visibility.Collapsed;
+        if (hint)
+        {
+            BlurredCoverHint.Text = $"{look.Name} has its own background, so there is no cover to blur. "
+                + $"{ThemePresets.Glass.Name} shows the song cover, or pick Song cover under Customize, Backdrop.";
         }
     }
 
@@ -442,6 +462,23 @@ public sealed partial class ThemeStudio : UserControl
         {
             var on = AdaptiveAccentSwitch.IsOn;
             _theme.Edit(look => look with { AdaptiveAccent = on }, smooth: true);
+        }
+    }
+
+    // The cover art switches are not part of a look, so they skip Edit (which would make a custom copy).
+    private void OnSpinningCoverToggled(object sender, RoutedEventArgs e)
+    {
+        if (!_loading)
+        {
+            _theme.SpinningCover = SpinningCoverSwitch.IsOn;
+        }
+    }
+
+    private void OnBlurredCoverToggled(object sender, RoutedEventArgs e)
+    {
+        if (!_loading)
+        {
+            _theme.BlurredCoverBackground = BlurredCoverSwitch.IsOn;
         }
     }
 
