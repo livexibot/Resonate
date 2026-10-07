@@ -395,18 +395,36 @@ public sealed class PlaylistEditingTests : IDisposable
     }
 
     [Fact]
-    public async Task A_move_in_a_list_without_gaps_keeps_the_stored_copy_in_step()
+    public async Task After_a_move_the_next_visit_shows_songs_added_on_another_device()
     {
         await _library.RefreshAsync(TestContext.Current.CancellationToken);
+        _web.PlaylistEntries["p"] = Enumerable.Range(0, 4).Select(Entry).ToList();
+        var shown = await _library.GetAllPlaylistTracksAsync("p", null, TestContext.Current.CancellationToken);
 
-        await _library.MovePlaylistTrackAsync("p", WithPositions(0, 1, 2, 3), 0, 2, TestContext.Current.CancellationToken);
-        var reads = _web.PlaylistItemReads;
-        var stored = await _library.GetAllPlaylistTracksAsync("p", "snapshot-after-reorder", TestContext.Current.CancellationToken);
+        // Added on the phone while the playlist was open in Resonate.
+        _web.PlaylistEntries["p"].Add(Entry(4));
+        await _library.MovePlaylistTrackAsync("p", shown.Tracks, 0, 2, TestContext.Current.CancellationToken);
+        var next = await _library.GetAllPlaylistTracksAsync("p", null, TestContext.Current.CancellationToken);
 
-        Assert.Equal(reads, _web.PlaylistItemReads);
-        Assert.Equal(["s1", "s2", "s0", "s3"], stored.Tracks.Select(t => t.Title));
-        Assert.Equal([0, 1, 2, 3], stored.Tracks.Select(t => t.Position!.Value));
+        Assert.Equal(5, next.Tracks.Count);
         Assert.Equal("snapshot-after-reorder", _library.Snapshot!.Playlists[0].SnapshotId);
+    }
+
+    [Fact]
+    public async Task After_a_removal_the_next_visit_shows_songs_added_meanwhile()
+    {
+        await _library.RefreshAsync(TestContext.Current.CancellationToken);
+        _web.PlaylistEntries["p"] = Enumerable.Range(0, 4).Select(Entry).ToList();
+        var shown = await _library.GetAllPlaylistTracksAsync("p", null, TestContext.Current.CancellationToken);
+
+        // Added from the queue while the playlist was open.
+        await _library.AddToPlaylistAsync("p", ["spotify:track:4"], TestContext.Current.CancellationToken);
+        _web.PlaylistEntries["p"].Add(Entry(4));
+        await _library.RemoveFromPlaylistAsync("p", shown.Tracks, "spotify:track:0", TestContext.Current.CancellationToken);
+        _web.PlaylistEntries["p"].RemoveAt(0);
+        var next = await _library.GetAllPlaylistTracksAsync("p", null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["s1", "s2", "s3", "s4"], next.Tracks.Select(t => t.Title));
     }
 
     [Fact]
@@ -422,7 +440,7 @@ public sealed class PlaylistEditingTests : IDisposable
     }
 
     [Fact]
-    public async Task Removing_a_song_removes_every_copy_and_keeps_positions_right()
+    public async Task Removing_a_song_removes_every_copy()
     {
         await _library.RefreshAsync(TestContext.Current.CancellationToken);
         var changed = 0;
@@ -431,12 +449,10 @@ public sealed class PlaylistEditingTests : IDisposable
         before[3] = before[3] with { Uri = before[1].Uri };
 
         await _library.RemoveFromPlaylistAsync("p", before, before[1].Uri!, TestContext.Current.CancellationToken);
-        var stored = await _library.GetAllPlaylistTracksAsync("p", "snapshot-after-remove", TestContext.Current.CancellationToken);
 
         Assert.Equal(["remove p spotify:track:1"], _web.Commands);
-        Assert.Equal(["s0", "s2", "s4"], stored.Tracks.Select(t => t.Title));
-        Assert.Equal([0, 1, 2], stored.Tracks.Select(t => t.Position!.Value));
         Assert.Equal(3, _library.Snapshot!.Playlists[0].ItemCount);
+        Assert.Equal("snapshot-after-remove", _library.Snapshot!.Playlists[0].SnapshotId);
         Assert.Equal(1, changed);
     }
 
@@ -451,6 +467,9 @@ public sealed class PlaylistEditingTests : IDisposable
 
         Assert.True(_web.PlaylistItemReads > reads);
     }
+
+    private static PlaylistEntry Entry(int i) =>
+        new() { Item = new PlayableItem { Name = $"s{i}", Uri = $"spotify:track:{i}", DurationMs = 1000 } };
 
     /// <summary>Songs s0, s1, … at the given positions in the playlist.</summary>
     private static List<TrackInfo> WithPositions(params int[] positions) =>
