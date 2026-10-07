@@ -20,6 +20,9 @@ namespace Resonate.PluginHost;
 internal sealed class PluginInstance : IDisposable
 {
     internal static readonly TimeSpan CallTimeout = TimeSpan.FromSeconds(2);
+
+    // Processor time is what counts (CallTimeout); this is the limit on the clock, for a computer so busy the plugin barely runs.
+    internal static readonly TimeSpan CallCeiling = TimeSpan.FromSeconds(30);
     internal const long MemoryLimit = 64L * 1024 * 1024;
     internal const int MaxTimers = 100;
     internal const int MaxScriptLength = 1024 * 1024;
@@ -38,6 +41,7 @@ internal sealed class PluginInstance : IDisposable
     private readonly Action<HostMessage> _send;
     private readonly TimeProvider _time;
     private readonly BlockingCollection<Action> _work = new();
+    private readonly List<Action> _answers = [];
     private readonly Thread _thread;
     private readonly Dictionary<int, ITimer> _timers = [];
     private readonly Queue<DateTimeOffset> _errors = new();
@@ -88,6 +92,34 @@ internal sealed class PluginInstance : IDisposable
 
     public void OnInvoke(string command) => Post(() => Dispatch("invoke", command));
 
+    /// <summary>Calls <paramref name="done"/> once the plugin has handled everything queued before (at once when it has stopped).</summary>
+    public void AfterQueued(Action done)
+    {
+        Action once = null!;
+        once = () =>
+        {
+            lock (_answers)
+            {
+                if (!_answers.Remove(once))
+                {
+                    return;
+                }
+            }
+
+            done();
+        };
+
+        lock (_answers)
+        {
+            _answers.Add(once);
+        }
+
+        if (!Post(once))
+        {
+            once();
+        }
+    }
+
     /// <summary>Stops the plugin; its thread ends after what it is running now.</summary>
     public void Dispose()
     {
@@ -98,20 +130,22 @@ internal sealed class PluginInstance : IDisposable
     /// <summary>Waits for the plugin's thread to finish (for tests).</summary>
     internal bool WaitForExit(TimeSpan timeout) => !_thread.IsAlive || _thread.Join(timeout);
 
-    private void Post(Action work)
+    private bool Post(Action work)
     {
         if (_stopped || _work.Count >= MaxQueuedWork)
         {
-            return;
+            return false;
         }
 
         try
         {
             _work.Add(work);
+            return true;
         }
         catch (InvalidOperationException)
         {
             // Stopped meanwhile.
+            return false;
         }
     }
 
@@ -142,6 +176,18 @@ internal sealed class PluginInstance : IDisposable
             }
 
             _timers.Clear();
+
+            // Stopped with answers still queued: nothing else will run here, so give them now.
+            Action[] left;
+            lock (_answers)
+            {
+                left = [.. _answers];
+            }
+
+            foreach (var answer in left)
+            {
+                answer();
+            }
         }
     }
 
@@ -176,7 +222,7 @@ internal sealed class PluginInstance : IDisposable
                 options.Strict = true;
                 options.Host.StringCompilationAllowed = false;
                 options.LimitMemory(MemoryLimit);
-                options.TimeoutInterval(CallTimeout);
+                options.Constraint(new CpuTimeConstraint(CallTimeout, CallCeiling));
                 options.LimitRecursion(256);
             });
 
@@ -399,7 +445,7 @@ internal sealed class PluginInstance : IDisposable
     private static string Describe(Exception ex) => ex switch
     {
         JavaScriptException js => js.Location.Start.Line > 0 ? $"{js.Message} (line {js.Location.Start.Line})" : js.Message,
-        TimeoutException => "it took longer than " + CallTimeout.TotalSeconds + " seconds.",
+        TimeoutException => "it took longer than " + CallTimeout.TotalSeconds + " seconds of processor time.",
         MemoryLimitExceededException => "it used too much memory.",
         RecursionDepthOverflowException => "it called itself too deeply.",
         _ => ex.Message,

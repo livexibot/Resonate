@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using Resonate.Plugins.Tests.Fakes;
 
 namespace Resonate.Plugins.Tests;
@@ -19,6 +20,9 @@ public sealed class EndToEndTests : IDisposable
 
         var result = await PluginSelfTest.RunAsync(_packages.Catalog, _packages.Feed, _packages.Installed, launcher, TimeSpan.FromSeconds(60));
 
-        Assert.Matches(@"^OK 2 plugins started; skip-rules skipped, sleep-timer ready; helper memory \d+ MB; first plugin running after \d+ ms$", result);
+        // The whole result in the message, so a failure says why.
+        Assert.True(
+            Regex.IsMatch(result, @"^OK 2 plugins started; skip-rules skipped, sleep-timer ready; helper memory \d+ MB; first plugin running after \d+ ms$"),
+            result);
     }
 }

@@ -16,10 +16,12 @@ internal sealed class HostHarness : IAsyncDisposable
     private readonly AnonymousPipeServerStream _toHost = new(PipeDirection.Out);
     private readonly AnonymousPipeServerStream _fromHost = new(PipeDirection.In);
     private readonly Channel<HostMessage> _received = Channel.CreateUnbounded<HostMessage>();
+    private readonly Queue<HostMessage> _buffered = new();
     private readonly List<HostMessage> _seen = [];
     private readonly Task _loop;
     private readonly Task _reader;
     private readonly string _folder = Path.Combine(Path.GetTempPath(), "resonate-plugin-test-" + Guid.NewGuid().ToString("N"));
+    private int _pings;
 
     public HostHarness(FakeTimeProvider? time = null)
     {
@@ -103,7 +105,12 @@ internal sealed class HostHarness : IAsyncDisposable
         {
             while (true)
             {
-                var message = await _received.Reader.ReadAsync(cancel.Token);
+                var message = _buffered.TryDequeue(out var buffered) ? buffered : await _received.Reader.ReadAsync(cancel.Token);
+                if (message.Type == MessageTypes.Pong)
+                {
+                    continue;
+                }
+
                 _seen.Add(message);
                 if (match(message))
                 {
@@ -120,27 +127,17 @@ internal sealed class HostHarness : IAsyncDisposable
     public Task<HostMessage> WaitForAsync(string type, string? plugin = null) =>
         WaitForAsync(m => m.Type == type && (plugin is null || m.Plugin == plugin));
 
-    /// <summary>The messages that arrive within a short while (for checking that something did not happen).</summary>
-    public async Task<List<HostMessage>> DrainAsync(TimeSpan? quiet = null)
+    /// <summary>Everything the plugins send while handling what was sent to them so far (for checking that something did not happen).</summary>
+    public async Task<List<HostMessage>> DrainAsync()
     {
-        var result = new List<HostMessage>();
-        while (true)
-        {
-            using var cancel = new CancellationTokenSource(quiet ?? TimeSpan.FromMilliseconds(300));
-            try
-            {
-                var message = await _received.Reader.ReadAsync(cancel.Token);
-                _seen.Add(message);
-                result.Add(message);
-            }
-            catch (OperationCanceledException)
-            {
-                return result;
-            }
-        }
+        await SettleAsync();
+        var result = new List<HostMessage>(_buffered);
+        _buffered.Clear();
+        _seen.AddRange(result);
+        return result;
     }
 
-    /// <summary>Moves the fake clock on in steps, giving the plugin's thread time to run what came due.</summary>
+    /// <summary>Moves the fake clock on in steps, letting the plugins handle what came due after each.</summary>
     public async Task AdvanceAsync(TimeSpan by, TimeSpan? step = null)
     {
         var stepSize = step ?? TimeSpan.FromSeconds(1);
@@ -150,10 +147,36 @@ internal sealed class HostHarness : IAsyncDisposable
             var move = left < stepSize ? left : stepSize;
             Time.Advance(move);
             left -= move;
-            await Task.Delay(5);
+            await SettleAsync();
         }
+    }
 
-        await Task.Delay(50);
+    /// <summary>
+    /// Waits until the helper and every plugin have handled everything sent
+    /// so far (a ping, answered after each plugin's queue), keeping what
+    /// they sent for the Wait and Drain methods. No guessing how long a slow
+    /// machine needs.
+    /// </summary>
+    private async Task SettleAsync()
+    {
+        var id = (++_pings).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        App.Send(new HostMessage { Type = MessageTypes.Ping, Text = id });
+        using var cancel = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        while (true)
+        {
+            var message = await _received.Reader.ReadAsync(cancel.Token);
+            if (message.Type == MessageTypes.Pong)
+            {
+                if (message.Text == id)
+                {
+                    return;
+                }
+
+                continue;
+            }
+
+            _buffered.Enqueue(message);
+        }
     }
 
     public async ValueTask DisposeAsync()

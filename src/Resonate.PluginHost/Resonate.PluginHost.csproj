@@ -17,6 +17,8 @@
     <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- For [LibraryImport], which reads each call's processor time (CpuTimeConstraint). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!--
       Jint has four trim warnings, all in its .NET interop (reflection,
       expression trees, loading namespaces), which the helper never turns

@@ -56,7 +56,7 @@ public static class PluginSelfTest
                 player.Play(new NowPlaying { Title = "Self-test (Live)", Artists = "Resonate", Uri = "spotify:track:selftest", IsPlaying = true, Duration = 200, Volume = 1 });
                 if (!await WaitAsync(() => player.Skips > 0, cancel.Token).ConfigureAwait(false))
                 {
-                    return "FAILED skip-rules did not skip a matching song";
+                    return "FAILED skip-rules did not skip a matching song" + Problem(manager, "skip-rules");
                 }
 
                 checks.Add("skip-rules skipped");
@@ -66,7 +66,7 @@ public static class PluginSelfTest
             {
                 if (!await WaitAsync(() => manager.Get("sleep-timer")?.Commands.Count > 0, cancel.Token).ConfigureAwait(false))
                 {
-                    return "FAILED sleep-timer offered no commands";
+                    return "FAILED sleep-timer offered no commands" + Problem(manager, "sleep-timer");
                 }
 
                 checks.Add("sleep-timer ready");
@@ -93,6 +93,9 @@ public static class PluginSelfTest
             return "FAILED timed out";
         }
     }
+
+    private static string Problem(PluginManager manager, string id) =>
+        manager.Get(id)?.Error is { } error ? ": " + error : string.Empty;
 
     private static async Task<bool> WaitAsync(Func<bool> condition, CancellationToken cancellationToken)
     {

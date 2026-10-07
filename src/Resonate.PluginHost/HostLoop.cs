@@ -93,6 +93,25 @@ public sealed class HostLoop : IDisposable
                 }
 
                 break;
+
+            case MessageTypes.Ping:
+                // Each plugin answers once its queue reaches this point; the last answer sends the pong.
+                var waiting = _plugins.Count + 1;
+                void Answered()
+                {
+                    if (Interlocked.Decrement(ref waiting) == 0)
+                    {
+                        Send(new HostMessage { Type = MessageTypes.Pong, Text = message.Text });
+                    }
+                }
+
+                foreach (var each in _plugins.Values)
+                {
+                    each.AfterQueued(Answered);
+                }
+
+                Answered();
+                break;
         }
     }
 

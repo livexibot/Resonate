@@ -36,8 +36,9 @@ report, such as a sleep timer counting down.
   JavaScript engine with no access to files, the network, other programs,
   or .NET, and no `eval`. It sees and does only what its permissions allow,
   checked by the helper and again by Resonate, with limits on how often it
-  can skip, change the volume or show a message. A call that runs longer
-  than two seconds is stopped, memory is capped at 64 MB per plugin, and a
+  can skip, change the volume or show a message. A call that keeps the
+  processor busy for more than two seconds is stopped (waiting for a busy
+  computer does not count), memory is capped at 64 MB per plugin, and a
   plugin with five errors in a minute is stopped, with the reason shown
   under it in Settings.
 - **Updates.** Each Resonate update brings its own copies of the plugins

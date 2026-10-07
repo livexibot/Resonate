@@ -82,6 +82,13 @@ public static class MessageTypes
     /// <summary>Stop everything and exit.</summary>
     public const string Shutdown = "shutdown";
 
+    /// <summary>
+    /// Answer with <see cref="Pong"/> (with the same text) once every plugin
+    /// has handled everything sent before, so a caller can wait for the
+    /// helper to catch up without guessing how long it takes.
+    /// </summary>
+    public const string Ping = "ping";
+
     // The helper to Resonate.
 
     /// <summary>The helper started and reads messages.</summary>
@@ -113,6 +120,9 @@ public static class MessageTypes
 
     /// <summary>A line from a plugin's console, or an error it ran into.</summary>
     public const string Log = "log";
+
+    /// <summary>The answer to <see cref="Ping"/>.</summary>
+    public const string Pong = "pong";
 }
 
 public static class PlayerActions

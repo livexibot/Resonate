@@ -182,6 +182,14 @@ Plugins (checked 2026-10-07):
   on warnings in Resonate's own code. Checked on Linux, including regular
   expressions with Unicode properties and that no .NET type is reachable
   from scripts.
+- Jint's own time limit (`TimeoutInterval`) counts time on the clock, so a
+  plugin waiting for the processor on a busy PC (the helper runs at
+  below-normal priority) was stopped for doing nothing wrong; CI's Windows
+  machine hit it. `CpuTimeConstraint` counts the call's processor time
+  instead (2 s), with 30 s on the clock as a backstop.
+- Tests wait for the helper with a ping that it answers only after every
+  plugin has handled what came before, never with a quiet period, which
+  missed messages on CI's slower machines.
 - The app never references Jint: it talks to the helper over standard input
   and output (one JSON message per line), so the installer and start-up
   are unchanged when no plugin is on.
