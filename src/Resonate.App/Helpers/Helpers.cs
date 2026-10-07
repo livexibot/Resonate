@@ -1,5 +1,7 @@
 using System.Globalization;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Foundation;
@@ -95,26 +97,26 @@ public static class Artwork
     }
 }
 
-public static class VisualTree
+/// <summary>
+/// Finds the item a list event is about. In the published (Native AOT) app
+/// an element the app never names, such as a row's ListViewItemPresenter,
+/// can not be cast to FrameworkElement, so rows give themselves a background
+/// (clicks then land on the row's own elements) and the selected item stands
+/// in when the cast still fails.
+/// </summary>
+public static class ListEvents
 {
-    public static T? FindDescendant<T>(DependencyObject root)
-        where T : DependencyObject
-    {
-        var count = VisualTreeHelper.GetChildrenCount(root);
-        for (var i = 0; i < count; i++)
-        {
-            var child = VisualTreeHelper.GetChild(root, i);
-            if (child is T match)
-            {
-                return match;
-            }
+    /// <summary>The item double-tapped: the one under the pointer, or the one the first tap selected.</summary>
+    public static T? DoubleTapped<T>(ListViewBase list, DoubleTappedRoutedEventArgs e)
+        where T : class =>
+        ItemOf<T>(e.OriginalSource) ?? list.SelectedItem as T;
 
-            if (FindDescendant<T>(child) is { } nested)
-            {
-                return nested;
-            }
-        }
+    /// <summary>The item a menu is for: the one under the pointer, or the selected one when the keyboard asked.</summary>
+    public static T? ContextRequested<T>(ListViewBase list, ContextRequestedEventArgs args)
+        where T : class =>
+        ItemOf<T>(args.OriginalSource) ?? (args.TryGetPosition(list, out _) ? null : list.SelectedItem as T);
 
-        return null;
-    }
+    public static T? ItemOf<T>(object? source)
+        where T : class =>
+        (source as FrameworkElement)?.DataContext as T;
 }

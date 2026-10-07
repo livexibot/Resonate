@@ -99,6 +99,7 @@
                 <DataTemplate x:DataType="vm:TrackRow">
                     <Grid
                         Height="56"
+                        Background="{StaticResource ResonateTransparentBrush}"
                         ColumnSpacing="12"
                         Opacity="{x:Bind RowOpacity}">
                         <Grid.ColumnDefinitions>

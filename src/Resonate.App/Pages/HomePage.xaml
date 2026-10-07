@@ -135,6 +135,7 @@
             <StackPanel
                 Width="136"
                 Padding="4,4,4,8"
+                Background="{StaticResource ResonateTransparentBrush}"
                 Spacing="6"
                 ToolTipService.ToolTip="{x:Bind Tooltip}">
                 <Grid

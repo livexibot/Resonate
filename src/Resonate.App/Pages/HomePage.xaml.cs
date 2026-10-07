@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
+using Resonate.App.Helpers;
 using Resonate.App.Pages.Lists;
 using Resonate.App.Services;
 using Resonate.App.ViewModels;
@@ -267,7 +268,7 @@ public sealed partial class HomePage : Page
 
     private void OnRecentContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
-        if ((args.OriginalSource as FrameworkElement)?.DataContext is RecentCard card)
+        if (ListEvents.ContextRequested<RecentCard>(RecentGrid, args) is { } card)
         {
             TrackActions.ShowMenu(TrackActions.BuildMenu(card.Track, new TrackMenuOptions { Play = () => Play(card) }), RecentGrid, args);
         }

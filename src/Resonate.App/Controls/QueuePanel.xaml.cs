@@ -384,7 +384,7 @@ public sealed partial class QueuePanel : UserControl
 
     private void OnUpcomingContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
-        if ((args.OriginalSource as FrameworkElement)?.DataContext is TrackRow row)
+        if (ListEvents.ContextRequested<TrackRow>(UpcomingList, args) is { } row)
         {
             TrackActions.ShowMenu(TrackActions.BuildMenu(row.Track), UpcomingList, args);
         }

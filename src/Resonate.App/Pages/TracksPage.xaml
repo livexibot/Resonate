@@ -258,7 +258,10 @@
 
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="vm:TrackRow">
-                    <Grid Height="56" Opacity="{x:Bind RowOpacity}">
+                    <Grid
+                        Height="56"
+                        Background="{StaticResource ResonateTransparentBrush}"
+                        Opacity="{x:Bind RowOpacity}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="40" />
                             <ColumnDefinition Width="5*" />

@@ -446,7 +446,7 @@ public sealed partial class TracksPage : Page
 
     private void OnTrackDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
-        if (!IsInsideButton(e.OriginalSource as DependencyObject) && RowOf(e.OriginalSource) is { } row)
+        if (!IsInsideButton(e.OriginalSource as DependencyObject) && ListEvents.DoubleTapped<TrackRow>(TrackList, e) is { } row)
         {
             _ = PlayAsync(row);
         }
@@ -621,7 +621,7 @@ public sealed partial class TracksPage : Page
 
     private void OnTrackContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
-        if (RowOf(args.OriginalSource) is not { } row)
+        if (ListEvents.ContextRequested<TrackRow>(TrackList, args) is not { } row)
         {
             return;
         }
@@ -765,8 +765,6 @@ public sealed partial class TracksPage : Page
                 : state.Title is not null && row.Title == state.Title;
         }
     }
-
-    private static TrackRow? RowOf(object? source) => (source as FrameworkElement)?.DataContext as TrackRow;
 
     /// <summary>Double-clicking the heart should like the song, not play it.</summary>
     private static bool IsInsideButton(DependencyObject? element)

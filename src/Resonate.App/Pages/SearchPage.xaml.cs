@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
+using Resonate.App.Helpers;
 using Resonate.App.Pages.Lists;
 using Resonate.App.Services;
 using Resonate.App.ViewModels;
@@ -177,7 +178,7 @@ public sealed partial class SearchPage : Page
 
     private void OnSongDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
-        if ((e.OriginalSource as FrameworkElement)?.DataContext is TrackRow row)
+        if (ListEvents.DoubleTapped<TrackRow>(SongList, e) is { } row)
         {
             Play(row);
         }
@@ -203,7 +204,7 @@ public sealed partial class SearchPage : Page
 
     private void OnSongContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
-        if ((args.OriginalSource as FrameworkElement)?.DataContext is TrackRow row)
+        if (ListEvents.ContextRequested<TrackRow>(SongList, args) is { } row)
         {
             SongList.SelectedItem = row;
             TrackActions.ShowMenu(TrackActions.BuildMenu(row.Track, new TrackMenuOptions { Play = () => Play(row) }), SongList, args);

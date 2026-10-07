@@ -91,7 +91,10 @@
                         SelectionMode="Single">
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="vm:TrackRow">
-                                <Grid Height="56" ColumnSpacing="16">
+                                <Grid
+                                    Height="56"
+                                    Background="{StaticResource ResonateTransparentBrush}"
+                                    ColumnSpacing="16">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="40" />
                                         <ColumnDefinition Width="5*" />
