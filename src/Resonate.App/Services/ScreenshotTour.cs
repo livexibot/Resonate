@@ -1,11 +1,11 @@
 using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Resonate.App.Controls;
 using Resonate.App.Demo;
 using Resonate.App.Pages;
 using Resonate.App.Pages.Lists;
+using Resonate.Spotify.Playback;
 using Resonate.Spotify.WebApi;
 using Resonate.Themes;
 using Windows.Graphics.Imaging;
@@ -95,11 +95,12 @@ internal sealed class ScreenshotTour
             await CaptureAsync("4-settings-look.png");
 
             // Further down the same page (demo values; there are no Spotify settings to find in CI).
-            FindDescendant<EqualizerPanel>(_root)?.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false, VerticalAlignmentRatio = 0.1 });
+            var settings = _window.CurrentPage as SettingsPage;
+            settings?.ShowSection(SettingsSection.Equalizer);
             await Task.Delay(800);
             await CaptureAsync("4b-equalizer.png");
 
-            if (_window.CurrentPage is SettingsPage settings)
+            if (settings is not null)
             {
                 settings.ShowCustomize();
                 await Task.Delay(600);
@@ -127,6 +128,9 @@ internal sealed class ScreenshotTour
                 await CaptureAsync($"{number++}-theme-{preset.Id}.png");
             }
 
+            number = await CoverEffectsAsync(number);
+            number = await ClassicPlayerAsync(number);
+
             theme.Select(ThemePresets.Default.Id, transition: ThemeTransitionKind.None);
             _window.ShowSignIn();
             await Task.Delay(1200);
@@ -142,6 +146,68 @@ internal sealed class ScreenshotTour
         }
     }
 
+    /// <summary>
+    /// The two cover switches (off unless the user turns them on): a spinning
+    /// cover, the blurred cover behind Liquid Glass, and the colour wash
+    /// Liquid Glass shows without it. Both are off again afterwards.
+    /// </summary>
+    private async Task<int> CoverEffectsAsync(int number)
+    {
+        var theme = App.Services.Theme;
+        theme.SpinningCover = true;
+        theme.Select(ThemePresets.Synthwave.Id, transition: ThemeTransitionKind.None);
+        _window.OpenPlaylist("focus");
+        await Task.Delay(1300);
+        await CaptureAsync($"{number++}-cover-spin.png");
+        theme.SpinningCover = false;
+
+        theme.BlurredCoverBackground = true;
+        theme.Select(ThemePresets.Glass.Id, transition: ThemeTransitionKind.None);
+        await Task.Delay(1500);
+        await CaptureAsync($"{number++}-cover-backdrop.png");
+
+        theme.BlurredCoverBackground = false;
+        await Task.Delay(1300);
+        await CaptureAsync($"{number++}-cover-wash.png");
+        return number;
+    }
+
+    /// <summary>
+    /// The classic player with the built-in skin, while a made-up music file
+    /// plays so the visualiser moves; then double size, shade mode and its
+    /// part of Settings. Afterwards everything is as before: the player bar,
+    /// normal size, the default look and a Spotify song.
+    /// </summary>
+    private async Task<int> ClassicPlayerAsync(int number)
+    {
+        var services = App.Services;
+        var skins = services.Skins;
+        services.Theme.Select(ThemePresets.Default.Id, transition: ThemeTransitionKind.None);
+        await services.Player.PlayAsync(new PlayRequest(DemoLocalFiles.Tracks(DateTimeOffset.UtcNow), 0, null, "Local Files"));
+        _window.Open(MainWindow.LocalFilesKey);
+        skins.UsesClassicPlayer = true;
+        await Task.Delay(1500);
+        await CaptureAsync($"{number++}-classic-player.png");
+
+        skins.DoubleSize = true;
+        await Task.Delay(1200);
+        await CaptureAsync($"{number++}-classic-double.png");
+        skins.DoubleSize = false;
+
+        skins.Shaded = true;
+        await Task.Delay(1200);
+        await CaptureAsync($"{number++}-classic-shade.png");
+        skins.Shaded = false;
+
+        _window.OpenSettings(SettingsSection.ClassicPlayer);
+        await Task.Delay(1400);
+        await CaptureAsync($"{number++}-settings-classic.png");
+
+        skins.UsesClassicPlayer = false;
+        await services.Player.PlayContextAsync("demo:playlist:late-night");
+        return number;
+    }
+
     private void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
     {
         e.Handled = true;
@@ -152,21 +218,6 @@ internal sealed class ScreenshotTour
     {
         Directory.CreateDirectory(_folder);
         File.AppendAllText(Path.Combine(_folder, ErrorFile), error + Environment.NewLine + Environment.NewLine);
-    }
-
-    private static T? FindDescendant<T>(DependencyObject parent)
-        where T : DependencyObject
-    {
-        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
-        {
-            var child = VisualTreeHelper.GetChild(parent, i);
-            if ((child as T ?? FindDescendant<T>(child)) is { } found)
-            {
-                return found;
-            }
-        }
-
-        return null;
     }
 
     private async Task CaptureAsync(string name)

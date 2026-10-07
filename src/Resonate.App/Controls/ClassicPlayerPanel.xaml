@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings, Classic player: whether to use it, its skin, its size and its visualiser. See ClassicPlayerPanel.xaml.cs. -->
+<UserControl
+    x:Class="Resonate.App.Controls.ClassicPlayerPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Resonate.App.Controls">
+
+    <StackPanel Spacing="12">
+        <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Classic player" />
+        <TextBlock
+            Style="{StaticResource ResonateSecondaryTextStyle}"
+            Text="A skinnable player in the style of Winamp 2. It works with classic .wsz skins."
+            TextWrapping="Wrap" />
+
+        <StackPanel Spacing="6">
+            <controls:SettingRow Description="Shown along the bottom in place of the player bar. Its close button brings the player bar back." Header="Use the classic player">
+                <ToggleSwitch
+                    x:Name="UseSwitch"
+                    MinWidth="0"
+                    OffContent=""
+                    OnContent=""
+                    Toggled="OnUseToggled" />
+            </controls:SettingRow>
+            <controls:SettingRow Description="Resonate Classic is built in. Skins you add are copied into Resonate." Header="Skin">
+                <ComboBox
+                    x:Name="SkinList"
+                    MinWidth="190"
+                    AutomationProperties.Name="Skin"
+                    SelectionChanged="OnSkinChanged" />
+            </controls:SettingRow>
+            <controls:SettingRow Description="Every skin pixel twice as large, like Winamp's double size." Header="Double size">
+                <ToggleSwitch
+                    x:Name="DoubleSizeSwitch"
+                    MinWidth="0"
+                    OffContent=""
+                    OnContent=""
+                    Toggled="OnDoubleSizeToggled" />
+            </controls:SettingRow>
+            <controls:SettingRow Description="Moves only for your own music files (Local Files). Spotify's sound can't be analysed." Header="Visualiser">
+                <ComboBox
+                    x:Name="VisualiserChoice"
+                    MinWidth="190"
+                    AutomationProperties.Name="Visualiser"
+                    SelectionChanged="OnVisualiserChanged">
+                    <ComboBoxItem Content="Spectrum" />
+                    <ComboBoxItem Content="Oscilloscope" />
+                    <ComboBoxItem Content="Off" />
+                </ComboBox>
+            </controls:SettingRow>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Spacing="12">
+            <Button
+                x:Name="AddSkinButton"
+                Click="OnAddSkinClick"
+                Content="Add a skin…"
+                Style="{StaticResource ResonateAccentButtonStyle}" />
+            <Button
+                x:Name="RemoveSkinButton"
+                Click="OnRemoveSkinClick"
+                Content="Remove this skin"
+                Style="{StaticResource ResonateSubtleButtonStyle}" />
+        </StackPanel>
+        <TextBlock
+            Style="{StaticResource ResonateCaptionTextStyle}"
+            Text="Skins are .wsz files made for Winamp 2. Resonate keeps its own copy, so you can move or delete the file afterwards."
+            TextWrapping="Wrap" />
+    </StackPanel>
+</UserControl>
