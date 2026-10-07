@@ -30,6 +30,7 @@ internal sealed partial class PerformanceTour
     private const string ErrorFile = "perf-errors.txt";
     private const double Megabyte = 1024 * 1024;
     private const int LeakRounds = 4;
+    private const string Glass = "glass";
 
     private static readonly TimeSpan Quiet = TimeSpan.FromMilliseconds(300);
     private static readonly TimeSpan SettleLimit = TimeSpan.FromSeconds(8);
@@ -99,6 +100,17 @@ internal sealed partial class PerformanceTour
             ShowWindow(window, ShowRestored);
             await Task.Delay(1000);
 
+            // Liquid Glass draws the song's blurred cover, slowly moving, behind everything.
+            var theme = App.Services.Theme;
+            theme.Select(Glass, transition: ThemeTransitionKind.None);
+            await Task.Delay(2000);
+            await MeasureIdleAsync("Playing, Liquid Glass (moving cover)");
+            await WithinAsync(player.PauseAsync());
+            await Task.Delay(1000);
+            await MeasureIdleAsync("Paused, Liquid Glass");
+            theme.Select(ThemePresets.Default.Id, transition: ThemeTransitionKind.None);
+            await Task.Delay(1000);
+
             // The clock in the player bar would keep the layout busy; pages are timed paused.
             await WithinAsync(player.PauseAsync());
             Checkpoint("opening pages");
@@ -131,7 +143,6 @@ internal sealed partial class PerformanceTour
             Checkpoint("switching looks");
             _window.Open("focus");
             await SettleAsync();
-            var theme = App.Services.Theme;
             var presets = ThemePresets.All;
             var next = 1;
             foreach (var kind in Enum.GetValues<ThemeTransitionKind>().Where(k => k is not ThemeTransitionKind.Random))

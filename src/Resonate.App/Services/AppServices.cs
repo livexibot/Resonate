@@ -217,6 +217,8 @@ public sealed class AppServices : IDisposable
         {
             item.Dispose();
         }
+
+        SettingsStore.Flush();
     }
 }
 

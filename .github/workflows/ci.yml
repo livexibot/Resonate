@@ -72,8 +72,12 @@ jobs:
       - name: Test the theme logic on Windows
         run: dotnet test tests/Resonate.Themes.Tests/Resonate.Themes.Tests.csproj -c Release
 
+      # Warnings fail the build: a trimming or Native AOT warning means code
+      # that may break only in the installed app. New security advisories
+      # for packages (NU1901 to NU1904) stay warnings, so they cannot turn
+      # an unrelated pull request red overnight.
       - name: Publish (x64, Native AOT)
-        run: dotnet publish src/Resonate.App/Resonate.App.csproj -c Release -r win-x64 -p:Platform=x64 -o artifacts/win-x64 -bl:artifacts/publish.binlog
+        run: dotnet publish src/Resonate.App/Resonate.App.csproj -c Release -r win-x64 -p:Platform=x64 -o artifacts/win-x64 -bl:artifacts/publish.binlog -warnaserror -warnnotaserror:NU1901,NU1902,NU1903,NU1904
 
       - name: Measure start-up time
         shell: pwsh
@@ -88,6 +92,10 @@ jobs:
           $line = "Start-up to first frame (demo data, cold then warm): $($times -join ' ms, ') ms"
           Write-Output $line
           "### Start-up time`n`n$line" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+          # The owner's target is a usable window in under a second. The best
+          # warm start is the steadiest number on a shared machine.
+          $best = ($times | Select-Object -Skip 1 | Measure-Object -Minimum).Minimum
+          if ($best -gt 1000) { throw "Resonate took $best ms to show its window, over the one-second target." }
 
       - name: Take screenshots
         shell: pwsh
@@ -141,6 +149,10 @@ jobs:
           Get-ChildItem $feed | Format-Table Name, Length
 
           $setup = Get-ChildItem $feed -Filter '*Setup.exe' | Select-Object -First 1
+          # Velopack leaves debug symbols (.pdb) out by default.
+          $size = '{0:N1} MB installer, {1:N1} MB installed' -f ($setup.Length / 1MB), ((Get-ChildItem artifacts/win-x64 -Recurse -File -Exclude '*.pdb' | Measure-Object Length -Sum).Sum / 1MB)
+          Write-Output "Size: $size"
+          "### Size`n`n$size" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
           $process = Start-Process $setup.FullName -ArgumentList '--silent' -PassThru
           if (-not $process.WaitForExit(300000)) { throw 'Setup did not finish within five minutes.' }
           if ($process.ExitCode -ne 0) { throw "Setup failed with exit code $($process.ExitCode)." }
