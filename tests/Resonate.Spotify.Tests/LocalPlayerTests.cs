@@ -66,7 +66,8 @@ public sealed class LocalPlayerTests : IDisposable
     {
         await Play(SongB);
 
-        // As a real engine would, so the once-a-second position check agrees.
+        // The engine plays on with the clock; otherwise the once-a-second sync
+        // would (rightly) pull the shown position back to the engine's 0:00.
         _engine.Position = TimeSpan.FromSeconds(5);
         _time.Advance(TimeSpan.FromSeconds(5));
 

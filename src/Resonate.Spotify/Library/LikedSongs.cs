@@ -126,9 +126,10 @@ public sealed class LikedSongs
 
         if (!Apply(track, uri, liked))
         {
-            // Until the list is read, a liked song can be missing from it
-            // (Liked Songs shows every heart filled), so an unlike still goes out.
-            if (liked || IsLoaded)
+            // A liked song can be missing from the list (it is not read yet, or
+            // the song was liked in another app since; Liked Songs shows every
+            // heart filled), so an unlike still goes out.
+            if (liked)
             {
                 return;
             }

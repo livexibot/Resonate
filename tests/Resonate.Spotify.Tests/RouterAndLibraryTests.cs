@@ -336,6 +336,19 @@ public sealed class LikedSongsTests : IDisposable
         Assert.False(Assert.Single(_changes).IsLiked);
     }
 
+    [Fact]
+    public async Task Unliking_a_song_liked_in_another_app_since_reaches_Spotify()
+    {
+        await _likes.LoadAsync(TestContext.Current.CancellationToken);
+        _web.SavedTracks.Add(Saved("a"));
+        _changes.Clear();
+
+        await _likes.SetLikedAsync(Song("a"), liked: false, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["unsave spotify:track:a"], _web.Commands);
+        Assert.False(Assert.Single(_changes).IsLiked);
+    }
+
     private static SavedTrack Saved(string id) =>
         new() { Track = new PlayableItem { Name = $"Song {id}", Uri = $"spotify:track:{id}", DurationMs = 1000 } };
 

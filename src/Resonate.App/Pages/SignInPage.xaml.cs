@@ -11,6 +11,8 @@ namespace Resonate.App.Pages;
 /// <summary>First run: the user's own Spotify developer app, then sign-in through the browser.</summary>
 public sealed partial class SignInPage : Page
 {
+    private const string ClipboardBusy = "The clipboard is busy. Try again in a moment, or select the address and copy it yourself.";
+
     private readonly AppServices _services = App.Services;
     private CancellationTokenSource? _signIn;
 
@@ -40,11 +42,15 @@ public sealed partial class SignInPage : Page
         try
         {
             Clipboard.SetContent(package);
+            if (ErrorText.Text == ClipboardBusy)
+            {
+                ErrorText.Visibility = Visibility.Collapsed;
+            }
         }
         catch (COMException)
         {
             // Another app is holding the clipboard. A Click handler must not throw.
-            ShowError("The clipboard is busy. Try again in a moment, or select the address and copy it yourself.");
+            ShowError(ClipboardBusy);
         }
     }
 

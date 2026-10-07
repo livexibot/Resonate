@@ -15,7 +15,8 @@ namespace Resonate.Windows.LocalAudio;
 /// A cover made from the picture next to a file is kept under that
 /// picture's name, size and time, so a new picture shows. A file without a
 /// cover leaves a marker, so it is not looked at again until it or its
-/// folder changes (as when a cover.jpg is put next to it).
+/// folder changes (as when a cover.jpg is put next to it), or until the
+/// picture next to it changes when Windows could not read that picture.
 /// </summary>
 public sealed class LocalCoverCache : IDisposable
 {
@@ -79,10 +80,18 @@ public sealed class LocalCoverCache : IDisposable
 
         // A cover from the picture next to the file is kept under that
         // picture's name, size and time, so a new picture is read again.
+        // A picture Windows could not read leaves a marker under the same name,
+        // so it is read again once it is replaced (which may not change the folder).
         var fromPicture = FolderPictureKey(key, file.Path) is { } pictureKey ? Path.Combine(_folder, pictureKey + ".jpg") : null;
+        var pictureNone = fromPicture is null ? null : Path.ChangeExtension(fromPicture, ".none");
         if (fromPicture is not null && await ReadKeptAsync(fromPicture).ConfigureAwait(false) is { } keptPicture)
         {
             return keptPicture;
+        }
+
+        if (pictureNone is not null && File.Exists(pictureNone))
+        {
+            return null;
         }
 
         await _working.WaitAsync().ConfigureAwait(false);
@@ -90,20 +99,19 @@ public sealed class LocalCoverCache : IDisposable
         {
             // The cover inside the file first, as the player bar does (LocalCovers.Read).
             var target = thumbnail;
-            var cover = LocalCovers.ReadEmbedded(file.Path);
-            if (cover is null && fromPicture is not null)
+            var bytes = LocalCovers.ReadEmbedded(file.Path) is { } embedded ? await ShrinkAsync(embedded).ConfigureAwait(false) : null;
+            if (bytes is null && fromPicture is not null)
             {
                 target = fromPicture;
-                cover = LocalCovers.ReadFolderImage(file.Path);
+                bytes = LocalCovers.ReadFolderImage(file.Path) is { } picture ? await ShrinkAsync(picture).ConfigureAwait(false) : null;
             }
 
-            var bytes = cover is null ? null : await ShrinkAsync(cover).ConfigureAwait(false);
             try
             {
                 Directory.CreateDirectory(_folder);
                 if (bytes is null)
                 {
-                    await File.WriteAllTextAsync(none, stamp).ConfigureAwait(false);
+                    await File.WriteAllTextAsync(pictureNone ?? none, stamp).ConfigureAwait(false);
                 }
                 else
                 {
