@@ -181,6 +181,10 @@ jobs:
       - name: Measure speed and memory
         shell: pwsh
         run: |
+          # Windows' "Animation effects" on, as on the owner's PC, so page and
+          # look-switching animations and the moving cover are measured too.
+          Add-Type -Namespace Win32 -Name Spi -MemberDefinition '[DllImport("user32.dll")] public static extern bool SystemParametersInfo(uint action, uint param, IntPtr value, uint flags);'
+          [Win32.Spi]::SystemParametersInfo(0x1043, 0, [IntPtr]1, 3) | Out-Null
           $folder = Join-Path $env:GITHUB_WORKSPACE 'artifacts/perf'
           $process = Start-Process -FilePath artifacts/win-x64/Resonate.exe -ArgumentList '--perf', $folder -PassThru
           $report = Join-Path $folder 'perf.md'

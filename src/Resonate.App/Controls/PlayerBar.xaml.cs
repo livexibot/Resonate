@@ -35,6 +35,7 @@ public sealed partial class PlayerBar : UserControl
     private readonly DispatcherQueueTimer _clock;
     private PlayerRouter? _player;
     private PlayerState _shown = PlayerState.Empty;
+    private bool _windowShown = true;
     private bool _settingValues;
     private int _updateQueued;
     private CoverStyle? _coverStyle;
@@ -58,6 +59,30 @@ public sealed partial class PlayerBar : UserControl
         _clock = DispatcherQueue.GetForCurrentThread().CreateTimer();
         _clock.Interval = TimeSpan.FromMilliseconds(250);
         _clock.Tick += (_, _) => UpdateClock();
+    }
+
+    /// <summary>The window says when it is minimised or hidden, so the clock can rest.</summary>
+    public void SetWindowShown(bool shown)
+    {
+        _windowShown = shown;
+        UpdateClock();
+        RunClockWhenNeeded();
+    }
+
+    /// <summary>
+    /// The clock only moves while music plays and the window can be seen;
+    /// otherwise it would wake the app four times a second for nothing.
+    /// </summary>
+    private void RunClockWhenNeeded()
+    {
+        if (!_shown.IsPlaying || !_windowShown)
+        {
+            _clock.Stop();
+        }
+        else if (!_clock.IsRunning)
+        {
+            _clock.Start();
+        }
     }
 
     /// <summary>Raised when the queue button is clicked; the window shows the queue.</summary>
@@ -124,17 +149,7 @@ public sealed partial class PlayerBar : UserControl
         ShowLike(state);
         ShowArtwork(state);
         UpdateClock();
-
-        // The clock only moves while music plays; paused, it would wake the app four times a second for nothing.
-        if (!state.IsPlaying)
-        {
-            _clock.Stop();
-        }
-        else if (!_clock.IsRunning)
-        {
-            _clock.Start();
-        }
-
+        RunClockWhenNeeded();
         PositionBar.IsAdvancing = state.IsPlaying && state.Duration > TimeSpan.Zero;
         UpdateVinylSpin();
     }

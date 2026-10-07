@@ -52,6 +52,7 @@ internal sealed partial class PerformanceTour
     private readonly List<StepResult> _looks = [];
     private readonly List<ScrollResult> _scrolls = [];
     private readonly List<string> _leftAlive = [];
+    private readonly List<double> _privateMbAfterRound = [];
     private readonly List<string> _errors = [];
     private string _stage = "starting";
     private bool _finished;
@@ -219,6 +220,11 @@ internal sealed partial class PerformanceTour
             _window.ToggleQueue();
             await SettleAsync(TimeSpan.FromSeconds(2));
             _window.ToggleQueue();
+
+            // Memory that keeps climbing round after round is a leak; caches level off.
+            _window.Open(MainWindow.HomeKey);
+            await SettleAsync(TimeSpan.FromSeconds(3));
+            _privateMbAfterRound.Add((await SampleMemoryAsync()).PrivateMb);
         }
 
         _window.Open(MainWindow.SearchKey);
@@ -449,6 +455,7 @@ internal sealed partial class PerformanceTour
             json.WriteString("stage", _stage);
             json.WriteNumber("startupMs", Round(_startupMs));
             json.WriteNumber("likedSongs", LikedSongs);
+            json.WriteBoolean("animations", App.Services.Theme.AnimationsEnabled);
 
             json.WriteStartArray("memory");
             foreach (var (name, sample) in _memory)
@@ -497,6 +504,14 @@ internal sealed partial class PerformanceTour
 
             json.WriteEndArray();
 
+            json.WriteStartArray("privateMbAfterEachRound");
+            foreach (var value in _privateMbAfterRound)
+            {
+                json.WriteNumberValue(Round(value));
+            }
+
+            json.WriteEndArray();
+
             json.WriteStartArray("pagesLeftAlive");
             foreach (var page in _leftAlive)
             {
@@ -534,7 +549,7 @@ internal sealed partial class PerformanceTour
         var md = new StringBuilder();
         md.AppendLine(CultureInfo.InvariantCulture, $"### Speed and memory (demo data, {LikedSongs:N0} liked songs)");
         md.AppendLine();
-        md.AppendLine(CultureInfo.InvariantCulture, $"Start-up to first frame: **{_startupMs:N0} ms**");
+        md.AppendLine(CultureInfo.InvariantCulture, $"Start-up to first frame: **{_startupMs:N0} ms**. Windows animations: {(App.Services.Theme.AnimationsEnabled ? "on" : "off")}.");
         md.AppendLine();
         if (!_finished)
         {
@@ -571,6 +586,12 @@ internal sealed partial class PerformanceTour
         }
 
         md.AppendLine();
+        if (_privateMbAfterRound.Count > 0)
+        {
+            md.AppendLine(CultureInfo.InvariantCulture, $"Private memory after each round of every page: {string.Join(", ", _privateMbAfterRound.Select(m => m.ToString("N0", CultureInfo.InvariantCulture)))} MB.");
+            md.AppendLine();
+        }
+
         md.AppendLine(_leftAlive.Count == 0
             ? "Pages kept in memory after leaving them: **none**."
             : $"Pages kept in memory after leaving them: **{string.Join(", ", _leftAlive)}**.");

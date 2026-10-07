@@ -1,5 +1,4 @@
 using System.Numerics;
-using System.Runtime.InteropServices;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -44,7 +43,7 @@ internal sealed partial class BackdropLayer : Grid
     private bool _playing;
     private bool _windowShown = true;
     private int _playerUpdateQueued;
-    private Window? _window;
+    private MainWindow? _window;
 
     public BackdropLayer(ThemeService theme, ArtworkSampler artwork)
     {
@@ -83,8 +82,8 @@ internal sealed partial class BackdropLayer : Grid
         _window = App.MainWindow;
         if (_window is not null)
         {
-            _window.AppWindow.Changed += OnWindowChanged;
-            _windowShown = IsWindowShown(_window);
+            _window.ShownChanged += OnWindowShownChanged;
+            _windowShown = _window.IsShown;
         }
 
         ShowCover(animate: false);
@@ -98,7 +97,7 @@ internal sealed partial class BackdropLayer : Grid
         App.Services.Player.StateChanged -= OnPlayerStateChanged;
         if (_window is not null)
         {
-            _window.AppWindow.Changed -= OnWindowChanged;
+            _window.ShownChanged -= OnWindowShownChanged;
             _window = null;
         }
 
@@ -123,18 +122,11 @@ internal sealed partial class BackdropLayer : Grid
         }
     }
 
-    private void OnWindowChanged(Microsoft.UI.Windowing.AppWindow sender, Microsoft.UI.Windowing.AppWindowChangedEventArgs args)
+    private void OnWindowShownChanged(object? sender, EventArgs e)
     {
-        var shown = _window is not null && IsWindowShown(_window);
-        if (shown != _windowShown)
-        {
-            _windowShown = shown;
-            UpdateDrift();
-        }
+        _windowShown = _window?.IsShown ?? true;
+        UpdateDrift();
     }
-
-    private static bool IsWindowShown(Window window) =>
-        window.AppWindow.IsVisible && !IsIconic(WinRT.Interop.WindowNative.GetWindowHandle(window));
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
@@ -288,8 +280,4 @@ internal sealed partial class BackdropLayer : Grid
         Children.Add(element);
         return element;
     }
-
-    [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool IsIconic(nint window);
 }
