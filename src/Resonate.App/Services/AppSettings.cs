@@ -80,6 +80,15 @@ public sealed class AppSettings
     /// <summary>The sort chosen for each song list (by list key), as <see cref="Resonate.Spotify.Library.TrackSort.Serialize"/> writes it.</summary>
     public Dictionary<string, string> TrackSorts { get; set; } = [];
 
+    /// <summary>The folders Local Files looks in; null for the user's Music and Downloads folders.</summary>
+    public List<string>? LocalFolders { get; set; }
+
+    /// <summary>Show Local Files in the sidebar.</summary>
+    public bool ShowLocalFiles { get; set; } = true;
+
+    /// <summary>The local files player's volume, from 0 to 1 (the Spotify app keeps its own).</summary>
+    public double LocalVolume { get; set; } = 1;
+
     [JsonIgnore]
     public Resonate.Spotify.Library.PlaylistSortMode ParsedPlaylistSort =>
         Enum.TryParse<Resonate.Spotify.Library.PlaylistSortMode>(PlaylistSort, ignoreCase: true, out var mode)

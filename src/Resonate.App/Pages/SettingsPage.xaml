@@ -58,7 +58,10 @@
             </StackPanel>
 
             <!-- Equalizer: the Spotify app's own, and the same setting for local files -->
-            <controls:EqualizerPanel xmlns:controls="using:Resonate.App.Controls" />
+            <controls:EqualizerPanel />
+
+            <!-- Local Files -->
+            <controls:LocalFoldersPanel />
 
             <!-- Account -->
             <StackPanel Spacing="12">
@@ -109,7 +112,7 @@
                     TextWrapping="Wrap" />
                 <TextBlock
                     Style="{StaticResource ResonateSecondaryTextStyle}"
-                    Text="Resonate is an independent app for Spotify and is not affiliated with or endorsed by Spotify. Music, cover art and song details come from Spotify, and every song plays in the Spotify app."
+                    Text="Resonate is an independent app for Spotify and is not affiliated with or endorsed by Spotify. Music, cover art and song details come from Spotify, and every Spotify song plays in the Spotify app."
                     TextWrapping="Wrap" />
                 <HyperlinkButton
                     Padding="0"

@@ -55,6 +55,10 @@ internal sealed class ScreenshotTour
             await Task.Delay(1500);
             await CaptureAsync("1-liked-songs.png");
 
+            _window.Open(MainWindow.LocalFilesKey);
+            await Task.Delay(1500);
+            await CaptureAsync("1b-local-files.png");
+
             _window.OpenPlaylist("late-night");
             await Task.Delay(1500);
             await CaptureAsync("2-playlist.png");

@@ -123,8 +123,8 @@ public sealed partial class TrackRow : ObservableObject
 
     public Brush PlaceholderBrush { get; }
 
-    /// <summary>Created on first use, on the interface thread, at the size it is shown.</summary>
-    public ImageSource? Image => _image ??= Artwork.FromUrl(Track.SmallImageUrl, 80);
+    /// <summary>Created on first use, on the interface thread, at the size it is shown (local files read their own cover).</summary>
+    public ImageSource? Image => _image ??= Track.FilePath is not null ? LocalArtwork.For(Track, 80) : Artwork.FromUrl(Track.SmallImageUrl, 80);
 
     /// <summary>Only Spotify songs can be liked (not local files or podcast episodes).</summary>
     public Visibility HeartVisibility => CanLike(Track) ? Visibility.Visible : Visibility.Collapsed;

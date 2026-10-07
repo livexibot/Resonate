@@ -75,6 +75,20 @@ public abstract class TrackListSource
     public virtual Task RemoveAsync(IReadOnlyList<TrackInfo> before, TrackInfo track, CancellationToken cancellationToken) => Task.CompletedTask;
 
     /// <summary>
+    /// For lists that change by themselves (Local Files, as scans find files):
+    /// <paramref name="changed"/> is called on any thread, with true when the
+    /// songs changed and false when only the header or empty note did.
+    /// </summary>
+    public virtual void Attach(Action<bool> changed)
+    {
+    }
+
+    /// <summary>Stops the calls <see cref="Attach"/> asked for.</summary>
+    public virtual void Detach()
+    {
+    }
+
+    /// <summary>
     /// The list for a navigation key: "liked", "local", "onrepeat",
     /// "mix:&lt;number&gt;", "album:&lt;id&gt;", "liked-artist:&lt;id&gt;",
     /// or a playlist ID.
