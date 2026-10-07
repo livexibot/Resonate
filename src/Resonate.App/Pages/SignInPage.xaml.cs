@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
@@ -36,7 +37,15 @@ public sealed partial class SignInPage : Page
     {
         var package = new DataPackage();
         package.SetText(SpotifyAuthOptions.DefaultRedirectUri);
-        Clipboard.SetContent(package);
+        try
+        {
+            Clipboard.SetContent(package);
+        }
+        catch (COMException)
+        {
+            // Another app is holding the clipboard. A Click handler must not throw.
+            ShowError("The clipboard is busy. Try again in a moment, or select the address and copy it yourself.");
+        }
     }
 
     private async void OnSignInClick(object sender, RoutedEventArgs e)
