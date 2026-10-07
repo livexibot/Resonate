@@ -11,98 +11,128 @@ visitors; keep it short and in step with this file.
 
 ## Status and handoff (read first)
 
-- The repository holds only `README.md` and `CLAUDE.md`. No code, no CI,
-  no releases yet. It was renamed from SereinFast to Resonate and reset to
-  a fresh history; the old librespot client is gone.
+- The first milestone is built and waiting in a pull request (see "First
+  milestone" for what is done). The Spotify logic is tested on Linux; the
+  WinUI 3 app is only compiled, timed and photographed on GitHub's Windows
+  machines (CI), because cloud sessions run on Linux.
+- Nobody has run Resonate against a real Spotify account yet. The first run
+  on the owner's PC must check what CI cannot: sign-in, that Spotify's media
+  session (SMTC) reports position and allows seeking, that the per-app mixer
+  volume finds Spotify, and that `--minimized` keeps Spotify hidden.
 - The two oldest commits are authored "Claude". Fixing that needs a force
   push, which the permission system blocked. Ask the owner before trying.
-- A multi-agent review of this brief was started and stopped early to save
-  the owner's usage. The pitfalls below come from Claude's own analysis and
-  are NOT yet verified. Check each against the official docs
-  (developer.spotify.com, learn.microsoft.com, docs.github.com,
-  release-please, docs.velopack.io) before relying on it. Where a verified
-  pitfall disagrees with the rest of this file, fix the rest of the file.
 - The permission system has refused force pushes, deleting branches,
   rewriting history, making release signing optional, and a workflow that
   publishes releases on its own. When a step is refused, explain it to the
   owner in plain words and ask; do not work around it.
-- Next step: verify the pitfalls, update this file, then start the first
-  milestone.
+- Cloud sessions are given a `claude/...` branch to work on and may only push
+  there. Use it for the pull request instead of a `feat/...` name.
+- Open questions for the owner are listed at the end of this file. The two
+  that block a public release are Spotify's Developer Policy and the logo.
 
-## Known pitfalls (verify, then fold into the sections below)
+## Verified facts (checked 2026-10-07)
+
+Each item was checked against official documentation, or against several
+projects that hit it, unless it says "measure" (only the owner's PC can
+tell). developer.spotify.com and learn.microsoft.com are blocked from cloud
+sessions; Microsoft's docs can be read from the MicrosoftDocs GitHub
+repositories, and Spotify's through search results and other projects.
 
 Building and testing:
-- Cloud sessions run on Linux and cannot build or run a WinUI 3 app. Put
-  the Spotify and app logic in a cross-platform .NET class library tested
-  with `dotnet test` on Linux. Build the UI only on GitHub Actions
-  `windows-latest`. Get screenshots from a Windows CI job (uploaded as
-  artifacts) or from the owner.
-- CI has no Spotify account. Test against fakes of the Web API and of the
-  media session.
-- The owner is not used to GitHub, so give them a direct download link for
-  any build they should try (for example a prerelease), not "download the
-  artifact".
+- Linux cannot run the WinUI XAML compiler (a .NET Framework program). Keep
+  Spotify logic in `Resonate.Spotify` (any OS, tested with `dotnet test`)
+  and Windows calls in `Resonate.Windows` (compiles on Linux with
+  `EnableWindowsTargeting`). The app compiles only on `windows-latest`.
+- CI has no Spotify account: tests use fakes of the Web API and of the
+  media session, and the app has a `--demo` mode with made-up music that CI
+  uses for screenshots (`--screenshots <folder>`) and start-up timing
+  (`--startup-benchmark <file>`).
+- The .NET SDK download host is blocked in cloud sessions; install it with
+  `apt-get install dotnet-sdk-10.0` (Ubuntu's package).
+- Give the owner a direct download link for anything to try (a release's
+  installer), not "download the artifact".
+
+Spotify Web API (these changed a lot; re-check before relying on them):
+- Since 27 November 2024, new apps cannot use recommendations, related
+  artists, audio features or analysis, featured or category playlists,
+  preview URLs, or Spotify-owned editorial playlists.
+- February 2026 changes (existing development-mode apps moved on
+  9 March 2026): the developer app's owner needs Spotify Premium; at most
+  five users per app; playlist songs moved from `/playlists/{id}/tracks` to
+  `/playlists/{id}/items`, with `tracks` renamed `items` and each entry's
+  `track` renamed `item`; Spotify only lists the songs of playlists the user
+  owns or collaborates on (others can still be played as a whole); search
+  returns at most 10 results per type; browse, artist top tracks, other
+  users' profiles and batch lookups (several IDs at once) were removed;
+  `popularity`, `followers` and the `product` field of `/me` were removed;
+  saving and following moved to `/me/library`. The client reads both the old
+  and new field names.
+- Refresh tokens now expire six months after sign-in; Resonate then asks to
+  sign in again.
+- Since July 2026 development-mode quota is shared by all of an account's
+  client IDs, and running out returns 429 with reason `QUOTA_EXCEEDED`.
+- Extended quota needs a registered business and 250,000 monthly users, so
+  a public release means each user creates their own developer app and
+  pastes its client ID into Resonate (the sign-in page walks them through).
+- Redirect URIs: loopback IP literals only over HTTP
+  (`http://127.0.0.1:43821/callback`), never `localhost`. PKCE, no secret.
+- The queue can be read and added to, not reordered or cleared. There is no
+  lyrics endpoint.
+- Lossless must be switched on in the Spotify app and the Web API cannot
+  confirm it (owner's setup list).
+- Developer Policy: "Do not build products or services that mimic, or
+  replicate or attempt to replace a core user experience of Spotify ...
+  without our prior written permission." Resonate is a replacement
+  interface, so this needs the owner's decision before anything is made
+  public (see open questions).
+- Design guidelines: Spotify content (names, covers, playback) must be
+  attributed to Spotify with its logo and link back to Spotify. "Spotify"
+  must not be in the app's name. Resonate currently shows a text credit and
+  "Open in Spotify"; the official logo is not added yet (open question).
 
 Windows:
-- Volume is not part of the system media controls (SMTC). Use the Windows
-  audio session API for Spotify's per-app volume, or the Web API volume
-  endpoint. Also check whether Spotify's SMTC session supports seeking and
-  reports position reliably.
-- Starting Spotify hidden: the installer version is believed to accept
-  `--minimized`. The Microsoft Store version lives elsewhere and is started
-  through its app ID or a `spotify:` link. Detect both.
-- Velopack works only with unpackaged apps (not MSIX). Make the WinUI 3 app
-  unpackaged and self-contained (`WindowsAppSDKSelfContained`). Check that
-  the current Windows App SDK supports Native AOT (added around 1.6).
-- Runtime theme switching needs `ThemeResource` or swapping merged
-  resource dictionaries; `StaticResource` values do not update.
-
-Spotify:
-- Since November 2024, new Web API apps cannot use recommendations,
-  related artists, audio features, featured or category playlists, or
-  Spotify's own editorial and algorithmic playlists (Discover Weekly, Daily
-  Mix). The queue can be read and added to, not reordered or emptied.
-  There is no lyrics endpoint; lyrics would need another source, which
-  breaks the "only Spotify and GitHub" rule, so ask the owner first.
-- Development mode allows only a few allowlisted users, and extended quota
-  is effectively unavailable to individuals. For a public release, each
-  user creates their own Spotify developer app and pastes its client ID
-  into Resonate. Design sign-in for that from the start.
-- Redirect URIs: since 2025 Spotify requires a loopback address such as
-  `http://127.0.0.1:<port>/callback` (not `localhost`). Use PKCE.
-- Lossless must be switched on in the Spotify app (Settings, Audio
-  quality) and is only offered in some markets. The Web API cannot confirm
-  it. Add this to the owner's setup list.
-- Spotify's Design and Branding Guidelines require attribution (Spotify's
-  name or logo and a link back) where Spotify content and artwork are
-  shown, and forbid "Spotify" in an app's name. Follow them, while never
-  presenting Resonate as an official Spotify app. Also check the Developer
-  Policy allows this kind of app before making it public.
+- The system media controls (SMTC) can play, pause, skip, seek (when the app
+  allows it) and report the song, cover and timeline. They have no volume.
+  Resonate uses Spotify's per-app volume in the Windows mixer (Core Audio),
+  and the Web API's volume when Spotify has no audio session yet. Measure:
+  whether Spotify's session allows seeking and reports position (Resonate
+  falls back to the Web API either way).
+- Spotify's own "start minimised" setting runs `Spotify.exe --autostart
+  --minimized` (community reports, not documented). The Microsoft Store
+  version (`SpotifyAB.SpotifyMusic_zpdnekdrzrea0`) is started through its
+  package; Resonate then minimises its window without taking focus.
+  Measure: whether Spotify stays hidden.
+- Velopack installs into a plain folder (`%LocalAppData%\Resonate`), so the
+  app is unpackaged (`WindowsPackageType=None`) and self-contained
+  (`WindowsAppSDKSelfContained`).
+- Native AOT for WinUI 3 is supported since Windows App SDK 1.6. The current
+  Windows App SDK is 2.x (2.5.1 used). Use `x:Bind` (no `{Binding}`), mark
+  classes that cross into WinRT `partial`, and avoid reflection.
+- Themes swap colours by changing the `Color` of shared brushes in
+  `Themes/Tokens.xaml`, which updates everything at once, even through
+  `StaticResource`. Corner and font tokens apply at start-up only.
 
 GitHub automation:
-- Pull requests and releases made by release-please with the default
-  `GITHUB_TOKEN` do not trigger other workflows. Build and upload the
-  installer in the same workflow, gated on its `release_created` output.
-  If checks are required on `main`, the release pull request needs a
-  GitHub App or fine-grained token (a secret the owner creates) so CI runs
-  on it.
-- Configure release-please with `bump-minor-pre-major: true`, and keep the
-  version in `version.txt` or `Directory.Build.props` with an
-  `x-release-please-version` marker.
+- Releases and pull requests made with the default `GITHUB_TOKEN` do not
+  start other workflows, so `release-please.yml` calls `release.yml`
+  directly when a release is created. Pull requests it opens get CI runs
+  that wait for approval by someone with write access (newer GitHub
+  behaviour); a fine-grained token secret avoids that if it becomes a
+  bother.
+- release-please (action v5) is configured with `bump-minor-pre-major`,
+  `initial-version` 0.1.0, and the version in `version.txt` and
+  `Directory.Build.props` (`x-release-please-version` marker).
+- The in-app updater reads GitHub releases without a token, which only
+  works once the repository is public. While it is private, installed
+  copies cannot see new versions (never embed a token in the app).
 - Branch protection that requires approvals blocks Claude merging its own
-  pull requests. Require passing checks only. Also ask the owner to turn on
-  "Allow auto-merge" and set the default squash commit message to the pull
-  request title.
-- A squash merge may be authored by whoever opened or merged the pull
-  request, which could be Claude's GitHub app instead of the owner. Check
-  after the first merge; if it is not the owner, ask them how they want it.
-  Commits made through GitHub API tools (file edits through MCP) do not use
-  the local git name either; prefer local commits and `git push`.
+  pull requests. Require passing checks only. Squash-merge authorship is not
+  documented: check the author after the first merge.
 
 Targets to measure from the first build: cold launch to a usable window
-under one second, page changes within one frame at the monitor's refresh
-rate (ask the owner what it is), and play or pause audible within about
-100 ms.
+under one second (CI prints it for demo data), page changes within one frame
+at the monitor's refresh rate (ask the owner what it is), and play or pause
+audible within about 100 ms.
 
 ## What the owner wants
 
@@ -180,9 +210,12 @@ Web API filling in the rest.
 - The official Spotify desktop app installed and signed in to the same
   account. Resonate should start it hidden if it is not running, and say
   clearly when it cannot be found.
-- A Spotify developer app (client ID) for the Web API. In development mode
-  Spotify only allows a few allowlisted users, which is fine for personal
-  use.
+- A Spotify developer app (client ID) for the Web API, owned by a Premium
+  account. In development mode Spotify allows at most five users, which is
+  fine for personal use.
+- Spotify only lists the songs of playlists the user owns or collaborates
+  on. Other playlists in the library show a note and can still be played
+  as a whole.
 - Starting a new song or playlist may go through Spotify's servers (always
   on Windows). That is about as fast as the official app, which also has to
   fetch the song first.
@@ -203,8 +236,11 @@ Web API filling in the rest.
 - The interface is optimistic: a control shows its result the moment it is
   used, and a late answer from Spotify must not undo what the user just did.
 - Network and Spotify work never blocks the interface thread.
-- Resonate is not affiliated with Spotify. Do not use Spotify's logo or
-  make the app look like an official Spotify product; say "for Spotify".
+- Resonate is not affiliated with Spotify. Never make the app look like an
+  official Spotify product, never put "Spotify" in its name or icon, and say
+  "for Spotify". Spotify's design guidelines require their logo as the
+  credit next to Spotify content; whether to add it is an open question
+  for the owner (until then Resonate credits Spotify in words).
 
 ## Suggested technology
 
@@ -229,6 +265,10 @@ Web API filling in the rest.
   shared. Windows comes first.
 
 ## First milestone
+
+Built in the first pull request; items 1 to 6 are in place. Still to check
+on the owner's PC: everything that needs a real Spotify account (see
+"Status and handoff").
 
 1. Sign in with Spotify (PKCE) and store the token securely.
 2. Find the local Spotify app: start it hidden if needed and identify its
@@ -327,14 +367,22 @@ cannot be done right away, open an issue for it so nothing is forgotten.
 
 ### Repository layout
 
-Keep it obvious what is what. A suggested layout:
+Keep it obvious what is what:
 
-- `src/Resonate.App/` the WinUI 3 app: windows, pages, controls, themes.
-- `src/Resonate.Spotify/` the Web API client, sign-in, and the local media
-  control channel.
-- `tests/` automated tests.
+- `src/Resonate.App/` the WinUI 3 app: windows, pages, controls, themes
+  (`Themes/Tokens.xaml` and `ThemePreset.cs`), the updater, demo mode.
+- `src/Resonate.Spotify/` everything about Spotify that is not Windows:
+  sign-in, the Web API client, the library, and the player logic. Any OS.
+- `src/Resonate.Windows/` the Windows side of the player: the media
+  session, the mixer volume, starting Spotify, the Credential Manager.
+- `tests/` automated tests (`dotnet test`, run on Linux and Windows).
 - `docs/` user-facing guides, once there is something to explain.
-- `.github/workflows/` `ci.yml`, `release-please.yml`, `release.yml`.
+- `.github/workflows/` `ci.yml` (every pull request: format, tests, the
+  Windows build with start-up time and screenshots), `release-please.yml`
+  (release pull request, then calls `release.yml`), `release.yml` (builds
+  the x64 and arm64 installers with Velopack and attaches them).
+- `release-please-config.json`, `.release-please-manifest.json`,
+  `version.txt`: release settings and the current version.
 - `README.md` for visitors, `CLAUDE.md` (this brief), `CHANGELOG.md`
   (generated), `LICENSE`.
 
@@ -351,12 +399,15 @@ when the work first needs them, then tick them off here.
   requests" (release-please needs both).
 - [ ] Settings, Rules: protect `main` so changes arrive only through pull
   requests with passing CI, and block force pushes. Do this once CI exists.
-- [ ] Create a Spotify developer app at developer.spotify.com and give
-  Claude its client ID (it is not a secret with PKCE sign-in).
+- [ ] Create a Spotify developer app at developer.spotify.com (with the
+  Premium account), add the redirect URI `http://127.0.0.1:43821/callback`,
+  tick "Web API", and paste its client ID into Resonate's first screen.
 - [ ] In the Spotify app: switch audio quality to Lossless, stay signed
   in, and let it start with Windows, minimised.
 - [ ] Choose a license before making the repository public (MIT is a
   common, simple choice).
+- [ ] Make the repository public when ready: until then installed copies
+  cannot see new releases (the updater reads public releases only).
 - [ ] Optional, later: Windows code signing, so the installer does not show
   a SmartScreen warning. This costs money (for example Azure Trusted
   Signing).
@@ -374,6 +425,18 @@ when the work first needs them, then tick them off here.
 - Owner's platform: Windows.
 - First priorities: launch speed, full refresh rate rendering, a modern
   clean look, smooth animations, and themes.
+- Open (blocks going public): Spotify's Developer Policy forbids apps that
+  "replicate or attempt to replace a core user experience of Spotify"
+  without written permission. Options: keep Resonate personal (private
+  repository, own developer app), ask Spotify for permission, or reshape it
+  to add value Spotify's app lacks. The owner decides.
+- Open: add Spotify's official logo as the credit next to Spotify content
+  (the guidelines require it), or keep the text credit while Resonate stays
+  personal. The original rule said never use the logo.
+- Open: the owner's monitor refresh rate, for the frame-time target.
+- Look: the first theme is "Midnight" (dark, soft violet accent), with
+  "Pure black" and "Daylight" as alternatives in Settings. Waiting for the
+  owner's opinion on the screenshots.
 - History: this repository was reset to a single commit. The earlier
   librespot-based client is not kept here; it was a fork of
   https://github.com/crmne/spotifast, which can be read for ideas such as

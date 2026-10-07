@@ -3,8 +3,10 @@
 A fast, modern Windows interface for Spotify, with themes and smooth
 animations, that keeps Spotify's own lossless playback.
 
-> **Status: planning.** Nothing is built yet, so there is nothing to
-> download. The plan is in [CLAUDE.md](CLAUDE.md).
+> **Status: first version in testing.** Sign-in, the library, playlists,
+> search, the player bar, themes and automatic updates are built; it has not
+> been tried with a real Spotify account yet. Nothing is released, so there
+> is nothing to download yet. The plan is in [CLAUDE.md](CLAUDE.md).
 
 ## Why
 
@@ -23,9 +25,11 @@ Spotify's official Web API (library, search, playlists).
 
 ## Requirements
 
-- Windows
+- Windows 10 or 11
 - Spotify Premium
 - The Spotify desktop app, installed and signed in
+- A free Spotify developer app of your own (Resonate's first screen walks
+  you through it in about two minutes)
 
 ## How this project is developed
 
@@ -34,4 +38,5 @@ into `main` as one commit. Releases are automatic: each one lists its
 changes in `CHANGELOG.md` and on the Releases page, and
 installed copies update themselves.
 
-Resonate is an independent project and is not affiliated with Spotify.
+Resonate is an independent project for Spotify and is not affiliated with
+Spotify.
