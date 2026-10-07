@@ -358,9 +358,10 @@ public sealed class LocalLibraryTests : IDisposable
         }
     }
 
+    /// <summary>Writes a song at <paramref name="relativePath"/> (folders split by "/") and returns its full path with this system's separators.</summary>
     private string WriteSong(string relativePath, string title, int frames = 3)
     {
-        var path = Path.Combine(_music, relativePath);
+        var path = Path.Combine(_music, relativePath.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllBytes(path, Song(title, frames));
         return path;
