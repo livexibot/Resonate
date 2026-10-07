@@ -25,7 +25,7 @@ public sealed partial class SettingsPage : Page
         BuildThemeChoices();
 
         _loading = true;
-        ChannelChoice.SelectedIndex = _services.Player.Channel == ControlChannel.WebApi ? 1 : 0;
+        ChannelChoice.SelectedIndex = _services.Player.Spotify.Channel == ControlChannel.WebApi ? 1 : 0;
         KeepHiddenSwitch.IsOn = _services.SpotifyWindow.KeepHidden;
         SaveResourcesSwitch.IsOn = _services.SpotifyWindow.SaveResources;
         _loading = false;
@@ -120,7 +120,7 @@ public sealed partial class SettingsPage : Page
         }
 
         var channel = ChannelChoice.SelectedIndex == 1 ? ControlChannel.WebApi : ControlChannel.Local;
-        _services.Player.Channel = channel;
+        _services.Player.Spotify.Channel = channel;
         _services.Settings.ControlChannel = channel == ControlChannel.WebApi ? "webapi" : "local";
         _services.SaveSettings();
     }

@@ -33,6 +33,30 @@
                 Key="Left"
                 Invoked="OnPreviousAccelerator"
                 Modifiers="Control" />
+            <KeyboardAccelerator
+                Key="Left"
+                Invoked="OnBackAccelerator"
+                Modifiers="Menu" />
+            <KeyboardAccelerator
+                Key="S"
+                Invoked="OnShuffleAccelerator"
+                Modifiers="Control" />
+            <KeyboardAccelerator
+                Key="R"
+                Invoked="OnRepeatAccelerator"
+                Modifiers="Control" />
+            <KeyboardAccelerator
+                Key="Up"
+                Invoked="OnVolumeUpAccelerator"
+                Modifiers="Control" />
+            <KeyboardAccelerator
+                Key="Down"
+                Invoked="OnVolumeDownAccelerator"
+                Modifiers="Control" />
+            <KeyboardAccelerator
+                Key="N"
+                Invoked="OnNewPlaylistAccelerator"
+                Modifiers="Control" />
         </Grid.KeyboardAccelerators>
 
         <!-- Title bar (the whole strip drags the window) -->
@@ -103,16 +127,53 @@
                     </ListView.ItemTemplate>
                 </ListView>
 
-                <TextBlock
+                <Grid
                     Grid.Row="1"
-                    Margin="16,18,16,6"
-                    CharacterSpacing="60"
-                    Style="{StaticResource ResonateCaptionTextStyle}"
-                    Text="PLAYLISTS" />
+                    Margin="16,14,8,4"
+                    ColumnSpacing="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        CharacterSpacing="60"
+                        Style="{StaticResource ResonateCaptionTextStyle}"
+                        Text="PLAYLISTS" />
+                    <Button
+                        x:Name="PlaylistSortButton"
+                        Grid.Column="1"
+                        Width="30"
+                        Height="30"
+                        AutomationProperties.Name="Sort playlists"
+                        Content="&#xE8CB;"
+                        FontSize="13"
+                        Style="{StaticResource ResonateIconButtonStyle}"
+                        ToolTipService.ToolTip="Sort playlists">
+                        <Button.Flyout>
+                            <MenuFlyout x:Name="PlaylistSortMenu" Placement="BottomEdgeAlignedRight" />
+                        </Button.Flyout>
+                    </Button>
+                    <Button
+                        Grid.Column="2"
+                        Width="30"
+                        Height="30"
+                        AutomationProperties.Name="New playlist"
+                        Click="OnNewPlaylistClick"
+                        Content="&#xE710;"
+                        FontSize="13"
+                        Style="{StaticResource ResonateIconButtonStyle}"
+                        ToolTipService.ToolTip="New playlist (Ctrl+N)" />
+                </Grid>
 
                 <ListView
                     x:Name="PlaylistList"
                     Grid.Row="2"
+                    AllowDrop="True"
+                    CanDragItems="True"
+                    CanReorderItems="True"
+                    DragItemsCompleted="OnPlaylistDragCompleted"
                     ItemsSource="{x:Bind Playlists}"
                     SelectionChanged="OnPlaylistSelectionChanged"
                     SelectionMode="Single">
@@ -171,6 +232,18 @@
                 Background="{StaticResource ResonateSurfaceBrush}"
                 CornerRadius="{StaticResource ResonateCornerLarge}">
                 <Frame x:Name="ContentFrame" />
+                <Button
+                    x:Name="BackButton"
+                    Margin="10"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    AutomationProperties.Name="Back"
+                    Background="{StaticResource ResonateSurfaceHoverBrush}"
+                    Click="OnBackClick"
+                    Content="&#xE72B;"
+                    Style="{StaticResource ResonateIconButtonStyle}"
+                    ToolTipService.ToolTip="Back (Alt+Left)"
+                    Visibility="Collapsed" />
                 <InfoBar
                     x:Name="MessageBar"
                     MaxWidth="720"

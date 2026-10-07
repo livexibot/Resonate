@@ -26,6 +26,24 @@ public sealed class AppSettings
 
     /// <summary>The last measured time from starting the process to the first frame.</summary>
     public double? LastStartupMilliseconds { get; set; }
+
+    /// <summary>How the sidebar orders playlists (a <see cref="Resonate.Spotify.Library.PlaylistSortMode"/> name).</summary>
+    public string PlaylistSort { get; set; } = "Spotify";
+
+    /// <summary>Playlist IDs in the user's own order, for the "Custom order" sort.</summary>
+    public List<string> PlaylistOrder { get; set; } = [];
+
+    /// <summary>When each playlist (by ID) was last played from Resonate, for the "Recently played" sort.</summary>
+    public Dictionary<string, DateTimeOffset> PlaylistLastPlayed { get; set; } = [];
+
+    /// <summary>The sort chosen for each song list (by list key), as <see cref="Resonate.Spotify.Library.TrackSort.Serialize"/> writes it.</summary>
+    public Dictionary<string, string> TrackSorts { get; set; } = [];
+
+    [JsonIgnore]
+    public Resonate.Spotify.Library.PlaylistSortMode ParsedPlaylistSort =>
+        Enum.TryParse<Resonate.Spotify.Library.PlaylistSortMode>(PlaylistSort, ignoreCase: true, out var mode)
+            ? mode
+            : Resonate.Spotify.Library.PlaylistSortMode.Spotify;
 }
 
 [JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
