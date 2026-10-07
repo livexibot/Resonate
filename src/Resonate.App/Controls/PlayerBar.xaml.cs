@@ -32,6 +32,13 @@ public sealed partial class PlayerBar : UserControl
     private const float ArtworkSize = 56;
     private static readonly TimeSpan VinylTurn = TimeSpan.FromSeconds(7);
 
+    // The clock moves the progress bar on about one screen pixel a tick: at
+    // least four ticks a second, so the time never lags a second change by
+    // more than a quarter of a second, and at most thirty (a short song on a
+    // wide bar then moves a few pixels a tick).
+    private static readonly TimeSpan SlowestTick = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan FastestTick = TimeSpan.FromSeconds(1.0 / 30);
+
     private readonly DispatcherQueueTimer _clock;
     private PlayerRouter? _player;
     private PlayerState _shown = PlayerState.Empty;
@@ -42,6 +49,8 @@ public sealed partial class PlayerBar : UserControl
     private AnimationController? _vinylSpin;
     private double _volumeBeforeMute = 0.5;
     private object? _artworkKey;
+    private string? _positionLabel;
+    private string? _durationLabel;
 
     public PlayerBar()
     {
@@ -57,7 +66,7 @@ public sealed partial class PlayerBar : UserControl
         ApplyLook();
 
         _clock = DispatcherQueue.GetForCurrentThread().CreateTimer();
-        _clock.Interval = TimeSpan.FromMilliseconds(250);
+        _clock.Interval = SlowestTick;
         _clock.Tick += (_, _) => UpdateClock();
     }
 
@@ -67,6 +76,7 @@ public sealed partial class PlayerBar : UserControl
         _windowShown = shown;
         UpdateClock();
         RunClockWhenNeeded();
+        UpdateAdvancing();
     }
 
     /// <summary>
@@ -150,7 +160,7 @@ public sealed partial class PlayerBar : UserControl
         ShowArtwork(state);
         UpdateClock();
         RunClockWhenNeeded();
-        PositionBar.IsAdvancing = state.IsPlaying && state.Duration > TimeSpan.Zero;
+        UpdateAdvancing();
         UpdateVinylSpin();
     }
 
@@ -325,13 +335,26 @@ public sealed partial class PlayerBar : UserControl
         var position = _shown.PositionAt(DateTimeOffset.UtcNow);
         var duration = _shown.Duration;
 
-        DurationText.Text = duration > TimeSpan.Zero ? Format.Duration(duration) : "-:--";
+        // Text is only set when it changes; the clock ticks far more often than the seconds do.
+        var durationLabel = duration > TimeSpan.Zero ? Format.Duration(duration) : "-:--";
+        if (durationLabel != _durationLabel)
+        {
+            _durationLabel = durationLabel;
+            DurationText.Text = durationLabel;
+        }
+
         if (PositionBar.IsDragging)
         {
             return;
         }
 
-        PositionText.Text = Format.Duration(position);
+        var positionLabel = Format.Duration(position);
+        if (positionLabel != _positionLabel)
+        {
+            _positionLabel = positionLabel;
+            PositionText.Text = positionLabel;
+        }
+
         _settingValues = true;
         try
         {
@@ -342,7 +365,35 @@ public sealed partial class PlayerBar : UserControl
         {
             _settingValues = false;
         }
+
+        PaceClock();
     }
+
+    /// <summary>One tick for each pixel the bar moves (the bar's values are seconds).</summary>
+    private void PaceClock()
+    {
+        // Without a length (the DJ talking) the bar does not move; only the time does.
+        var seconds = _shown.Duration > TimeSpan.Zero ? PositionBar.ValuePerPixel : 0;
+        var interval = seconds > 0
+            ? TimeSpan.FromSeconds(Math.Clamp(seconds, FastestTick.TotalSeconds, SlowestTick.TotalSeconds))
+            : SlowestTick;
+        if (Math.Abs((interval - _clock.Interval).TotalMilliseconds) < 2)
+        {
+            return;
+        }
+
+        var running = _clock.IsRunning;
+        _clock.Stop();
+        _clock.Interval = interval;
+        if (running)
+        {
+            _clock.Start();
+        }
+    }
+
+    /// <summary>The wave style rolls while a song plays, and rests while the window is minimised.</summary>
+    private void UpdateAdvancing() =>
+        PositionBar.IsAdvancing = _shown.IsPlaying && _shown.Duration > TimeSpan.Zero && _windowShown;
 
     private void OnPlayPauseClick(object sender, RoutedEventArgs e) => _ = _player?.TogglePlayPauseAsync();
 
@@ -402,7 +453,8 @@ public sealed partial class PlayerBar : UserControl
         if (PositionBar.IsDragging)
         {
             // While dragging, only the label follows; the seek is sent on release.
-            PositionText.Text = Format.Duration(TimeSpan.FromSeconds(e.NewValue));
+            _positionLabel = Format.Duration(TimeSpan.FromSeconds(e.NewValue));
+            PositionText.Text = _positionLabel;
             return;
         }
 
