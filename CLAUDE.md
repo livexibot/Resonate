@@ -214,6 +214,9 @@ GitHub automation:
   silently, starts the installed copy, and checks that it downloads a newer
   local version (`--update-check <feed folder> <result file>`), so a broken
   installer or updater shows up in a pull request, not after a release.
+  Velopack installs a downloaded update the next time the app starts (it
+  exits at once and restarts the new version), so any check of the
+  installed copy (`--plugin-check`) runs before the update test.
 - release-please needs the repository setting "Allow GitHub Actions to
   create and approve pull requests"; without it the Release workflow fails
   with "GitHub Actions is not permitted to create or approve pull requests".

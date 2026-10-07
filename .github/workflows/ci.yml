@@ -143,10 +143,10 @@ jobs:
           git push origin "${commit}:${ref}"
           "Screenshots: ${{ github.server_url }}/${{ github.repository }}/tree/$commit" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
 
-      # The same packaging as a release, then a silent install, a start of the
-      # installed copy, and an update to a newer local version, so a broken
-      # installer or updater shows up here rather than after a release.
-      - name: Install and update test
+      # The same packaging as a release, then a silent install and a start of
+      # the installed copy, so a broken installer shows up here rather than
+      # after a release. A newer version is packed too, for the update test.
+      - name: Install test
         shell: pwsh
         run: |
           dotnet tool install -g vpk --version $env:VPK_VERSION
@@ -173,16 +173,12 @@ jobs:
 
           vpk pack @pack --packVersion 0.0.2-ci
           if ($LASTEXITCODE -ne 0) { throw 'Packaging the second version failed.' }
-          $result = Join-Path $env:RUNNER_TEMP 'update-result.txt'
-          $process = Start-Process $installed -ArgumentList '--update-check', $feed, $result -PassThru
-          if (-not $process.WaitForExit(120000)) { $process.Kill(); throw 'The update check did not finish.' }
-          $outcome = Get-Content $result
-          Write-Output "Update check: $outcome"
-          if ($outcome -ne 'ReadyToRestart 0.0.2-ci') { throw "The installed copy did not download the new version ($outcome)." }
 
       # The installed copy downloads the helper and every plugin from the
       # packed files (checking each against its catalog, as from a release),
       # runs them, turns them off again, and reports the helper's memory.
+      # It runs before the update test: Velopack installs a downloaded update
+      # on the next start, which would replace the copy being checked.
       - name: Plugin check (installed copy)
         shell: pwsh
         run: |
@@ -191,6 +187,7 @@ jobs:
           $result = Join-Path $env:RUNNER_TEMP 'plugin-result.txt'
           $process = Start-Process $installed -ArgumentList '--plugin-check', $feed, $result -PassThru
           if (-not $process.WaitForExit(180000)) { $process.Kill(); throw 'The plugin check did not finish.' }
+          if (-not (Test-Path $result)) { throw "The plugin check wrote no result (exit code $($process.ExitCode))." }
           $outcome = (Get-Content $result -Raw).Trim()
           $helper = [math]::Round((Get-Item artifacts/plugins/resonate-plugin-host-win-x64.zip).Length / 1MB, 1)
           $unpacked = [math]::Round((Get-ChildItem artifacts/plugin-host/win-x64 -Recurse -File | Where-Object { $_.Extension -ne '.pdb' } | Measure-Object Length -Sum).Sum / 1MB, 1)
@@ -198,6 +195,20 @@ jobs:
           Write-Output $line
           "### Plugins`n`n$line" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
           if (-not $outcome.StartsWith('OK ')) { throw "The plugin check failed: $outcome" }
+
+      # The installed copy finds the newer version packed above and downloads
+      # it, so a broken updater shows up here rather than after a release.
+      - name: Update test
+        shell: pwsh
+        run: |
+          $installed = Join-Path $env:LOCALAPPDATA 'Resonate/current/Resonate.exe'
+          $feed = Join-Path $env:RUNNER_TEMP 'feed'
+          $result = Join-Path $env:RUNNER_TEMP 'update-result.txt'
+          $process = Start-Process $installed -ArgumentList '--update-check', $feed, $result -PassThru
+          if (-not $process.WaitForExit(120000)) { $process.Kill(); throw 'The update check did not finish.' }
+          $outcome = Get-Content $result
+          Write-Output "Update check: $outcome"
+          if ($outcome -ne 'ReadyToRestart 0.0.2-ci') { throw "The installed copy did not download the new version ($outcome)." }
 
       - name: Upload screenshots
         if: always()
