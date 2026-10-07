@@ -262,7 +262,15 @@ internal static partial class BuiltInSkin
     /// and visualiser on the left; song, rates and channel lamps on the right),
     /// the labels, the logo, and the resting look of every control drawn over it.
     /// </summary>
-    private static SkinImage DrawMain(SkinImage titleBar, SkinImage buttons, SkinImage position, SkinImage volume, SkinImage balance, SkinImage toggles)
+    private static SkinImage DrawMain(
+        SkinImage titleBar,
+        SkinImage buttons,
+        SkinImage lamps,
+        SkinImage channels,
+        SkinImage position,
+        SkinImage volume,
+        SkinImage balance,
+        SkinImage toggles)
     {
         const int Width = ClassicRenderer.Width;
         const int Height = ClassicRenderer.Height;
@@ -304,7 +312,10 @@ internal static partial class BuiltInSkin
 
         Logo(image, 258, 97);
 
-        // The controls at rest, as the player draws them over this picture anyway.
+        // The lamps and controls at rest, as the player draws them over this picture anyway.
+        image.Draw(lamps, 18, 0, 9, 9, 26, 28);
+        image.Draw(channels, 29, 12, 27, 12, 212, 41);
+        image.Draw(channels, 0, 12, 29, 12, 239, 41);
         image.Draw(volume, 0, 0, 68, 13, 107, 57);
         image.Draw(volume, 15, 422, 14, 11, 107, 58);
         image.Draw(balance, 9, 0, 38, 13, 177, 57);

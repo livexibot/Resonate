@@ -94,7 +94,7 @@ internal static partial class BuiltInSkin
         var volume = DrawVolume();
         var balance = DrawBalance();
         var toggles = DrawToggles();
-        var main = DrawMain(titleBar, buttons, position, volume, balance, toggles);
+        var main = DrawMain(titleBar, buttons, lamps, channels, position, volume, balance, toggles);
 
         var sheets = new Dictionary<SkinSheet, SkinImage>(SkinSheets.All.Count)
         {
