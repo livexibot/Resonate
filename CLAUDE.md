@@ -9,6 +9,101 @@ it at the start of every session. Read all of it before writing code, and
 keep it up to date as decisions change. `README.md` is the public page for
 visitors; keep it short and in step with this file.
 
+## Status and handoff (read first)
+
+- The repository holds only `README.md` and `CLAUDE.md`. No code, no CI,
+  no releases yet. It was renamed from SereinFast to Resonate and reset to
+  a fresh history; the old librespot client is gone.
+- The two oldest commits are authored "Claude". Fixing that needs a force
+  push, which the permission system blocked. Ask the owner before trying.
+- A multi-agent review of this brief was started and stopped early to save
+  the owner's usage. The pitfalls below come from Claude's own analysis and
+  are NOT yet verified. Check each against the official docs
+  (developer.spotify.com, learn.microsoft.com, docs.github.com,
+  release-please, docs.velopack.io) before relying on it. Where a verified
+  pitfall disagrees with the rest of this file, fix the rest of the file.
+- The permission system has refused force pushes, deleting branches,
+  rewriting history, making release signing optional, and a workflow that
+  publishes releases on its own. When a step is refused, explain it to the
+  owner in plain words and ask; do not work around it.
+- Next step: verify the pitfalls, update this file, then start the first
+  milestone.
+
+## Known pitfalls (verify, then fold into the sections below)
+
+Building and testing:
+- Cloud sessions run on Linux and cannot build or run a WinUI 3 app. Put
+  the Spotify and app logic in a cross-platform .NET class library tested
+  with `dotnet test` on Linux. Build the UI only on GitHub Actions
+  `windows-latest`. Get screenshots from a Windows CI job (uploaded as
+  artifacts) or from the owner.
+- CI has no Spotify account. Test against fakes of the Web API and of the
+  media session.
+- The owner is not used to GitHub, so give them a direct download link for
+  any build they should try (for example a prerelease), not "download the
+  artifact".
+
+Windows:
+- Volume is not part of the system media controls (SMTC). Use the Windows
+  audio session API for Spotify's per-app volume, or the Web API volume
+  endpoint. Also check whether Spotify's SMTC session supports seeking and
+  reports position reliably.
+- Starting Spotify hidden: the installer version is believed to accept
+  `--minimized`. The Microsoft Store version lives elsewhere and is started
+  through its app ID or a `spotify:` link. Detect both.
+- Velopack works only with unpackaged apps (not MSIX). Make the WinUI 3 app
+  unpackaged and self-contained (`WindowsAppSDKSelfContained`). Check that
+  the current Windows App SDK supports Native AOT (added around 1.6).
+- Runtime theme switching needs `ThemeResource` or swapping merged
+  resource dictionaries; `StaticResource` values do not update.
+
+Spotify:
+- Since November 2024, new Web API apps cannot use recommendations,
+  related artists, audio features, featured or category playlists, or
+  Spotify's own editorial and algorithmic playlists (Discover Weekly, Daily
+  Mix). The queue can be read and added to, not reordered or emptied.
+  There is no lyrics endpoint; lyrics would need another source, which
+  breaks the "only Spotify and GitHub" rule, so ask the owner first.
+- Development mode allows only a few allowlisted users, and extended quota
+  is effectively unavailable to individuals. For a public release, each
+  user creates their own Spotify developer app and pastes its client ID
+  into Resonate. Design sign-in for that from the start.
+- Redirect URIs: since 2025 Spotify requires a loopback address such as
+  `http://127.0.0.1:<port>/callback` (not `localhost`). Use PKCE.
+- Lossless must be switched on in the Spotify app (Settings, Audio
+  quality) and is only offered in some markets. The Web API cannot confirm
+  it. Add this to the owner's setup list.
+- Spotify's Design and Branding Guidelines require attribution (Spotify's
+  name or logo and a link back) where Spotify content and artwork are
+  shown, and forbid "Spotify" in an app's name. Follow them, while never
+  presenting Resonate as an official Spotify app. Also check the Developer
+  Policy allows this kind of app before making it public.
+
+GitHub automation:
+- Pull requests and releases made by release-please with the default
+  `GITHUB_TOKEN` do not trigger other workflows. Build and upload the
+  installer in the same workflow, gated on its `release_created` output.
+  If checks are required on `main`, the release pull request needs a
+  GitHub App or fine-grained token (a secret the owner creates) so CI runs
+  on it.
+- Configure release-please with `bump-minor-pre-major: true`, and keep the
+  version in `version.txt` or `Directory.Build.props` with an
+  `x-release-please-version` marker.
+- Branch protection that requires approvals blocks Claude merging its own
+  pull requests. Require passing checks only. Also ask the owner to turn on
+  "Allow auto-merge" and set the default squash commit message to the pull
+  request title.
+- A squash merge may be authored by whoever opened or merged the pull
+  request, which could be Claude's GitHub app instead of the owner. Check
+  after the first merge; if it is not the owner, ask them how they want it.
+  Commits made through GitHub API tools (file edits through MCP) do not use
+  the local git name either; prefer local commits and `git push`.
+
+Targets to measure from the first build: cold launch to a usable window
+under one second, page changes within one frame at the monitor's refresh
+rate (ask the owner what it is), and play or pause audible within about
+100 ms.
+
 ## What the owner wants
 
 The owner uses **Windows**. What they dislike about Spotify's own app, and
@@ -258,6 +353,8 @@ when the work first needs them, then tick them off here.
   requests with passing CI, and block force pushes. Do this once CI exists.
 - [ ] Create a Spotify developer app at developer.spotify.com and give
   Claude its client ID (it is not a secret with PKCE sign-in).
+- [ ] In the Spotify app: switch audio quality to Lossless, stay signed
+  in, and let it start with Windows, minimised.
 - [ ] Choose a license before making the repository public (MIT is a
   common, simple choice).
 - [ ] Optional, later: Windows code signing, so the installer does not show
