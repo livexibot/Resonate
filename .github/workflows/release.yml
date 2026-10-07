@@ -1,7 +1,8 @@
 # Builds the Windows installer for a release and attaches it, with the
-# update feed that installed copies of Resonate read (Velopack). Called by
-# the Release workflow when a release is created; can also be re-run for an
-# existing tag from the Actions tab.
+# update feed that installed copies of Resonate read (Velopack), and the
+# optional plugins and their helper, which the app downloads only when one
+# is turned on. Called by the Release workflow when a release is created;
+# can also be re-run for an existing tag from the Actions tab.
 name: Build installer
 
 on:
@@ -56,8 +57,45 @@ jobs:
           $version = '${{ inputs.tag }}'.TrimStart('v')
           "value=$version" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
 
+      # The catalog built into the app pins every file below by its SHA-256,
+      # and points at this release's downloads.
+      - name: Publish and pack the plugins
+        shell: pwsh
+        run: |
+          dotnet publish src/Resonate.PluginHost/Resonate.PluginHost.csproj -c Release -r ${{ matrix.rid }} -p:Version=${{ steps.version.outputs.value }} -o plugin-host
+          if ($LASTEXITCODE -ne 0) { throw 'Publishing the plugin helper failed.' }
+          $source = "https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/"
+          dotnet run --project tools/Resonate.PluginPack -c Release -- --plugins plugins --host plugin-host --runtime ${{ matrix.rid }} --source $source --out plugins-out
+          if ($LASTEXITCODE -ne 0) { throw 'Packing the plugins failed.' }
+
       - name: Publish (Native AOT)
-        run: dotnet publish src/Resonate.App/Resonate.App.csproj -c Release -r ${{ matrix.rid }} -p:Platform=${{ matrix.platform }} -p:Version=${{ steps.version.outputs.value }} -o publish
+        run: dotnet publish src/Resonate.App/Resonate.App.csproj -c Release -r ${{ matrix.rid }} -p:Platform=${{ matrix.platform }} -p:Version=${{ steps.version.outputs.value }} "-p:PluginCatalog=${{ github.workspace }}/plugins-out/plugin-catalog.json" -o publish
+
+      # Before the update feed, so an updated copy never looks for plugins
+      # that are not there yet. Both processors pack the same plugin files
+      # byte for byte (fixed dates, no compression), so the second run finds
+      # them there already and checks they match instead of replacing them.
+      - name: Attach the plugins
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = '${{ inputs.tag }}'
+          $existing = (gh release view $tag --repo ${{ github.repository }} --json assets | ConvertFrom-Json).assets.name
+          $check = Join-Path $env:RUNNER_TEMP 'plugin-check'
+          New-Item -ItemType Directory -Force $check | Out-Null
+          foreach ($file in Get-ChildItem plugins-out -Filter '*.zip') {
+            if ($existing -contains $file.Name) {
+              gh release download $tag --repo ${{ github.repository }} --pattern $file.Name --dir $check --clobber
+              $theirs = (Get-FileHash (Join-Path $check $file.Name) -Algorithm SHA256).Hash
+              $ours = (Get-FileHash $file.FullName -Algorithm SHA256).Hash
+              if ($theirs -ne $ours) { throw "$($file.Name) differs from the copy already in the release." }
+              Write-Output "$($file.Name) is already attached."
+            } else {
+              gh release upload $tag $file.FullName --repo ${{ github.repository }}
+              if ($LASTEXITCODE -ne 0) { throw "Attaching $($file.Name) failed." }
+            }
+          }
 
       - name: Package and attach to the release
         shell: pwsh

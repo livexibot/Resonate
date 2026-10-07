@@ -142,6 +142,15 @@
             VerticalAlignment="Center"
             Orientation="Horizontal"
             Spacing="6">
+            <!-- Commands from plugins that are on, such as the sleep timer (see PluginManager). -->
+            <Button
+                x:Name="PluginsButton"
+                AutomationProperties.Name="Plugins"
+                Click="OnPluginsClick"
+                Content="&#xEA86;"
+                Style="{StaticResource ResonateIconButtonStyle}"
+                ToolTipService.ToolTip="Plugins"
+                Visibility="Collapsed" />
             <Button
                 x:Name="MuteButton"
                 AutomationProperties.Name="Mute"

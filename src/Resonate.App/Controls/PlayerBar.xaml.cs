@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Resonate.App.Helpers;
+using Resonate.Plugins;
 using Resonate.Spotify.Playback;
 using Resonate.Themes;
 
@@ -36,6 +37,8 @@ public sealed partial class PlayerBar : UserControl
     private AnimationController? _vinylSpin;
     private double _volumeBeforeMute = 0.5;
     private object? _artworkKey;
+    private PluginManager? _plugins;
+    private int _pluginsQueued;
 
     public PlayerBar()
     {
@@ -61,6 +64,84 @@ public sealed partial class PlayerBar : UserControl
         player.StateChanged += OnStateChanged;
         Show(player.State);
         _clock.Start();
+    }
+
+    /// <summary>Shows the plugin button while a plugin that is on offers commands.</summary>
+    public void AttachPlugins(PluginManager plugins)
+    {
+        _plugins = plugins;
+        plugins.Changed += (_, _) =>
+        {
+            if (Interlocked.Exchange(ref _pluginsQueued, 1) == 0)
+            {
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    Interlocked.Exchange(ref _pluginsQueued, 0);
+                    ShowPlugins();
+                });
+            }
+        };
+        ShowPlugins();
+    }
+
+    private void ShowPlugins()
+    {
+        var active = _plugins?.WithCommands() ?? [];
+        PluginsButton.Visibility = active.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        // What plugins report (a sleep timer counting down) shows in the tooltip, and lights the button.
+        var notes = active.Where(p => !string.IsNullOrEmpty(p.StatusText)).Select(p => $"{p.Manifest.Name}: {p.StatusText}").ToList();
+        ToolTipService.SetToolTip(PluginsButton, notes.Count == 0 ? "Plugins" : string.Join(Environment.NewLine, notes));
+        if (notes.Count == 0)
+        {
+            PluginsButton.ClearValue(ForegroundProperty);
+        }
+        else
+        {
+            PluginsButton.Foreground = App.Services.Theme.GetBrush("ResonateAccentBrush");
+        }
+    }
+
+    private void OnPluginsClick(object sender, RoutedEventArgs e)
+    {
+        if (_plugins is not { } plugins)
+        {
+            return;
+        }
+
+        // Built when opened, so it always shows the plugins' latest commands.
+        var menu = new MenuFlyout { Placement = FlyoutPlacementMode.TopEdgeAlignedRight };
+        var active = plugins.WithCommands();
+        foreach (var plugin in active)
+        {
+            var items = active.Count == 1 ? menu.Items : AddGroup(menu, plugin.Manifest.Name);
+            if (!string.IsNullOrEmpty(plugin.StatusText))
+            {
+                items.Add(new MenuFlyoutItem { Text = plugin.StatusText, IsEnabled = false });
+                items.Add(new MenuFlyoutSeparator());
+            }
+
+            foreach (var command in plugin.Commands)
+            {
+                var item = new MenuFlyoutItem { Text = command.Title };
+                var (id, commandId) = (plugin.Manifest.Id, command.Id);
+                item.Click += (_, _) => plugins.Invoke(id, commandId);
+                items.Add(item);
+            }
+        }
+
+        menu.Items.Add(new MenuFlyoutSeparator());
+        var settings = new MenuFlyoutItem { Text = "Plugin settings" };
+        settings.Click += (_, _) => App.MainWindow?.OpenSettings();
+        menu.Items.Add(settings);
+        menu.ShowAt(PluginsButton);
+    }
+
+    private static IList<MenuFlyoutItemBase> AddGroup(MenuFlyout menu, string name)
+    {
+        var group = new MenuFlyoutSubItem { Text = name };
+        menu.Items.Add(group);
+        return group.Items;
     }
 
     private void OnStateChanged(object? sender, EventArgs e)

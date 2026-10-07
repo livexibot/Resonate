@@ -55,6 +55,16 @@ public sealed record StartupOptions
 
     public string? UpdateCheckResultFile { get; init; }
 
+    /// <summary>
+    /// Install the plugin helper and every plugin from this folder (packed as
+    /// for a release), run them, write the outcome to
+    /// <see cref="PluginCheckResultFile"/>, then quit. CI runs it on the
+    /// installed copy to prove plugins work there.
+    /// </summary>
+    public string? PluginCheckFeed { get; init; }
+
+    public string? PluginCheckResultFile { get; init; }
+
     public static StartupOptions Parse(IReadOnlyList<string> args)
     {
         var options = new StartupOptions();
@@ -76,6 +86,10 @@ public sealed record StartupOptions
                     break;
                 case "--update-check" when next is not null && i + 2 < args.Count:
                     options = options with { UpdateCheckFeed = next, UpdateCheckResultFile = args[i + 2], Demo = true };
+                    i += 2;
+                    break;
+                case "--plugin-check" when next is not null && i + 2 < args.Count:
+                    options = options with { PluginCheckFeed = next, PluginCheckResultFile = args[i + 2], Demo = true };
                     i += 2;
                     break;
             }

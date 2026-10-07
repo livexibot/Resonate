@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Optional plugins, everything except running them: the list of plugins a
+    release offers, downloading and checking one when the user turns it on,
+    its settings, and talking to the helper program that runs them
+    (Resonate.PluginHost). No Windows and no JavaScript engine here, so the
+    app stays as small and fast as before and this is tested on Linux.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Resonate.Plugins</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Resonate.Plugins.Tests" />
+  </ItemGroup>
+
+</Project>

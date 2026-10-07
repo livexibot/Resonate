@@ -55,10 +55,21 @@ internal sealed class ScreenshotTour
                 settings.ShowCustomize();
                 await Task.Delay(600);
                 await CaptureAsync("5-customize.png");
+
+                // The plugins, with the sleep timer turned on (demo mode shows its settings without downloading it).
+                var plugins = App.Services.Plugins;
+                if (plugins.Available.FirstOrDefault(p => p.Id == "sleep-timer") is { } sleepTimer)
+                {
+                    await plugins.EnableAsync(sleepTimer.Id, CancellationToken.None);
+                }
+
+                settings.ShowPlugins();
+                await Task.Delay(800);
+                await CaptureAsync("6-plugins.png");
             }
 
             // Every preset, switched at run time, so the live switching of shapes and fonts is checked too.
-            var number = 6;
+            var number = 7;
             foreach (var preset in ThemePresets.All.Where(p => p != ThemePresets.Default))
             {
                 theme.Select(preset.Id, transition: ThemeTransitionKind.None);

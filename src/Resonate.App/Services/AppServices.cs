@@ -1,6 +1,8 @@
 using System.Net;
 using Resonate.App.Demo;
 using Resonate.App.Themes;
+using Resonate.Plugins;
+using Resonate.Plugins.Installing;
 using Resonate.Spotify.Auth;
 using Resonate.Spotify.Library;
 using Resonate.Spotify.Playback;
@@ -24,6 +26,7 @@ public sealed class AppServices : IDisposable
         PlayerController player,
         ISpotifyAppLauncher launcher,
         ISpotifyAppWindow spotifyWindow,
+        PluginManager plugins,
         HttpClient http)
     {
         IsDemo = isDemo;
@@ -35,6 +38,8 @@ public sealed class AppServices : IDisposable
         Player = player;
         Launcher = launcher;
         SpotifyWindow = spotifyWindow;
+        Plugins = plugins;
+        _owned.Add(plugins);
         Theme = new ThemeService(settings, SaveSettings);
         Artwork = new ArtworkSampler(player, Theme, http);
         _owned.Add(Artwork);
@@ -62,6 +67,9 @@ public sealed class AppServices : IDisposable
 
     /// <summary>The Spotify app's window: hidden in the background, shown on request.</summary>
     public ISpotifyAppWindow SpotifyWindow { get; }
+
+    /// <summary>Optional plugins, downloaded only when turned on in Settings.</summary>
+    public PluginManager Plugins { get; }
 
     /// <summary>The look: presets, the user's own looks, and switching between them.</summary>
     public ThemeService Theme { get; }
@@ -102,8 +110,18 @@ public sealed class AppServices : IDisposable
             new LocalDeviceResolver(api, Environment.MachineName),
             launcher);
 
-        var services = new AppServices(false, settingsStore, settings, account, api, library, player, launcher, background, http);
-        services._owned.AddRange([player, smtc, launcher, background, account, http]);
+        // Plugins download from this release's own files on GitHub, checked against the catalog built into the app.
+        var catalog = LoadPluginCatalog();
+        var pluginPlayer = new PluginPlayer(player);
+        var plugins = new PluginManager(
+            catalog,
+            catalog.Source is { } source ? new PluginInstaller(AppPaths.PluginsFolder, new HttpPluginFeed(http, new Uri(source))) : null,
+            new PluginStateStore(AppPaths.PluginsFile),
+            new ProcessPluginHostLauncher(),
+            pluginPlayer);
+
+        var services = new AppServices(false, settingsStore, settings, account, api, library, player, launcher, background, plugins, http);
+        services._owned.AddRange([pluginPlayer, player, smtc, launcher, background, account, http]);
 
         // At once, so a Spotify already on the taskbar (started with Windows) disappears from it.
         background.Start();
@@ -122,9 +140,23 @@ public sealed class AppServices : IDisposable
         var library = new LibraryService(api, cache: null);
         var player = new PlayerController(demoPlayer, demoPlayer, api, new LocalDeviceResolver(api, Environment.MachineName), demoPlayer);
 
-        var services = new AppServices(true, settingsStore, settings, account, api, library, player, demoPlayer, demoPlayer, http);
-        services._owned.AddRange([player, account, http]);
+        // A preview: plugins can be turned on to see their settings, but nothing downloads or runs.
+        var pluginPlayer = new PluginPlayer(player);
+        var plugins = new PluginManager(LoadPluginCatalog(), installer: null, new PluginStateStore(null), launcher: null, pluginPlayer);
+
+        var services = new AppServices(true, settingsStore, settings, account, api, library, player, demoPlayer, demoPlayer, plugins, http);
+        services._owned.AddRange([pluginPlayer, player, account, http]);
         return services;
+    }
+
+    /// <summary>
+    /// The plugins this build offers, embedded when it was built (CI and
+    /// releases pass -p:PluginCatalog; a local build has none).
+    /// </summary>
+    public static PluginCatalog LoadPluginCatalog()
+    {
+        using var stream = typeof(AppServices).Assembly.GetManifestResourceStream("plugin-catalog.json");
+        return PluginCatalog.Load(stream);
     }
 
     public void SaveSettings()

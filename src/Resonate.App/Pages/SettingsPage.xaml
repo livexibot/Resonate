@@ -57,6 +57,9 @@
                 </StackPanel>
             </StackPanel>
 
+            <!-- Plugins: optional extras, downloaded only when turned on (built in code, see PluginsPanel.cs) -->
+            <StackPanel x:Name="PluginsHost" />
+
             <!-- Account -->
             <StackPanel Spacing="12">
                 <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Spotify account" />

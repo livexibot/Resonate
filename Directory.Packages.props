@@ -5,6 +5,8 @@
     <PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
     <PackageVersion Include="Microsoft.Windows.CsWinRT" Version="2.3.1" />
     <PackageVersion Include="Velopack" Version="1.2.161" />
+    <!-- Plugin helper: a JavaScript engine written in .NET that works with Native AOT -->
+    <PackageVersion Include="Jint" Version="4.17.0" />
     <!-- Tests -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
