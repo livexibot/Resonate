@@ -507,6 +507,11 @@ public sealed class LocalPlayer : ILocalPlayer
             Raise();
             UpdateNext();
         }
+        catch (LocalAudioException ex) when (ex.IsDeviceProblem)
+        {
+            _openPath = null;
+            Halt(ex.Message);
+        }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _openPath = null;
@@ -639,6 +644,18 @@ public sealed class LocalPlayer : ILocalPlayer
 
     private void OnEngineFailed(object? sender, string message)
     {
+        // Play opens the file again, on whatever sound device there is then.
+        _ = _transport.Enqueue(_ =>
+        {
+            _openPath = null;
+            return Task.CompletedTask;
+        });
+        Halt(message);
+    }
+
+    /// <summary>Pauses where the song is and tells the user why.</summary>
+    private void Halt(string message)
+    {
         lock (_gate)
         {
             var now = _time.GetUtcNow();
@@ -646,12 +663,6 @@ public sealed class LocalPlayer : ILocalPlayer
             SetState(_state with { IsPlaying = false, Position = _state.PositionAt(now), PositionTimestamp = now });
         }
 
-        // Play opens the file again, on whatever sound device there is then.
-        _ = _transport.Enqueue(_ =>
-        {
-            _openPath = null;
-            return Task.CompletedTask;
-        });
         Raise();
         ErrorOccurred?.Invoke(this, message);
     }

@@ -20,6 +20,9 @@ internal sealed class FakeAudioEngine : ILocalAudioEngine
     /// <summary>Files that can not be played.</summary>
     public HashSet<string> Broken { get; } = [];
 
+    /// <summary>When set, opening any file fails as if there were no sound device.</summary>
+    public bool NoDevice { get; set; }
+
     /// <summary>When set, play, pause and open wait for it, so commands pile up behind them.</summary>
     public TaskCompletionSource? Hold { get; set; }
 
@@ -52,6 +55,11 @@ internal sealed class FakeAudioEngine : ILocalAudioEngine
     {
         Record($"open {path} {position.TotalSeconds} {(play ? "play" : "paused")}");
         await WaitAsync().ConfigureAwait(false);
+        if (NoDevice)
+        {
+            throw new LocalAudioException("No sound device.") { IsDeviceProblem = true };
+        }
+
         if (Broken.Contains(path))
         {
             throw new LocalAudioException($"Can not play {path}.");

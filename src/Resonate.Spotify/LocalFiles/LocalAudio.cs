@@ -68,6 +68,9 @@ public sealed class LocalAudioException : Exception
         : base(message, innerException)
     {
     }
+
+    /// <summary>Nothing can play (no sound device), so skipping to the next file would not help.</summary>
+    public bool IsDeviceProblem { get; init; }
 }
 
 public enum LocalControlButton

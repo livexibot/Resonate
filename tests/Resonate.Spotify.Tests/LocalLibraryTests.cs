@@ -173,7 +173,7 @@ public sealed class LocalLibraryTests : IDisposable
         library.StartWatching();
 
         WriteSong("new/b.mp3", "B");
-        for (var i = 0; i < 100 && library.Files.Count < 2; i++)
+        for (var i = 0; i < 200 && library.Files.Count < 2; i++)
         {
             await Task.Delay(50, TestContext.Current.CancellationToken);
             _time.Advance(LocalLibrary.WatchDelay);

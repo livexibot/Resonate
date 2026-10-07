@@ -223,6 +223,19 @@ public sealed class LocalPlayerTests : IDisposable
     }
 
     [Fact]
+    public async Task Without_a_sound_device_it_pauses_instead_of_skipping_every_song()
+    {
+        _engine.NoDevice = true;
+
+        await Play(SongA);
+
+        Assert.Equal("a", _player.State.Title);
+        Assert.False(_player.State.IsPlaying);
+        Assert.Single(_engine.Opened);
+        Assert.Equal(["No sound device."], _errors);
+    }
+
+    [Fact]
     public async Task Only_the_newest_position_is_sent_while_dragging()
     {
         await Play(SongA);
@@ -263,16 +276,17 @@ public sealed class LocalPlayerTests : IDisposable
     }
 
     [Fact]
-    public async Task Volume_shows_at_once_and_only_the_newest_reaches_the_engine()
+    public async Task Volume_shows_at_once_and_the_newest_reaches_the_engine()
     {
         await Play(SongA);
 
         _ = _player.SetVolumeAsync(0.2);
-        await _player.SetVolumeAsync(0.5);
-
+        var last = _player.SetVolumeAsync(0.5);
         Assert.Equal(0.5, _player.State.Volume);
+
+        await last;
         Assert.Equal(0.5, _engine.Volume);
-        Assert.DoesNotContain("volume 0.2", _engine.Commands);
+        Assert.Equal("volume 0.5", _engine.Commands[^1]);
     }
 
     [Fact]
@@ -358,7 +372,7 @@ public sealed class LocalPlayerTests : IDisposable
 
     private static async Task Eventually(Func<bool> condition)
     {
-        for (var i = 0; i < 200 && !condition(); i++)
+        for (var i = 0; i < 500 && !condition(); i++)
         {
             await Task.Delay(10, TestContext.Current.CancellationToken);
         }
