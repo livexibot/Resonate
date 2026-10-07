@@ -23,6 +23,12 @@ public sealed record PlayRequest(
     /// </summary>
     public bool? Shuffle { get; init; }
 
+    /// <summary>
+    /// <see cref="Tracks"/> is only the first part of the list (the page has
+    /// not loaded the rest yet), so <see cref="ContextUri"/> holds more songs.
+    /// </summary>
+    public bool IsPartial { get; init; }
+
     /// <summary>The song to start with, when the user picked one.</summary>
     public TrackInfo? StartTrack => StartIndex >= 0 && StartIndex < Tracks.Count ? Tracks[StartIndex] : null;
 

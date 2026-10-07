@@ -97,6 +97,9 @@ internal sealed class ListSession
     /// <summary>The user picked a song (rather than playing the list from its start).</summary>
     public bool Picked { get; private init; }
 
+    /// <summary>Resonate was given only the first part of the list (see <see cref="PlayRequest.IsPartial"/>).</summary>
+    public bool IsPartial { get; private init; }
+
     /// <summary>The song playing now is not in the list (a queued song), so <see cref="Index"/> is the list's last one.</summary>
     public bool PlayingOther { get; set; }
 
@@ -137,6 +140,7 @@ internal sealed class ListSession
                     Picked = true,
                     StartsWithNextSong = shuffle,
                     WaitingFrom = shuffle ? request.StartIndex : -1,
+                    IsPartial = request.IsPartial,
                 };
             }
 
@@ -159,6 +163,7 @@ internal sealed class ListSession
             return new ListSession(all, playable, request.ContextUri, request.SourceName, false, inContext: true, all.ToList(), Math.Max(0, index), nextInt)
             {
                 Picked = picked is not null,
+                IsPartial = request.IsPartial,
             };
         }
 
@@ -398,6 +403,7 @@ internal sealed class ListSession
         new(All, Playable, ContextUri, SourceName, shuffle, InContext, Order, from, _nextInt)
         {
             Picked = true,
+            IsPartial = IsPartial,
             StartsWithNextSong = true,
             WaitingFrom = from,
             WindowStart = WindowStart,

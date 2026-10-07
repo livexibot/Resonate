@@ -325,12 +325,12 @@ public sealed class ListPlaybackTests : IDisposable
     }
 
     [Fact]
-    public async Task Shuffle_is_Spotifys_own_while_the_playlist_plays_a_song_Resonate_has_not_listed()
+    public async Task Shuffle_is_Spotifys_own_for_a_playlist_Resonate_has_only_the_first_songs_of()
     {
-        // Resonate knows only some of the playlist's songs (the first ones, or a playlist changed since).
+        // The page played the playlist before all its songs had loaded.
         var known = Songs(4);
         await StartAsync();
-        await _player.PlayAsync(new PlayRequest(known, 1, Playlist, "Mix") { Shuffle = false });
+        await _player.PlayAsync(new PlayRequest(known, 1, Playlist, "Mix") { Shuffle = false, IsPartial = true });
         Playing(known[1]);
         var unlisted = Song(50);
         Playing(unlisted);
@@ -356,26 +356,54 @@ public sealed class ListPlaybackTests : IDisposable
     }
 
     [Fact]
+    public async Task A_queued_song_inside_a_whole_playlist_keeps_Resonates_shuffle()
+    {
+        var songs = Songs(4);
+        await StartAsync();
+        await _player.PlayAsync(new PlayRequest(songs, 1, Playlist, "Mix") { Shuffle = false });
+        Playing(songs[1]);
+        Playing(Song(50));
+        _web.Commands.Clear();
+        _web.PlayBodies.Clear();
+
+        await _player.SetShuffleAsync(true);
+
+        // Nothing to send while the queued song plays, and never Spotify's own shuffle.
+        Assert.True(_player.State.Shuffle);
+        Assert.DoesNotContain("shuffle on@here", _web.Commands);
+        Assert.Empty(_web.PlayBodies);
+
+        // The playlist's next song starts Resonate's random order of the whole list.
+        Playing(songs[2]);
+        await AfterQueuedCommandsAsync();
+        var body = Assert.Single(_web.PlayBodies)!;
+        Assert.Null(body.ContextUri);
+        Assert.Equal(songs[2].Uri, body.Uris![0]);
+        Assert.Equal(songs.Select(t => t.Uri).Order(), body.Uris.Order());
+    }
+
+    [Fact]
     public async Task A_failed_switch_to_Spotifys_shuffle_keeps_the_list()
     {
         var known = Songs(4);
         await StartAsync();
-        await _player.PlayAsync(new PlayRequest(known, 1, Playlist, "Mix") { Shuffle = false });
+        await _player.PlayAsync(new PlayRequest(known, 1, Playlist, "Mix") { Shuffle = false, IsPartial = true });
         Playing(known[1]);
-        Playing(Song(50));
         _web.FailNextCommand = new HttpRequestException("offline");
 
         await _player.SetShuffleAsync(true);
 
         Assert.False(_player.State.Shuffle);
         Assert.Single(_errors);
+        Assert.Equal("Mix", _player.State.SourceName);
 
-        // The list is Resonate's again: once one of its songs plays, shuffle is Resonate's order.
-        Playing(known[2]);
+        // The list is back, still known to be partial: the next try is Spotify's shuffle again.
+        _web.Commands.Clear();
         _web.PlayBodies.Clear();
         await _player.SetShuffleAsync(true);
-        var body = Assert.Single(_web.PlayBodies)!;
-        Assert.Equal(known[2].Uri, body.Uris![0]);
+        Assert.True(_player.State.Shuffle);
+        Assert.Equal(["shuffle on@here"], _web.Commands);
+        Assert.Empty(_web.PlayBodies);
     }
 
     [Fact]

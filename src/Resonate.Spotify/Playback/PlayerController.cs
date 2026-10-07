@@ -377,8 +377,8 @@ public sealed class PlayerController : IPlayer, IDisposable
     /// random order: the rest of the list is planned again after the current
     /// song (which keeps playing where it is). Otherwise (music started
     /// elsewhere, a list whose songs Spotify does not share, or a playlist or
-    /// album that plays a song Resonate's copy of it lacks) it is Spotify's
-    /// own shuffle. Optimistic like every command.
+    /// album Resonate has only the first part of) it is Spotify's own
+    /// shuffle. Optimistic like every command.
     /// </summary>
     public Task SetShuffleAsync(bool shuffle)
     {
@@ -400,11 +400,11 @@ public sealed class PlayerController : IPlayer, IDisposable
             previous = _session;
             _shuffleHold = new Hold<bool>(shuffle, now + PlayStateHold);
             var state = _state with { Shuffle = shuffle };
-            if (previous is { InContext: true, PlayingOther: true })
+            if (previous is { InContext: true, IsPartial: true })
             {
-                // Spotify plays the playlist or album itself, at a song that is not in
-                // Resonate's copy of it (not all loaded, added since, or queued): an order
-                // made from that copy would leave songs out, so Spotify shuffles it.
+                // Spotify plays the playlist or album itself, and Resonate has only its
+                // first songs: an order made from them would leave the rest out, so
+                // Spotify shuffles it.
                 _session = null;
                 _sourceContext = previous.ContextUri;
             }

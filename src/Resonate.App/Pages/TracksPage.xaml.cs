@@ -645,11 +645,10 @@ public sealed partial class TracksPage : Page
     {
         var picked = index >= 0 ? _shown[index] : null;
 
-        // A random order needs every song, and so does following the list
-        // inside its playlist or album (or shuffling it later): wait for the
-        // rest if only the first ones are here.
-        var needsAll = (shuffle ?? _services.Player.State.Shuffle) || (InOwnOrder && _source.ContextUri is not null);
-        if (needsAll && !_complete && _fullLoad is { } full)
+        // A random order needs every song; wait for the rest if only the first
+        // ones are here. In order, it plays at once (inside its playlist or
+        // album, Spotify has every song; the player is told the list is partial).
+        if ((shuffle ?? _services.Player.State.Shuffle) && !_complete && _fullLoad is { } full)
         {
             try
             {
@@ -666,6 +665,7 @@ public sealed partial class TracksPage : Page
         var request = new PlayRequest(_shown.ToList(), index, InOwnOrder ? _source.ContextUri : null, _header.Title)
         {
             Shuffle = shuffle,
+            IsPartial = !_complete,
         };
         App.MainWindow?.NoteListPlayed(_source.Key);
         await _services.Player.PlayAsync(request);
