@@ -28,11 +28,11 @@ visitors; keep it short and in step with this file.
   volume finds Spotify, and that `--minimized` keeps Spotify hidden.
 - The two oldest commits are authored "Claude". Fixing that needs a force
   push, which the permission system blocked. Ask the owner before trying.
-- Pull request #1 could not be squash-merged: GitHub answered every squash
-  (web and API) with an empty HTTP 500, so the owner merged it with a merge
-  commit. That merge commit carries the owner's account email
-  (`livexibot@gmail.com`), not the private no-reply address. If squash keeps
-  failing on later pull requests, find out why before merging another way.
+- Pull request #1 could not be squash-merged (GitHub answered with an empty
+  HTTP 500), so its merge commit carries the owner's account email
+  (`livexibot@gmail.com`). Squash merging has worked since pull request #7
+  and credits the private no-reply address. If it fails again, find out why
+  before merging another way.
 - The permission system has refused force pushes, deleting branches,
   rewriting history, making release signing optional, and a workflow that
   publishes releases on its own. When a step is refused, explain it to the

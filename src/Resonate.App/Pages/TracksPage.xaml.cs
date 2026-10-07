@@ -709,7 +709,6 @@ public sealed partial class TracksPage : Page
         Grid.SetRow(FilterBox, compact ? 1 : 0);
         Grid.SetColumn(FilterBox, compact ? 0 : 4);
         Grid.SetColumnSpan(FilterBox, compact ? 5 : 1);
-        FilterBox.Width = compact ? double.NaN : 200;
         Grid.SetRow(SortButton, compact ? 1 : 0);
         SortText.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         OpenInSpotifyText.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;

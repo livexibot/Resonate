@@ -79,12 +79,13 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
+                        <!-- The filter takes nearly all the free space, up to 220, and shrinks before the sort button is cut off. -->
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="100*" MaxWidth="220" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Button
@@ -129,7 +130,6 @@
                         <TextBox
                             x:Name="FilterBox"
                             Grid.Column="4"
-                            Width="200"
                             VerticalAlignment="Center"
                             AutomationProperties.Name="Filter songs"
                             PlaceholderText="Filter"
