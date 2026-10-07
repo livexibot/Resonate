@@ -83,6 +83,8 @@ public sealed partial class SearchPage : Page
 
         if (query.Length == 0)
         {
+            // A search cancelled above leaves the ring to the newest call, which is this one.
+            SearchingRing.IsActive = false;
             Show(null);
             return;
         }
@@ -91,6 +93,9 @@ public sealed partial class SearchPage : Page
         {
             // Wait for a pause in typing so each key press does not cost a request.
             await Task.Delay(wait, token);
+
+            // A newer call may have run before this one resumed; the ring is its now.
+            token.ThrowIfCancellationRequested();
             SearchingRing.IsActive = Songs.Count == 0;
             var library = _services.Library;
             var results = await Task.Run(() => library.SearchAsync(query, token), token);

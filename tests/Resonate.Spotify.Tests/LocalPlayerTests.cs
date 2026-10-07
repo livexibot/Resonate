@@ -227,6 +227,25 @@ public sealed class LocalPlayerTests : IDisposable
     }
 
     [Fact]
+    public async Task Pressing_play_on_a_song_that_could_not_play_tries_it_again_and_says_why()
+    {
+        _engine.Broken.Add(SongC.FilePath!);
+
+        await Play(SongC);
+
+        Assert.Equal("c", _player.State.Title);
+        Assert.False(_player.State.IsPlaying);
+        Assert.Single(_errors);
+
+        await _player.PlayAsync();
+        await _player.WhenIdleAsync();
+
+        Assert.Equal([SongC.FilePath!, SongC.FilePath!], _engine.Opened);
+        Assert.False(_player.State.IsPlaying);
+        Assert.Equal(2, _errors.Count);
+    }
+
+    [Fact]
     public async Task Without_a_sound_device_it_pauses_instead_of_skipping_every_song()
     {
         _engine.NoDevice = true;

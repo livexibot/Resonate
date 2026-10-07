@@ -58,6 +58,9 @@ public sealed partial class TracksPage : Page
     private TrackRow? _dragged;
     private int _dragFrom = -1;
 
+    /// <summary>A move or removal is on its way to Spotify; no other starts until it is done, as the next counts from the positions it gives.</summary>
+    private bool _editing;
+
     public TracksPage()
     {
         InitializeComponent();
@@ -624,7 +627,7 @@ public sealed partial class TracksPage : Page
             e.Handled = true;
             _ = PlayAsync(row);
         }
-        else if (e.Key == VirtualKey.Delete && _source.CanEdit && _complete)
+        else if (e.Key == VirtualKey.Delete && _source.CanEdit && _complete && !_editing)
         {
             e.Handled = true;
             _ = RemoveAsync(row);
@@ -648,7 +651,9 @@ public sealed partial class TracksPage : Page
     {
         var picked = index >= 0 ? _shown[index] : null;
 
-        // A random order needs every song; wait for the rest if only the first ones are here.
+        // A random order needs every song; wait for the rest if only the first
+        // ones are here. In order, it plays at once (inside its playlist or
+        // album, Spotify has every song; the player is told the list is partial).
         if ((shuffle ?? _services.Player.State.Shuffle) && !_complete && _fullLoad is { } full)
         {
             try
@@ -666,6 +671,7 @@ public sealed partial class TracksPage : Page
         var request = new PlayRequest(_shown.ToList(), index, InOwnOrder ? _source.ContextUri : null, _header.Title)
         {
             Shuffle = shuffle,
+            IsPartial = !_complete,
         };
         App.MainWindow?.NoteListPlayed(_source.Key);
         await _services.Player.PlayAsync(request);
@@ -798,7 +804,7 @@ public sealed partial class TracksPage : Page
         var options = new TrackMenuOptions
         {
             Play = () => _ = PlayAsync(row),
-            Remove = _source.CanEdit && _complete ? () => _ = RemoveAsync(row) : null,
+            Remove = _source.CanEdit && _complete && !_editing ? () => _ = RemoveAsync(row) : null,
             CurrentPlaylistId = (_source as PlaylistSource)?.PlaylistId,
         };
         TrackActions.ShowMenu(TrackActions.BuildMenu(row.Track, options), TrackList, args);
@@ -806,6 +812,12 @@ public sealed partial class TracksPage : Page
 
     private async Task RemoveAsync(TrackRow row)
     {
+        if (_editing)
+        {
+            return;
+        }
+
+        _editing = true;
         var before = _all.ToList();
         var track = row.Track;
         RemoveRows(t => t.Uri == track.Uri);
@@ -814,11 +826,19 @@ public sealed partial class TracksPage : Page
         try
         {
             await Task.Run(() => _source.RemoveAsync(before, track, CancellationToken.None));
+            if (track.Uri is { } uri)
+            {
+                UsePositions(LibraryService.AfterRemove(before, uri));
+            }
         }
         catch (Exception ex)
         {
             App.MainWindow?.ShowMessage(PlayerController.DescribeError(ex), InfoBarSeverity.Warning);
             ShowAll(new FullTrackList(before, ItemsHidden: false));
+        }
+        finally
+        {
+            _editing = false;
         }
     }
 
@@ -839,7 +859,7 @@ public sealed partial class TracksPage : Page
 
     private void OnDragItemsStarting(object sender, DragItemsStartingEventArgs e)
     {
-        _dragged = e.Items.Count == 1 ? e.Items[0] as TrackRow : null;
+        _dragged = e.Items.Count == 1 && !_editing ? e.Items[0] as TrackRow : null;
         _dragFrom = _dragged is null ? -1 : _rows.IndexOf(_dragged);
         if (_dragged is null)
         {
@@ -863,6 +883,7 @@ public sealed partial class TracksPage : Page
             return;
         }
 
+        _editing = true;
         var before = _all.ToList();
         _all = _rows.Select(r => r.Track).ToList();
         _shown = _all.ToList();
@@ -870,36 +891,58 @@ public sealed partial class TracksPage : Page
         try
         {
             await Task.Run(() => _source.MoveAsync(before, from, to, CancellationToken.None));
-            RenumberPositions();
+            UsePositions(LibraryService.AfterMove(before, from, to));
         }
         catch (Exception ex)
         {
             App.MainWindow?.ShowMessage(PlayerController.DescribeError(ex), InfoBarSeverity.Warning);
             ShowAll(new FullTrackList(before, ItemsHidden: false));
         }
+        finally
+        {
+            _editing = false;
+        }
     }
 
-    /// <summary>After a move, songs sit at new positions in the playlist; the next move counts from them.</summary>
-    private void RenumberPositions()
+    /// <summary>
+    /// After a move or removal, songs sit at new positions in the playlist;
+    /// the next change counts from them. <paramref name="updated"/> holds
+    /// the same songs as the page, in the same order.
+    /// </summary>
+    private void UsePositions(List<TrackInfo> updated)
     {
+        if (!updated.Select(t => t.Uri).SequenceEqual(_all.Select(t => t.Uri)))
+        {
+            return;
+        }
+
+        var replaced = new Dictionary<TrackInfo, TrackInfo>(ReferenceEqualityComparer.Instance);
         for (var i = 0; i < _all.Count; i++)
         {
-            var old = _all[i];
-            if (old.Position == i)
+            if (!ReferenceEquals(_all[i], updated[i]))
             {
-                continue;
-            }
-
-            var moved = old with { Position = i };
-            _all[i] = moved;
-            if (_rowCache.Remove(old, out var row))
-            {
-                row.Replace(moved);
-                _rowCache[moved] = row;
+                replaced[_all[i]] = updated[i];
+                _all[i] = updated[i];
             }
         }
 
-        _shown = _all.ToList();
+        // The order shown may be sorted differently by now.
+        for (var i = 0; i < _shown.Count; i++)
+        {
+            if (replaced.TryGetValue(_shown[i], out var now))
+            {
+                _shown[i] = now;
+            }
+        }
+
+        foreach (var (old, now) in replaced)
+        {
+            if (_rowCache.Remove(old, out var row))
+            {
+                row.Replace(now);
+                _rowCache[now] = row;
+            }
+        }
     }
 
     // ---- The playing song ----

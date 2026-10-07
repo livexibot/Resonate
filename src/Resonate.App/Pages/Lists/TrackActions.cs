@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -245,8 +246,16 @@ public static class TrackActions
     {
         var package = new DataPackage();
         package.SetText(text);
-        Clipboard.SetContent(package);
-        App.MainWindow?.ShowMessage("Link copied.", InfoBarSeverity.Informational);
+        try
+        {
+            Clipboard.SetContent(package);
+            App.MainWindow?.ShowMessage("Link copied.", InfoBarSeverity.Informational);
+        }
+        catch (COMException)
+        {
+            // Another app is holding the clipboard. This runs from a menu's Click, so it must not throw.
+            App.MainWindow?.ShowMessage("The clipboard is busy. Try again in a moment.", InfoBarSeverity.Warning);
+        }
     }
 
     private static async Task AddToNewPlaylistAsync(IReadOnlyList<TrackInfo> tracks)

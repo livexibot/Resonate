@@ -99,6 +99,30 @@ public sealed class TagReaderTests
     }
 
     [Fact]
+    public void Id3v24_covers_larger_than_the_read_window_keep_their_place()
+    {
+        // Bigger than the reader's 16 KB window, so finding the frame's size
+        // reads past it; the bytes after the cover must not pass for its flags
+        // ('O' is 0x4F, which would mean compressed; 0x02 would mean
+        // unsynchronised, which spoils the picture's FF 00 bytes).
+        byte[] image = [.. Jpeg, .. Enumerable.Repeat((byte)0x55, 40 * 1024)];
+        var album = new string('O', 100);
+        var followed = Concat(
+            Id3Tag(4, 0, Frame24("TIT2", Latin1Text("Big Cover")), Frame24("APIC", Apic("image/jpeg", 3, string.Empty, image)), Frame24("TALB", Latin1Text(album))),
+            MpegFrames(3));
+        var last = Concat(
+            Id3Tag(4, 0, Frame24("TIT2", Latin1Text("Big Cover")), Frame24("APIC", Apic("image/jpeg", 3, string.Empty, image))),
+            Enumerable.Repeat((byte)0x02, 2000).ToArray());
+
+        var tags = Read(followed, "big.mp3");
+        var lastTags = Read(last, "last.mp3");
+
+        Assert.Equal(album, tags.Album);
+        Assert.Equal(image, ReadCover(followed, tags.Cover!));
+        Assert.Equal(image, ReadCover(last, lastTags.Cover!));
+    }
+
+    [Fact]
     public void Whole_tag_unsynchronisation_is_undone_and_the_cover_reads_back()
     {
         byte[] image = [.. Jpeg, 0xFF, 0xFF, 0xE2, 0x00];

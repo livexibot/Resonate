@@ -145,7 +145,9 @@ public sealed partial class MainWindow : Window
         }
         else
         {
+            // Signed in again, perhaps as someone else: their playlists and hearts.
             _ = RefreshLibraryAsync();
+            _ = LoadLikesAsync(_lifetime.Token);
         }
     }
 
@@ -182,6 +184,11 @@ public sealed partial class MainWindow : Window
         SignInFrame.Visibility = Visibility.Visible;
         SignInFrame.Navigate(typeof(SignInPage), null, new SuppressNavigationTransitionInfo());
         _currentKey = null;
+
+        // Back leads nowhere from the sign-in page; signing in starts again at Home.
+        _history.Clear();
+        BackButton.Visibility = Visibility.Collapsed;
+        UpdateTitleBarPassthrough();
     }
 
     /// <summary>
@@ -204,7 +211,7 @@ public sealed partial class MainWindow : Window
     /// <summary>Goes back to the page before, like a browser's Back button.</summary>
     public void GoBack()
     {
-        if (_history.Count == 0)
+        if (_history.Count == 0 || ShellGrid.Visibility != Visibility.Visible)
         {
             return;
         }
@@ -483,7 +490,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>Reads Liked Songs once, so every heart is right (from the stored copy when it is current).</summary>
+    /// <summary>Reads Liked Songs, so every heart is right (from the stored copy when it is current).</summary>
     private async Task LoadLikesAsync(CancellationToken token)
     {
         try
@@ -499,7 +506,10 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>Saves new plays (and makes the day's mixes when the day changed) now and every half hour.</summary>
+    /// <summary>
+    /// Saves new plays (and makes the day's mixes when the day changed) now
+    /// and every half hour, and reads Liked Songs again if that failed before.
+    /// </summary>
     private async Task KeepListeningHistoryAsync(CancellationToken token)
     {
         try
@@ -516,6 +526,12 @@ public sealed partial class MainWindow : Window
                 }
 
                 await Task.Delay(ListeningHistoryInterval, token);
+
+                // Offline at start, say: the hearts still need Liked Songs.
+                if (!_services.Likes.IsLoaded)
+                {
+                    await LoadLikesAsync(token);
+                }
             }
         }
         catch (OperationCanceledException)

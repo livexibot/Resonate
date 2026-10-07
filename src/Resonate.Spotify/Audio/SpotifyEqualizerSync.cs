@@ -77,6 +77,7 @@ public sealed class SpotifyEqualizerSync
     private readonly ISpotifyAppLauncher _launcher;
     private readonly ISpotifyAppRestarter? _restarter;
     private readonly PlayerController? _player;
+    private readonly Func<bool>? _resumeAllowed;
     private readonly TimeProvider _time;
     private readonly Lock _gate = new();
     private EqualizerSettings? _pending;
@@ -86,13 +87,19 @@ public sealed class SpotifyEqualizerSync
     /// <param name="restarter">Restarts Spotify; null where that is not possible.</param>
     /// <param name="player">The Spotify player, to put back what was playing after a restart.</param>
     /// <param name="pending">A change kept from the last session that Spotify has not been given yet.</param>
+    /// <param name="time">The clock; the system's when null (tests pass their own).</param>
+    /// <param name="resumeAllowed">
+    /// Whether Spotify's music may still be put back after a restart; false
+    /// once something else plays (such as the user's own music files).
+    /// </param>
     public SpotifyEqualizerSync(
         IReadOnlyList<string> spotifyFolders,
         ISpotifyAppLauncher launcher,
         ISpotifyAppRestarter? restarter,
         PlayerController? player,
         EqualizerSettings? pending = null,
-        TimeProvider? time = null)
+        TimeProvider? time = null,
+        Func<bool>? resumeAllowed = null)
     {
         _spotifyFolders = spotifyFolders;
         _launcher = launcher;
@@ -100,6 +107,7 @@ public sealed class SpotifyEqualizerSync
         _player = player;
         _pending = pending;
         _time = time ?? TimeProvider.System;
+        _resumeAllowed = resumeAllowed;
     }
 
     /// <summary>Raised on any thread when <see cref="Pending"/> changes.</summary>
@@ -200,7 +208,8 @@ public sealed class SpotifyEqualizerSync
     /// Restarts the Spotify app so it uses the pending change now: notes what
     /// plays and where, pauses it, closes Spotify, writes its settings, starts
     /// it again hidden, then puts the song back where it was (see
-    /// <see cref="PlayerController.ResumeAsync"/>).
+    /// <see cref="PlayerController.ResumeAsync"/>), unless the user played
+    /// something else meanwhile.
     /// </summary>
     public async Task<SpotifyRestartOutcome> RestartSpotifyAsync(CancellationToken cancellationToken)
     {
@@ -217,6 +226,9 @@ public sealed class SpotifyEqualizerSync
             await _player!.PauseAsync().ConfigureAwait(false);
         }
 
+        // From here on, anything the user plays, pauses or picks wins over putting the song back.
+        var commands = _player?.UserCommandCount ?? 0;
+
         var applied = false;
         var restart = await _restarter.RestartAsync(
             () =>
@@ -229,16 +241,18 @@ public sealed class SpotifyEqualizerSync
             cancellationToken).ConfigureAwait(false);
 
         var resume = ResumeOutcome.NothingToResume;
-        if (_player is not null && before is { HasTrack: true })
+        if (_player is { } player && before is { HasTrack: true })
         {
+            bool StillWanted() => player.UserCommandCount == commands && (_resumeAllowed is null || _resumeAllowed());
+
             if (restart == SpotifyRestartStatus.Restarted)
             {
-                resume = await _player.ResumeAsync(before, position, ResumeTimeout, cancellationToken).ConfigureAwait(false);
+                resume = await player.ResumeAsync(before, position, ResumeTimeout, StillWanted, cancellationToken).ConfigureAwait(false);
             }
-            else if (restart == SpotifyRestartStatus.CouldNotClose && before.IsPlaying)
+            else if (restart == SpotifyRestartStatus.CouldNotClose && before.IsPlaying && StillWanted())
             {
                 // Spotify kept running, paused by Resonate: play on.
-                await _player.PlayAsync().ConfigureAwait(false);
+                await player.PlayAsync().ConfigureAwait(false);
                 resume = ResumeOutcome.Playing;
             }
         }

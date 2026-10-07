@@ -269,6 +269,89 @@ public sealed class LikedSongsTests : IDisposable
         Assert.Null(Assert.Single(_changes).Track);
     }
 
+    [Fact]
+    public async Task Signing_out_forgets_the_hearts_and_the_next_account_gets_its_own()
+    {
+        _web.SavedTracks.Add(Saved("a"));
+        await _likes.LoadAsync(TestContext.Current.CancellationToken);
+        _changes.Clear();
+
+        _likes.Forget();
+
+        Assert.False(_likes.IsLoaded);
+        Assert.False(_likes.IsLiked("spotify:track:a"));
+        Assert.Null(Assert.Single(_changes).Track);
+
+        _web.SavedTracks.Clear();
+        _web.SavedTracks.Add(Saved("b"));
+        await _likes.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(_likes.IsLiked("spotify:track:b"));
+        Assert.False(_likes.IsLiked("spotify:track:a"));
+    }
+
+    [Fact]
+    public async Task A_list_still_loading_when_signing_out_is_not_used()
+    {
+        _web.SavedTracks.Add(Saved("a"));
+        var answer = new TaskCompletionSource();
+        _web.HoldSavedTrackReads = answer.Task;
+        var loading = _likes.LoadAsync(TestContext.Current.CancellationToken);
+
+        _likes.Forget();
+        answer.SetResult();
+        await loading;
+
+        Assert.False(_likes.IsLoaded);
+        Assert.False(_likes.IsLiked("spotify:track:a"));
+    }
+
+    [Fact]
+    public async Task A_heart_clicked_while_the_list_loads_stays_as_clicked()
+    {
+        _web.SavedTracks.Add(Saved("a"));
+        var answer = new TaskCompletionSource();
+        _web.HoldSavedTrackReads = answer.Task;
+        var loading = _likes.LoadAsync(TestContext.Current.CancellationToken);
+
+        // Spotify's answer was made before these clicks.
+        var liking = _likes.SetLikedAsync(Song("b"), liked: true, TestContext.Current.CancellationToken);
+        var unliking = _likes.SetLikedAsync(Song("a"), liked: false, TestContext.Current.CancellationToken);
+        answer.SetResult();
+        await loading;
+        await liking;
+        await unliking;
+
+        Assert.True(_likes.IsLiked("spotify:track:b"));
+        Assert.False(_likes.IsLiked("spotify:track:a"));
+    }
+
+    [Fact]
+    public async Task Unliking_before_the_list_is_read_still_reaches_Spotify()
+    {
+        // Liked Songs shows every heart filled before the whole list is read.
+        await _likes.SetLikedAsync(Song("a"), liked: false, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["unsave spotify:track:a"], _web.Commands);
+        Assert.False(Assert.Single(_changes).IsLiked);
+    }
+
+    [Fact]
+    public async Task Unliking_a_song_liked_in_another_app_since_reaches_Spotify()
+    {
+        await _likes.LoadAsync(TestContext.Current.CancellationToken);
+        _web.SavedTracks.Add(Saved("a"));
+        _changes.Clear();
+
+        await _likes.SetLikedAsync(Song("a"), liked: false, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["unsave spotify:track:a"], _web.Commands);
+        Assert.False(Assert.Single(_changes).IsLiked);
+    }
+
+    private static SavedTrack Saved(string id) =>
+        new() { Track = new PlayableItem { Name = $"Song {id}", Uri = $"spotify:track:{id}", DurationMs = 1000 } };
+
     private static TrackInfo Song(string id) =>
         new($"spotify:track:{id}", $"Song {id}", "Band", "Record", null, TimeSpan.FromSeconds(200), null, null, IsExplicit: false, IsPlayable: true);
 }
@@ -325,18 +408,36 @@ public sealed class PlaylistEditingTests : IDisposable
     }
 
     [Fact]
-    public async Task A_move_in_a_list_without_gaps_keeps_the_stored_copy_in_step()
+    public async Task After_a_move_the_next_visit_shows_songs_added_on_another_device()
     {
         await _library.RefreshAsync(TestContext.Current.CancellationToken);
+        _web.PlaylistEntries["p"] = Enumerable.Range(0, 4).Select(Entry).ToList();
+        var shown = await _library.GetAllPlaylistTracksAsync("p", null, TestContext.Current.CancellationToken);
 
-        await _library.MovePlaylistTrackAsync("p", WithPositions(0, 1, 2, 3), 0, 2, TestContext.Current.CancellationToken);
-        var reads = _web.PlaylistItemReads;
-        var stored = await _library.GetAllPlaylistTracksAsync("p", "snapshot-after-reorder", TestContext.Current.CancellationToken);
+        // Added on the phone while the playlist was open in Resonate.
+        _web.PlaylistEntries["p"].Add(Entry(4));
+        await _library.MovePlaylistTrackAsync("p", shown.Tracks, 0, 2, TestContext.Current.CancellationToken);
+        var next = await _library.GetAllPlaylistTracksAsync("p", null, TestContext.Current.CancellationToken);
 
-        Assert.Equal(reads, _web.PlaylistItemReads);
-        Assert.Equal(["s1", "s2", "s0", "s3"], stored.Tracks.Select(t => t.Title));
-        Assert.Equal([0, 1, 2, 3], stored.Tracks.Select(t => t.Position!.Value));
+        Assert.Equal(5, next.Tracks.Count);
         Assert.Equal("snapshot-after-reorder", _library.Snapshot!.Playlists[0].SnapshotId);
+    }
+
+    [Fact]
+    public async Task After_a_removal_the_next_visit_shows_songs_added_meanwhile()
+    {
+        await _library.RefreshAsync(TestContext.Current.CancellationToken);
+        _web.PlaylistEntries["p"] = Enumerable.Range(0, 4).Select(Entry).ToList();
+        var shown = await _library.GetAllPlaylistTracksAsync("p", null, TestContext.Current.CancellationToken);
+
+        // Added from the queue while the playlist was open.
+        await _library.AddToPlaylistAsync("p", ["spotify:track:4"], TestContext.Current.CancellationToken);
+        _web.PlaylistEntries["p"].Add(Entry(4));
+        await _library.RemoveFromPlaylistAsync("p", shown.Tracks, "spotify:track:0", TestContext.Current.CancellationToken);
+        _web.PlaylistEntries["p"].RemoveAt(0);
+        var next = await _library.GetAllPlaylistTracksAsync("p", null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["s1", "s2", "s3", "s4"], next.Tracks.Select(t => t.Title));
     }
 
     [Fact]
@@ -352,7 +453,7 @@ public sealed class PlaylistEditingTests : IDisposable
     }
 
     [Fact]
-    public async Task Removing_a_song_removes_every_copy_and_keeps_positions_right()
+    public async Task Removing_a_song_removes_every_copy()
     {
         await _library.RefreshAsync(TestContext.Current.CancellationToken);
         var changed = 0;
@@ -361,12 +462,10 @@ public sealed class PlaylistEditingTests : IDisposable
         before[3] = before[3] with { Uri = before[1].Uri };
 
         await _library.RemoveFromPlaylistAsync("p", before, before[1].Uri!, TestContext.Current.CancellationToken);
-        var stored = await _library.GetAllPlaylistTracksAsync("p", "snapshot-after-remove", TestContext.Current.CancellationToken);
 
         Assert.Equal(["remove p spotify:track:1"], _web.Commands);
-        Assert.Equal(["s0", "s2", "s4"], stored.Tracks.Select(t => t.Title));
-        Assert.Equal([0, 1, 2], stored.Tracks.Select(t => t.Position!.Value));
         Assert.Equal(3, _library.Snapshot!.Playlists[0].ItemCount);
+        Assert.Equal("snapshot-after-remove", _library.Snapshot!.Playlists[0].SnapshotId);
         Assert.Equal(1, changed);
     }
 
@@ -381,6 +480,67 @@ public sealed class PlaylistEditingTests : IDisposable
 
         Assert.True(_web.PlaylistItemReads > reads);
     }
+
+    [Fact]
+    public void After_a_removal_the_songs_below_move_up_past_hidden_entries()
+    {
+        // Positions 0, 1, 3, 4: Spotify does not list the entry at 2.
+        var before = WithPositions(0, 1, 3, 4);
+
+        var after = LibraryService.AfterRemove(before, "spotify:track:1");
+
+        Assert.Equal(["s0", "s2", "s3"], after.Select(t => t.Title));
+        Assert.Equal([0, 2, 3], after.Select(t => t.Position!.Value));
+        Assert.Same(before[0], after[0]);
+    }
+
+    [Fact]
+    public void After_a_removal_every_copy_counts()
+    {
+        var before = WithPositions(0, 1, 2, 3, 4);
+        before[3] = before[3] with { Uri = before[1].Uri };
+
+        var after = LibraryService.AfterRemove(before, before[1].Uri!);
+
+        Assert.Equal(["s0", "s2", "s4"], after.Select(t => t.Title));
+        Assert.Equal([0, 1, 2], after.Select(t => t.Position!.Value));
+    }
+
+    [Fact]
+    public async Task Moves_after_a_removal_use_the_new_positions()
+    {
+        await _library.RefreshAsync(TestContext.Current.CancellationToken);
+        var shown = LibraryService.AfterRemove(WithPositions(0, 1, 2, 3, 4), "spotify:track:1");
+
+        // s3 to the top, then s0 to the end of the four songs left.
+        await _library.MovePlaylistTrackAsync("p", shown, 2, 0, TestContext.Current.CancellationToken);
+        shown = LibraryService.AfterMove(shown, 2, 0);
+        await _library.MovePlaylistTrackAsync("p", shown, 1, 3, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["reorder p 2->0 x1", "reorder p 1->4 x1"], _web.Commands);
+    }
+
+    [Fact]
+    public void After_a_move_down_the_songs_passed_move_up_and_hidden_entries_keep_their_place()
+    {
+        // Positions 0, 1, 3, 4: Spotify does not list the entry at 2.
+        var after = LibraryService.AfterMove(WithPositions(0, 1, 3, 4), 1, 3);
+
+        Assert.Equal(["s0", "s2", "s3", "s1"], after.Select(t => t.Title));
+        Assert.Equal([0, 2, 3, 4], after.Select(t => t.Position!.Value));
+    }
+
+    [Fact]
+    public void After_a_move_up_the_songs_passed_move_down()
+    {
+        var after = LibraryService.AfterMove(WithPositions(0, 1, 3, 4), 3, 0);
+
+        Assert.Equal(["s3", "s0", "s1", "s2"], after.Select(t => t.Title));
+        Assert.Equal([0, 1, 2, 4], after.Select(t => t.Position!.Value));
+    }
+
+    private static PlaylistEntry Entry(int i) =>
+        new() { Item = new PlayableItem { Name = $"s{i}", Uri = $"spotify:track:{i}", DurationMs = 1000 } };
 
     /// <summary>Songs s0, s1, … at the given positions in the playlist.</summary>
     private static List<TrackInfo> WithPositions(params int[] positions) =>

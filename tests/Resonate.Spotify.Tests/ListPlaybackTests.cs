@@ -267,6 +267,146 @@ public sealed class ListPlaybackTests : IDisposable
     }
 
     [Fact]
+    public async Task Switching_shuffle_while_paused_keeps_the_music_paused_until_it_plays_again()
+    {
+        var songs = Songs(8);
+        await StartAsync();
+        await _player.PlayAsync(new PlayRequest(songs, 2, Playlist, "Mix") { Shuffle = false });
+        Playing(songs[2]);
+        _time.Advance(TimeSpan.FromSeconds(29.5));
+        await _player.PauseAsync();
+        Paused(songs[2], seconds: 30);
+        _web.Commands.Clear();
+        _web.PlayBodies.Clear();
+
+        await _player.SetShuffleAsync(true);
+        await AfterQueuedCommandsAsync();
+
+        // Spotify's play command would start the music, so nothing is sent yet.
+        Assert.True(_player.State.Shuffle);
+        Assert.False(_player.State.IsPlaying);
+        Assert.Empty(_web.PlayBodies);
+        Assert.Empty(_web.Commands);
+
+        // Once it plays again, the new order starts with the same song at the same spot.
+        await _player.PlayAsync();
+        Playing(songs[2], seconds: 30);
+        await WaitUntil(() => _web.PlayBodies.Count == 1);
+        var body = _web.PlayBodies[0]!;
+        Assert.Equal(songs[2].Uri, body.Uris![0]);
+        Assert.Equal(Uris(songs).Order(), body.Uris.Order());
+        Assert.Equal(30_000, body.PositionMs);
+        Assert.True(_player.State.Shuffle);
+    }
+
+    [Fact]
+    public async Task Switching_repeat_all_while_paused_on_the_last_song_keeps_the_music_paused()
+    {
+        var songs = Songs(5);
+        await StartAsync();
+        await _player.PlayAsync(new PlayRequest(songs, 0, Playlist, "Mix") { Shuffle = true });
+        var order = Order();
+        Playing(SongBy(order[0]));
+        Playing(SongBy(order[4]), seconds: 3);
+        await _player.PauseAsync();
+        Paused(SongBy(order[4]), seconds: 3);
+
+        await _player.SetRepeatAsync(RepeatMode.All);
+        await AfterQueuedCommandsAsync();
+
+        Assert.Single(_web.PlayBodies);
+        Assert.False(_player.State.IsPlaying);
+
+        // Once it plays again, the next pass follows.
+        await _player.PlayAsync();
+        Playing(SongBy(order[4]), seconds: 3);
+        await WaitUntil(() => _web.PlayBodies.Count == 2);
+        Assert.Equal(order[4], _web.PlayBodies[1]!.Uris![0]);
+    }
+
+    [Fact]
+    public async Task Shuffle_is_Spotifys_own_for_a_playlist_Resonate_has_only_the_first_songs_of()
+    {
+        // The page played the playlist before all its songs had loaded.
+        var known = Songs(4);
+        await StartAsync();
+        await _player.PlayAsync(new PlayRequest(known, 1, Playlist, "Mix") { Shuffle = false, IsPartial = true });
+        Playing(known[1]);
+        var unlisted = Song(50);
+        Playing(unlisted);
+        _web.Commands.Clear();
+        _web.PlayBodies.Clear();
+
+        await _player.SetShuffleAsync(true);
+
+        Assert.True(_player.State.Shuffle);
+        Assert.Equal(["shuffle on@here"], _web.Commands);
+        Assert.Empty(_web.PlayBodies);
+
+        // Spotify reports its own shuffle on: the button and the list's name stay.
+        _time.Advance(TimeSpan.FromSeconds(30));
+        _web.Playback = OnTheWeb(unlisted, shuffle: true, context: Playlist);
+        await _player.RefreshFromWebApiAsync(TestContext.Current.CancellationToken);
+        Assert.True(_player.State.Shuffle);
+        Assert.Equal("Mix", _player.State.SourceName);
+
+        await _player.SetShuffleAsync(false);
+        Assert.Equal(["shuffle on@here", "shuffle off@here"], _web.Commands);
+        Assert.Empty(_web.PlayBodies);
+    }
+
+    [Fact]
+    public async Task A_queued_song_inside_a_whole_playlist_keeps_Resonates_shuffle()
+    {
+        var songs = Songs(4);
+        await StartAsync();
+        await _player.PlayAsync(new PlayRequest(songs, 1, Playlist, "Mix") { Shuffle = false });
+        Playing(songs[1]);
+        Playing(Song(50));
+        _web.Commands.Clear();
+        _web.PlayBodies.Clear();
+
+        await _player.SetShuffleAsync(true);
+
+        // Nothing to send while the queued song plays, and never Spotify's own shuffle.
+        Assert.True(_player.State.Shuffle);
+        Assert.DoesNotContain("shuffle on@here", _web.Commands);
+        Assert.Empty(_web.PlayBodies);
+
+        // The playlist's next song starts Resonate's random order of the whole list.
+        Playing(songs[2]);
+        await AfterQueuedCommandsAsync();
+        var body = Assert.Single(_web.PlayBodies)!;
+        Assert.Null(body.ContextUri);
+        Assert.Equal(songs[2].Uri, body.Uris![0]);
+        Assert.Equal(songs.Select(t => t.Uri).Order(), body.Uris.Order());
+    }
+
+    [Fact]
+    public async Task A_failed_switch_to_Spotifys_shuffle_keeps_the_list()
+    {
+        var known = Songs(4);
+        await StartAsync();
+        await _player.PlayAsync(new PlayRequest(known, 1, Playlist, "Mix") { Shuffle = false, IsPartial = true });
+        Playing(known[1]);
+        _web.FailNextCommand = new HttpRequestException("offline");
+
+        await _player.SetShuffleAsync(true);
+
+        Assert.False(_player.State.Shuffle);
+        Assert.Single(_errors);
+        Assert.Equal("Mix", _player.State.SourceName);
+
+        // The list is back, still known to be partial: the next try is Spotify's shuffle again.
+        _web.Commands.Clear();
+        _web.PlayBodies.Clear();
+        await _player.SetShuffleAsync(true);
+        Assert.True(_player.State.Shuffle);
+        Assert.Equal(["shuffle on@here"], _web.Commands);
+        Assert.Empty(_web.PlayBodies);
+    }
+
+    [Fact]
     public async Task A_failed_shuffle_switch_puts_back_the_old_plan()
     {
         var songs = Songs(8);
@@ -547,7 +687,7 @@ public sealed class ListPlaybackTests : IDisposable
 
         // Spotify was restarted (to take a new equalizer) and has not opened its media session yet.
         _local.Report(LocalMediaSnapshot.None);
-        var outcome = await _player.ResumeAsync(before, TimeSpan.FromSeconds(30), TimeSpan.Zero, TestContext.Current.CancellationToken);
+        var outcome = await _player.ResumeAsync(before, TimeSpan.FromSeconds(30), TimeSpan.Zero, () => true, TestContext.Current.CancellationToken);
 
         Assert.Equal(ResumeOutcome.Playing, outcome);
         var body = _web.PlayBodies[^1]!;
@@ -563,13 +703,36 @@ public sealed class ListPlaybackTests : IDisposable
         var before = _player.State with { TrackUri = "spotify:track:7", ContextUri = Playlist, IsPlaying = true };
 
         _local.Report(LocalMediaSnapshot.None);
-        var outcome = await _player.ResumeAsync(before, TimeSpan.FromSeconds(12), TimeSpan.Zero, TestContext.Current.CancellationToken);
+        var outcome = await _player.ResumeAsync(before, TimeSpan.FromSeconds(12), TimeSpan.Zero, () => true, TestContext.Current.CancellationToken);
 
         Assert.Equal(ResumeOutcome.Playing, outcome);
         var body = _web.PlayBodies[^1]!;
         Assert.Equal(Playlist, body.ContextUri);
         Assert.Equal("spotify:track:7", body.Offset?.Uri);
         Assert.Equal(12_000, body.PositionMs);
+    }
+
+    [Theory]
+    [InlineData(ControlChannel.Local)]
+    [InlineData(ControlChannel.WebApi)]
+    public async Task After_Spotify_restarts_DJ_is_never_started_through_the_Web_API(ControlChannel channel)
+    {
+        _web.Playback = OnTheWeb(Song(7), shuffle: false, context: SpotifyDj.ContextUri);
+        Playing(Song(7), seconds: 12);
+        await _player.StartAsync(TestContext.Current.CancellationToken);
+        _player.Channel = channel;
+        await _player.RefreshFromWebApiAsync(TestContext.Current.CancellationToken);
+        var before = _player.State;
+        Assert.True(SpotifyDj.IsPlaying(before));
+        Assert.True(before.IsPlaying);
+        Assert.NotNull(before.TrackUri);
+
+        // Spotify has not opened its media session (or reopened another song).
+        _local.Report(LocalMediaSnapshot.None);
+        var outcome = await _player.ResumeAsync(before, TimeSpan.FromSeconds(12), TimeSpan.Zero, () => true, TestContext.Current.CancellationToken);
+
+        Assert.Equal(ResumeOutcome.NotResumed, outcome);
+        Assert.Empty(_web.PlayBodies);
     }
 
     private static TrackInfo Song(int i) =>
@@ -616,14 +779,19 @@ public sealed class ListPlaybackTests : IDisposable
     private List<string> Order() => _web.PlayBodies[0]!.Uris!;
 
     /// <summary>Spotify's media session reports this song playing.</summary>
-    private void Playing(TrackInfo song, double seconds = 0.5) =>
+    private void Playing(TrackInfo song, double seconds = 0.5) => Report(song, seconds, playing: true);
+
+    /// <summary>Spotify's media session reports this song paused.</summary>
+    private void Paused(TrackInfo song, double seconds) => Report(song, seconds, playing: false);
+
+    private void Report(TrackInfo song, double seconds, bool playing) =>
         _local.Report(new LocalMediaSnapshot
         {
             HasSession = true,
             Title = song.Title,
             Artist = song.Artists,
             Album = song.Album,
-            IsPlaying = true,
+            IsPlaying = playing,
             Position = TimeSpan.FromSeconds(seconds),
             PositionUpdatedAt = _time.GetUtcNow(),
             Duration = song.Duration,

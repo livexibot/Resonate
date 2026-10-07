@@ -35,6 +35,12 @@ public sealed class EqualizerService : IDisposable
     /// <summary>Counts the user's changes, so a slow background answer never undoes a newer one.</summary>
     private int _version;
 
+    /// <summary>Changes handed to Spotify so far; a read of Spotify's settings that overlaps one may not show it yet.</summary>
+    private int _appliesStarted;
+
+    /// <summary>Changes still on their way to Spotify's settings.</summary>
+    private int _applying;
+
     /// <param name="services">Settings, the players and the Spotify app launcher.</param>
     /// <param name="spotifyFolders">Where Spotify keeps its settings (none in demo mode).</param>
     /// <param name="restarter">Restarts Spotify; null in demo mode.</param>
@@ -50,7 +56,9 @@ public sealed class EqualizerService : IDisposable
             services.Launcher,
             restarter,
             services.Player.Spotify,
-            services.Settings.EqualizerPendingForSpotify ? Current : null);
+            services.Settings.EqualizerPendingForSpotify ? Current : null,
+            // Once the user's own music files play, Spotify's song is not put back after a restart.
+            resumeAllowed: () => services.Player.ActiveSource == PlaybackSource.Spotify);
         _sync.PendingChanged += OnPendingChanged;
         if (restarter is not null)
         {
@@ -194,7 +202,18 @@ public sealed class EqualizerService : IDisposable
         var version = _version;
         SaveSettings();
 
-        var result = await Task.Run(() => _sync.Apply(settings));
+        _appliesStarted++;
+        _applying++;
+        EqualizerApplyResult result;
+        try
+        {
+            result = await Task.Run(() => _sync.Apply(settings));
+        }
+        finally
+        {
+            _applying--;
+        }
+
         if (version != _version)
         {
             // A newer change follows with its own answer.
@@ -209,11 +228,12 @@ public sealed class EqualizerService : IDisposable
     private async Task RefreshAsync(bool fromWatcher)
     {
         var version = _version;
+        var applies = _appliesStarted;
         var status = await Task.Run(_sync.Refresh);
         SpotifyLossless = status.Spotify?.IsLossless;
-        if (version != _version || _saveTimer.IsRunning || IsRestarting)
+        if (version != _version || applies != _appliesStarted || _applying > 0 || _saveTimer.IsRunning || IsRestarting)
         {
-            // The user changed something meanwhile; that answer wins.
+            // The user changed something meanwhile, or a change is still on its way to Spotify; that answer wins.
             Changed?.Invoke(this, EventArgs.Empty);
             return;
         }

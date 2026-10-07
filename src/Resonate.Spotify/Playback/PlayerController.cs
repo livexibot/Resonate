@@ -88,6 +88,9 @@ public sealed class PlayerController : IPlayer, IDisposable
     /// <summary>Until then, Spotify may still describe what played before Resonate sent a list.</summary>
     private DateTimeOffset _sessionSettledAt;
 
+    /// <summary>See <see cref="UserCommandCount"/>.</summary>
+    private long _userCommands;
+
     /// <param name="nextInt">Random numbers for shuffling, in [0, max); the system's cryptographic generator when null (tests pass their own).</param>
     public PlayerController(
         ILocalMediaChannel local,
@@ -151,6 +154,14 @@ public sealed class PlayerController : IPlayer, IDisposable
         }
     }
 
+    /// <summary>
+    /// How many commands so far changed what plays or where (play, pause,
+    /// skip, seek, a new song or list). Read it before a slow job that ends
+    /// by putting music back (<see cref="ResumeAsync"/>): when it has grown
+    /// meanwhile, the user did something, and that wins.
+    /// </summary>
+    public long UserCommandCount => Interlocked.Read(ref _userCommands);
+
     private bool UseLocal => _channel == ControlChannel.Local;
 
     /// <summary>The local channel's last report, or nothing when the Web API is the only channel.</summary>
@@ -188,8 +199,16 @@ public sealed class PlayerController : IPlayer, IDisposable
 
     public Task TogglePlayPauseAsync() => State.IsPlaying ? PauseAsync() : PlayAsync();
 
-    public Task PlayAsync()
+    public Task PlayAsync() => PlayAsync(byUser: true);
+
+    /// <param name="byUser">False when Resonate puts back what played (see <see cref="UserCommandCount"/>).</param>
+    private Task PlayAsync(bool byUser)
     {
+        if (byUser)
+        {
+            CountUserCommand();
+        }
+
         PlayerState before;
         long generation;
         lock (_gate)
@@ -215,6 +234,7 @@ public sealed class PlayerController : IPlayer, IDisposable
 
     public Task PauseAsync()
     {
+        CountUserCommand();
         PlayerState before;
         long generation;
         lock (_gate)
@@ -240,6 +260,7 @@ public sealed class PlayerController : IPlayer, IDisposable
 
     public Task NextAsync()
     {
+        CountUserCommand();
         RestartPositionOptimistically();
         return RunTransportAsync(
             async ct =>
@@ -254,6 +275,8 @@ public sealed class PlayerController : IPlayer, IDisposable
 
     public Task PreviousAsync()
     {
+        CountUserCommand();
+
         // Spotify restarts the song when it is more than a few seconds in, and
         // goes to the previous one otherwise; either way the position is 0.
         RestartPositionOptimistically();
@@ -269,8 +292,17 @@ public sealed class PlayerController : IPlayer, IDisposable
     }
 
     /// <summary>Seeks. While the user drags, only the newest position is sent.</summary>
-    public Task SeekAsync(TimeSpan position)
+    public Task SeekAsync(TimeSpan position) => SeekAsync(position, byUser: true);
+
+    /// <param name="position">Where to go in the song.</param>
+    /// <param name="byUser">False when Resonate puts back what played (see <see cref="UserCommandCount"/>).</param>
+    private Task SeekAsync(TimeSpan position, bool byUser)
     {
+        if (byUser)
+        {
+            CountUserCommand();
+        }
+
         lock (_gate)
         {
             var now = _time.GetUtcNow();
@@ -344,8 +376,9 @@ public sealed class PlayerController : IPlayer, IDisposable
     /// Shuffle. While a list Resonate knows plays, this is Resonate's truly
     /// random order: the rest of the list is planned again after the current
     /// song (which keeps playing where it is). Otherwise (music started
-    /// elsewhere, or a list whose songs Spotify does not share) it is
-    /// Spotify's own shuffle. Optimistic like every command.
+    /// elsewhere, a list whose songs Spotify does not share, or a playlist or
+    /// album Resonate has only the first part of) it is Spotify's own
+    /// shuffle. Optimistic like every command.
     /// </summary>
     public Task SetShuffleAsync(bool shuffle)
     {
@@ -367,9 +400,17 @@ public sealed class PlayerController : IPlayer, IDisposable
             previous = _session;
             _shuffleHold = new Hold<bool>(shuffle, now + PlayStateHold);
             var state = _state with { Shuffle = shuffle };
-            if (previous is not null)
+            if (previous is { InContext: true, IsPartial: true })
             {
-                next = previous.WithShuffle(shuffle);
+                // Spotify plays the playlist or album itself, and Resonate has only its
+                // first songs: an order made from them would leave the rest out, so
+                // Spotify shuffles it.
+                _session = null;
+                _sourceContext = previous.ContextUri;
+            }
+            else if (previous is not null)
+            {
+                next = previous.WithShuffle(shuffle, _state.IsPlaying);
                 _session = next;
                 _sessionSettledAt = now + TrackHold;
                 if (!next.StartsWithNextSong)
@@ -394,12 +435,24 @@ public sealed class PlayerController : IPlayer, IDisposable
                         NoteSpotifyShuffle(shuffle);
                     },
                     ct),
-                () => RevertSetting(generation, before));
+                () =>
+                {
+                    lock (_gate)
+                    {
+                        if (_generation == generation && _session is null)
+                        {
+                            // The list set aside above, if any, plays on as before.
+                            _session = previous;
+                        }
+                    }
+
+                    RevertSetting(generation, before);
+                });
         }
 
         if (body is null)
         {
-            // The new order starts with the next song (see ListSession.StartsWithNextSong).
+            // The new order starts with the next song, or once paused music plays again (see ListSession.StartsWithNextSong).
             return Task.CompletedTask;
         }
 
@@ -621,6 +674,7 @@ public sealed class PlayerController : IPlayer, IDisposable
         bool? shuffle,
         Func<string?, CancellationToken, Task> send)
     {
+        CountUserCommand();
         PlayerState before;
         ListSession? previous;
         long generation;
@@ -681,31 +735,58 @@ public sealed class PlayerController : IPlayer, IDisposable
     /// not, a song that was playing is started again through the Web API, in
     /// its playlist or album when it had one; a paused one is left for the
     /// user to pick again (<see cref="ResumeOutcome.NotResumed"/>), because
-    /// starting it would make a burst of sound.
+    /// starting it would make a burst of sound. So is DJ, which only the
+    /// Spotify app can start.
     /// </summary>
-    public async Task<ResumeOutcome> ResumeAsync(PlayerState before, TimeSpan position, TimeSpan timeout, CancellationToken cancellationToken)
+    /// <param name="stillWanted">
+    /// Asked before each step. False once the user played, paused or picked
+    /// something else since the restart began (see <see cref="UserCommandCount"/>):
+    /// then nothing is put back, because what the user did wins.
+    /// </param>
+    public async Task<ResumeOutcome> ResumeAsync(
+        PlayerState before,
+        TimeSpan position,
+        TimeSpan timeout,
+        Func<bool> stillWanted,
+        CancellationToken cancellationToken)
     {
         if (!before.HasTrack)
         {
             return ResumeOutcome.NothingToResume;
         }
 
-        if (UseLocal
-            && await WaitForLocalSessionAsync(timeout, cancellationToken).ConfigureAwait(false) is { } reopened
-            && TitlesMatch(reopened.Title, before.Title))
+        var reopened = UseLocal ? await WaitForLocalSessionAsync(timeout, cancellationToken).ConfigureAwait(false) : null;
+        var commands = UserCommandCount;
+        if (!stillWanted())
         {
-            await SeekAsync(position).ConfigureAwait(false);
+            return ResumeOutcome.NothingToResume;
+        }
+
+        if (reopened is { } local && TitlesMatch(local.Title, before.Title))
+        {
+            await SeekAsync(position, byUser: false).ConfigureAwait(false);
             if (!before.IsPlaying)
             {
                 return ResumeOutcome.Paused;
             }
 
-            await PlayAsync().ConfigureAwait(false);
+            if (!stillWanted())
+            {
+                return ResumeOutcome.NothingToResume;
+            }
+
+            await PlayAsync(byUser: false).ConfigureAwait(false);
             return ResumeOutcome.Playing;
         }
 
         if (!before.IsPlaying || before.TrackUri is not { } uri)
         {
+            return ResumeOutcome.NotResumed;
+        }
+
+        if (SpotifyDj.IsPlaying(before))
+        {
+            // Only the Spotify app can start DJ: the Web API declines it, and the music stops.
             return ResumeOutcome.NotResumed;
         }
 
@@ -717,6 +798,12 @@ public sealed class PlayerController : IPlayer, IDisposable
         long generation;
         lock (_gate)
         {
+            if (UserCommandCount != commands)
+            {
+                // The user did something just now: that wins.
+                return ResumeOutcome.NothingToResume;
+            }
+
             session = _session;
             if (session is not null && session.Locate(uri, before.Title) is var at and >= 0)
             {
@@ -804,9 +891,11 @@ public sealed class PlayerController : IPlayer, IDisposable
 
     /// <summary>
     /// Follows the list Resonate plays as Spotify moves through it: notes
-    /// which song plays, starts a waiting plan when the next song starts, and
-    /// sends the next window (or, with "repeat all", the next pass) as the
-    /// last song Spotify has starts, restarting it where it is.
+    /// which song plays, starts a waiting plan when the next song starts (or
+    /// the paused song plays again), and sends the next window (or, with
+    /// "repeat all", the next pass) as the last song Spotify has starts,
+    /// restarting it where it is. Nothing is sent while the music is paused:
+    /// Spotify's play command would start it.
     /// </summary>
     private void FollowSession()
     {
@@ -826,12 +915,20 @@ public sealed class PlayerController : IPlayer, IDisposable
                 return;
             }
 
+            if (!_state.IsPlaying)
+            {
+                // The next report after the music plays again sends what is due.
+                session.Index = located;
+                return;
+            }
+
             var now = _time.GetUtcNow();
             var position = _state.PositionAt(now);
             if (session.StartsWithNextSong)
             {
-                if (located == session.WaitingFrom)
+                if (located == session.WaitingFrom && !ListSession.CanStartByUri(session.Order[located]))
                 {
+                    // Still the song Spotify can not restart by its address.
                     session.Index = located;
                     return;
                 }
@@ -1679,6 +1776,8 @@ public sealed class PlayerController : IPlayer, IDisposable
     /// </summary>
     private TimeSpan NextPollDelay() =>
         UseLocal ? WebPollInterval : State.IsPlaying ? WebOnlyPollWhilePlaying : WebOnlyPollWhilePaused;
+
+    private void CountUserCommand() => Interlocked.Increment(ref _userCommands);
 
     private void SetState(PlayerState state) => _state = state;
 

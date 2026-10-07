@@ -50,10 +50,14 @@ internal sealed class FakeWebApi : ISpotifyWebApi
 
     public int SavedTrackReads { get; private set; }
 
+    /// <summary>When set, reading Liked Songs answers with what was liked when asked, but only once this task completes.</summary>
+    public Task? HoldSavedTrackReads { get; set; }
+
     public Task<Page<SavedTrack>> GetSavedTracksAsync(int offset, int limit, CancellationToken cancellationToken)
     {
         SavedTrackReads++;
-        return Task.FromResult(Paged(SavedTracks.ToList<SavedTrack?>(), offset, limit));
+        var page = Paged(SavedTracks.ToList<SavedTrack?>(), offset, limit);
+        return HoldSavedTrackReads is { } hold ? AnswerLaterAsync(hold, page) : Task.FromResult(page);
     }
 
     public Task<Playlist> GetPlaylistAsync(string playlistId, CancellationToken cancellationToken) =>
@@ -309,7 +313,7 @@ internal sealed class FakeWebApi : ISpotifyWebApi
         };
     }
 
-    private static async Task<PlaybackState?> AnswerLaterAsync(Task hold, PlaybackState? answer)
+    private static async Task<T> AnswerLaterAsync<T>(Task hold, T answer)
     {
         await hold;
         return answer;

@@ -101,6 +101,7 @@ public sealed partial class SettingsPage : Page
 
         // The next account to sign in must not see this one's playlists, songs or listening.
         _services.Library.Forget();
+        _services.Likes.Forget();
         _services.Home.Forget();
         App.MainWindow?.ShowSignIn();
     }

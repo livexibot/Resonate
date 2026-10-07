@@ -43,11 +43,16 @@ public sealed class LocalLibrary : IDisposable
     private readonly TimeProvider _time;
     private readonly SemaphoreSlim _scanLock = new(1, 1);
     private readonly Lock _gate = new();
-    private readonly List<FileSystemWatcher> _watchers = [];
-    private Dictionary<string, LocalFile> _byPath = new(PathComparer);
-    private LocalFile[] _files = [];
-    private IReadOnlyList<string> _folders = [];
-    private LocalScanStatus _status = LocalScanStatus.NotStarted;
+
+    // Changed under the lock, but always replaced whole, so the interface
+    // reads them without waiting for a scan.
+    private volatile Dictionary<string, LocalFile> _byPath = new(PathComparer);
+    private volatile LocalFile[] _files = [];
+    private volatile IReadOnlyList<string> _folders = [];
+    private volatile LocalScanStatus _status = LocalScanStatus.NotStarted;
+
+    private List<FileSystemWatcher> _watchers = [];
+    private long _watchGeneration;
     private Task? _loading;
     private ITimer? _watchTimer;
     private bool _watching;
@@ -67,41 +72,17 @@ public sealed class LocalLibrary : IDisposable
     public event EventHandler<LocalLibraryChange>? Changed;
 
     /// <summary>Every file in the folders, newest first.</summary>
-    public IReadOnlyList<LocalFile> Files
-    {
-        get
-        {
-            lock (_gate)
-            {
-                return _files;
-            }
-        }
-    }
+    public IReadOnlyList<LocalFile> Files => _files;
 
-    public IReadOnlyList<string> Folders
-    {
-        get
-        {
-            lock (_gate)
-            {
-                return _folders;
-            }
-        }
-    }
+    public IReadOnlyList<string> Folders => _folders;
 
-    public LocalScanStatus Status
-    {
-        get
-        {
-            lock (_gate)
-            {
-                return _status;
-            }
-        }
-    }
+    public LocalScanStatus Status => _status;
 
     /// <summary>Goes up by one every time <see cref="Files"/> changes.</summary>
     public long Version => Interlocked.Read(ref _version);
+
+    /// <summary>Whether a folder is there to watch (tests stand in for a network folder that answers slowly).</summary>
+    internal Func<string, bool> CanWatch { get; init; } = Directory.Exists;
 
     /// <summary>The user's Music folder and Downloads, where Spotify looks by default.</summary>
     /// <param name="downloadsFolder">The Downloads folder as Windows knows it (it can be moved); the profile's "Downloads" when null.</param>
@@ -177,6 +158,7 @@ public sealed class LocalLibrary : IDisposable
             .Distinct(PathComparer)
             .ToList();
         bool changed;
+        bool watching;
         lock (_gate)
         {
             if (normalized.SequenceEqual(_folders, PathComparer))
@@ -186,22 +168,21 @@ public sealed class LocalLibrary : IDisposable
 
             _folders = normalized;
             changed = Publish(_byPath.Values);
-            if (_watching)
-            {
-                RestartWatchers();
-            }
+            watching = _watching;
         }
 
         Changed?.Invoke(this, new LocalLibraryChange(changed));
+        if (watching)
+        {
+            RestartWatchers();
+        }
     }
 
     /// <summary>The file at <paramref name="path"/>, when it is in the list.</summary>
     public LocalFile? Find(string path)
     {
-        lock (_gate)
-        {
-            return _byPath.TryGetValue(path, out var file) && IsInFolders(file.Path, _folders) ? file : null;
-        }
+        var folders = _folders;
+        return _byPath.TryGetValue(path, out var file) && IsInFolders(file.Path, folders) ? file : null;
     }
 
     /// <summary>
@@ -234,8 +215,9 @@ public sealed class LocalLibrary : IDisposable
             }
 
             _watching = true;
-            RestartWatchers();
         }
+
+        RestartWatchers();
     }
 
     public void Dispose()
@@ -244,9 +226,10 @@ public sealed class LocalLibrary : IDisposable
         {
             _disposed = true;
             _watching = false;
-            RestartWatchers();
             _watchTimer?.Dispose();
         }
+
+        RestartWatchers();
     }
 
     private void Scan(CancellationToken cancellationToken)
@@ -362,8 +345,12 @@ public sealed class LocalLibrary : IDisposable
                 ShouldIncludePredicate = (ref FileSystemEntry entry) => !entry.IsDirectory && TagReader.IsSupported(entry.FileName),
 
                 // Links can loop back up the tree; Spotify's folders are off limits.
+                // Folders synced by OneDrive and other cloud services are
+                // reparse points too, but not links, so they are looked into
+                // (reading the tags of an online-only file downloads it).
                 ShouldRecursePredicate = (ref FileSystemEntry entry) =>
-                    (entry.Attributes & (FileAttributes.ReparsePoint | FileAttributes.Hidden | FileAttributes.System)) == 0
+                    (entry.Attributes & (FileAttributes.Hidden | FileAttributes.System)) == 0
+                    && ((entry.Attributes & FileAttributes.ReparsePoint) == 0 || !IsLink(entry.ToFullPath()))
                     && !IsExcluded(entry.ToFullPath()),
             };
 
@@ -385,6 +372,19 @@ public sealed class LocalLibrary : IDisposable
         }
 
         return found;
+    }
+
+    /// <summary>True for symbolic links and junctions, and for folders that can not be checked.</summary>
+    private static bool IsLink(string folder)
+    {
+        try
+        {
+            return new DirectoryInfo(folder).LinkTarget is not null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return true;
+        }
     }
 
     private static LocalFile ReadFile(FoundFile file, DateTimeOffset addedAt)
@@ -520,23 +520,25 @@ public sealed class LocalLibrary : IDisposable
 
     // ---- Watching ----
 
-    /// <summary>Call under the lock.</summary>
+    /// <summary>
+    /// Watches the folders chosen now, and stops watching the others. Call
+    /// outside the lock: a network folder that is asleep or gone can take
+    /// many seconds to answer, and the list must not wait for it.
+    /// </summary>
     private void RestartWatchers()
     {
-        foreach (var watcher in _watchers)
+        long generation;
+        IReadOnlyList<string> folders;
+        lock (_gate)
         {
-            watcher.Dispose();
+            generation = ++_watchGeneration;
+            folders = _watching ? _folders : [];
         }
 
-        _watchers.Clear();
-        if (!_watching)
+        var started = new List<FileSystemWatcher>();
+        foreach (var folder in folders)
         {
-            return;
-        }
-
-        foreach (var folder in _folders)
-        {
-            if (!Directory.Exists(folder) || IsExcluded(folder))
+            if (IsExcluded(folder) || !CanWatch(folder))
             {
                 continue;
             }
@@ -554,12 +556,33 @@ public sealed class LocalLibrary : IDisposable
                 watcher.Renamed += OnFileRenamed;
                 watcher.Error += (_, _) => ScheduleRescan();
                 watcher.EnableRaisingEvents = true;
-                _watchers.Add(watcher);
+                started.Add(watcher);
             }
             catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException or PlatformNotSupportedException)
             {
                 // Without a watcher the folder is still scanned at start-up and on request.
             }
+        }
+
+        // Folders changed again (or the library closed) meanwhile: the
+        // newer call's watchers win.
+        List<FileSystemWatcher> stopped;
+        lock (_gate)
+        {
+            if (generation == _watchGeneration)
+            {
+                stopped = _watchers;
+                _watchers = started;
+            }
+            else
+            {
+                stopped = started;
+            }
+        }
+
+        foreach (var watcher in stopped)
+        {
+            watcher.Dispose();
         }
     }
 
@@ -573,7 +596,7 @@ public sealed class LocalLibrary : IDisposable
             return;
         }
 
-        if (IsRelevant(e.FullPath))
+        if (e.ChangeType == WatcherChangeTypes.Deleted ? WasRelevant(e.FullPath) : IsRelevant(e.FullPath))
         {
             ScheduleRescan();
         }
@@ -581,15 +604,36 @@ public sealed class LocalLibrary : IDisposable
 
     private void OnFileRenamed(object sender, RenamedEventArgs e)
     {
-        if (IsRelevant(e.FullPath) || IsRelevant(e.OldFullPath))
+        if (IsRelevant(e.FullPath) || WasRelevant(e.OldFullPath))
         {
             ScheduleRescan();
         }
     }
 
-    /// <summary>Music files, and folders (which have no extension, usually), outside Spotify's folders.</summary>
+    /// <summary>
+    /// Music files and folders, outside Spotify's folders. A folder moved in
+    /// reports only itself, not the songs inside, and its name can look like
+    /// a file's ("R.E.M. - Monster"), so the disk is asked.
+    /// </summary>
     private bool IsRelevant(string path) =>
-        (TagReader.IsSupported(path) || !Path.HasExtension(path)) && !IsExcluded(path);
+        (TagReader.IsSupported(path) || Directory.Exists(path)) && !IsExcluded(path);
+
+    /// <summary>For a path that is gone (deleted, or moved away): a music file, or a folder that held songs in the list.</summary>
+    private bool WasRelevant(string path) =>
+        (TagReader.IsSupported(path) || HeldListedFiles(path)) && !IsExcluded(path);
+
+    private bool HeldListedFiles(string folder)
+    {
+        foreach (var file in _files)
+        {
+            if (IsSameOrInside(file.Path, folder))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private void ScheduleRescan()
     {

@@ -163,7 +163,9 @@ public sealed class LibraryService : IDisposable
             var first = await GetLikedSongsAsync(0, cancellationToken).ConfigureAwait(false);
             if (cached is not null && TryExtend(cached.Tracks, first) is { } extended)
             {
-                if (extended.Count != cached.Tracks.Count)
+                // Saved again when songs were added or the first page told more
+                // (a song liked from the player bar is stored with less detail).
+                if (extended.Count != cached.Tracks.Count || !SameDetails(extended, cached.Tracks, first.Tracks.Count))
                 {
                     SaveList(LikedSongsKey, null, extended);
                 }
@@ -251,8 +253,7 @@ public sealed class LibraryService : IDisposable
 
     /// <summary>
     /// Moves the song at <paramref name="from"/> to <paramref name="to"/> in
-    /// the playlist's own order (both are positions before the move), and
-    /// keeps the stored copy in step so the playlist does not load again.
+    /// the playlist's own order (both are positions before the move).
     /// </summary>
     public async Task MovePlaylistTrackAsync(string playlistId, IReadOnlyList<TrackInfo> before, int from, int to, CancellationToken cancellationToken)
     {
@@ -268,13 +269,7 @@ public sealed class LibraryService : IDisposable
         var insertBefore = to > from ? target + 1 : target;
         var version = Snapshot?.Playlists.FirstOrDefault(p => p.Id == playlistId)?.SnapshotId;
         var snapshot = await _api.ReorderPlaylistItemsAsync(playlistId, rangeStart, insertBefore, 1, version, cancellationToken).ConfigureAwait(false);
-
-        // Keep the stored copy only when the list has no gaps, so positions stay exact.
-        var after = before.ToList();
-        var moved = after[from];
-        after.RemoveAt(from);
-        after.Insert(to, moved);
-        Remember(playlistId, snapshot, IsDense(before) ? Renumber(after) : null);
+        Remember(playlistId, snapshot);
     }
 
     /// <summary>Removes every copy of a song from the playlist.</summary>
@@ -282,8 +277,71 @@ public sealed class LibraryService : IDisposable
     {
         var version = Snapshot?.Playlists.FirstOrDefault(p => p.Id == playlistId)?.SnapshotId;
         var snapshot = await _api.RemovePlaylistItemsAsync(playlistId, [uri], version, cancellationToken).ConfigureAwait(false);
-        var after = before.Where(t => t.Uri != uri).ToList();
-        Remember(playlistId, snapshot, IsDense(before) ? Renumber(after) : null, countChange: -(before.Count - after.Count));
+        Remember(playlistId, snapshot, countChange: -before.Count(t => t.Uri == uri));
+    }
+
+    /// <summary>
+    /// The list after <see cref="MovePlaylistTrackAsync"/>, with each song's
+    /// new position in the playlist. Entries Spotify no longer lists move
+    /// too, so positions are shifted rather than counted again from zero.
+    /// </summary>
+    public static List<TrackInfo> AfterMove(IReadOnlyList<TrackInfo> before, int from, int to)
+    {
+        var after = before.ToList();
+        if (from == to || from < 0 || to < 0 || from >= before.Count || to >= before.Count)
+        {
+            return after;
+        }
+
+        var start = before[from].Position ?? from;
+        var target = before[to].Position ?? to;
+        var moved = after[from];
+        after.RemoveAt(from);
+        after.Insert(to, moved);
+        for (var i = 0; i < after.Count; i++)
+        {
+            var position = after[i].Position;
+            if (i == to)
+            {
+                position = target;
+            }
+            else if (position > start && position <= target)
+            {
+                // Moved down: the songs it passed move up one place.
+                position--;
+            }
+            else if (position >= target && position < start)
+            {
+                // Moved up: the songs it passed move down one place.
+                position++;
+            }
+
+            if (position != after[i].Position)
+            {
+                after[i] = after[i] with { Position = position };
+            }
+        }
+
+        return after;
+    }
+
+    /// <summary>The list after <see cref="RemoveFromPlaylistAsync"/>, with the songs that were after a removed copy moved up.</summary>
+    public static List<TrackInfo> AfterRemove(IReadOnlyList<TrackInfo> before, string uri)
+    {
+        var removed = before.Where(t => t.Uri == uri).Select(t => t.Position).OfType<int>().ToList();
+        var after = new List<TrackInfo>(before.Count);
+        foreach (var track in before)
+        {
+            if (track.Uri == uri)
+            {
+                continue;
+            }
+
+            var shift = removed.Count(position => position < track.Position);
+            after.Add(shift == 0 ? track : track with { Position = track.Position - shift });
+        }
+
+        return after;
     }
 
     /// <summary>Adds songs to the end of a playlist (a hundred at a time).</summary>
@@ -295,8 +353,7 @@ public sealed class LibraryService : IDisposable
             snapshot = await _api.AddPlaylistItemsAsync(playlistId, batch, null, cancellationToken).ConfigureAwait(false);
         }
 
-        // The stored copy no longer matches; the next visit loads the playlist again.
-        Remember(playlistId, snapshot, tracks: null, countChange: uris.Count);
+        Remember(playlistId, snapshot, countChange: uris.Count);
     }
 
     /// <summary>Creates a private playlist and puts it at the top of the sidebar's list.</summary>
@@ -395,18 +452,21 @@ public sealed class LibraryService : IDisposable
             }
         }
 
+        // Where the two overlap, Spotify's answer wins: it has every detail
+        // (artists, album) of songs liked in Resonate, stored with fewer.
         var result = new List<TrackInfo>(first.Total);
-        result.AddRange(first.Tracks.Take(index));
-        result.AddRange(stored);
+        result.AddRange(first.Tracks);
+        result.AddRange(stored.Skip(first.Tracks.Count - index));
         return Renumber(result);
     }
 
-    /// <summary>Every song sits at its index (Spotify left no entry out), so positions can be renumbered after a change.</summary>
-    private static bool IsDense(IReadOnlyList<TrackInfo> tracks)
+    /// <summary>Whether the first <paramref name="count"/> songs of both lists say exactly the same.</summary>
+    private static bool SameDetails(List<TrackInfo> a, List<TrackInfo> b, int count)
     {
-        for (var i = 0; i < tracks.Count; i++)
+        for (var i = 0; i < count && i < a.Count && i < b.Count; i++)
         {
-            if (tracks[i].Position is { } position && position != i)
+            // Records compare lists by reference, so the artists are compared one by one.
+            if (!a[i].ArtistRefs.SequenceEqual(b[i].ArtistRefs) || a[i] with { ArtistRefs = b[i].ArtistRefs } != b[i])
             {
                 return false;
             }
@@ -461,8 +521,13 @@ public sealed class LibraryService : IDisposable
         return all;
     }
 
-    /// <summary>Notes a playlist's new version after a change, with its songs when they are known.</summary>
-    private void Remember(string playlistId, string? snapshotId, List<TrackInfo>? tracks, int countChange = 0)
+    /// <summary>
+    /// Notes a playlist's new version after a change. Its stored copy no
+    /// longer matches, so the next visit loads the playlist again: the list
+    /// that was changed may lack songs added since it loaded (in Resonate or
+    /// on another device), and keeping it as the new version would hide them.
+    /// </summary>
+    private void Remember(string playlistId, string? snapshotId, int countChange = 0)
     {
         if (Snapshot?.Playlists.FirstOrDefault(p => p.Id == playlistId) is not { } playlist)
         {
@@ -473,11 +538,6 @@ public sealed class LibraryService : IDisposable
         if (countChange != 0 && (playlist.Items ?? playlist.Tracks) is { } reference)
         {
             reference.Total = Math.Max(0, reference.Total + countChange);
-        }
-
-        if (snapshotId is not null && tracks is not null)
-        {
-            SaveList("playlist-" + playlistId, snapshotId, tracks);
         }
 
         _cache?.Save(Snapshot);

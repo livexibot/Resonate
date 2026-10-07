@@ -66,6 +66,26 @@ public sealed class LocalLibraryTests : IDisposable
     }
 
     [Fact]
+    public async Task Linked_folders_are_not_followed_so_a_loop_lists_each_song_once()
+    {
+        var song = WriteSong("Album/song.mp3", "Song");
+        try
+        {
+            Directory.CreateSymbolicLink(Path.Combine(_music, "Album", "loop"), _music);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Assert.Skip("This account can not make symbolic links.");
+        }
+
+        var library = Create();
+
+        await library.ScanAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal([song], library.Files.Select(f => f.Path));
+    }
+
+    [Fact]
     public async Task A_chosen_folder_inside_Spotify_is_not_scanned()
     {
         WriteSong("AppData/Spotify/song.mp3", "Spotify's");
@@ -183,6 +203,91 @@ public sealed class LocalLibraryTests : IDisposable
     }
 
     [Fact]
+    public async Task A_folder_moved_in_or_away_is_noticed_even_with_dots_in_its_name()
+    {
+        WriteSong("a.mp3", "A");
+        var elsewhere = Path.Combine(_root.FullName, "Desktop", "R.E.M. - Automatic for the People");
+        Directory.CreateDirectory(elsewhere);
+        await File.WriteAllBytesAsync(Path.Combine(elsewhere, "b.mp3"), Song("B"), TestContext.Current.CancellationToken);
+        var library = Create();
+        await library.ScanAsync(TestContext.Current.CancellationToken);
+        library.StartWatching();
+
+        // A move reports only the folder, not the songs inside it.
+        var moved = Path.Combine(_music, "R.E.M. - Automatic for the People");
+        Directory.Move(elsewhere, moved);
+        await WhileWatching(() => library.Files.Count == 2);
+        Assert.Equal(["A", "B"], library.Files.Select(f => f.Title).Order(StringComparer.Ordinal));
+
+        // As the Recycle Bin does.
+        Directory.Move(moved, elsewhere);
+        await WhileWatching(() => library.Files.Count == 1);
+        Assert.Equal(["A"], library.Files.Select(f => f.Title));
+    }
+
+    [Fact]
+    public async Task A_folder_that_answers_slowly_never_holds_up_the_list()
+    {
+        // A network folder that is asleep: watching it waits until the test says.
+        var ct = TestContext.Current.CancellationToken;
+        var slow = Path.Combine(_root.FullName, "NAS");
+        Directory.CreateDirectory(slow);
+        var asked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var answer = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var library = new LocalLibrary(_index, [], _time)
+        {
+            CanWatch = folder =>
+            {
+                if (Path.GetFileName(folder) == "NAS")
+                {
+                    asked.TrySetResult();
+                    answer.Task.Wait(TimeSpan.FromSeconds(30));
+                }
+
+                return Directory.Exists(folder);
+            },
+        };
+        _libraries.Add(library);
+        library.SetFolders([_music, slow]);
+        var song = WriteSong("a.mp3", "A");
+        await library.ScanAsync(ct);
+
+        var watching = Task.Run(library.StartWatching, ct);
+        try
+        {
+            await asked.Task.WaitAsync(TimeSpan.FromSeconds(10), ct);
+
+            // Meanwhile a rescan, the list and a change of folders all go ahead.
+            var meanwhile = Task.Run(
+                async () =>
+                {
+                    WriteSong("b.mp3", "B");
+                    await library.ScanAsync(ct);
+                    Assert.Equal(["A", "B"], library.Files.Select(f => f.Title).Order(StringComparer.Ordinal));
+                    Assert.Equal("A", library.Find(song)?.Title);
+                    Assert.False(library.Status.IsScanning);
+                    library.SetFolders([_music]);
+                },
+                ct);
+            await meanwhile.WaitAsync(TimeSpan.FromSeconds(10), ct);
+        }
+        finally
+        {
+            answer.TrySetResult();
+        }
+
+        await watching.WaitAsync(TimeSpan.FromSeconds(10), ct);
+        WriteSong("new/c.mp3", "C");
+        for (var i = 0; i < 200 && library.Files.Count < 3; i++)
+        {
+            await Task.Delay(50, ct);
+            _time.Advance(LocalLibrary.WatchDelay);
+        }
+
+        Assert.Equal(["A", "B", "C"], library.Files.Select(f => f.Title).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
     public void The_default_folders_are_Music_and_Downloads()
     {
         var downloads = Path.Combine(_root.FullName, "Downloads");
@@ -241,6 +346,16 @@ public sealed class LocalLibraryTests : IDisposable
         library.SetFolders([_music]);
         _libraries.Add(library);
         return library;
+    }
+
+    /// <summary>Lets the watchers' delay pass until <paramref name="done"/>, for up to about ten seconds.</summary>
+    private async Task WhileWatching(Func<bool> done)
+    {
+        for (var i = 0; i < 200 && !done(); i++)
+        {
+            await Task.Delay(50, TestContext.Current.CancellationToken);
+            _time.Advance(LocalLibrary.WatchDelay);
+        }
     }
 
     private string WriteSong(string relativePath, string title, int frames = 3)

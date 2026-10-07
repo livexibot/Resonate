@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.Extensions.Time.Testing;
 using Resonate.Spotify.Auth;
 using Resonate.Spotify.Library;
 using Resonate.Spotify.Playback;
@@ -348,6 +349,44 @@ public sealed class WholeListTests : IDisposable
     }
 
     [Fact]
+    public async Task A_song_liked_in_Resonate_gets_Spotifys_full_details_on_the_next_load()
+    {
+        AddLiked(130);
+        using var library = Library();
+        await library.GetAllLikedSongsAsync(TestContext.Current.CancellationToken);
+
+        // The player bar knows the song only by its address and names.
+        _web.SavedTracks.Insert(0, InFull("new", DateTimeOffset.UnixEpoch.AddDays(10_000)));
+        var bare = new TrackInfo("spotify:track:new", "Song new", "Band", "Record", null, TimeSpan.FromSeconds(1), null, null, false, true);
+        await library.NoteLikeChangedAsync(bare, liked: true, TestContext.Current.CancellationToken);
+        var all = await library.GetAllLikedSongsAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(131, all.Count);
+        Assert.Equal("band", Assert.Single(all[0].ArtistRefs).Id);
+        Assert.Equal("record", all[0].AlbumId);
+        Assert.Equal("record", new TrackListStore(_folder).Load(LibraryService.LikedSongsKey)!.Tracks[0].AlbumId);
+    }
+
+    [Fact]
+    public async Task Liked_Songs_is_not_written_again_while_nothing_changed()
+    {
+        for (var i = 0; i < 60; i++)
+        {
+            _web.SavedTracks.Add(InFull(i.ToString(System.Globalization.CultureInfo.InvariantCulture), DateTimeOffset.UnixEpoch.AddDays(5000 - i)));
+        }
+
+        var time = new FakeTimeProvider(DateTimeOffset.Parse("2026-10-07T12:00:00Z", System.Globalization.CultureInfo.InvariantCulture));
+        using var library = new LibraryService(_web, cache: null, time, new TrackListStore(_folder));
+        await library.GetAllLikedSongsAsync(TestContext.Current.CancellationToken);
+        var savedAt = new TrackListStore(_folder).Load(LibraryService.LikedSongsKey)!.SavedAt;
+
+        time.Advance(TimeSpan.FromHours(1));
+        await library.GetAllLikedSongsAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(savedAt, new TrackListStore(_folder).Load(LibraryService.LikedSongsKey)!.SavedAt);
+    }
+
+    [Fact]
     public async Task An_unchanged_playlist_version_needs_no_requests()
     {
         _web.PlaylistEntries["p"] = Enumerable.Range(0, 75)
@@ -409,6 +448,29 @@ public sealed class WholeListTests : IDisposable
     {
         AddedAt = added.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
         Track = new PlayableItem { Name = "Song " + id, Uri = "spotify:track:" + id, DurationMs = 1000 },
+    };
+
+    /// <summary>A liked song with everything Spotify tells about it: artists, album, covers.</summary>
+    private static SavedTrack InFull(string id, DateTimeOffset added) => new()
+    {
+        AddedAt = added.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+        Track = new PlayableItem
+        {
+            Id = id,
+            Name = "Song " + id,
+            Uri = "spotify:track:" + id,
+            DurationMs = 201_337,
+            TrackNumber = 3,
+            DiscNumber = 1,
+            Artists = [new SimplifiedArtist { Id = "band", Name = "Band" }],
+            Album = new SimplifiedAlbum
+            {
+                Id = "record",
+                Name = "Record",
+                Uri = "spotify:album:record",
+                Images = [new SpotifyImage { Url = "https://i.scdn.co/large", Width = 640 }, new SpotifyImage { Url = "https://i.scdn.co/small", Width = 64 }],
+            },
+        },
     };
 }
 

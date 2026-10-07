@@ -313,6 +313,20 @@ public sealed class DailyMixTests
     }
 
     [Fact]
+    public void A_mix_keeps_its_own_order_when_shown_in_mix_order()
+    {
+        // Liked Songs come numbered by their place in Liked Songs.
+        var liked = Music.Songs("a", 15).Concat(Music.Songs("b", 15)).Select((t, i) => t with { Position = i }).ToList();
+        IReadOnlyList<TrackInfo>[] playlists = [liked];
+
+        var mix = DailyMixBuilder.Build([Music.Seed("a")], liked, playlists, [], Today)[0];
+
+        Assert.Equal(Enumerable.Range(0, mix.Tracks.Count), mix.Tracks.Select(t => t.Position ?? -1));
+        Assert.Equal(mix.Tracks.Select(t => t.Uri), TrackSorter.Apply(mix.Tracks, TrackSort.Default).Select(t => t.Uri));
+        Assert.NotEqual(liked.Where(t => mix.Tracks.Any(m => m.Uri == t.Uri)).Select(t => t.Uri), mix.Tracks.Select(t => t.Uri));
+    }
+
+    [Fact]
     public void A_song_is_in_one_mix_only()
     {
         // Eight artists that all share one playlist: the first mixes take most of the songs.
