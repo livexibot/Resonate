@@ -51,6 +51,10 @@ public sealed class AppServices : IDisposable
         Artwork = new ArtworkSampler(player, Theme, http);
         _owned.Add(Artwork);
 
+        // Demo mode (CI's screenshots) never touches the user's own skins.
+        Skins = new SkinLibrary(settings, isDemo ? Path.Combine(Path.GetTempPath(), "Resonate demo skins") : AppPaths.SkinsFolder);
+        Visualiser = new VisualiserFeed();
+
         player.Spotify.Channel = settings.ParsedControlChannel;
         spotifyWindow.KeepHidden = settings.KeepSpotifyHidden;
         spotifyWindow.SaveResources = settings.SaveSpotifyResources;
@@ -102,6 +106,12 @@ public sealed class AppServices : IDisposable
 
     /// <summary>The playing song's cover, read for looks that use its colours.</summary>
     public ArtworkSampler Artwork { get; }
+
+    /// <summary>The classic player's skins: the built-in one and the ones the user added.</summary>
+    public SkinLibrary Skins { get; }
+
+    /// <summary>What the classic player's visualiser shows; only local files feed it.</summary>
+    public VisualiserFeed Visualiser { get; }
 
     public UpdateService Updates { get; } = new();
 

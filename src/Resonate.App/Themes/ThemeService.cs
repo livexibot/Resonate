@@ -80,6 +80,43 @@ public sealed class ThemeService
         }
     }
 
+    /// <summary>
+    /// The user allows the now-playing cover to turn like a record while a
+    /// song plays (in every look). Off until they switch it on.
+    /// </summary>
+    public bool SpinningCover
+    {
+        get => _settings.SpinningCover;
+        set
+        {
+            if (_settings.SpinningCover != value)
+            {
+                _settings.SpinningCover = value;
+                SaveSoon();
+                Changed?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The user allows looks with the song cover backdrop to show the cover
+    /// itself, blurred. Off until they switch it on; such looks then show a
+    /// soft wash of the cover's colours instead.
+    /// </summary>
+    public bool BlurredCoverBackground
+    {
+        get => _settings.BlurredCoverBackground;
+        set
+        {
+            if (_settings.BlurredCoverBackground != value)
+            {
+                _settings.BlurredCoverBackground = value;
+                SaveSoon();
+                Changed?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
+
     /// <summary>Whether Windows' "Animation effects" setting allows motion.</summary>
     public bool AnimationsEnabled => _systemSettings.AnimationsEnabled;
 
