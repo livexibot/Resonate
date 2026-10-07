@@ -119,7 +119,9 @@ public static class DailyMixBuilder
                 SeedId = seed.Id,
                 ArtistNames = [seed.Name, .. mix.Others.Take(2).Select(id => names.GetValueOrDefault(id, string.Empty)).Where(n => n.Length > 0)],
                 ImageUrl = seed.ImageUrl,
-                Tracks = mix.Tracks,
+                // The songs still carry their places in Liked Songs; the mix's own order replaces them,
+                // so "Mix order" shows and plays the day's order.
+                Tracks = mix.Tracks.Select((t, i) => t with { Position = i }).ToList(),
             });
         }
 
