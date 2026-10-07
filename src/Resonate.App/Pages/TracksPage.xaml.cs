@@ -27,6 +27,7 @@ public sealed partial class TracksPage : Page
 {
     /// <summary>Below this list width the page uses its compact layout.</summary>
     private const double CompactWidth = 600;
+    private const double CompactTitleSize = 28;
 
     private const string OpenInSpotifyLabel = "Open in Spotify";
     private const string UpGlyph = "";
@@ -694,6 +695,16 @@ public sealed partial class TracksPage : Page
         CoverColumn.Width = new GridLength(cover);
         CoverFrame.Width = cover;
         CoverFrame.Height = cover;
+
+        // A smaller title, so a long name still fits on its two lines.
+        if (compact)
+        {
+            TitleText.FontSize = CompactTitleSize;
+        }
+        else
+        {
+            TitleText.ClearValue(TextBlock.FontSizeProperty);
+        }
 
         Grid.SetRow(FilterBox, compact ? 1 : 0);
         Grid.SetColumn(FilterBox, compact ? 0 : 4);

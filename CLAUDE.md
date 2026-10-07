@@ -152,7 +152,13 @@ Windows:
   wraps the object as the declared type (`GetRuntimeClassForTypeCreation`).
   CI's screenshots caught this for a `Path` template part and for
   `FindDescendant<ScrollViewer>`. Build such elements in code, or reach them
-  through `x:Name`.
+  through `x:Name`. A hard cast of a resource,
+  `(FontFamily)Application.Current.Resources[...]`, ended the published app
+  outright; put such variants in XAML and switch their `Visibility`. List
+  rows have a transparent background so clicks land on the row's own
+  elements (`ListEvents` in `Helpers.cs`).
+- The screenshot tour writes any error to `tour-errors.txt`, and CI fails
+  when that file exists or the last (sign-in) screenshot is missing.
 - Themes swap colours by changing the `Color` of shared brushes in
   `Themes/Tokens.xaml`, which updates everything at once, even through
   `StaticResource`; the same trick lets colours slide from one look to the
@@ -217,6 +223,22 @@ only the owner's PC can tell):
 - The system media controls for Resonate's own playback come from
   `SystemMediaTransportControlsInterop.GetForWindow(hwnd)`;
   `GetForCurrentView` fails in WinUI 3.
+- Local Files' index is `local-files.json` and its cover thumbnails
+  `local-covers\` in the cache folder, keyed by path, size and last-write
+  time. The first folders are Music and the real Downloads folder
+  (`SHGetKnownFolderPath`). Scanning starts after the first frame (never in
+  benchmark, update-check or demo runs), rescans only new or changed files,
+  and watches the folders. `%APPDATA%\Spotify`, `%LOCALAPPDATA%\Spotify` and
+  any `SpotifyAB.SpotifyMusic_*` folder are never scanned, watched or
+  played; the scanner and the engine both check. "Date added" is the
+  earlier of when Resonate first saw a file and its creation time.
+- The local files engine (`AudioGraphEngine`) creates its graph on the
+  first local song, pinned to 48 kHz when the device runs higher, stops
+  the file node on pause and the graph after 60 s paused, and opens the
+  next song 12 s before the end. Ogg and Opus need Microsoft's Web Media
+  Extensions. Local playback goes through the Windows mixer: lossless
+  decoding, resampled to the device rate, not bit-perfect. Measure: formats,
+  gaps between songs, clicks, and device changes.
 
 GitHub automation:
 - Releases and pull requests made with the default `GITHUB_TOKEN` do not
