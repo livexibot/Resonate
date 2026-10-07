@@ -12,8 +12,9 @@ visitors; keep it short and in step with this file.
 ## Status and handoff (read first)
 
 - The first milestone is built and merged (pull request #1, 7 October
-  2026; see "First milestone"). Release v0.1.0 is published with x64 and
-  arm64 installers (`Resonate-win-x64-Setup.exe`); CI proves on every pull
+  2026; see "First milestone"). Releases are published with x64 and arm64
+  installers (`Resonate-win-x64-Setup.exe`); the latest is v0.3.0
+  (7 October 2026: the feature update and themes). CI proves on every pull
   request that an installed copy can install and update. The Spotify logic is tested on Linux; the
   WinUI 3 app is only compiled, timed and photographed on GitHub's Windows
   machines (CI), because cloud sessions run on Linux.
@@ -38,7 +39,9 @@ visitors; keep it short and in step with this file.
   publishes releases on its own. When a step is refused, explain it to the
   owner in plain words and ask; do not work around it.
 - Cloud sessions are given a `claude/...` branch to work on and may only push
-  there. Use it for the pull request instead of a `feat/...` name.
+  there. Use it for the pull request instead of a `feat/...` name. GitHub
+  deleted that branch when pull request #9 was squash-merged, so a follow-up
+  change starts the same branch name again from `main` with a plain push.
 - Open questions for the owner are listed at the end of this file. The two
   that block a public release are Spotify's Developer Policy and the logo.
 
@@ -273,7 +276,7 @@ Targets to measure from the first build: cold launch to a usable window
 under one second (CI prints it for demo data; the first build measured
 748 ms cold and 289 to 435 ms warm on GitHub's Windows machine), page
 changes within one frame
-at the monitor's refresh rate (ask the owner what it is), and play or pause
+at the monitor's refresh rate (the owner's is 165 Hz, so about 6 ms), and play or pause
 audible within about 100 ms.
 
 ## What the owner wants
@@ -638,7 +641,7 @@ when the work first needs them, then tick them off here.
 - Decided: the repository becomes public so the updater works without
   tokens (7 October 2026). The choice was offered with the Developer Policy
   question spelled out; the logo question below is still open.
-- Open: the owner's monitor refresh rate, for the frame-time target.
+- The owner's display (7 October 2026): 5120 x 2160 at 165 Hz, Windows 11.
 - Decided (7 October 2026): Local Files are played by Resonate itself,
   because Spotify refuses to start them for other apps; the owner asked
   for Local Files "just like in Spotify". Only the user's own files.
