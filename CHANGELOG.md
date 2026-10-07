@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.0](https://github.com/livexibot/Resonate/compare/v0.3.0...v0.4.0) (2026-10-07)
+
+
+### New features
+
+* optional plugins, downloaded only when turned on ([#12](https://github.com/livexibot/Resonate/issues/12)) ([51d63e8](https://github.com/livexibot/Resonate/commit/51d63e85e8877559c704786c42b92c88ff1c9b5f))
+* show your top artists and songs on Spotify on Home ([#13](https://github.com/livexibot/Resonate/issues/13)) ([265b30f](https://github.com/livexibot/Resonate/commit/265b30f0edb4c3caf0bfc9b71d0c040fdfd140c1))
+
+
+### Fixes
+
+* list an artist's albums again on a real account ([#16](https://github.com/livexibot/Resonate/issues/16)) ([8f25aee](https://github.com/livexibot/Resonate/commit/8f25aee21274fb6482626fdf158b18aea0aa9534))
+
+
+### Faster
+
+* check speed and memory on every change, and fix what is slow ([#11](https://github.com/livexibot/Resonate/issues/11)) ([bbc3d6c](https://github.com/livexibot/Resonate/commit/bbc3d6c315be0c2f836e5dea0d20c5b90e002a7e))
+
 ## [0.3.0](https://github.com/livexibot/Resonate/compare/v0.2.0...v0.3.0) (2026-10-07)
 
 
