@@ -104,7 +104,8 @@ public sealed partial class PlayerBar : UserControl
 
     private void ShowArtwork(PlayerState state)
     {
-        object? key = state.ArtworkUrl ?? (object?)state.ArtworkBytes;
+        // The cover's address or bytes, or, without one, the album's tile.
+        object key = state.ArtworkUrl ?? (object?)state.ArtworkBytes ?? "tile:" + (state.Album ?? state.Title);
         if (ReferenceEquals(key, _artworkKey) || Equals(key, _artworkKey))
         {
             return;
