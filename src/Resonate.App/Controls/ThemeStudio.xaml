@@ -97,6 +97,7 @@
             <controls:SettingRow Description="The cover turns like a record while a song plays." Header="Spinning cover">
                 <ToggleSwitch
                     x:Name="SpinningCoverSwitch"
+                    AutomationProperties.Name="Spinning cover"
                     MinWidth="0"
                     OffContent=""
                     OnContent=""
@@ -105,6 +106,7 @@
             <controls:SettingRow Description="Looks with the song cover as their background show the cover itself, blurred. When off, they use its colours." Header="Blurred cover background">
                 <ToggleSwitch
                     x:Name="BlurredCoverSwitch"
+                    AutomationProperties.Name="Blurred cover background"
                     MinWidth="0"
                     OffContent=""
                     OnContent=""
