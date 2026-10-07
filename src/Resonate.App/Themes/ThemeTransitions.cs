@@ -270,7 +270,7 @@ internal sealed class ThemeTransitions
     }
 
     /// <summary>Removes the pictures and anything drawn for the transition.</summary>
-    private void Clear()
+    public void Clear()
     {
         foreach (var image in _overlay.Children.OfType<Image>())
         {

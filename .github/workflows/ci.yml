@@ -72,8 +72,12 @@ jobs:
       - name: Test the theme logic on Windows
         run: dotnet test tests/Resonate.Themes.Tests/Resonate.Themes.Tests.csproj -c Release
 
+      # Warnings fail the build: a trimming or Native AOT warning means code
+      # that may break only in the installed app. New security advisories
+      # for packages (NU1901 to NU1904) stay warnings, so they cannot turn
+      # an unrelated pull request red overnight.
       - name: Publish (x64, Native AOT)
-        run: dotnet publish src/Resonate.App/Resonate.App.csproj -c Release -r win-x64 -p:Platform=x64 -o artifacts/win-x64 -bl:artifacts/publish.binlog
+        run: dotnet publish src/Resonate.App/Resonate.App.csproj -c Release -r win-x64 -p:Platform=x64 -o artifacts/win-x64 -bl:artifacts/publish.binlog -warnaserror -warnnotaserror:NU1901,NU1902,NU1903,NU1904
 
       - name: Measure start-up time
         shell: pwsh
@@ -88,6 +92,10 @@ jobs:
           $line = "Start-up to first frame (demo data, cold then warm): $($times -join ' ms, ') ms"
           Write-Output $line
           "### Start-up time`n`n$line" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+          # The owner's target is a usable window in under a second. The best
+          # warm start is the steadiest number on a shared machine.
+          $best = ($times | Select-Object -Skip 1 | Measure-Object -Minimum).Minimum
+          if ($best -gt 1000) { throw "Resonate took $best ms to show its window, over the one-second target." }
 
       - name: Take screenshots
         shell: pwsh
@@ -141,6 +149,10 @@ jobs:
           Get-ChildItem $feed | Format-Table Name, Length
 
           $setup = Get-ChildItem $feed -Filter '*Setup.exe' | Select-Object -First 1
+          # Velopack leaves debug symbols (.pdb) out by default.
+          $size = '{0:N1} MB installer, {1:N1} MB installed' -f ($setup.Length / 1MB), ((Get-ChildItem artifacts/win-x64 -Recurse -File -Exclude '*.pdb' | Measure-Object Length -Sum).Sum / 1MB)
+          Write-Output "Size: $size"
+          "### Size`n`n$size" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
           $process = Start-Process $setup.FullName -ArgumentList '--silent' -PassThru
           if (-not $process.WaitForExit(300000)) { throw 'Setup did not finish within five minutes.' }
           if ($process.ExitCode -ne 0) { throw "Setup failed with exit code $($process.ExitCode)." }
@@ -162,6 +174,32 @@ jobs:
           Write-Output "Update check: $outcome"
           if ($outcome -ne 'ReadyToRestart 0.0.2-ci') { throw "The installed copy did not download the new version ($outcome)." }
 
+      # Speed and memory with a heavy listener's library (10,000 liked songs):
+      # every page, scrolling, switching looks, what the app costs while
+      # nobody touches it, and pages or memory that are never given back.
+      # The results are printed here and in the run's summary.
+      - name: Measure speed and memory
+        shell: pwsh
+        run: |
+          # Windows' "Animation effects" on, as on the owner's PC, so page and
+          # look-switching animations and the moving cover are measured too.
+          Add-Type -Namespace Win32 -Name Spi -MemberDefinition '[DllImport("user32.dll")] public static extern bool SystemParametersInfo(uint action, uint param, IntPtr value, uint flags);'
+          [Win32.Spi]::SystemParametersInfo(0x1043, 0, [IntPtr]1, 3) | Out-Null
+          $folder = Join-Path $env:GITHUB_WORKSPACE 'artifacts/perf'
+          $process = Start-Process -FilePath artifacts/win-x64/Resonate.exe -ArgumentList '--perf', $folder -PassThru
+          $report = Join-Path $folder 'perf.md'
+          if (-not $process.WaitForExit(300000)) {
+            $process.Kill()
+            if (Test-Path $report) { Get-Content $report }
+            throw 'The speed test did not finish within five minutes.'
+          }
+          if (-not (Test-Path $report)) { throw 'The speed test wrote no results.' }
+          Get-Content $report
+          Get-Content $report | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+          Get-Content (Join-Path $folder 'perf.json')
+          $errors = Join-Path $folder 'perf-errors.txt'
+          if (Test-Path $errors) { Get-Content $errors; throw 'The speed test found the problems above.' }
+
       # Last, so a broken tour still keeps its screenshots and runs the
       # install test above, yet fails the pull request.
       - name: Check the screenshot tour
@@ -179,6 +217,14 @@ jobs:
           name: screenshots
           path: artifacts/screenshots
           if-no-files-found: warn
+
+      - name: Upload speed and memory results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: perf
+          path: artifacts/perf
+          if-no-files-found: ignore
 
       - name: Upload build log
         if: failure()

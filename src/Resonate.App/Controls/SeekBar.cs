@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Numerics;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Input;
@@ -17,10 +16,11 @@ namespace Resonate.App.Controls;
 
 /// <summary>
 /// The progress and volume bars, drawn in the theme's style: a slim line, a
-/// bold bar, a glowing gradient, a moving wave, or a hairline. While a song
-/// plays, the bar glides on the compositor at the display's refresh rate
-/// (values are seconds, advancing one per second), so the interface thread
-/// does nothing between the clock's updates.
+/// bold bar, a glowing gradient, a moving wave, or a hairline. The bar shows
+/// whatever value it is given; the player's clock moves it on one screen
+/// pixel at a time (see <see cref="ValuePerPixel"/>). A glide on the
+/// compositor would look the same, but would redraw the window at the
+/// screen's refresh rate for as long as a song plays.
 /// </summary>
 public sealed partial class SeekBar : RangeBase
 {
@@ -51,9 +51,6 @@ public sealed partial class SeekBar : RangeBase
     private InsetClip? _waveClip;
     private InsetClip? _trackClip;
     private bool _pointerOver;
-    private bool _gliding;
-    private double _glideStartValue;
-    private long _glideStartTime;
     private double _waveWidth;
     private double _thumbOpacity = -1;
     private bool _listening;
@@ -79,7 +76,7 @@ public sealed partial class SeekBar : RangeBase
         set => SetValue(BarStyleProperty, value);
     }
 
-    /// <summary>The song is playing: the bar moves on by itself, one unit per second.</summary>
+    /// <summary>The song is playing: the wave style rolls (the value is moved on by the player).</summary>
     public bool IsAdvancing
     {
         get => (bool)GetValue(IsAdvancingProperty);
@@ -90,6 +87,16 @@ public sealed partial class SeekBar : RangeBase
     public double WheelStep { get; set; }
 
     public bool IsDragging { get; private set; }
+
+    /// <summary>How much the value changes from one screen pixel to the next (0 before the bar is laid out).</summary>
+    public double ValuePerPixel
+    {
+        get
+        {
+            var pixels = TrackWidth * (XamlRoot?.RasterizationScale ?? 1);
+            return pixels > 0 ? (Maximum - Minimum) / pixels : 0;
+        }
+    }
 
     protected override void OnApplyTemplate()
     {
@@ -158,21 +165,7 @@ public sealed partial class SeekBar : RangeBase
     protected override void OnValueChanged(double oldValue, double newValue)
     {
         base.OnValueChanged(oldValue, newValue);
-        if (IsDragging || !IsAdvancing)
-        {
-            StopGlide();
-            ShowPosition();
-            return;
-        }
-
-        // The clock reports where the song is a few times a second; leave the
-        // glide alone while it agrees, and start again after a jump.
-        if (_gliding && Math.Abs(_glideStartValue + Stopwatch.GetElapsedTime(_glideStartTime).TotalSeconds - newValue) < 0.6)
-        {
-            return;
-        }
-
-        StartGlide();
+        ShowPosition();
     }
 
     protected override void OnMaximumChanged(double oldMaximum, double newMaximum)
@@ -339,11 +332,7 @@ public sealed partial class SeekBar : RangeBase
 
     private void OnThemeChanged(object? sender, EventArgs e) => UpdateLook();
 
-    private void OnAdvancingChanged()
-    {
-        Refresh();
-        AnimateWave();
-    }
+    private void OnAdvancingChanged() => AnimateWave();
 
     private void OnBarStyleChanged()
     {
@@ -360,15 +349,7 @@ public sealed partial class SeekBar : RangeBase
             BuildWave();
         }
 
-        if (IsAdvancing && !IsDragging)
-        {
-            StartGlide();
-        }
-        else
-        {
-            StopGlide();
-            ShowPosition();
-        }
+        ShowPosition();
     }
 
     private void ShowPosition()
@@ -379,71 +360,6 @@ public sealed partial class SeekBar : RangeBase
         _waveClip?.RightInset = inset;
         _trackClip?.LeftInset = BarStyle == ProgressStyle.Wave ? width - inset : 0;
         _thumbVisual?.Properties.InsertVector3("Translation", new Vector3(width - inset - ThumbOffset, 0, 0));
-    }
-
-    private void StartGlide()
-    {
-        var width = (float)TrackWidth;
-        if (_fillClip is null || width <= 0 || Maximum <= Minimum)
-        {
-            ShowPosition();
-            return;
-        }
-
-        StopGlide();
-        var ratio = (float)Ratio;
-        var remaining = Maximum - Value;
-        if (remaining <= 0.05)
-        {
-            ShowPosition();
-            return;
-        }
-
-        var compositor = _fillClip.Compositor;
-        var linear = compositor.CreateLinearEasingFunction();
-        var duration = TimeSpan.FromSeconds(remaining);
-
-        var inset = compositor.CreateScalarKeyFrameAnimation();
-        inset.InsertKeyFrame(0, width * (1 - ratio));
-        inset.InsertKeyFrame(1, 0, linear);
-        inset.Duration = duration;
-        _fillClip.StartAnimation("RightInset", inset);
-        _waveClip?.StartAnimation("RightInset", inset);
-        if (BarStyle == ProgressStyle.Wave && _trackClip is not null)
-        {
-            var played = compositor.CreateScalarKeyFrameAnimation();
-            played.InsertKeyFrame(0, width * ratio);
-            played.InsertKeyFrame(1, width, linear);
-            played.Duration = duration;
-            _trackClip.StartAnimation("LeftInset", played);
-        }
-
-        if (_thumbVisual is not null)
-        {
-            var move = compositor.CreateVector3KeyFrameAnimation();
-            move.InsertKeyFrame(0, new Vector3((width * ratio) - ThumbOffset, 0, 0));
-            move.InsertKeyFrame(1, new Vector3(width - ThumbOffset, 0, 0), linear);
-            move.Duration = duration;
-            _thumbVisual.StartAnimation("Translation", move);
-        }
-
-        _gliding = true;
-        _glideStartValue = Value;
-        _glideStartTime = Stopwatch.GetTimestamp();
-    }
-
-    private void StopGlide()
-    {
-        if (!_gliding)
-        {
-            return;
-        }
-
-        _gliding = false;
-        _fillClip?.StopAnimation("RightInset");
-        _waveClip?.StopAnimation("RightInset");
-        _trackClip?.StopAnimation("LeftInset");
-        _thumbVisual?.StopAnimation("Translation");
     }
 
     /// <summary>Sizes and colours for the bar style, and whether the handle shows.</summary>

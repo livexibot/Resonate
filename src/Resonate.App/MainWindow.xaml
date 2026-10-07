@@ -251,7 +251,8 @@
                 BorderBrush="{StaticResource ResonateBorderBrush}"
                 BorderThickness="{ThemeResource ResonatePanelBorderThickness}"
                 CornerRadius="{ThemeResource ResonateCornerLarge}">
-                <Frame x:Name="ContentFrame" />
+                <!-- Back goes through the window's own history; the frame keeps none. -->
+                <Frame x:Name="ContentFrame" IsNavigationStackEnabled="False" />
                 <InfoBar
                     x:Name="MessageBar"
                     MaxWidth="720"
