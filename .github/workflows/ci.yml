@@ -171,8 +171,12 @@ jobs:
         run: |
           $folder = Join-Path $env:GITHUB_WORKSPACE 'artifacts/perf'
           $process = Start-Process -FilePath artifacts/win-x64/Resonate.exe -ArgumentList '--perf', $folder -PassThru
-          if (-not $process.WaitForExit(300000)) { $process.Kill(); throw 'The speed test did not finish within five minutes.' }
           $report = Join-Path $folder 'perf.md'
+          if (-not $process.WaitForExit(300000)) {
+            $process.Kill()
+            if (Test-Path $report) { Get-Content $report }
+            throw 'The speed test did not finish within five minutes.'
+          }
           if (-not (Test-Path $report)) { throw 'The speed test wrote no results.' }
           Get-Content $report
           Get-Content $report | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
