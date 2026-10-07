@@ -342,8 +342,10 @@ internal static class MpegTags
                 }
                 else
                 {
-                    size = V24FrameSize(source, pos, end, h);
+                    // Flags first: finding the size can read further on, which
+                    // refills the buffer h points into.
                     formatFlags = h[9];
+                    size = V24FrameSize(source, pos, end, h);
                 }
 
                 var dataStart = pos + headerSize;
