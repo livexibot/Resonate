@@ -29,7 +29,8 @@ public interface ILocalAudioEngine : IDisposable
     /// Opens <paramref name="path"/> at <paramref name="position"/>, playing or
     /// paused, in place of what was open, and returns its length (zero when
     /// unknown). Throws <see cref="LocalAudioException"/> with a sentence for
-    /// the user when the file can not be played.
+    /// the user when the file can not be played; what was open is then
+    /// closed all the same (and the next file forgotten), so nothing plays.
     /// </summary>
     Task<TimeSpan> OpenAsync(string path, TimeSpan position, bool play, CancellationToken cancellationToken);
 

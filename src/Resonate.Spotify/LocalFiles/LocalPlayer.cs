@@ -249,6 +249,12 @@ public sealed class LocalPlayer : ILocalPlayer
         {
             if (_openPath is null)
             {
+                // Trying a song that could not play again says why again.
+                lock (_gate)
+                {
+                    _failures = 0;
+                }
+
                 await OpenAsync(track, epoch, position, play: true, ct).ConfigureAwait(false);
                 return;
             }

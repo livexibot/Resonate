@@ -98,7 +98,28 @@ public sealed partial class AudioGraphEngine : ILocalAudioEngine
                 }
             }
 
-            track ??= await CreateTrackAsync(graph, bus, path, cancellationToken).ConfigureAwait(false);
+            if (track is null)
+            {
+                try
+                {
+                    track = await CreateTrackAsync(graph, bus, path, cancellationToken).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // The file takes the place of what was open even when it can not
+                    // play: the song before must not go on where nothing can pause it.
+                    lock (_gate)
+                    {
+                        if (!_disposed)
+                        {
+                            CloseCurrent();
+                        }
+                    }
+
+                    throw;
+                }
+            }
+
             lock (_gate)
             {
                 if (_disposed)
@@ -798,6 +819,20 @@ public sealed partial class AudioGraphEngine : ILocalAudioEngine
             Try(_graph.Stop);
             _graphRunning = false;
         }
+    }
+
+    /// <summary>Stops and closes the open song and the one prepared to follow it. Call under the lock.</summary>
+    private void CloseCurrent()
+    {
+        _nextPath = null;
+        if (_next is { } next)
+        {
+            DropNext(next);
+        }
+
+        StopPlaying();
+        _current?.Dispose();
+        Volatile.Write(ref _current, null);
     }
 
     /// <summary>Call under the lock.</summary>
