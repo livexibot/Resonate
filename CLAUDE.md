@@ -556,7 +556,9 @@ when the work first needs them, then tick them off here.
 
 - More theme presets, saved looks, and copying a look as text.
 - Keyboard shortcuts for everything, and a command palette.
-- Lyrics, a mini player, and tray controls.
+- Lyrics (LRCLIB would contact a host other than Spotify and GitHub: ask
+  the owner first), a mini player, a Now Playing view, a sleep timer, and
+  tray and taskbar-thumbnail controls.
 - Queue editing (Spotify's queue can only be read and added to).
 
 ## Decisions and open questions
