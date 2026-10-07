@@ -49,6 +49,9 @@ jobs:
     name: Windows app
     runs-on: windows-latest
     timeout-minutes: 45
+    permissions:
+      # Only to keep the screenshots under refs/screenshots (see below).
+      contents: write
     steps:
       - uses: actions/checkout@v7
 
@@ -83,14 +86,34 @@ jobs:
           $process = Start-Process -FilePath artifacts/win-x64/Resonate.exe -ArgumentList '--screenshots', $folder -PassThru
           if (-not $process.WaitForExit(120000)) { $process.Kill(); throw 'The screenshot tour did not finish.' }
           Get-ChildItem $folder | Format-Table Name, Length
-          # Previews as text, for reviewers that can read this log but not download artifacts.
-          Write-Output '::group::Screenshot previews (base64 JPEG)'
-          Get-ChildItem $folder -Filter '*.preview.jpg' | ForEach-Object {
-            "BEGIN-SCREENSHOT $($_.Name)"
-            [Convert]::ToBase64String([IO.File]::ReadAllBytes($_.FullName))
-            "END-SCREENSHOT $($_.Name)"
+
+      # Artifacts need a GitHub login to download, so the screenshots are also
+      # kept as a commit under refs/screenshots/pr-<number> (a hidden ref, not
+      # a branch). Pull request descriptions link to them, and Claude's cloud
+      # sessions, which cannot download artifacts, fetch them with git.
+      - name: Keep screenshots for the pull request
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        shell: pwsh
+        run: |
+          $ref = 'refs/screenshots/pr-${{ github.event.pull_request.number }}'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          $env:GIT_INDEX_FILE = Join-Path $env:RUNNER_TEMP 'screenshots.index'
+          Get-ChildItem artifacts/screenshots -Filter '*.png' | ForEach-Object {
+            $blob = git hash-object -w $_.FullName
+            git update-index --add --cacheinfo "100644,$blob,$($_.Name)"
           }
-          Write-Output '::endgroup::'
+          $tree = git write-tree
+          $message = 'Screenshots of ${{ github.event.pull_request.head.sha }}'
+          $parent = (git ls-remote origin $ref) -split '\s+' | Select-Object -First 1
+          if ($parent) {
+            git fetch --depth=1 origin $ref
+            $commit = git commit-tree $tree -p $parent -m $message
+          } else {
+            $commit = git commit-tree $tree -m $message
+          }
+          git push origin "${commit}:${ref}"
+          "Screenshots: ${{ github.server_url }}/${{ github.repository }}/tree/$commit" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
 
       - name: Upload screenshots
         if: always()
