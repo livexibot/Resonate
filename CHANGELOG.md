@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/livexibot/Resonate/compare/v0.1.0...v0.2.0) (2026-10-07)
+
+
+### New features
+
+* keep Spotify in the background, and offer Web API only control ([#5](https://github.com/livexibot/Resonate/issues/5)) ([5b49142](https://github.com/livexibot/Resonate/commit/5b49142340c3e94990dfc5edb2cd49c972a7845d))
+
 ## 0.1.0 (2026-10-07)
 
 
