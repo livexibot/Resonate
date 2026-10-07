@@ -3,11 +3,12 @@
 A fast, modern Windows interface for Spotify, with themes and smooth
 animations, that keeps Spotify's own lossless playback.
 
-> **Status: early versions in testing.** Home with listening stats and
-> daily mixes, the library, playlists, search, Local Files, DJ, sorting,
-> truly random shuffle, repeat, the queue, the equalizer, themes, optional
-> plugins and automatic updates are built. It has not been tried with a
-> real Spotify account yet. The plan is in [CLAUDE.md](CLAUDE.md).
+> **Status: early versions in testing.** Home with listening stats, your
+> top artists and songs on Spotify and daily mixes, the library,
+> playlists, search, Local Files, DJ, sorting, truly random shuffle,
+> repeat, the queue, the equalizer, themes, optional plugins and automatic
+> updates are built. It has not been tried with a real Spotify account yet.
+> The plan is in [CLAUDE.md](CLAUDE.md).
 
 ## Why
 

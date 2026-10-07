@@ -12,8 +12,9 @@ visitors; keep it short and in step with this file.
 ## Status and handoff (read first)
 
 - The first milestone is built and merged (pull request #1, 7 October
-  2026; see "First milestone"). Release v0.1.0 is published with x64 and
-  arm64 installers (`Resonate-win-x64-Setup.exe`); CI proves on every pull
+  2026; see "First milestone"). Releases are published with x64 and arm64
+  installers (`Resonate-win-x64-Setup.exe`); the latest is v0.3.0
+  (7 October 2026: the feature update and themes). CI proves on every pull
   request that an installed copy can install and update. The Spotify logic is tested on Linux; the
   WinUI 3 app is only compiled, timed and photographed on GitHub's Windows
   machines (CI), because cloud sessions run on Linux.
@@ -42,7 +43,9 @@ visitors; keep it short and in step with this file.
   publishes releases on its own. When a step is refused, explain it to the
   owner in plain words and ask; do not work around it.
 - Cloud sessions are given a `claude/...` branch to work on and may only push
-  there. Use it for the pull request instead of a `feat/...` name.
+  there. Use it for the pull request instead of a `feat/...` name. GitHub
+  deleted that branch when pull request #9 was squash-merged, so a follow-up
+  change starts the same branch name again from `main` with a plain push.
 - Open questions for the owner are listed at the end of this file. The two
   that block a public release are Spotify's Developer Policy and the logo.
 
@@ -234,6 +237,11 @@ only the owner's PC can tell):
 - `/me/player/recently-played` returns at most the last 50 plays, so the
   listening stats are only as complete as Resonate's polling (every
   30 minutes, and on each Home visit).
+- Spotify's own stats are `/me/top/artists` and `/me/top/tracks` (scope
+  `user-top-read`) with `time_range` `short_term` (about 4 weeks),
+  `medium_term` (about 6 months) or `long_term` (about a year). They are
+  ranks only, with no play counts or minutes. Home's "Your top on Spotify"
+  asks for all three once a day with the mixes (six requests).
 - `uris` on PUT play has no documented limit, but about 800 returns 413 and
   long lists are reported to stall or lose their order. Resonate sends at
   most 100 songs at a time and sends the next 100 as the last one starts.
@@ -514,6 +522,11 @@ To check on the owner's PC: Home after signing in again (two new
 permissions), that DJ starts, the equalizer reaching Spotify (and "Restart
 Spotify now" bringing the song back), local files playing with the
 equalizer, and shuffle staying random across 100-song windows.
+
+After the second milestone, Home gained "Your top on Spotify" (the owner
+asked whether stats could come from Spotify, 7 October 2026): Spotify's
+top artists and songs over 4 weeks, 6 months or a year, top 5 opening to
+top 10, kept in `home.json` with the mixes.
 
 ## How work gets done
 

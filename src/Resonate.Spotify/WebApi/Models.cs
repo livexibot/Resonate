@@ -414,6 +414,7 @@ public sealed class PageCursors
 }
 
 /// <summary>How far back "top artists" and "top tracks" look.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<TopRange>))]
 public enum TopRange
 {
     /// <summary>About the last four weeks.</summary>

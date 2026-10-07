@@ -150,6 +150,12 @@ internal sealed class FakeWebApi : ISpotifyWebApi
 
     public List<PlayableItem> TopTracks { get; } = [];
 
+    /// <summary>Top artists for one time range; the others get <see cref="TopArtists"/>.</summary>
+    public Dictionary<TopRange, List<Artist>> TopArtistsIn { get; } = [];
+
+    /// <summary>Top tracks for one time range; the others get <see cref="TopTracks"/>.</summary>
+    public Dictionary<TopRange, List<PlayableItem>> TopTracksIn { get; } = [];
+
     /// <summary>URIs in the user's library (liked songs and so on).</summary>
     public HashSet<string> Library { get; } = [];
 
@@ -208,7 +214,7 @@ internal sealed class FakeWebApi : ISpotifyWebApi
         TopArtistRequests.Add(range);
         return TopItemsFailure is { } failure
             ? Task.FromException<Page<Artist>>(failure)
-            : Task.FromResult(Paged(TopArtists.ToList<Artist?>(), offset, limit));
+            : Task.FromResult(Paged(TopArtistsIn.GetValueOrDefault(range, TopArtists).ToList<Artist?>(), offset, limit));
     }
 
     public Task<Page<PlayableItem>> GetTopTracksAsync(TopRange range, int offset, int limit, CancellationToken cancellationToken)
@@ -216,7 +222,7 @@ internal sealed class FakeWebApi : ISpotifyWebApi
         TopTrackReads++;
         return TopItemsFailure is { } failure
             ? Task.FromException<Page<PlayableItem>>(failure)
-            : Task.FromResult(Paged(TopTracks.ToList<PlayableItem?>(), offset, limit));
+            : Task.FromResult(Paged(TopTracksIn.GetValueOrDefault(range, TopTracks).ToList<PlayableItem?>(), offset, limit));
     }
 
     public Task<IReadOnlyList<bool>> CheckLibraryAsync(IReadOnlyList<string> uris, CancellationToken cancellationToken) =>
