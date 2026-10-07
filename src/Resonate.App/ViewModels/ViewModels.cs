@@ -390,3 +390,57 @@ public sealed partial class RecentCard
     /// <summary>What screen readers say for the card.</summary>
     public override string ToString() => $"{Title}, {Artists}";
 }
+
+/// <summary>One of the user's top artists on Spotify, on Home: its rank, portrait and name.</summary>
+public sealed partial class TopArtistRow
+{
+    private ImageSource? _image;
+
+    public TopArtistRow(TopArtist artist, int rank)
+    {
+        Artist = artist;
+        Rank = rank.ToString(System.Globalization.CultureInfo.CurrentCulture);
+        PlaceholderBrush = Artwork.PlaceholderBrush(artist.Name);
+    }
+
+    public TopArtist Artist { get; }
+
+    public string Rank { get; }
+
+    public string Name => Artist.Name;
+
+    public Brush PlaceholderBrush { get; }
+
+    public ImageSource? Image => _image ??= Artwork.FromUrl(Artist.ImageUrl, 40);
+
+    /// <summary>What screen readers say for the row.</summary>
+    public override string ToString() => $"{Rank}. {Name}";
+}
+
+/// <summary>One of the user's top songs on Spotify, on Home: its rank, cover, title and artists.</summary>
+public sealed partial class TopSongRow
+{
+    private ImageSource? _image;
+
+    public TopSongRow(TrackInfo track, int rank)
+    {
+        Track = track;
+        Rank = rank.ToString(System.Globalization.CultureInfo.CurrentCulture);
+        PlaceholderBrush = Artwork.PlaceholderBrush(track.Album.Length > 0 ? track.Album : track.Title);
+    }
+
+    public TrackInfo Track { get; }
+
+    public string Rank { get; }
+
+    public string Title => Track.Title;
+
+    public string Artists => Track.Artists;
+
+    public Brush PlaceholderBrush { get; }
+
+    public ImageSource? Image => _image ??= Artwork.FromUrl(Track.SmallImageUrl ?? Track.LargeImageUrl, 40);
+
+    /// <summary>What screen readers say for the row.</summary>
+    public override string ToString() => $"{Rank}. {Title}, {Artists}";
+}

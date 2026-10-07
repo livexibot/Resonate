@@ -211,6 +211,11 @@ only the owner's PC can tell):
 - `/me/player/recently-played` returns at most the last 50 plays, so the
   listening stats are only as complete as Resonate's polling (every
   30 minutes, and on each Home visit).
+- Spotify's own stats are `/me/top/artists` and `/me/top/tracks` (scope
+  `user-top-read`) with `time_range` `short_term` (about 4 weeks),
+  `medium_term` (about 6 months) or `long_term` (about a year). They are
+  ranks only, with no play counts or minutes. Home's "Your top on Spotify"
+  asks for all three once a day with the mixes (six requests).
 - `uris` on PUT play has no documented limit, but about 800 returns 413 and
   long lists are reported to stall or lose their order. Resonate sends at
   most 100 songs at a time and sends the next 100 as the last one starts.
@@ -461,6 +466,11 @@ To check on the owner's PC: Home after signing in again (two new
 permissions), that DJ starts, the equalizer reaching Spotify (and "Restart
 Spotify now" bringing the song back), local files playing with the
 equalizer, and shuffle staying random across 100-song windows.
+
+After the second milestone, Home gained "Your top on Spotify" (the owner
+asked whether stats could come from Spotify, 7 October 2026): Spotify's
+top artists and songs over 4 weeks, 6 months or a year, top 5 opening to
+top 10, kept in `home.json` with the mixes.
 
 ## How work gets done
 

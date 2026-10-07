@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Resonate.App.Controls;
 using Resonate.App.Pages;
 using Resonate.App.Pages.Lists;
+using Resonate.Spotify.WebApi;
 using Resonate.Themes;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
@@ -46,6 +47,15 @@ internal sealed class ScreenshotTour
             // Resonate opens on Home.
             await Task.Delay(2500);
             await CaptureAsync("0-home.png");
+
+            // Spotify's own top lists over a year, picked as a click would.
+            if (_window.CurrentPage is HomePage home)
+            {
+                home.PickTopRange(TopRange.LongTerm);
+                await Task.Delay(800);
+                await CaptureAsync("0-home-top-year.png");
+                home.PickTopRange(TopRange.ShortTerm);
+            }
 
             _window.Open(DailyMixSource.KeyFor(1));
             await Task.Delay(1500);

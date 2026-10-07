@@ -19,28 +19,52 @@ public sealed class HomeContent
     /// <summary>The songs played most over the last four weeks (Spotify's short-term top tracks).</summary>
     public List<TrackInfo> OnRepeat { get; set; } = [];
 
+    /// <summary>The user's top artists and songs as Spotify works them out, for each time range it knows (none without permission).</summary>
+    public List<TopOnSpotify> Top { get; set; } = [];
+
     /// <summary>Artist pictures by artist ID ("" when the artist has none), so they are asked for once.</summary>
     public Dictionary<string, string> ArtistImages { get; set; } = [];
+
+    /// <summary>The top lists for <paramref name="range"/>, or null when Spotify did not give them.</summary>
+    public TopOnSpotify? TopFor(TopRange range) => Top.FirstOrDefault(t => t.Range == range);
 }
 
+/// <summary>The artists and songs a user played most over one of Spotify's time ranges, most played first.</summary>
+public sealed class TopOnSpotify
+{
+    public TopRange Range { get; set; }
+
+    public List<TopArtist> Artists { get; set; } = [];
+
+    public List<TrackInfo> Songs { get; set; } = [];
+}
+
+/// <summary>One of the user's top artists, with a picture link when Spotify has one.</summary>
+public sealed record TopArtist(string Id, string Name, string? ImageUrl);
+
 /// <summary>
-/// Home's data: the listening history, and the daily mixes and "On repeat"
-/// made from it once a day. What is stored shows at once; <see cref="RefreshAsync"/>
-/// brings it up to date in the background. Holds names and picture links
-/// only, never tokens.
+/// Home's data: the listening history, and the daily mixes, "On repeat" and
+/// Spotify's own top lists, asked for once a day. What is stored shows at
+/// once; <see cref="RefreshAsync"/> brings it up to date in the background.
+/// Holds names and picture links only, never tokens.
 /// </summary>
 public sealed class HomeFeed : IDisposable
 {
     public const int OnRepeatSize = 30;
 
+    /// <summary>How many artists and songs Home shows for each time range.</summary>
+    public const int TopSize = 10;
+
     private const int TopArtistsLimit = 20;
+
+    private static readonly TopRange[] TopRanges = [TopRange.ShortTerm, TopRange.MediumTerm, TopRange.LongTerm];
 
     /// <summary>The user's own playlists not yet stored that one round of making mixes may load (each once per version).</summary>
     private const int MaxPlaylistsToLoad = 10;
 
     private const int MaxPlaylistSize = 500;
 
-    /// <summary>With no mixes yet (a new account), try again after this long instead of waiting for tomorrow.</summary>
+    /// <summary>With no mixes or top lists yet (a new account, or Spotify did not answer), try again after this long instead of waiting for tomorrow.</summary>
     private static readonly TimeSpan RetryEmptyAfter = TimeSpan.FromMinutes(10);
 
     private readonly ISpotifyWebApi _api;
@@ -53,6 +77,7 @@ public sealed class HomeFeed : IDisposable
     private HomeContent? _content;
     private bool _loaded;
     private int _generation;
+    private DateTimeOffset _topTriedAt = DateTimeOffset.MinValue;
 
     /// <param name="path">The file to keep the day's mixes in; null keeps them in memory only (demo mode, tests).</param>
     public HomeFeed(ISpotifyWebApi api, LibraryService library, ListeningHistory history, string? path, TimeProvider? time = null)
@@ -69,7 +94,7 @@ public sealed class HomeFeed : IDisposable
 
     public ListeningHistory History { get; }
 
-    /// <summary>The latest mixes, possibly from an earlier day; null before any were made or loaded.</summary>
+    /// <summary>The latest mixes and top lists, possibly from an earlier day; null before any were made or loaded.</summary>
     public HomeContent? Content => Volatile.Read(ref _content);
 
     public bool IsLoaded
@@ -208,12 +233,23 @@ public sealed class HomeFeed : IDisposable
         return content.Mixes.Count == 0 && _time.GetUtcNow() - content.MadeAt > RetryEmptyAfter;
     }
 
+    /// <summary>
+    /// Whether today's mixes lack Spotify's top lists (made before Resonate
+    /// showed them, or Spotify did not answer): asked for again, at most
+    /// every few minutes.
+    /// </summary>
+    internal bool NeedsTop() =>
+        Content is { } content
+        && content.Top.Count < TopRanges.Length
+        && _time.GetUtcNow() - _topTriedAt > RetryEmptyAfter;
+
     private async Task MakeMixesAsync(CancellationToken cancellationToken)
     {
         await _makeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (!NeedsMixes())
+            var needsMixes = NeedsMixes();
+            if (!needsMixes && !NeedsTop())
             {
                 // Made meanwhile (Home and a mix page asked at once).
                 return;
@@ -226,27 +262,52 @@ public sealed class HomeFeed : IDisposable
             }
 
             var today = Today;
-            var seeds = await TopArtistsAsync(cancellationToken).ConfigureAwait(false);
-            var onRepeat = await OnRepeatAsync(cancellationToken).ConfigureAwait(false);
-            var liked = await _library.GetAllLikedSongsAsync(cancellationToken).ConfigureAwait(false);
-            if (_library.Snapshot is null)
+            _topTriedAt = _time.GetUtcNow();
+            var top = await FetchTopAsync(cancellationToken).ConfigureAwait(false);
+            HomeContent content;
+            if (needsMixes)
             {
-                // The very first start: the playlists are not known yet, and today's mixes should learn from them.
-                await _library.RefreshAsync(cancellationToken).ConfigureAwait(false);
+                var liked = await _library.GetAllLikedSongsAsync(cancellationToken).ConfigureAwait(false);
+                if (_library.Snapshot is null)
+                {
+                    // The very first start: the playlists are not known yet, and today's mixes should learn from them.
+                    await _library.RefreshAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                var playlists = await OwnPlaylistSongsAsync(cancellationToken).ConfigureAwait(false);
+                var mixes = DailyMixBuilder.Build(top.Seeds, liked, playlists, History.Plays, today);
+                await AddMissingImagesAsync(mixes, cancellationToken).ConfigureAwait(false);
+                content = new HomeContent
+                {
+                    Day = today,
+                    MadeAt = _time.GetUtcNow(),
+                    Mixes = mixes,
+                    OnRepeat = top.OnRepeat,
+                    Top = top.Lists,
+                    ArtistImages = new Dictionary<string, string>(_artistImages, StringComparer.Ordinal),
+                };
+            }
+            else
+            {
+                var made = Content!;
+                if (top.Lists.Count <= made.Top.Count)
+                {
+                    // Nothing new from Spotify.
+                    return;
+                }
+
+                // Today's mixes (and "On repeat", when it has songs) stay; only the top lists are new.
+                content = new HomeContent
+                {
+                    Day = made.Day,
+                    MadeAt = made.MadeAt,
+                    Mixes = made.Mixes,
+                    OnRepeat = made.OnRepeat.Count > 0 ? made.OnRepeat : top.OnRepeat,
+                    Top = top.Lists,
+                    ArtistImages = new Dictionary<string, string>(_artistImages, StringComparer.Ordinal),
+                };
             }
 
-            var playlists = await OwnPlaylistSongsAsync(cancellationToken).ConfigureAwait(false);
-            var mixes = DailyMixBuilder.Build(seeds, liked, playlists, History.Plays, today);
-            await AddMissingImagesAsync(mixes, cancellationToken).ConfigureAwait(false);
-
-            var content = new HomeContent
-            {
-                Day = today,
-                MadeAt = _time.GetUtcNow(),
-                Mixes = mixes,
-                OnRepeat = onRepeat,
-                ArtistImages = new Dictionary<string, string>(_artistImages, StringComparer.Ordinal),
-            };
             lock (_gate)
             {
                 if (generation != _generation)
@@ -267,52 +328,55 @@ public sealed class HomeFeed : IDisposable
         }
     }
 
-    /// <summary>The user's top artists over about four weeks, or six months when that says too little.</summary>
-    private async Task<List<MixSeed>> TopArtistsAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Spotify's top artists and songs for each time range, and from them
+    /// the mix seeds (the top artists over about four weeks, or six months
+    /// when that says too little) and "On repeat". Stops at the first
+    /// refusal (a sign-in without the permission), keeping what came before.
+    /// </summary>
+    private async Task<TopFetch> FetchTopAsync(CancellationToken cancellationToken)
     {
+        var lists = new List<TopOnSpotify>();
         var seeds = new List<MixSeed>();
-        foreach (var range in new[] { TopRange.ShortTerm, TopRange.MediumTerm })
+        var onRepeat = new List<TrackInfo>();
+        try
         {
-            if (seeds.Count >= TopArtistsLimit / 2)
+            foreach (var range in TopRanges)
             {
-                break;
-            }
-
-            try
-            {
-                var page = await _api.GetTopArtistsAsync(range, 0, TopArtistsLimit, cancellationToken).ConfigureAwait(false);
-                foreach (var artist in page.Items.OfType<Artist>())
+                var artistPage = await _api.GetTopArtistsAsync(range, 0, TopArtistsLimit, cancellationToken).ConfigureAwait(false);
+                var trackPage = await _api.GetTopTracksAsync(range, 0, OnRepeatSize, cancellationToken).ConfigureAwait(false);
+                var artists = new List<TopArtist>();
+                foreach (var artist in artistPage.Items.OfType<Artist>())
                 {
                     var image = ImagePicker.Pick(artist.Images, 300);
                     _artistImages[artist.Id] = image ?? string.Empty;
-                    seeds.Add(new MixSeed(artist.Id, artist.Name, image));
+                    artists.Add(new TopArtist(artist.Id, artist.Name, image));
                 }
-            }
-            catch (SpotifyApiException)
-            {
-                // Not allowed (an older sign-in) or not now: the history and Liked Songs still give seeds.
-                break;
-            }
-        }
 
-        return seeds.DistinctBy(s => s.Id).ToList();
-    }
+                var songs = trackPage.Items
+                    .Select((PlayableItem? t, int i) => TrackInfo.From(t, position: i))
+                    .OfType<TrackInfo>()
+                    .Where(t => t.IsPlayable)
+                    .ToList();
+                if (range == TopRange.ShortTerm)
+                {
+                    onRepeat = songs;
+                }
 
-    private async Task<List<TrackInfo>> OnRepeatAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            var page = await _api.GetTopTracksAsync(TopRange.ShortTerm, 0, OnRepeatSize, cancellationToken).ConfigureAwait(false);
-            return page.Items
-                .Select((PlayableItem? t, int i) => TrackInfo.From(t, position: i))
-                .OfType<TrackInfo>()
-                .Where(t => t.IsPlayable)
-                .ToList();
+                if (range != TopRange.LongTerm && seeds.Count < TopArtistsLimit / 2)
+                {
+                    seeds.AddRange(artists.Select(a => new MixSeed(a.Id, a.Name, a.ImageUrl)));
+                }
+
+                lists.Add(new TopOnSpotify { Range = range, Artists = artists.Take(TopSize).ToList(), Songs = songs.Take(TopSize).ToList() });
+            }
         }
         catch (SpotifyApiException)
         {
-            return [];
+            // Not allowed (an older sign-in) or not now: the history and Liked Songs still give seeds.
         }
+
+        return new TopFetch(lists, seeds.DistinctBy(s => s.Id).ToList(), onRepeat);
     }
 
     /// <summary>
@@ -409,6 +473,7 @@ public sealed class HomeFeed : IDisposable
                 MadeAt = content.MadeAt,
                 Mixes = content.Mixes,
                 OnRepeat = content.OnRepeat,
+                Top = content.Top,
                 ArtistImages = new Dictionary<string, string>(_artistImages, StringComparer.Ordinal),
             });
         }
@@ -477,4 +542,6 @@ public sealed class HomeFeed : IDisposable
             // Best effort.
         }
     }
+
+    private sealed record TopFetch(List<TopOnSpotify> Lists, List<MixSeed> Seeds, List<TrackInfo> OnRepeat);
 }

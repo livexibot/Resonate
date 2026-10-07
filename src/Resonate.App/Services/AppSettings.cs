@@ -80,6 +80,9 @@ public sealed class AppSettings
     /// <summary>The sort chosen for each song list (by list key), as <see cref="Resonate.Spotify.Library.TrackSort.Serialize"/> writes it.</summary>
     public Dictionary<string, string> TrackSorts { get; set; } = [];
 
+    /// <summary>The time range of "Your top on Spotify" on Home.</summary>
+    public Resonate.Spotify.WebApi.TopRange HomeTopRange { get; set; } = Resonate.Spotify.WebApi.TopRange.ShortTerm;
+
     /// <summary>The folders Local Files looks in; null for the user's Music and Downloads folders.</summary>
     public List<string>? LocalFolders { get; set; }
 

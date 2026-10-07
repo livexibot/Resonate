@@ -320,20 +320,22 @@ public sealed class DemoWebApi : ISpotifyWebApi
 
     public Task<Page<Artist>> GetTopArtistsAsync(TopRange range, int offset, int limit, CancellationToken cancellationToken)
     {
-        // The favourite first, as on the stats.
-        var artists = DemoCatalog.AllArtists
-            .OrderBy(name => name == "Mira Sol" ? 0 : 1)
+        // The favourite first over four weeks, as on the stats; longer ranges lead with others.
+        var ranked = DemoCatalog.AllArtists.OrderBy(name => name == "Mira Sol" ? 0 : 1).ToList();
+        var lead = (int)range * 2;
+        var page = ranked.Skip(lead).Concat(ranked.Take(lead))
             .Select(name => new Artist { Id = DemoCatalog.ArtistId(name), Name = name, Uri = $"demo:artist:{DemoCatalog.ArtistId(name)}" })
             .Skip(offset)
             .Take(limit)
             .ToList<Artist?>();
-        return Task.FromResult(new Page<Artist> { Items = artists, Total = DemoCatalog.AllArtists.Count, Offset = offset, Limit = limit });
+        return Task.FromResult(new Page<Artist> { Items = page, Total = DemoCatalog.AllArtists.Count, Offset = offset, Limit = limit });
     }
 
     public Task<Page<PlayableItem>> GetTopTracksAsync(TopRange range, int offset, int limit, CancellationToken cancellationToken)
     {
-        var tracks = DemoCatalog.FavouriteSongs().Take(1)
-            .Concat(DemoCatalog.AllTracks().Where((_, i) => i % 5 == 0))
+        var stride = 5 + (int)range;
+        var tracks = DemoCatalog.FavouriteSongs().Take(range == TopRange.ShortTerm ? 1 : 0)
+            .Concat(DemoCatalog.AllTracks().Where((_, i) => i % stride == (int)range))
             .DistinctBy(t => t.Uri)
             .Skip(offset)
             .Take(limit)

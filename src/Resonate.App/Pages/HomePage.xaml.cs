@@ -10,17 +10,21 @@ using Resonate.App.ViewModels;
 using Resonate.Spotify.Auth;
 using Resonate.Spotify.History;
 using Resonate.Spotify.Playback;
+using Resonate.Spotify.WebApi;
 
 namespace Resonate.App.Pages;
 
 /// <summary>
-/// Home: listening stats for the past day and week, the daily mixes, and
-/// the songs played lately. What is stored shows at once; Spotify is asked
-/// for what is new in the background.
+/// Home: listening stats for the past day and week, Spotify's own top
+/// artists and songs, the daily mixes, and the songs played lately. What is
+/// stored shows at once; Spotify is asked for what is new in the background.
 /// </summary>
 public sealed partial class HomePage : Page
 {
     private const int RecentCount = 6;
+
+    /// <summary>Top artists and songs shown until "Show top 10" is pressed.</summary>
+    private const int TopShownFirst = 5;
 
     /// <summary>A second click on the same song this soon is the rest of a double-click, not another play.</summary>
     private const int DoubleClickMilliseconds = 500;
@@ -31,8 +35,13 @@ public sealed partial class HomePage : Page
     private PlayRecord? _shownNewest;
     private bool _refreshing;
     private int _updateQueued;
-    private RecentCard? _lastPlayed;
+    private object? _lastPlayed;
     private long _lastPlayedAt;
+    private TopRange _topRange;
+    private TopOnSpotify? _shownTop;
+    private int _shownTopCount;
+    private bool _topExpanded;
+    private bool _selectingRange;
 
     public HomePage()
     {
@@ -42,6 +51,18 @@ public sealed partial class HomePage : Page
     public ObservableCollection<MixCard> Mixes { get; } = [];
 
     public ObservableCollection<RecentCard> Recent { get; } = [];
+
+    public ObservableCollection<TopArtistRow> TopArtists { get; } = [];
+
+    public ObservableCollection<TopSongRow> TopSongs { get; } = [];
+
+    /// <summary>"past 4 weeks", "past 6 months" or "past year", as Spotify measures them (roughly).</summary>
+    public static string RangeName(TopRange range) => range switch
+    {
+        TopRange.ShortTerm => "past 4 weeks",
+        TopRange.MediumTerm => "past 6 months",
+        _ => "past year",
+    };
 
     /// <summary>"Good morning" until noon, "Good afternoon" until six, then "Good evening".</summary>
     public static string Greeting(int hour) => hour switch
@@ -58,6 +79,7 @@ public sealed partial class HomePage : Page
         PermissionNote.Visibility = _services.Account.MissingScopes.Any(s => s is "user-read-recently-played" or "user-top-read")
             ? Visibility.Visible
             : Visibility.Collapsed;
+        SelectTopRange(_services.Settings.HomeTopRange);
 
         _services.Home.Changed += OnHomeChanged;
         _services.Home.History.Changed += OnHomeChanged;
@@ -139,10 +161,12 @@ public sealed partial class HomePage : Page
         var plays = home.History.Plays;
         var now = DateTimeOffset.UtcNow;
         ShowStats(plays, now);
+        ShowTop();
         ShowRecent(plays, now);
 
+        // New top lists alone leave the mix cards as they are.
         var content = home.Content;
-        if (content != _shownContent)
+        if (content?.Mixes != _shownContent?.Mixes || content?.OnRepeat != _shownContent?.OnRepeat)
         {
             _shownContent = content;
             Mixes.Clear();
@@ -211,6 +235,135 @@ public sealed partial class HomePage : Page
         }
     }
 
+    /// <summary>For the screenshot tour: picks <paramref name="range"/> as a click would, and scrolls the lists into view.</summary>
+    internal void PickTopRange(TopRange range)
+    {
+        TopRangeBar.SelectedItem = TopRangeBar.Items[(int)range];
+        TopRangeBar.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false, VerticalAlignmentRatio = 0.05 });
+    }
+
+    /// <summary>Picks the time range in the bar without treating it as the user's choice.</summary>
+    private void SelectTopRange(TopRange range)
+    {
+        _topRange = range;
+        _selectingRange = true;
+        try
+        {
+            TopRangeBar.SelectedItem = TopRangeBar.Items[Math.Clamp((int)range, 0, TopRangeBar.Items.Count - 1)];
+        }
+        finally
+        {
+            _selectingRange = false;
+        }
+    }
+
+    /// <summary>Spotify's top lists for the chosen time range; rebuilt only when they or the number shown change.</summary>
+    private void ShowTop()
+    {
+        var top = _services.Home.Content?.TopFor(_topRange);
+        var count = _topExpanded ? HomeFeed.TopSize : TopShownFirst;
+        if (top != _shownTop || count != _shownTopCount)
+        {
+            _shownTop = top;
+            _shownTopCount = count;
+            TopArtists.Clear();
+            TopSongs.Clear();
+            var rank = 0;
+            foreach (var artist in top?.Artists.Take(count) ?? [])
+            {
+                TopArtists.Add(new TopArtistRow(artist, ++rank));
+            }
+
+            rank = 0;
+            foreach (var song in top?.Songs.Take(count) ?? [])
+            {
+                TopSongs.Add(new TopSongRow(song, ++rank));
+            }
+        }
+
+        var any = TopArtists.Count > 0 || TopSongs.Count > 0;
+        TopLists.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
+        TopNote.Visibility = any ? Visibility.Collapsed : Visibility.Visible;
+        TopNote.Text = top is not null
+            ? $"Spotify has no top artists or songs for the {RangeName(_topRange)} yet. They appear as you listen."
+            : _refreshing ? "Asking Spotify…" : "Spotify has not shared your top artists and songs yet.";
+
+        var more = top is not null && (top.Artists.Count > TopShownFirst || top.Songs.Count > TopShownFirst);
+        TopMoreButton.Visibility = more ? Visibility.Visible : Visibility.Collapsed;
+        TopMoreButton.Content = _topExpanded ? "Show top 5" : "Show top 10";
+    }
+
+    private void OnTopRangeChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    {
+        var index = TopRangeBar.Items.IndexOf(TopRangeBar.SelectedItem);
+        if (_selectingRange || index < 0 || (TopRange)index == _topRange)
+        {
+            return;
+        }
+
+        _topRange = (TopRange)index;
+        _services.Settings.HomeTopRange = _topRange;
+        _services.SaveSettings();
+        ShowTop();
+    }
+
+    private void OnTopMoreClick(object sender, RoutedEventArgs e)
+    {
+        _topExpanded = !_topExpanded;
+        ShowTop();
+    }
+
+    private void OnTopArtistClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is TopArtistRow row)
+        {
+            App.MainWindow?.Open(TrackActions.ArtistKey(row.Artist.Id));
+        }
+    }
+
+    private void OnTopSongClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is TopSongRow row && !IsSecondClick(row))
+        {
+            Play(row);
+        }
+    }
+
+    /// <summary>Plays the top songs of the chosen time range in rank order, from <paramref name="row"/>'s song.</summary>
+    private void Play(TopSongRow row)
+    {
+        if (_shownTop is not { } top)
+        {
+            return;
+        }
+
+        var index = top.Songs.IndexOf(row.Track);
+        var name = $"Your top songs, {RangeName(top.Range)}";
+        _ = _services.Player.PlayAsync(new PlayRequest(top.Songs, Math.Max(0, index), null, name));
+    }
+
+    private void OnTopSongContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (ListEvents.ContextRequested<TopSongRow>(TopSongList, args) is { } row)
+        {
+            TrackActions.ShowMenu(TrackActions.BuildMenu(row.Track, new TrackMenuOptions { Play = () => Play(row) }), TopSongList, args);
+        }
+    }
+
+    /// <summary>Whether this click on <paramref name="item"/> is the second half of a double-click (see <see cref="DoubleClickMilliseconds"/>).</summary>
+    private bool IsSecondClick(object item)
+    {
+        var now = Environment.TickCount64;
+        if (item == _lastPlayed && now - _lastPlayedAt < DoubleClickMilliseconds)
+        {
+            return true;
+        }
+
+        _lastPlayed = item;
+        _lastPlayedAt = now;
+        return false;
+    }
+
     private void ShowRecent(IReadOnlyList<PlayRecord> plays, DateTimeOffset now)
     {
         var newest = plays.Count > 0 ? plays[0] : null;
@@ -247,15 +400,10 @@ public sealed partial class HomePage : Page
 
     private void OnRecentClick(object sender, ItemClickEventArgs e)
     {
-        if (e.ClickedItem is not RecentCard card
-            || (card == _lastPlayed && Environment.TickCount64 - _lastPlayedAt < DoubleClickMilliseconds))
+        if (e.ClickedItem is RecentCard card && !IsSecondClick(card))
         {
-            return;
+            Play(card);
         }
-
-        _lastPlayed = card;
-        _lastPlayedAt = Environment.TickCount64;
-        Play(card);
     }
 
     /// <summary>

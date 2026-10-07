@@ -152,6 +152,70 @@
                 <TextBlock Style="{StaticResource ResonateSecondaryTextStyle}" Text="{x:Bind Artists}" />
             </StackPanel>
         </DataTemplate>
+
+        <!-- One of the top artists on Spotify: rank, portrait and name. A click opens the artist. -->
+        <DataTemplate x:Key="TopArtistTemplate" x:DataType="vm:TopArtistRow">
+            <Grid Height="52" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="20" />
+                    <ColumnDefinition Width="40" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource ResonateSecondaryTextStyle}"
+                    Text="{x:Bind Rank}" />
+                <Grid
+                    Grid.Column="1"
+                    Width="40"
+                    Height="40"
+                    Background="{x:Bind PlaceholderBrush}"
+                    CornerRadius="20">
+                    <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
+                </Grid>
+                <TextBlock
+                    Grid.Column="2"
+                    VerticalAlignment="Center"
+                    FontWeight="SemiBold"
+                    Style="{StaticResource ResonateBodyTextStyle}"
+                    Text="{x:Bind Name}" />
+            </Grid>
+        </DataTemplate>
+
+        <!-- One of the top songs on Spotify: rank, cover, title and artists. A click plays the list from it. -->
+        <DataTemplate x:Key="TopSongTemplate" x:DataType="vm:TopSongRow">
+            <Grid Height="52" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="20" />
+                    <ColumnDefinition Width="40" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource ResonateSecondaryTextStyle}"
+                    Text="{x:Bind Rank}" />
+                <Grid
+                    Grid.Column="1"
+                    Width="40"
+                    Height="40"
+                    Background="{x:Bind PlaceholderBrush}"
+                    CornerRadius="{ThemeResource ResonateCornerSmall}">
+                    <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
+                </Grid>
+                <StackPanel
+                    Grid.Column="2"
+                    VerticalAlignment="Center"
+                    Spacing="2">
+                    <TextBlock
+                        FontWeight="SemiBold"
+                        Style="{StaticResource ResonateBodyTextStyle}"
+                        Text="{x:Bind Title}" />
+                    <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="{x:Bind Artists}" />
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
     </Page.Resources>
 
     <ScrollViewer>
@@ -204,6 +268,90 @@
                         Text="Spotify shares the last 50 songs you played. Resonate keeps them from now on, so your stats fill in as you listen."
                         TextWrapping="Wrap"
                         Visibility="Collapsed" />
+                </StackPanel>
+
+                <!-- Spotify's own top artists and songs, over the time range picked on the right. -->
+                <StackPanel Spacing="12">
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center" Spacing="2">
+                            <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Your top on Spotify" />
+                            <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="As Spotify counts them, from all your listening. Updated daily." />
+                        </StackPanel>
+                        <SelectorBar
+                            x:Name="TopRangeBar"
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            SelectionChanged="OnTopRangeChanged">
+                            <SelectorBarItem x:Name="ShortTermItem" Text="4 weeks" />
+                            <SelectorBarItem x:Name="MediumTermItem" Text="6 months" />
+                            <SelectorBarItem x:Name="LongTermItem" Text="1 year" />
+                        </SelectorBar>
+                    </Grid>
+                    <TextBlock
+                        x:Name="TopNote"
+                        Style="{StaticResource ResonateSecondaryTextStyle}"
+                        TextWrapping="Wrap"
+                        Visibility="Collapsed" />
+                    <Grid x:Name="TopLists" ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border
+                            Padding="8,14,8,8"
+                            Background="{StaticResource ResonateSurfaceHoverBrush}"
+                            BorderBrush="{StaticResource ResonateBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{ThemeResource ResonateCornerLarge}">
+                            <StackPanel Spacing="6">
+                                <TextBlock
+                                    Margin="16,0"
+                                    CharacterSpacing="60"
+                                    Style="{StaticResource ResonateCaptionTextStyle}"
+                                    Text="TOP ARTISTS" />
+                                <ListView
+                                    x:Name="TopArtistList"
+                                    IsItemClickEnabled="True"
+                                    ItemClick="OnTopArtistClick"
+                                    ItemTemplate="{StaticResource TopArtistTemplate}"
+                                    ItemsSource="{x:Bind TopArtists}"
+                                    SelectionMode="None" />
+                            </StackPanel>
+                        </Border>
+                        <Border
+                            Grid.Column="1"
+                            Padding="8,14,8,8"
+                            Background="{StaticResource ResonateSurfaceHoverBrush}"
+                            BorderBrush="{StaticResource ResonateBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{ThemeResource ResonateCornerLarge}">
+                            <StackPanel Spacing="6">
+                                <TextBlock
+                                    Margin="16,0"
+                                    CharacterSpacing="60"
+                                    Style="{StaticResource ResonateCaptionTextStyle}"
+                                    Text="TOP SONGS" />
+                                <ListView
+                                    x:Name="TopSongList"
+                                    ContextRequested="OnTopSongContextRequested"
+                                    IsItemClickEnabled="True"
+                                    ItemClick="OnTopSongClick"
+                                    ItemTemplate="{StaticResource TopSongTemplate}"
+                                    ItemsSource="{x:Bind TopSongs}"
+                                    SelectionMode="None" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                    <Button
+                        x:Name="TopMoreButton"
+                        HorizontalAlignment="Left"
+                        Click="OnTopMoreClick"
+                        Content="Show top 10"
+                        Style="{StaticResource ResonateSubtleButtonStyle}" />
                 </StackPanel>
 
                 <StackPanel Spacing="8">

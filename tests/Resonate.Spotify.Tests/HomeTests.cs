@@ -463,7 +463,7 @@ public sealed class HomeFeedTests : IDisposable
         Assert.Contains(mix.Tracks, t => t.ArtistRefs[0].Id == "c");
         Assert.Equal(["spotify:track:a0"], first.OnRepeat.Select(t => t.Uri));
         Assert.Same(first, later);
-        Assert.Equal(requests, _web.TopArtistRequests.Count - 2);
+        Assert.Equal(requests, _web.TopArtistRequests.Count - 3);
         Assert.Equal(new DateOnly(2026, 10, 8), feed.Content!.Day);
     }
 
@@ -486,7 +486,65 @@ public sealed class HomeFeedTests : IDisposable
         Assert.Equal(2, reopened.History.Plays.Count);
         Assert.Equal(uris, reopened.Content!.Mixes[0].Tracks.Select(t => t.Uri));
         Assert.Equal("https://img/artist-a", reopened.KnownArtistImage("a"));
+        Assert.Equal([TopRange.ShortTerm, TopRange.MediumTerm, TopRange.LongTerm], reopened.Content.Top.Select(t => t.Range));
+        Assert.Equal("Artist a", reopened.Content.TopFor(TopRange.LongTerm)!.Artists[0].Name);
         Assert.False(reopened.NeedsMixes());
+        Assert.False(reopened.NeedsTop());
+    }
+
+    [Fact]
+    public async Task Spotifys_top_artists_and_songs_come_for_each_time_range()
+    {
+        _web.TopArtistsIn[TopRange.MediumTerm] = [new Artist { Id = "c", Name = "Artist c" }, new Artist { Id = "a", Name = "Artist a" }];
+        _web.TopArtistsIn[TopRange.LongTerm] = Enumerable.Range(0, 15).Select(i => new Artist { Id = $"x{i}", Name = $"Artist x{i}" }).ToList();
+        _web.TopTracksIn[TopRange.ShortTerm] = Enumerable.Range(0, 12).Select(i => Music.Song($"a{i}", "a")).ToList();
+        _web.TopTracksIn[TopRange.MediumTerm] = [Music.Song("c1", "c"), Music.Song("a0", "a")];
+        using var library = Library();
+        using var feed = Feed(library);
+
+        await feed.RefreshAsync(TestContext.Current.CancellationToken);
+
+        var content = feed.Content!;
+        Assert.Equal(["a"], content.TopFor(TopRange.ShortTerm)!.Artists.Select(a => a.Id));
+        Assert.Equal("https://img/artist-a", content.TopFor(TopRange.ShortTerm)!.Artists[0].ImageUrl);
+        Assert.Equal(["c", "a"], content.TopFor(TopRange.MediumTerm)!.Artists.Select(a => a.Id));
+        Assert.Equal(HomeFeed.TopSize, content.TopFor(TopRange.LongTerm)!.Artists.Count);
+
+        // Home shows the first ten songs; "On repeat" keeps them all.
+        Assert.Equal(HomeFeed.TopSize, content.TopFor(TopRange.ShortTerm)!.Songs.Count);
+        Assert.Equal(12, content.OnRepeat.Count);
+        Assert.Equal(["spotify:track:c1", "spotify:track:a0"], content.TopFor(TopRange.MediumTerm)!.Songs.Select(t => t.Uri));
+
+        // The mixes still grow from the past four weeks' artists first.
+        Assert.Equal("a", content.Mixes[0].SeedId);
+    }
+
+    [Fact]
+    public async Task Missing_top_lists_are_asked_for_again_without_making_the_mixes_again()
+    {
+        // Today's mixes were made while Spotify did not answer.
+        _web.TopItemsFailure = new SpotifyApiException(HttpStatusCode.TooManyRequests, null, "Too many requests");
+        using var library = Library();
+        using var feed = Feed(library);
+        await feed.RefreshAsync(TestContext.Current.CancellationToken);
+        var first = feed.Content!;
+        Assert.Empty(first.Top);
+
+        // A moment later nothing is asked again.
+        _web.TopItemsFailure = null;
+        var requests = _web.TopArtistRequests.Count;
+        _time.Advance(TimeSpan.FromMinutes(2));
+        await feed.RefreshAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(requests, _web.TopArtistRequests.Count);
+
+        _time.Advance(TimeSpan.FromMinutes(15));
+        await feed.RefreshAsync(TestContext.Current.CancellationToken);
+
+        var later = feed.Content!;
+        Assert.Equal(3, later.Top.Count);
+        Assert.Same(first.Mixes, later.Mixes);
+        Assert.Equal(["spotify:track:a0"], later.OnRepeat.Select(t => t.Uri));
+        Assert.False(feed.NeedsTop());
     }
 
     [Fact]
@@ -501,6 +559,10 @@ public sealed class HomeFeedTests : IDisposable
 
         Assert.Equal("a", Assert.Single(feed.Content!.Mixes).SeedId);
         Assert.Empty(feed.Content.OnRepeat);
+        Assert.Empty(feed.Content.Top);
+
+        // The first refusal ends the round: one request, not one per time range.
+        Assert.Equal([TopRange.ShortTerm], _web.TopArtistRequests);
     }
 
     [Fact]
