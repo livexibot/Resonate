@@ -85,7 +85,9 @@ internal sealed class ListSession
     /// <summary>
     /// The plan could not start at once, because the playing song can not be
     /// started by its address (a file from the user's computer) or is not in
-    /// the list (a queued song): Spotify gets it as the next song starts.
+    /// the list (a queued song): Spotify gets it as the next song starts. A
+    /// plan made while the music is paused waits too (starting it would start
+    /// the music): Spotify gets it once the song plays again.
     /// </summary>
     public bool StartsWithNextSong { get; private init; }
 
@@ -275,13 +277,20 @@ internal sealed class ListSession
     /// a new random order after the current song, or back to the list's own
     /// order from the current song (inside its context when it has one).
     /// </summary>
-    public ListSession WithShuffle(bool shuffle)
+    /// <param name="playing">The music plays; while it is paused the new plan waits (see <see cref="StartsWithNextSong"/>).</param>
+    public ListSession WithShuffle(bool shuffle, bool playing)
     {
         var current = Current;
         if (current is null || PlayingOther || !CanStartByUri(current))
         {
             // Spotify can not restart this song by its address (or it is a
             // queued song): keep it playing and start the new order with the next song.
+            return Waiting(shuffle, Index);
+        }
+
+        if (!playing)
+        {
+            // Spotify's play command always plays: the new plan starts once the song plays again.
             return Waiting(shuffle, Index);
         }
 

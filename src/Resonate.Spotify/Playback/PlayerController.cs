@@ -369,7 +369,7 @@ public sealed class PlayerController : IPlayer, IDisposable
             var state = _state with { Shuffle = shuffle };
             if (previous is not null)
             {
-                next = previous.WithShuffle(shuffle);
+                next = previous.WithShuffle(shuffle, _state.IsPlaying);
                 _session = next;
                 _sessionSettledAt = now + TrackHold;
                 if (!next.StartsWithNextSong)
@@ -399,7 +399,7 @@ public sealed class PlayerController : IPlayer, IDisposable
 
         if (body is null)
         {
-            // The new order starts with the next song (see ListSession.StartsWithNextSong).
+            // The new order starts with the next song, or once paused music plays again (see ListSession.StartsWithNextSong).
             return Task.CompletedTask;
         }
 
@@ -811,9 +811,11 @@ public sealed class PlayerController : IPlayer, IDisposable
 
     /// <summary>
     /// Follows the list Resonate plays as Spotify moves through it: notes
-    /// which song plays, starts a waiting plan when the next song starts, and
-    /// sends the next window (or, with "repeat all", the next pass) as the
-    /// last song Spotify has starts, restarting it where it is.
+    /// which song plays, starts a waiting plan when the next song starts (or
+    /// the paused song plays again), and sends the next window (or, with
+    /// "repeat all", the next pass) as the last song Spotify has starts,
+    /// restarting it where it is. Nothing is sent while the music is paused:
+    /// Spotify's play command would start it.
     /// </summary>
     private void FollowSession()
     {
@@ -833,12 +835,20 @@ public sealed class PlayerController : IPlayer, IDisposable
                 return;
             }
 
+            if (!_state.IsPlaying)
+            {
+                // The next report after the music plays again sends what is due.
+                session.Index = located;
+                return;
+            }
+
             var now = _time.GetUtcNow();
             var position = _state.PositionAt(now);
             if (session.StartsWithNextSong)
             {
-                if (located == session.WaitingFrom)
+                if (located == session.WaitingFrom && !ListSession.CanStartByUri(session.Order[located]))
                 {
+                    // Still the song Spotify can not restart by its address.
                     session.Index = located;
                     return;
                 }
