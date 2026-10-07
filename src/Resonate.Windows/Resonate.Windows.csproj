@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Windows-only pieces behind the interfaces in Resonate.Spotify: Spotify's
+    system media session, its volume in the Windows mixer, starting the
+    Spotify app, and the Credential Manager. No WinUI here, so it also
+    compiles on Linux (EnableWindowsTargeting) for a quick check.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <RootNamespace>Resonate.Windows</RootNamespace>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsAotCompatible>true</IsAotCompatible>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Resonate.Spotify\Resonate.Spotify.csproj" />
+  </ItemGroup>
+
+</Project>
