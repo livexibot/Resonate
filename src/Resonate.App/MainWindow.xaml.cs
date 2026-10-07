@@ -650,6 +650,10 @@ public sealed partial class MainWindow : Window
         {
             _ = new ScreenshotTour(this, (FrameworkElement)Content, folder).RunAsync();
         }
+        else if (options.PerformanceFolder is { } perf)
+        {
+            _ = new PerformanceTour(this, (FrameworkElement)Content, perf, startup.TotalMilliseconds).RunAsync();
+        }
         else if (options is { UpdateCheckFeed: { } feed, UpdateCheckResultFile: { } result })
         {
             _ = CheckForUpdateAndQuitAsync(feed, result);

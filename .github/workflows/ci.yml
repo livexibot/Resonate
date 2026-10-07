@@ -162,6 +162,24 @@ jobs:
           Write-Output "Update check: $outcome"
           if ($outcome -ne 'ReadyToRestart 0.0.2-ci') { throw "The installed copy did not download the new version ($outcome)." }
 
+      # Speed and memory with a heavy listener's library (10,000 liked songs):
+      # every page, scrolling, switching looks, what the app costs while
+      # nobody touches it, and pages or memory that are never given back.
+      # The results are printed here and in the run's summary.
+      - name: Measure speed and memory
+        shell: pwsh
+        run: |
+          $folder = Join-Path $env:GITHUB_WORKSPACE 'artifacts/perf'
+          $process = Start-Process -FilePath artifacts/win-x64/Resonate.exe -ArgumentList '--perf', $folder -PassThru
+          if (-not $process.WaitForExit(300000)) { $process.Kill(); throw 'The speed test did not finish within five minutes.' }
+          $report = Join-Path $folder 'perf.md'
+          if (-not (Test-Path $report)) { throw 'The speed test wrote no results.' }
+          Get-Content $report
+          Get-Content $report | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+          Get-Content (Join-Path $folder 'perf.json')
+          $errors = Join-Path $folder 'perf-errors.txt'
+          if (Test-Path $errors) { Get-Content $errors; throw 'The speed test hit the errors above.' }
+
       # Last, so a broken tour still keeps its screenshots and runs the
       # install test above, yet fails the pull request.
       - name: Check the screenshot tour
@@ -179,6 +197,14 @@ jobs:
           name: screenshots
           path: artifacts/screenshots
           if-no-files-found: warn
+
+      - name: Upload speed and memory results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: perf
+          path: artifacts/perf
+          if-no-files-found: ignore
 
       - name: Upload build log
         if: failure()
