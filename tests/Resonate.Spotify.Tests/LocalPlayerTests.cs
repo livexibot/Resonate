@@ -65,6 +65,9 @@ public sealed class LocalPlayerTests : IDisposable
     public async Task Previous_restarts_a_song_that_has_played_for_a_while()
     {
         await Play(SongB);
+
+        // As a real engine would, so the once-a-second position check agrees.
+        _engine.Position = TimeSpan.FromSeconds(5);
         _time.Advance(TimeSpan.FromSeconds(5));
 
         await _player.PreviousAsync();
