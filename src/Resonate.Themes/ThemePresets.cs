@@ -47,7 +47,10 @@ public static class ThemePresets
         Progress = ProgressStyle.Bold,
     };
 
-    /// <summary>Frosted glass panes over the playing song's cover; the accent follows the cover.</summary>
+    /// <summary>
+    /// Frosted glass panes over the playing song's colours (or its blurred
+    /// cover, when the user allows it); the accent follows the cover.
+    /// </summary>
     public static ThemeDefinition Glass { get; } = new()
     {
         Id = "glass",
@@ -98,7 +101,7 @@ public static class ThemePresets
         Cover = CoverStyle.Square,
     };
 
-    /// <summary>Neon on a purple dusk gradient: glowing outlines and a spinning record.</summary>
+    /// <summary>Neon on a purple dusk gradient: glowing outlines and the cover as a record.</summary>
     public static ThemeDefinition Synthwave { get; } = new()
     {
         Id = "synthwave",
