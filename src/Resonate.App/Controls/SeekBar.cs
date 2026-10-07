@@ -56,10 +56,15 @@ public sealed partial class SeekBar : RangeBase
     private long _glideStartTime;
     private double _waveWidth;
     private double _thumbOpacity = -1;
+    private bool _listening;
 
     public SeekBar()
     {
         SizeChanged += (_, _) => Refresh();
+
+        // The handle takes the shape of the look's buttons.
+        Loaded += (_, _) => ListenToTheme(true);
+        Unloaded += (_, _) => ListenToTheme(false);
     }
 
     /// <summary>The user started dragging.</summary>
@@ -93,8 +98,10 @@ public sealed partial class SeekBar : RangeBase
         _track = GetTemplateChild("Track") as Border;
         _fill = GetTemplateChild("Fill") as Border;
         _waveHost = GetTemplateChild("WaveHost") as Grid;
-        _wave = GetTemplateChild("Wave") as Microsoft.UI.Xaml.Shapes.Path;
         _thumb = GetTemplateChild("Thumb") as Border;
+        _wave = null;
+        _waveVisual = null;
+        _waveWidth = -1;
 
         if (_track is not null)
         {
@@ -116,10 +123,21 @@ public sealed partial class SeekBar : RangeBase
             var visual = ElementCompositionPreview.GetElementVisual(_waveHost);
             _waveClip = visual.Compositor.CreateInsetClip();
             visual.Clip = _waveClip;
-        }
 
-        if (_wave is not null)
-        {
+            // Made here, not in the template: under native AOT a template part
+            // can only be cast to element types the app itself uses, and a
+            // Path from the template came back as a plain element.
+            _wave = new Microsoft.UI.Xaml.Shapes.Path
+            {
+                Stroke = App.Services.Theme.GetBrush("ResonateAccentBrush"),
+                StrokeThickness = 3,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                StrokeLineJoin = PenLineJoin.Round,
+            };
+
+            // A Canvas never clips, so the wave can scroll; WaveHost's clip shows the played part.
+            _waveHost.Children.Add(new Canvas { Children = { _wave } });
             ElementCompositionPreview.SetIsTranslationEnabled(_wave, true);
             _waveVisual = ElementCompositionPreview.GetElementVisual(_wave);
         }
@@ -299,6 +317,27 @@ public sealed partial class SeekBar : RangeBase
         UpdateLook();
         Refresh();
     }
+
+    private void ListenToTheme(bool listen)
+    {
+        if (listen == _listening)
+        {
+            return;
+        }
+
+        _listening = listen;
+        if (listen)
+        {
+            App.Services.Theme.Changed += OnThemeChanged;
+            UpdateLook();
+        }
+        else
+        {
+            App.Services.Theme.Changed -= OnThemeChanged;
+        }
+    }
+
+    private void OnThemeChanged(object? sender, EventArgs e) => UpdateLook();
 
     private void OnAdvancingChanged()
     {

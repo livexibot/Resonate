@@ -140,6 +140,14 @@ Windows:
 - Native AOT for WinUI 3 is supported since Windows App SDK 1.6. The current
   Windows App SDK is 2.x (2.5.1 used). Use `x:Bind` (no `{Binding}`), mark
   classes that cross into WinRT `partial`, and avoid reflection.
+- Under Native AOT, `as` or `is` on an element that XAML created (a template
+  part, a `VisualTreeHelper` child, `ContainerFromItem`) fails silently when
+  its type is one the app never creates with `new` or names with `x:Name`.
+  C#/WinRT cannot find the type by its class name after trimming, so it
+  wraps the object as the declared type (`GetRuntimeClassForTypeCreation`).
+  CI's screenshots caught this for a `Path` template part and for
+  `FindDescendant<ScrollViewer>`. Build such elements in code, or reach them
+  through `x:Name`.
 - Themes swap colours by changing the `Color` of shared brushes in
   `Themes/Tokens.xaml`, which updates everything at once, even through
   `StaticResource`; the same trick lets colours slide from one look to the
@@ -150,10 +158,13 @@ Windows:
   (a known workaround; CI's screenshots switch all six presets at run time
   to check it). New XAML must use `ThemeResource` for those tokens.
 - `RenderTargetBitmap` (used by CI's screenshots and by the theme
-  transitions' snapshots) does not draw composition content: soft shadows,
-  Mica and acrylic, and running animations are missing from the pictures.
-  The hard shadow is plain XAML so it shows. Judge the transitions and the
-  soft shadows on a real PC.
+  transitions' snapshots) does not draw visuals added with
+  `SetElementChildVisual` (the soft shadows) or Mica and acrylic. It does
+  draw an element's own composition properties (clips, translation, scale),
+  including running animations. Anything scaled past the edges makes the
+  whole picture larger, which is why `BackdropLayer` clips itself. The hard
+  shadow is plain XAML so it shows. Judge the transitions and the soft
+  shadows on a real PC.
 
 GitHub automation:
 - Releases and pull requests made with the default `GITHUB_TOKEN` do not

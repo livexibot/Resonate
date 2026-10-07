@@ -18,11 +18,7 @@
                             x:Name="HardShadow"
                             Background="{StaticResource ResonateShadowBrush}"
                             CornerRadius="{TemplateBinding CornerRadius}"
-                            Visibility="Collapsed">
-                            <Border.RenderTransform>
-                                <TranslateTransform />
-                            </Border.RenderTransform>
-                        </Border>
+                            Visibility="Collapsed" />
                         <Border x:Name="ShadowHost" />
                         <ContentPresenter
                             HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
@@ -53,22 +49,12 @@
                             <Border x:Name="Track" Background="{StaticResource ResonateTrackBrush}" />
                             <Border x:Name="Fill" Background="{StaticResource ResonateAccentBrush}" />
                         </Grid>
+                        <!-- SeekBar.cs draws the wave in here. -->
                         <Grid
                             x:Name="WaveHost"
                             Height="16"
                             VerticalAlignment="Center"
-                            Visibility="Collapsed">
-                            <!-- A Canvas never clips, so the wave can scroll; WaveHost's clip shows the played part. -->
-                            <Canvas>
-                                <Path
-                                    x:Name="Wave"
-                                    Stroke="{StaticResource ResonateAccentBrush}"
-                                    StrokeEndLineCap="Round"
-                                    StrokeLineJoin="Round"
-                                    StrokeStartLineCap="Round"
-                                    StrokeThickness="3" />
-                            </Canvas>
-                        </Grid>
+                            Visibility="Collapsed" />
                         <Border
                             x:Name="Thumb"
                             Width="12"

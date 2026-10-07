@@ -18,7 +18,7 @@
                 Text="Settings" />
 
             <!-- Look: presets, your own looks and the customizer -->
-            <controls:ThemeStudio />
+            <controls:ThemeStudio x:Name="Studio" />
 
             <!-- Playback and the Spotify app -->
             <StackPanel Spacing="12">

@@ -50,6 +50,7 @@ public sealed partial class Elevation : ContentControl
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
         SizeChanged += (_, _) => UpdateShadow(animate: false);
+        RegisterPropertyChangedCallback(CornerRadiusProperty, (_, _) => UpdateShadow(animate: false));
     }
 
     public ElevationLevel Level
@@ -63,7 +64,12 @@ public sealed partial class Elevation : ContentControl
         base.OnApplyTemplate();
         _shadowHost = GetTemplateChild("ShadowHost") as Border;
         _hardShadow = GetTemplateChild("HardShadow") as Border;
-        _hardShadowOffset = _hardShadow?.RenderTransform as TranslateTransform;
+        _hardShadowOffset = null;
+        if (_hardShadow is not null)
+        {
+            _hardShadowOffset = new TranslateTransform();
+            _hardShadow.RenderTransform = _hardShadowOffset;
+        }
         _shadow?.Dispose();
         _shadow = null;
         UpdateShadow(animate: false);

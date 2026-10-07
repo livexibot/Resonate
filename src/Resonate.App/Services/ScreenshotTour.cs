@@ -1,9 +1,7 @@
 using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Resonate.App.Controls;
-using Resonate.App.Helpers;
 using Resonate.App.Pages;
 using Resonate.Themes;
 using Windows.Graphics.Imaging;
@@ -52,9 +50,9 @@ internal sealed class ScreenshotTour
             await Task.Delay(1500);
             await CaptureAsync("4-settings-look.png");
 
-            if (VisualTree.FindDescendant<ScrollViewer>(_root) is { } scroller)
+            if (_window.CurrentPage is SettingsPage settings)
             {
-                scroller.ChangeView(null, 620, null, disableAnimation: true);
+                settings.ShowCustomize();
                 await Task.Delay(600);
                 await CaptureAsync("5-customize.png");
             }

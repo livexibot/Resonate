@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Shapes;
 using Resonate.App.Services;
 using Resonate.App.Themes;
 using Resonate.Themes;
+using Windows.Foundation;
 
 namespace Resonate.App.Controls;
 
@@ -21,6 +22,10 @@ internal sealed partial class BackdropLayer : Grid
     private static readonly TimeSpan LayerFade = TimeSpan.FromMilliseconds(450);
     private static readonly TimeSpan CoverFade = TimeSpan.FromMilliseconds(900);
     private static readonly TimeSpan DriftPeriod = TimeSpan.FromSeconds(28);
+
+    // The tiny blurred cover is stretched over the window and drawn larger
+    // than it, so the blur's soft borders never show while it drifts.
+    private const float CoverZoom = 1.18f;
 
     private readonly ThemeService _theme;
     private readonly ArtworkSampler _artwork;
@@ -51,13 +56,12 @@ internal sealed partial class BackdropLayer : Grid
             _drift.Children.Add(cover);
         }
 
-        // The tiny blurred cover is stretched over the window; drawing past the
-        // edges hides the blur's soft borders while it drifts.
+        ElementCompositionPreview.GetElementVisual(_drift).Scale = new Vector3(CoverZoom);
         _artworkLayer = Layer(new Grid { Children = { _drift } });
         _artworkLayer.Background = theme.GetBrush("ResonateBackgroundBrush");
         _tint = Layer(new Rectangle { Fill = theme.GetBrush("ResonateBackdropTintBrush") });
 
-        SizeChanged += (_, _) => UpdateDrift();
+        SizeChanged += OnSizeChanged;
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -75,6 +79,14 @@ internal sealed partial class BackdropLayer : Grid
         _theme.Changed -= OnThemeChanged;
         _artwork.Changed -= OnArtworkChanged;
         StopDrift();
+    }
+
+    private void OnSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        // The zoomed cover stops at the window's edges, also in pictures of the
+        // window (taken for switching animations and screenshots).
+        Clip = new RectangleGeometry { Rect = new Rect(0, 0, e.NewSize.Width, e.NewSize.Height) };
+        UpdateDrift();
     }
 
     private void OnThemeChanged(object? sender, EventArgs e) => UpdateLayers();
@@ -123,16 +135,24 @@ internal sealed partial class BackdropLayer : Grid
         visual.StartAnimation("Opacity", fade);
     }
 
-    /// <summary>A slow zoom and pan, so the cover behind the panels feels alive. Only while it shows.</summary>
+    /// <summary>A slow zoom and turn, so the cover behind the panels feels alive. Only while it shows.</summary>
     private void UpdateDrift()
     {
-        var visible = _theme.Current.Backdrop == WindowBackdrop.Artwork && ActualWidth > 0;
+        var shown = _theme.Current.Backdrop == WindowBackdrop.Artwork && ActualWidth > 0;
         var visual = ElementCompositionPreview.GetElementVisual(_drift);
         visual.CenterPoint = new Vector3((float)ActualWidth / 2, (float)ActualHeight / 2, 0);
-        if (!visible || !_theme.AnimationsEnabled)
+        if (!shown)
+        {
+            // Stopped where it is, so nothing jumps while the layer fades out.
+            StopDrift();
+            return;
+        }
+
+        if (!_theme.AnimationsEnabled)
         {
             StopDrift();
-            visual.Scale = new Vector3(1.18f);
+            visual.Scale = new Vector3(CoverZoom);
+            visual.RotationAngleInDegrees = 0;
             return;
         }
 
@@ -146,7 +166,7 @@ internal sealed partial class BackdropLayer : Grid
         var easing = compositor.CreateCubicBezierEasingFunction(new(0.45f, 0f), new(0.55f, 1f));
 
         var zoom = compositor.CreateVector3KeyFrameAnimation();
-        zoom.InsertKeyFrame(0, new Vector3(1.18f));
+        zoom.InsertKeyFrame(0, new Vector3(CoverZoom));
         zoom.InsertKeyFrame(1, new Vector3(1.32f), easing);
         zoom.Duration = DriftPeriod;
         zoom.Direction = AnimationDirection.Alternate;
@@ -174,7 +194,6 @@ internal sealed partial class BackdropLayer : Grid
         var visual = ElementCompositionPreview.GetElementVisual(_drift);
         visual.StopAnimation("Scale");
         visual.StopAnimation("RotationAngleInDegrees");
-        visual.RotationAngleInDegrees = 0;
     }
 
     private T Layer<T>(T element)

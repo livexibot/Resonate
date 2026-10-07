@@ -133,6 +133,9 @@ public sealed partial class MainWindow : Window
         Navigate(SettingsKey);
     }
 
+    /// <summary>The page on show, such as a <see cref="SettingsPage"/>.</summary>
+    internal object? CurrentPage => ContentFrame.Content;
+
     public void OpenSearch()
     {
         SelectNav(SearchKey);

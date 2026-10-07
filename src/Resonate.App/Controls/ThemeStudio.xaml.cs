@@ -50,7 +50,7 @@ public sealed partial class ThemeStudio : UserControl
     {
         ["midnight"] = "Calm and dark, soft violet",
         ["daylight"] = "Bright and airy, floating player",
-        ["glass"] = "Frosted panels over the song's cover",
+        ["glass"] = "Frosted glass over the cover",
         ["pure-black"] = "True black, sharp edges",
         ["synthwave"] = "Neon glow on a dusk gradient",
         ["paper"] = "Ink on paper, hard shadows",
@@ -138,6 +138,13 @@ public sealed partial class ThemeStudio : UserControl
 
     /// <summary>Whether Customize is open; kept while Resonate runs.</summary>
     public static bool CustomizeOpen { get; set; }
+
+    /// <summary>Opens Customize and scrolls it to the top of the page.</summary>
+    internal void ShowCustomize()
+    {
+        CustomizeExpander.IsExpanded = true;
+        CustomizeExpander.StartBringIntoView(new BringIntoViewOptions { VerticalAlignmentRatio = 0, AnimationDesired = false });
+    }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
@@ -381,18 +388,13 @@ public sealed partial class ThemeStudio : UserControl
 
     private void OnLookClick(object sender, ItemClickEventArgs e)
     {
-        if (e.ClickedItem is not FrameworkElement { Tag: string id })
+        if (e.ClickedItem is not FrameworkElement { Tag: string id } card)
         {
             return;
         }
 
         // The ripple grows from the card that was clicked.
-        Point? origin = null;
-        if (sender is ListViewBase grid && grid.ContainerFromItem(e.ClickedItem) is FrameworkElement container)
-        {
-            origin = container.TransformToVisual(null).TransformPoint(new Point(container.ActualWidth / 2, container.ActualHeight / 2));
-        }
-
+        var origin = card.TransformToVisual(null).TransformPoint(new Point(card.ActualWidth / 2, card.ActualHeight / 2));
         _theme.Select(id, origin);
     }
 

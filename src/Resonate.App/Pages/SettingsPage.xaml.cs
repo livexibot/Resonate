@@ -18,6 +18,9 @@ public sealed partial class SettingsPage : Page
 
     private bool _loading;
 
+    /// <summary>Scrolls to the theme customizer, opening it.</summary>
+    internal void ShowCustomize() => Studio.ShowCustomize();
+
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         _loading = true;
