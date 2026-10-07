@@ -24,7 +24,7 @@ public sealed partial class SettingsPage : Page
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         _loading = true;
-        ChannelChoice.SelectedIndex = _services.Player.Channel == ControlChannel.WebApi ? 1 : 0;
+        ChannelChoice.SelectedIndex = _services.Player.Spotify.Channel == ControlChannel.WebApi ? 1 : 0;
         KeepHiddenSwitch.IsOn = _services.SpotifyWindow.KeepHidden;
         SaveResourcesSwitch.IsOn = _services.SpotifyWindow.SaveResources;
         _loading = false;
@@ -56,7 +56,7 @@ public sealed partial class SettingsPage : Page
         }
 
         var channel = ChannelChoice.SelectedIndex == 1 ? ControlChannel.WebApi : ControlChannel.Local;
-        _services.Player.Channel = channel;
+        _services.Player.Spotify.Channel = channel;
         _services.Settings.ControlChannel = channel == ControlChannel.WebApi ? "webapi" : "local";
         _services.SaveSettings();
     }
@@ -99,8 +99,10 @@ public sealed partial class SettingsPage : Page
     {
         _services.Account.SignOut();
 
-        // The next account to sign in must not see this one's playlists.
+        // The next account to sign in must not see this one's playlists, songs or listening.
         _services.Library.Forget();
+        _services.Likes.Forget();
+        _services.Home.Forget();
         App.MainWindow?.ShowSignIn();
     }
 

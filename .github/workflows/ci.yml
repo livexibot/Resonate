@@ -162,6 +162,16 @@ jobs:
           Write-Output "Update check: $outcome"
           if ($outcome -ne 'ReadyToRestart 0.0.2-ci') { throw "The installed copy did not download the new version ($outcome)." }
 
+      # Last, so a broken tour still keeps its screenshots and runs the
+      # install test above, yet fails the pull request.
+      - name: Check the screenshot tour
+        shell: pwsh
+        run: |
+          $folder = Join-Path $env:GITHUB_WORKSPACE 'artifacts/screenshots'
+          $errors = Join-Path $folder 'tour-errors.txt'
+          if (Test-Path $errors) { Get-Content $errors; throw 'The screenshot tour hit the errors above.' }
+          if (-not (Get-ChildItem $folder -Filter '*-sign-in.png')) { throw 'The screenshot tour stopped before its last screenshot (sign-in).' }
+
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v7

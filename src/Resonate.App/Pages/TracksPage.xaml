@@ -1,0 +1,357 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Resonate.App.Pages.TracksPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Resonate.App.ViewModels"
+    Background="{StaticResource ResonateTransparentBrush}">
+
+    <Grid>
+        <ListView
+            x:Name="TrackList"
+            Padding="16,0,16,24"
+            SizeChanged="OnTrackListSizeChanged"
+            ContextRequested="OnTrackContextRequested"
+            DoubleTapped="OnTrackDoubleTapped"
+            DragItemsCompleted="OnDragItemsCompleted"
+            DragItemsStarting="OnDragItemsStarting"
+            KeyDown="OnTrackListKeyDown"
+            SelectionMode="Single">
+            <ListView.Header>
+                <StackPanel Padding="12,36,12,8" Spacing="24">
+                    <Grid ColumnSpacing="28">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition x:Name="CoverColumn" Width="184" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid
+                            x:Name="CoverFrame"
+                            Width="184"
+                            Height="184"
+                            CornerRadius="{ThemeResource ResonateCornerLarge}">
+                            <FontIcon
+                                x:Name="CoverGlyph"
+                                FontFamily="{StaticResource ResonateIconFont}"
+                                FontSize="56"
+                                Foreground="#E6FFFFFF"
+                                Visibility="Collapsed" />
+                            <Image x:Name="CoverImage" Stretch="UniformToFill" />
+                        </Grid>
+                        <StackPanel
+                            Grid.Column="1"
+                            VerticalAlignment="Bottom"
+                            Spacing="8">
+                            <TextBlock
+                                x:Name="KindText"
+                                CharacterSpacing="60"
+                                Style="{StaticResource ResonateCaptionTextStyle}" />
+                            <TextBlock
+                                x:Name="TitleText"
+                                MaxLines="2"
+                                Style="{StaticResource ResonateDisplayTextStyle}"
+                                Text=" "
+                                TextWrapping="WrapWholeWords" />
+                            <TextBlock
+                                x:Name="DescriptionText"
+                                MaxLines="2"
+                                Style="{StaticResource ResonateSecondaryTextStyle}"
+                                TextWrapping="Wrap"
+                                Visibility="Collapsed" />
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <StackPanel
+                                    x:Name="ArtistLinks"
+                                    Orientation="Horizontal"
+                                    Spacing="4" />
+                                <TextBlock
+                                    x:Name="DetailsText"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource ResonateCaptionTextStyle}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Play, shuffle, filter and sort (filter and sort move to a second row when narrow) -->
+                    <Grid
+                        x:Name="ActionsGrid"
+                        ColumnSpacing="12"
+                        RowSpacing="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <!-- The filter takes nearly all the free space, up to 220, and shrinks before the sort button is cut off. -->
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="100*" MaxWidth="220" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Button
+                            x:Name="PlayButton"
+                            Click="OnPlayClick"
+                            Style="{StaticResource ResonateAccentButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon
+                                    FontFamily="{StaticResource ResonateIconFont}"
+                                    FontSize="14"
+                                    Glyph="&#xE768;" />
+                                <TextBlock Text="Play" />
+                            </StackPanel>
+                        </Button>
+                        <Button
+                            x:Name="ShuffleButton"
+                            Grid.Column="1"
+                            Width="40"
+                            Height="40"
+                            AutomationProperties.Name="Shuffle play"
+                            Click="OnShuffleClick"
+                            Content="&#xE8B1;"
+                            CornerRadius="20"
+                            Style="{StaticResource ResonateIconButtonStyle}"
+                            ToolTipService.ToolTip="Shuffle play (truly random)" />
+                        <Button
+                            x:Name="OpenInSpotifyButton"
+                            Grid.Column="2"
+                            AutomationProperties.Name="Open in Spotify"
+                            Click="OnOpenInSpotifyClick"
+                            Style="{StaticResource ResonateSubtleButtonStyle}">
+                            <Grid>
+                                <TextBlock x:Name="OpenInSpotifyText" Text="Open in Spotify" />
+                                <FontIcon
+                                    x:Name="OpenInSpotifyIcon"
+                                    FontFamily="{StaticResource ResonateIconFont}"
+                                    FontSize="14"
+                                    Glyph="&#xE8A7;"
+                                    Visibility="Collapsed" />
+                            </Grid>
+                        </Button>
+                        <TextBox
+                            x:Name="FilterBox"
+                            Grid.Column="4"
+                            VerticalAlignment="Center"
+                            AutomationProperties.Name="Filter songs"
+                            PlaceholderText="Filter"
+                            TextChanged="OnFilterChanged" />
+                        <Button
+                            x:Name="SortButton"
+                            Grid.Column="5"
+                            AutomationProperties.Name="Sort songs"
+                            Style="{StaticResource ResonateSubtleButtonStyle}"
+                            ToolTipService.ToolTip="Sort">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon
+                                    FontFamily="{StaticResource ResonateIconFont}"
+                                    FontSize="14"
+                                    Glyph="&#xE8CB;" />
+                                <TextBlock x:Name="SortText" Text="Custom order" />
+                            </StackPanel>
+                            <Button.Flyout>
+                                <MenuFlyout x:Name="SortMenu" Placement="BottomEdgeAlignedRight" />
+                            </Button.Flyout>
+                        </Button>
+                    </Grid>
+
+                    <Border
+                        x:Name="HiddenNotice"
+                        Padding="16,12"
+                        Background="{StaticResource ResonateSurfaceHoverBrush}"
+                        CornerRadius="{ThemeResource ResonateCornerMedium}"
+                        Visibility="Collapsed">
+                        <TextBlock
+                            Style="{StaticResource ResonateSecondaryTextStyle}"
+                            Text="Spotify only lets apps like Resonate list the songs of playlists you own or collaborate on. You can still play this playlist with the Play and Shuffle buttons."
+                            TextWrapping="Wrap" />
+                    </Border>
+
+                    <!-- Column headings; widths match the rows below. Click one to sort by it. -->
+                    <Grid
+                        x:Name="ColumnHeadings"
+                        Padding="4,0,0,8"
+                        BorderBrush="{StaticResource ResonateBorderBrush}"
+                        BorderThickness="0,0,0,1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="40" />
+                            <ColumnDefinition Width="5*" />
+                            <ColumnDefinition x:Name="AlbumHeadingColumn" Width="3*" />
+                            <ColumnDefinition x:Name="AddedHeadingColumn" Width="132" />
+                            <ColumnDefinition Width="40" />
+                            <ColumnDefinition Width="64" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            Margin="0,0,12,0"
+                            Style="{StaticResource ResonateCaptionTextStyle}"
+                            Text="#"
+                            TextAlignment="Right" />
+                        <StackPanel
+                            x:Name="TitleHeading"
+                            Grid.Column="1"
+                            Background="{StaticResource ResonateTransparentBrush}"
+                            Orientation="Horizontal"
+                            Spacing="6"
+                            Tapped="OnHeadingTapped"
+                            Tag="Title">
+                            <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="Title" />
+                            <FontIcon
+                                x:Name="TitleArrow"
+                                FontFamily="{StaticResource ResonateIconFont}"
+                                FontSize="10"
+                                Foreground="{StaticResource ResonateAccentBrush}"
+                                Visibility="Collapsed" />
+                        </StackPanel>
+                        <StackPanel
+                            x:Name="AlbumHeading"
+                            Grid.Column="2"
+                            Background="{StaticResource ResonateTransparentBrush}"
+                            Orientation="Horizontal"
+                            Spacing="6"
+                            Tapped="OnHeadingTapped"
+                            Tag="Album">
+                            <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="Album" />
+                            <FontIcon
+                                x:Name="AlbumArrow"
+                                FontFamily="{StaticResource ResonateIconFont}"
+                                FontSize="10"
+                                Foreground="{StaticResource ResonateAccentBrush}"
+                                Visibility="Collapsed" />
+                        </StackPanel>
+                        <StackPanel
+                            x:Name="AddedHeading"
+                            Grid.Column="3"
+                            Background="{StaticResource ResonateTransparentBrush}"
+                            Orientation="Horizontal"
+                            Spacing="6"
+                            Tapped="OnHeadingTapped"
+                            Tag="DateAdded">
+                            <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="Date added" />
+                            <FontIcon
+                                x:Name="AddedArrow"
+                                FontFamily="{StaticResource ResonateIconFont}"
+                                FontSize="10"
+                                Foreground="{StaticResource ResonateAccentBrush}"
+                                Visibility="Collapsed" />
+                        </StackPanel>
+                        <StackPanel
+                            x:Name="DurationHeading"
+                            Grid.Column="5"
+                            HorizontalAlignment="Right"
+                            Background="{StaticResource ResonateTransparentBrush}"
+                            Orientation="Horizontal"
+                            Spacing="6"
+                            Tapped="OnHeadingTapped"
+                            Tag="Duration">
+                            <FontIcon
+                                x:Name="DurationArrow"
+                                FontFamily="{StaticResource ResonateIconFont}"
+                                FontSize="10"
+                                Foreground="{StaticResource ResonateAccentBrush}"
+                                Visibility="Collapsed" />
+                            <FontIcon
+                                FontFamily="{StaticResource ResonateIconFont}"
+                                FontSize="12"
+                                Foreground="{StaticResource ResonateTextTertiaryBrush}"
+                                Glyph="&#xE823;" />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </ListView.Header>
+
+            <ListView.Footer>
+                <TextBlock
+                    x:Name="EmptyText"
+                    Margin="16,24"
+                    Style="{StaticResource ResonateSecondaryTextStyle}"
+                    TextWrapping="Wrap"
+                    Visibility="Collapsed" />
+            </ListView.Footer>
+
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="vm:TrackRow">
+                    <Grid
+                        Height="56"
+                        Background="{StaticResource ResonateTransparentBrush}"
+                        Opacity="{x:Bind RowOpacity}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="40" />
+                            <ColumnDefinition Width="5*" />
+                            <ColumnDefinition Width="{x:Bind Columns.AlbumWidth, Mode=OneWay}" />
+                            <ColumnDefinition Width="{x:Bind Columns.AddedWidth, Mode=OneWay}" />
+                            <ColumnDefinition Width="40" />
+                            <ColumnDefinition Width="64" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            Margin="0,0,12,0"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource ResonateSecondaryTextStyle}"
+                            Text="{x:Bind Number, Mode=OneWay}"
+                            TextAlignment="Right" />
+                        <Grid
+                            Grid.Column="1"
+                            Margin="0,0,16,0"
+                            ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid
+                                Width="40"
+                                Height="40"
+                                Background="{x:Bind PlaceholderBrush}"
+                                CornerRadius="{ThemeResource ResonateCornerSmall}">
+                                <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
+                            </Grid>
+                            <StackPanel
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="2">
+                                <TextBlock
+                                    Foreground="{x:Bind TitleBrush, Mode=OneWay}"
+                                    Style="{StaticResource ResonateBodyTextStyle}"
+                                    Text="{x:Bind Title}" />
+                                <TextBlock Style="{StaticResource ResonateSecondaryTextStyle}" Text="{x:Bind Artists}" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock
+                            Grid.Column="2"
+                            Margin="0,0,16,0"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource ResonateSecondaryTextStyle}"
+                            Text="{x:Bind Album}" />
+                        <TextBlock
+                            Grid.Column="3"
+                            Margin="0,0,12,0"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource ResonateSecondaryTextStyle}"
+                            Text="{x:Bind DateAdded}" />
+                        <Button
+                            Grid.Column="4"
+                            Width="32"
+                            Height="32"
+                            AutomationProperties.Name="{x:Bind HeartLabel, Mode=OneWay}"
+                            Click="OnHeartClick"
+                            Content="{x:Bind HeartGlyph, Mode=OneWay}"
+                            CornerRadius="16"
+                            FontSize="14"
+                            Foreground="{x:Bind HeartBrush, Mode=OneWay}"
+                            Style="{StaticResource ResonateIconButtonStyle}"
+                            ToolTipService.ToolTip="{x:Bind HeartLabel, Mode=OneWay}"
+                            Visibility="{x:Bind HeartVisibility}" />
+                        <TextBlock
+                            Grid.Column="5"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource ResonateSecondaryTextStyle}"
+                            Text="{x:Bind Duration}" />
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <ProgressRing
+            x:Name="LoadingRing"
+            Width="36"
+            Height="36"
+            IsActive="False" />
+    </Grid>
+</Page>

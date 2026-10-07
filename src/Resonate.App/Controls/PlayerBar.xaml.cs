@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Resonate.App.Helpers;
 using Resonate.Spotify.Playback;
+using Resonate.Spotify.WebApi;
 using Resonate.Themes;
 
 namespace Resonate.App.Controls;
@@ -24,11 +25,15 @@ public sealed partial class PlayerBar : UserControl
     private const string PauseGlyph = "";
     private const string VolumeGlyph = "";
     private const string MutedGlyph = "";
+    private const string RepeatAllGlyph = "\uE8EE";
+    private const string RepeatOneGlyph = "\uE8ED";
+    private const string HeartGlyph = "\uEB51";
+    private const string HeartFilledGlyph = "\uEB52";
     private const float ArtworkSize = 56;
     private static readonly TimeSpan VinylTurn = TimeSpan.FromSeconds(7);
 
     private readonly DispatcherQueueTimer _clock;
-    private PlayerController? _player;
+    private PlayerRouter? _player;
     private PlayerState _shown = PlayerState.Empty;
     private bool _settingValues;
     private int _updateQueued;
@@ -55,10 +60,20 @@ public sealed partial class PlayerBar : UserControl
         _clock.Tick += (_, _) => UpdateClock();
     }
 
-    public void Attach(PlayerController player)
+    /// <summary>Raised when the queue button is clicked; the window shows the queue.</summary>
+    public event EventHandler? QueueRequested;
+
+    public void Attach(PlayerRouter player)
     {
         _player = player;
         player.StateChanged += OnStateChanged;
+        App.Services.Likes.Changed += (_, change) =>
+        {
+            if (change.Uri is null || change.Uri == _shown.TrackUri)
+            {
+                DispatcherQueue.TryEnqueue(() => ShowLike(_shown));
+            }
+        };
         Show(player.State);
         _clock.Start();
     }
@@ -106,6 +121,8 @@ public sealed partial class PlayerBar : UserControl
             _settingValues = false;
         }
 
+        ShowModes(state);
+        ShowLike(state);
         ShowArtwork(state);
         UpdateClock();
         PositionBar.IsAdvancing = state.IsPlaying && state.Duration > TimeSpan.Zero;
@@ -173,6 +190,51 @@ public sealed partial class PlayerBar : UserControl
         {
             _vinylSpin?.Pause();
         }
+    }
+
+    /// <summary>Shuffle and repeat are lit (the look's toggle style) while on.</summary>
+    private void ShowModes(PlayerState state)
+    {
+        ShuffleButton.IsEnabled = state.CanShuffle;
+        ShowShuffle(state.Shuffle);
+        RepeatButton.IsEnabled = state.CanRepeat;
+        ShowRepeat(state.Repeat);
+    }
+
+    private void ShowShuffle(bool on)
+    {
+        ShuffleButton.IsChecked = on;
+        AutomationPropertiesHelper.SetName(ShuffleButton, on ? "Shuffle on" : "Shuffle off");
+    }
+
+    private void ShowRepeat(RepeatMode mode)
+    {
+        RepeatButton.IsChecked = mode != RepeatMode.Off;
+        RepeatButton.Content = mode == RepeatMode.One ? RepeatOneGlyph : RepeatAllGlyph;
+        AutomationPropertiesHelper.SetName(RepeatButton, mode switch
+        {
+            RepeatMode.All => "Repeat all",
+            RepeatMode.One => "Repeat this song",
+            _ => "Repeat off",
+        });
+    }
+
+    /// <summary>The heart for the playing song (Spotify songs only).</summary>
+    private void ShowLike(PlayerState state)
+    {
+        var canLike = state.TrackUri?.StartsWith("spotify:track:", StringComparison.Ordinal) == true;
+        LikeButton.Visibility = canLike ? Visibility.Visible : Visibility.Collapsed;
+        if (!canLike)
+        {
+            return;
+        }
+
+        var liked = App.Services.Likes.IsLiked(state.TrackUri);
+        LikeButton.Content = liked ? HeartFilledGlyph : HeartGlyph;
+        LikeButton.Foreground = App.Services.Theme.GetBrush(liked ? "ResonateAccentBrush" : "ResonateTextSecondaryBrush");
+        var label = liked ? "Remove from Liked Songs" : "Save to Liked Songs";
+        AutomationPropertiesHelper.SetName(LikeButton, label);
+        ToolTipService.SetToolTip(LikeButton, label);
     }
 
     private void ShowArtwork(PlayerState state)
@@ -262,6 +324,45 @@ public sealed partial class PlayerBar : UserControl
     private void OnPreviousClick(object sender, RoutedEventArgs e) => _ = _player?.PreviousAsync();
 
     private void OnNextClick(object sender, RoutedEventArgs e) => _ = _player?.NextAsync();
+
+    // A toggle button flips itself on click; these show the player's next state instead.
+    private void OnShuffleClick(object sender, RoutedEventArgs e)
+    {
+        var on = !_shown.Shuffle;
+        ShowShuffle(on);
+        _ = _player?.SetShuffleAsync(on);
+    }
+
+    private void OnRepeatClick(object sender, RoutedEventArgs e)
+    {
+        var mode = MainWindow.NextRepeat(_shown.Repeat);
+        ShowRepeat(mode);
+        _ = _player?.SetRepeatAsync(mode);
+    }
+
+    private void OnQueueClick(object sender, RoutedEventArgs e) => QueueRequested?.Invoke(this, EventArgs.Empty);
+
+    private void OnLikeClick(object sender, RoutedEventArgs e)
+    {
+        if (_shown.TrackUri is not { } uri)
+        {
+            return;
+        }
+
+        // The bar knows the song by its address; that is all liking needs.
+        var track = new Resonate.Spotify.Library.TrackInfo(
+            uri,
+            _shown.Title ?? string.Empty,
+            _shown.Artists ?? string.Empty,
+            _shown.Album ?? string.Empty,
+            null,
+            _shown.Duration,
+            _shown.ArtworkUrl,
+            _shown.ArtworkUrl,
+            false,
+            true);
+        _ = Pages.Lists.TrackActions.SetLikedAsync(track, !App.Services.Likes.IsLiked(uri));
+    }
 
     private void OnSeekDragCompleted(object? sender, EventArgs e) =>
         _ = _player?.SeekAsync(TimeSpan.FromSeconds(PositionBar.Value));

@@ -46,6 +46,9 @@ public sealed class Artist
     public string Uri { get; set; } = string.Empty;
 
     public List<SpotifyImage>? Images { get; set; }
+
+    /// <summary>Only on a single artist's page; Spotify may leave it empty.</summary>
+    public List<string>? Genres { get; set; }
 }
 
 public sealed class SimplifiedAlbum
@@ -63,6 +66,43 @@ public sealed class SimplifiedAlbum
     public List<SpotifyImage>? Images { get; set; }
 
     public List<SimplifiedArtist>? Artists { get; set; }
+
+    public int? TotalTracks { get; set; }
+}
+
+/// <summary>An album with its first page of songs (the songs carry no album of their own).</summary>
+public sealed class Album
+{
+    public string Id { get; set; } = string.Empty;
+
+    public string Name { get; set; } = string.Empty;
+
+    public string Uri { get; set; } = string.Empty;
+
+    public string? AlbumType { get; set; }
+
+    public string? ReleaseDate { get; set; }
+
+    public int? TotalTracks { get; set; }
+
+    public List<SpotifyImage>? Images { get; set; }
+
+    public List<SimplifiedArtist>? Artists { get; set; }
+
+    public Page<PlayableItem>? Tracks { get; set; }
+
+    /// <summary>The album as the songs on it refer to it.</summary>
+    public SimplifiedAlbum ToSimplified() => new()
+    {
+        Id = Id,
+        Name = Name,
+        Uri = Uri,
+        AlbumType = AlbumType,
+        ReleaseDate = ReleaseDate,
+        Images = Images,
+        Artists = Artists,
+        TotalTracks = TotalTracks,
+    };
 }
 
 /// <summary>A track or a podcast episode: anything that can sit in a playlist and play.</summary>
@@ -84,6 +124,10 @@ public sealed class PlayableItem
     public bool IsLocal { get; set; }
 
     public bool? IsPlayable { get; set; }
+
+    public int? TrackNumber { get; set; }
+
+    public int? DiscNumber { get; set; }
 
     public List<SimplifiedArtist>? Artists { get; set; }
 
@@ -277,6 +321,109 @@ public sealed class PlaybackState
     public PlaybackContext? Context { get; set; }
 
     public PlayableItem? Item { get; set; }
+
+    public PlaybackActions? Actions { get; set; }
+
+    /// <summary>Spotify's "repeat_state" read as a <see cref="RepeatMode"/>.</summary>
+    [JsonIgnore]
+    public RepeatMode Repeat => RepeatModes.Parse(RepeatState);
+}
+
+/// <summary>What the playing device does not allow right now, such as "toggling_shuffle".</summary>
+public sealed class PlaybackActions
+{
+    public Dictionary<string, bool>? Disallows { get; set; }
+
+    public bool Disallowed(string action) => Disallows is not null && Disallows.TryGetValue(action, out var value) && value;
+}
+
+/// <summary>How the player repeats.</summary>
+public enum RepeatMode
+{
+    Off,
+
+    /// <summary>The whole playlist, album or list (Spotify calls it "context").</summary>
+    All,
+
+    /// <summary>The current song (Spotify calls it "track").</summary>
+    One,
+}
+
+public static class RepeatModes
+{
+    public static RepeatMode Parse(string? state) => state switch
+    {
+        "context" => RepeatMode.All,
+        "track" => RepeatMode.One,
+        _ => RepeatMode.Off,
+    };
+
+    /// <summary>The value Spotify's "repeat" command takes.</summary>
+    public static string ToSpotify(RepeatMode mode) => mode switch
+    {
+        RepeatMode.All => "context",
+        RepeatMode.One => "track",
+        _ => "off",
+    };
+
+    /// <summary>The order the repeat button cycles through, like Spotify's: off, all, one.</summary>
+    public static RepeatMode Next(RepeatMode mode) => mode switch
+    {
+        RepeatMode.Off => RepeatMode.All,
+        RepeatMode.All => RepeatMode.One,
+        _ => RepeatMode.Off,
+    };
+}
+
+/// <summary>What is playing and the songs queued after it (GET /me/player/queue).</summary>
+public sealed class PlayerQueue
+{
+    public PlayableItem? CurrentlyPlaying { get; set; }
+
+    public List<PlayableItem?> Queue { get; set; } = [];
+}
+
+/// <summary>One song from the listening history (GET /me/player/recently-played).</summary>
+public sealed class PlayHistoryItem
+{
+    public PlayableItem? Track { get; set; }
+
+    /// <summary>When the song was played, as an ISO 8601 time.</summary>
+    public string? PlayedAt { get; set; }
+
+    public PlaybackContext? Context { get; set; }
+}
+
+/// <summary>A page that continues by time instead of by offset.</summary>
+public sealed class CursorPage<T>
+{
+    public List<T?> Items { get; set; } = [];
+
+    public string? Next { get; set; }
+
+    public int Limit { get; set; }
+
+    public PageCursors? Cursors { get; set; }
+}
+
+public sealed class PageCursors
+{
+    public string? After { get; set; }
+
+    public string? Before { get; set; }
+}
+
+/// <summary>How far back "top artists" and "top tracks" look.</summary>
+public enum TopRange
+{
+    /// <summary>About the last four weeks.</summary>
+    ShortTerm,
+
+    /// <summary>About the last six months.</summary>
+    MediumTerm,
+
+    /// <summary>About a year.</summary>
+    LongTerm,
 }
 
 /// <summary>The body of "start or resume playback".</summary>
@@ -302,6 +449,59 @@ public sealed class PlaybackOffset
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? Position { get; set; }
+}
+
+/// <summary>Moves songs within a playlist (PUT /playlists/{id}/items).</summary>
+public sealed class ReorderItemsBody
+{
+    public int RangeStart { get; set; }
+
+    public int InsertBefore { get; set; }
+
+    public int RangeLength { get; set; } = 1;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SnapshotId { get; set; }
+}
+
+/// <summary>Adds songs to a playlist (POST /playlists/{id}/items).</summary>
+public sealed class AddItemsBody
+{
+    public List<string> Uris { get; set; } = [];
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Position { get; set; }
+}
+
+/// <summary>Removes songs from a playlist (DELETE /playlists/{id}/items).</summary>
+public sealed class RemoveItemsBody
+{
+    public List<ItemReference> Items { get; set; } = [];
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SnapshotId { get; set; }
+}
+
+public sealed class ItemReference
+{
+    public string Uri { get; set; } = string.Empty;
+}
+
+/// <summary>A playlist's version after a change.</summary>
+public sealed class SnapshotResponse
+{
+    public string? SnapshotId { get; set; }
+}
+
+/// <summary>Creates a playlist for the signed-in user (POST /me/playlists).</summary>
+public sealed class CreatePlaylistBody
+{
+    public string Name { get; set; } = string.Empty;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; set; }
+
+    public bool Public { get; set; }
 }
 
 public sealed class TransferPlaybackBody

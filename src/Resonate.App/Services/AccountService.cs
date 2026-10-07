@@ -30,6 +30,13 @@ public sealed class AccountService : IAccessTokenSource, IDisposable
 
     public bool IsSignedIn => _alwaysSignedIn || _session?.IsSignedIn == true;
 
+    /// <summary>
+    /// Permissions newer features need that the saved sign-in lacks; signing
+    /// in again grants them. Empty in demo mode.
+    /// </summary>
+    public IReadOnlyList<string> MissingScopes =>
+        _alwaysSignedIn || _session is null ? [] : _session.MissingScopes(SpotifyAuthOptions.DefaultScopes);
+
     /// <summary>Uses <paramref name="clientId"/> from now on. A different app needs a new sign-in.</summary>
     public void Configure(string clientId)
     {

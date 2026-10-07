@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Resonate.Spotify.History;
 using Resonate.Spotify.Library;
 
 namespace Resonate.Spotify.WebApi;
@@ -24,4 +25,21 @@ namespace Resonate.Spotify.WebApi;
 [JsonSerializable(typeof(TokenResponse))]
 [JsonSerializable(typeof(OAuthError))]
 [JsonSerializable(typeof(LibrarySnapshot))]
+[JsonSerializable(typeof(Album))]
+[JsonSerializable(typeof(Artist))]
+[JsonSerializable(typeof(Page<PlayableItem>))]
+[JsonSerializable(typeof(Page<SimplifiedAlbum>))]
+[JsonSerializable(typeof(Page<Artist>))]
+[JsonSerializable(typeof(PlayerQueue))]
+[JsonSerializable(typeof(CursorPage<PlayHistoryItem>))]
+[JsonSerializable(typeof(List<bool>))]
+[JsonSerializable(typeof(ReorderItemsBody))]
+[JsonSerializable(typeof(AddItemsBody))]
+[JsonSerializable(typeof(RemoveItemsBody))]
+[JsonSerializable(typeof(SnapshotResponse))]
+[JsonSerializable(typeof(CreatePlaylistBody))]
+[JsonSerializable(typeof(SimplifiedPlaylist))]
+[JsonSerializable(typeof(CachedTrackList))]
+[JsonSerializable(typeof(HistoryFile))]
+[JsonSerializable(typeof(HomeContent))]
 internal sealed partial class SpotifyJsonContext : JsonSerializerContext;

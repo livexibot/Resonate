@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Resonate.App.Pages.DjPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="{StaticResource ResonateTransparentBrush}">
+
+    <ScrollViewer>
+        <StackPanel
+            MaxWidth="760"
+            Padding="28,36,28,28"
+            HorizontalAlignment="Left"
+            Spacing="24">
+            <Grid ColumnSpacing="28">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="184" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid
+                    x:Name="CoverFrame"
+                    Width="184"
+                    Height="184"
+                    CornerRadius="{ThemeResource ResonateCornerLarge}">
+                    <FontIcon
+                        FontFamily="{StaticResource ResonateIconFont}"
+                        FontSize="64"
+                        Foreground="#E6FFFFFF"
+                        Glyph="&#xE7F6;" />
+                </Grid>
+                <StackPanel
+                    Grid.Column="1"
+                    VerticalAlignment="Bottom"
+                    Spacing="8">
+                    <TextBlock
+                        CharacterSpacing="60"
+                        Style="{StaticResource ResonateCaptionTextStyle}"
+                        Text="IN THE SPOTIFY APP" />
+                    <TextBlock Style="{StaticResource ResonateDisplayTextStyle}" Text="DJ" />
+                    <TextBlock
+                        Style="{StaticResource ResonateSecondaryTextStyle}"
+                        Text="Spotify's DJ picks music for you, mixing favourites with new finds, and talks you through it."
+                        TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Button
+                    x:Name="StartButton"
+                    Click="OnStartClick"
+                    Style="{StaticResource ResonateAccentButtonStyle}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon
+                            FontFamily="{StaticResource ResonateIconFont}"
+                            FontSize="14"
+                            Glyph="&#xE768;" />
+                        <TextBlock x:Name="StartText" Text="Start DJ" />
+                    </StackPanel>
+                </Button>
+                <ProgressRing
+                    x:Name="WaitingRing"
+                    Width="20"
+                    Height="20"
+                    IsActive="False" />
+            </StackPanel>
+
+            <Border
+                Padding="16,12"
+                Background="{StaticResource ResonateSurfaceHoverBrush}"
+                CornerRadius="{ThemeResource ResonateCornerMedium}">
+                <TextBlock
+                    x:Name="StatusText"
+                    Style="{StaticResource ResonateSecondaryTextStyle}"
+                    TextWrapping="Wrap" />
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

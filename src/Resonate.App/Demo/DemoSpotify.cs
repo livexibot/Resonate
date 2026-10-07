@@ -53,10 +53,35 @@ public static class DemoCatalog
             Uri = $"demo:track:{playlistId}:{index}",
             Type = "track",
             DurationMs = 150_000 + (stableSeed % 120) * 1000,
-            Artists = [new SimplifiedArtist { Name = artist }],
-            Album = new SimplifiedAlbum { Name = album, Uri = $"demo:album:{album}" },
+            Artists = [new SimplifiedArtist { Name = artist, Id = ArtistId(artist), Uri = $"demo:artist:{ArtistId(artist)}" }],
+            Album = new SimplifiedAlbum
+            {
+                Name = album,
+                Id = AlbumId(album),
+                Uri = $"demo:album:{AlbumId(album)}",
+                Artists = [new SimplifiedArtist { Name = artist, Id = ArtistId(artist) }],
+            },
+            TrackNumber = (index % 12) + 1,
         };
     }
+
+    public static IReadOnlyList<string> AllArtists => Artists;
+
+    /// <summary>The songs of the demo listener's favourite artist (the most played on Home).</summary>
+    public static IReadOnlyList<PlayableItem> FavouriteSongs()
+    {
+        var all = AllTracks().ToList();
+        var favourite = all.Where(t => t.Artists![0].Name == "Mira Sol").ToList();
+        return favourite.Count > 0 ? favourite : all;
+    }
+
+    public static string ArtistId(string name) => name.ToLowerInvariant().Replace(' ', '-');
+
+    public static string AlbumId(string name) => name.ToLowerInvariant().Replace(' ', '-');
+
+    /// <summary>Every demo song, once.</summary>
+    public static IEnumerable<PlayableItem> AllTracks() =>
+        Playlists.SelectMany(p => TracksOf(p.Id, p.Size)).DistinctBy(t => t.Name + t.Artists![0].Name);
 
     public static IEnumerable<PlayableItem> TracksOf(string playlistId, int count) =>
         Enumerable.Range(0, count).Select(i => Track(playlistId, i));
@@ -89,7 +114,12 @@ public static class DemoCatalog
 /// <summary>A pretend Web API serving <see cref="DemoCatalog"/>.</summary>
 public sealed class DemoWebApi : ISpotifyWebApi
 {
+    private const int LikedCount = 240;
+
     private readonly DemoPlayer _player;
+
+    // The pretend history ends when demo mode starts, so asking again finds nothing new.
+    private readonly DateTimeOffset _historyEnd = DateTimeOffset.UtcNow;
 
     public DemoWebApi(DemoPlayer player) => _player = player;
 
@@ -106,6 +136,7 @@ public sealed class DemoWebApi : ISpotifyWebApi
             Uri = $"demo:playlist:{p.Id}",
             Owner = new PlaylistOwner { Id = "demo", DisplayName = "Demo listener" },
             Items = new ItemsReference { Total = p.Size },
+            SnapshotId = "demo-1",
         }).ToList();
         var page = all.Skip(offset).Take(limit).ToList<SimplifiedPlaylist?>();
         return Task.FromResult(new Page<SimplifiedPlaylist> { Items = page, Total = all.Count, Offset = offset, Limit = limit });
@@ -113,9 +144,13 @@ public sealed class DemoWebApi : ISpotifyWebApi
 
     public Task<Page<SavedTrack>> GetSavedTracksAsync(int offset, int limit, CancellationToken cancellationToken)
     {
-        const int Total = 120;
+        const int Total = LikedCount;
         var items = Enumerable.Range(offset, Math.Max(0, Math.Min(limit, Total - offset)))
-            .Select(i => new SavedTrack { Track = DemoCatalog.Track("liked", i) })
+            .Select(i => new SavedTrack
+            {
+                Track = DemoCatalog.Track("liked", i),
+                AddedAt = DateTimeOffset.UtcNow.AddDays(-i * 3).ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+            })
             .ToList<SavedTrack?>();
         return Task.FromResult(new Page<SavedTrack>
         {
@@ -146,7 +181,11 @@ public sealed class DemoWebApi : ISpotifyWebApi
     {
         var size = DemoCatalog.Playlists.FirstOrDefault(p => p.Id == playlistId).Size;
         var items = Enumerable.Range(offset, Math.Max(0, Math.Min(limit, size - offset)))
-            .Select(i => new PlaylistEntry { Item = DemoCatalog.Track(playlistId, i) })
+            .Select(i => new PlaylistEntry
+            {
+                Item = DemoCatalog.Track(playlistId, i),
+                AddedAt = DateTimeOffset.UtcNow.AddDays(-i).ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+            })
             .ToList<PlaylistEntry?>();
         return Task.FromResult(new Page<PlaylistEntry>
         {
@@ -237,6 +276,139 @@ public sealed class DemoWebApi : ISpotifyWebApi
     }
 
     public Task TransferPlaybackAsync(string deviceId, bool play, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public Task SetShuffleAsync(bool shuffle, string? deviceId, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public Task SetRepeatAsync(RepeatMode mode, string? deviceId, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public Task AddToQueueAsync(string uri, string? deviceId, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public Task<PlayerQueue> GetQueueAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(new PlayerQueue
+        {
+            CurrentlyPlaying = DemoCatalog.Track("late-night", 3),
+            Queue = Enumerable.Range(4, 10).Select(i => DemoCatalog.Track("late-night", i)).ToList<PlayableItem?>(),
+        });
+
+    /// <summary>
+    /// A believable week of listening, newest first: a busy last day (a
+    /// song every 40 minutes), then a few songs a day. One artist and one
+    /// song keep coming back, so the stats on Home have a clear favourite.
+    /// </summary>
+    public Task<CursorPage<PlayHistoryItem>> GetRecentlyPlayedAsync(int limit, DateTimeOffset? after, CancellationToken cancellationToken)
+    {
+        var all = DemoCatalog.AllTracks().ToList();
+        var favourite = DemoCatalog.FavouriteSongs();
+        var items = Enumerable.Range(0, 50)
+            .Select(i => new PlayHistoryItem
+            {
+                Track = (i % 4) switch
+                {
+                    0 => favourite[0],
+                    2 => favourite[(i / 4) % favourite.Count],
+                    _ => all[(i * 7) % all.Count],
+                },
+                PlayedAt = (i < 24 ? _historyEnd.AddMinutes(-(i * 40) - 3) : _historyEnd.AddHours(-17 - ((i - 24) * 5.5)))
+                    .ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+                Context = new PlaybackContext { Type = "playlist", Uri = $"demo:playlist:{DemoCatalog.Playlists[i % 3].Id}" },
+            })
+            .Where(p => after is null || DateTimeOffset.Parse(p.PlayedAt!, System.Globalization.CultureInfo.InvariantCulture) > after)
+            .Take(limit)
+            .ToList<PlayHistoryItem?>();
+        return Task.FromResult(new CursorPage<PlayHistoryItem> { Items = items, Limit = limit });
+    }
+
+    public Task<Page<Artist>> GetTopArtistsAsync(TopRange range, int offset, int limit, CancellationToken cancellationToken)
+    {
+        // The favourite first, as on the stats.
+        var artists = DemoCatalog.AllArtists
+            .OrderBy(name => name == "Mira Sol" ? 0 : 1)
+            .Select(name => new Artist { Id = DemoCatalog.ArtistId(name), Name = name, Uri = $"demo:artist:{DemoCatalog.ArtistId(name)}" })
+            .Skip(offset)
+            .Take(limit)
+            .ToList<Artist?>();
+        return Task.FromResult(new Page<Artist> { Items = artists, Total = DemoCatalog.AllArtists.Count, Offset = offset, Limit = limit });
+    }
+
+    public Task<Page<PlayableItem>> GetTopTracksAsync(TopRange range, int offset, int limit, CancellationToken cancellationToken)
+    {
+        var tracks = DemoCatalog.FavouriteSongs().Take(1)
+            .Concat(DemoCatalog.AllTracks().Where((_, i) => i % 5 == 0))
+            .DistinctBy(t => t.Uri)
+            .Skip(offset)
+            .Take(limit)
+            .ToList<PlayableItem?>();
+        return Task.FromResult(new Page<PlayableItem> { Items = tracks, Total = tracks.Count, Offset = offset, Limit = limit });
+    }
+
+    public Task<IReadOnlyList<bool>> CheckLibraryAsync(IReadOnlyList<string> uris, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<bool>>(uris.Select(u => u.Contains(":liked:", StringComparison.Ordinal) || u.EndsWith('3')).ToList());
+
+    public Task SaveToLibraryAsync(IReadOnlyList<string> uris, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public Task RemoveFromLibraryAsync(IReadOnlyList<string> uris, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public Task<string?> ReorderPlaylistItemsAsync(string playlistId, int rangeStart, int insertBefore, int rangeLength, string? snapshotId, CancellationToken cancellationToken) =>
+        Task.FromResult<string?>("demo-2");
+
+    public Task<string?> AddPlaylistItemsAsync(string playlistId, IReadOnlyList<string> uris, int? position, CancellationToken cancellationToken) =>
+        Task.FromResult<string?>("demo-2");
+
+    public Task<string?> RemovePlaylistItemsAsync(string playlistId, IReadOnlyList<string> uris, string? snapshotId, CancellationToken cancellationToken) =>
+        Task.FromResult<string?>("demo-2");
+
+    public Task<SimplifiedPlaylist> CreatePlaylistAsync(string name, string? description, bool isPublic, CancellationToken cancellationToken) =>
+        Task.FromResult(new SimplifiedPlaylist
+        {
+            Id = "demo-new",
+            Name = name,
+            Uri = "demo:playlist:demo-new",
+            Owner = new PlaylistOwner { Id = "demo", DisplayName = "Demo listener" },
+        });
+
+    public Task<Album> GetAlbumAsync(string albumId, CancellationToken cancellationToken)
+    {
+        var tracks = DemoCatalog.AllTracks().Where(t => t.Album?.Id == albumId).ToList();
+        if (tracks.Count == 0)
+        {
+            tracks = DemoCatalog.TracksOf("focus", 9).ToList();
+        }
+
+        var first = tracks[0].Album!;
+        return Task.FromResult(new Album
+        {
+            Id = albumId,
+            Name = first.Name,
+            Uri = $"demo:album:{albumId}",
+            AlbumType = "album",
+            ReleaseDate = "2025-05-16",
+            TotalTracks = tracks.Count,
+            Artists = first.Artists,
+            Tracks = new Page<PlayableItem> { Items = tracks.Select(t => (PlayableItem?)t).ToList(), Total = tracks.Count },
+        });
+    }
+
+    public Task<Page<PlayableItem>> GetAlbumTracksAsync(string albumId, int offset, int limit, CancellationToken cancellationToken) =>
+        Task.FromResult(new Page<PlayableItem>());
+
+    public Task<Artist> GetArtistAsync(string artistId, CancellationToken cancellationToken)
+    {
+        var name = DemoCatalog.AllArtists.FirstOrDefault(a => DemoCatalog.ArtistId(a) == artistId) ?? "Demo artist";
+        return Task.FromResult(new Artist { Id = artistId, Name = name, Uri = $"demo:artist:{artistId}", Genres = ["indie", "dream pop"] });
+    }
+
+    public Task<Page<SimplifiedAlbum>> GetArtistAlbumsAsync(string artistId, int offset, int limit, CancellationToken cancellationToken)
+    {
+        var albums = DemoCatalog.AllTracks()
+            .Where(t => t.Artists?.Any(a => a.Id == artistId) == true)
+            .Select(t => t.Album!)
+            .DistinctBy(a => a.Id)
+            .Skip(offset)
+            .Take(limit)
+            .Select(a => (SimplifiedAlbum?)new SimplifiedAlbum { Id = a.Id, Name = a.Name, Uri = a.Uri, Artists = a.Artists, AlbumType = "album", ReleaseDate = "2024" })
+            .ToList();
+        return Task.FromResult(new Page<SimplifiedAlbum> { Items = albums, Total = albums.Count, Offset = offset, Limit = limit });
+    }
 }
 
 /// <summary>A pretend Spotify app: keeps a now-playing state and reports it like the media session would.</summary>

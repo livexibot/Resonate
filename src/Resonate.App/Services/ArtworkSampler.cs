@@ -21,7 +21,7 @@ public sealed class ArtworkSampler : IDisposable
     private const int Size = 40;
     private const int BlurRadius = 3;
 
-    private readonly PlayerController _player;
+    private readonly PlayerRouter _player;
     private readonly ThemeService _theme;
     private readonly HttpClient _http;
     private readonly DispatcherQueue _queue;
@@ -30,7 +30,7 @@ public sealed class ArtworkSampler : IDisposable
     private int _updateQueued;
 
     /// <summary>Call on the interface thread.</summary>
-    public ArtworkSampler(PlayerController player, ThemeService theme, HttpClient http)
+    public ArtworkSampler(PlayerRouter player, ThemeService theme, HttpClient http)
     {
         _player = player;
         _theme = theme;

@@ -1,0 +1,480 @@
+using System.Collections.Concurrent;
+using System.Runtime.ExceptionServices;
+using System.Text.Json;
+using Resonate.Spotify.Library;
+using Resonate.Spotify.WebApi;
+
+namespace Resonate.Spotify.History;
+
+/// <summary>What Home shows besides the stats, made once a day and kept on disk.</summary>
+public sealed class HomeContent
+{
+    /// <summary>The (local) day the mixes were made for; they are made again when it changes.</summary>
+    public DateOnly Day { get; set; }
+
+    public DateTimeOffset MadeAt { get; set; }
+
+    public List<DailyMix> Mixes { get; set; } = [];
+
+    /// <summary>The songs played most over the last four weeks (Spotify's short-term top tracks).</summary>
+    public List<TrackInfo> OnRepeat { get; set; } = [];
+
+    /// <summary>Artist pictures by artist ID ("" when the artist has none), so they are asked for once.</summary>
+    public Dictionary<string, string> ArtistImages { get; set; } = [];
+}
+
+/// <summary>
+/// Home's data: the listening history, and the daily mixes and "On repeat"
+/// made from it once a day. What is stored shows at once; <see cref="RefreshAsync"/>
+/// brings it up to date in the background. Holds names and picture links
+/// only, never tokens.
+/// </summary>
+public sealed class HomeFeed : IDisposable
+{
+    public const int OnRepeatSize = 30;
+
+    private const int TopArtistsLimit = 20;
+
+    /// <summary>The user's own playlists not yet stored that one round of making mixes may load (each once per version).</summary>
+    private const int MaxPlaylistsToLoad = 10;
+
+    private const int MaxPlaylistSize = 500;
+
+    /// <summary>With no mixes yet (a new account), try again after this long instead of waiting for tomorrow.</summary>
+    private static readonly TimeSpan RetryEmptyAfter = TimeSpan.FromMinutes(10);
+
+    private readonly ISpotifyWebApi _api;
+    private readonly LibraryService _library;
+    private readonly string? _path;
+    private readonly TimeProvider _time;
+    private readonly SemaphoreSlim _makeLock = new(1, 1);
+    private readonly Lock _gate = new();
+    private readonly ConcurrentDictionary<string, string> _artistImages = new(StringComparer.Ordinal);
+    private HomeContent? _content;
+    private bool _loaded;
+    private int _generation;
+
+    /// <param name="path">The file to keep the day's mixes in; null keeps them in memory only (demo mode, tests).</param>
+    public HomeFeed(ISpotifyWebApi api, LibraryService library, ListeningHistory history, string? path, TimeProvider? time = null)
+    {
+        _api = api;
+        _library = library;
+        History = history;
+        _path = path;
+        _time = time ?? TimeProvider.System;
+    }
+
+    /// <summary>Raised on any thread when new mixes were made (or everything was forgotten).</summary>
+    public event EventHandler? Changed;
+
+    public ListeningHistory History { get; }
+
+    /// <summary>The latest mixes, possibly from an earlier day; null before any were made or loaded.</summary>
+    public HomeContent? Content => Volatile.Read(ref _content);
+
+    public bool IsLoaded
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _loaded && History.IsLoaded;
+            }
+        }
+    }
+
+    /// <summary>Today, in the user's time zone: mixes change at local midnight.</summary>
+    public DateOnly Today => DateOnly.FromDateTime(_time.GetLocalNow().DateTime);
+
+    /// <summary>Reads the stored history and mixes once. Call it off the interface thread.</summary>
+    public void LoadStored()
+    {
+        History.Load();
+        lock (_gate)
+        {
+            if (_loaded)
+            {
+                return;
+            }
+
+            if (Read() is { } stored)
+            {
+                foreach (var (id, url) in stored.ArtistImages)
+                {
+                    _artistImages.TryAdd(id, url);
+                }
+
+                Volatile.Write(ref _content, stored);
+            }
+
+            _loaded = true;
+        }
+    }
+
+    /// <summary>
+    /// Saves the songs played since last time, then makes the day's mixes if
+    /// they are not made yet. Each part is tried even when the other fails;
+    /// the first failure is then thrown.
+    /// </summary>
+    public async Task RefreshAsync(CancellationToken cancellationToken)
+    {
+        LoadStored();
+        ExceptionDispatchInfo? failure = null;
+        try
+        {
+            await History.SyncAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            failure = ExceptionDispatchInfo.Capture(ex);
+        }
+
+        try
+        {
+            await MakeMixesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            failure ??= ExceptionDispatchInfo.Capture(ex);
+        }
+
+        failure?.Throw();
+    }
+
+    /// <summary>The mixes to show: the stored ones, or newly made when there are none yet (a mix page opened first).</summary>
+    public async Task<HomeContent> GetContentAsync(CancellationToken cancellationToken)
+    {
+        LoadStored();
+        if (Content is { } content)
+        {
+            return content;
+        }
+
+        await MakeMixesAsync(cancellationToken).ConfigureAwait(false);
+        return Content ?? new HomeContent();
+    }
+
+    /// <summary>An artist's picture if it is already known; null otherwise (see <see cref="GetArtistImageAsync"/>).</summary>
+    public string? KnownArtistImage(string artistId) =>
+        _artistImages.TryGetValue(artistId, out var url) && url.Length > 0 ? url : null;
+
+    /// <summary>An artist's picture, asked of Spotify the first time and remembered.</summary>
+    public async Task<string?> GetArtistImageAsync(string artistId, CancellationToken cancellationToken)
+    {
+        if (_artistImages.TryGetValue(artistId, out var known))
+        {
+            return known.Length > 0 ? known : null;
+        }
+
+        var url = await FetchArtistImageAsync(artistId, cancellationToken).ConfigureAwait(false);
+        if (Content is { } content)
+        {
+            SaveWithImages(content);
+        }
+
+        return url;
+    }
+
+    /// <summary>Forgets the history and mixes, in memory and on disk (for example on signing out).</summary>
+    public void Forget()
+    {
+        lock (_gate)
+        {
+            _generation++;
+            _loaded = true;
+            _artistImages.Clear();
+            Volatile.Write(ref _content, null);
+            Delete();
+        }
+
+        History.Clear();
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void Dispose()
+    {
+        _makeLock.Dispose();
+        History.Dispose();
+    }
+
+    /// <summary>Whether the stored mixes are out of date.</summary>
+    internal bool NeedsMixes()
+    {
+        if (Content is not { } content || content.Day != Today)
+        {
+            return true;
+        }
+
+        return content.Mixes.Count == 0 && _time.GetUtcNow() - content.MadeAt > RetryEmptyAfter;
+    }
+
+    private async Task MakeMixesAsync(CancellationToken cancellationToken)
+    {
+        await _makeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (!NeedsMixes())
+            {
+                // Made meanwhile (Home and a mix page asked at once).
+                return;
+            }
+
+            int generation;
+            lock (_gate)
+            {
+                generation = _generation;
+            }
+
+            var today = Today;
+            var seeds = await TopArtistsAsync(cancellationToken).ConfigureAwait(false);
+            var onRepeat = await OnRepeatAsync(cancellationToken).ConfigureAwait(false);
+            var liked = await _library.GetAllLikedSongsAsync(cancellationToken).ConfigureAwait(false);
+            if (_library.Snapshot is null)
+            {
+                // The very first start: the playlists are not known yet, and today's mixes should learn from them.
+                await _library.RefreshAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            var playlists = await OwnPlaylistSongsAsync(cancellationToken).ConfigureAwait(false);
+            var mixes = DailyMixBuilder.Build(seeds, liked, playlists, History.Plays, today);
+            await AddMissingImagesAsync(mixes, cancellationToken).ConfigureAwait(false);
+
+            var content = new HomeContent
+            {
+                Day = today,
+                MadeAt = _time.GetUtcNow(),
+                Mixes = mixes,
+                OnRepeat = onRepeat,
+                ArtistImages = new Dictionary<string, string>(_artistImages, StringComparer.Ordinal),
+            };
+            lock (_gate)
+            {
+                if (generation != _generation)
+                {
+                    // Signed out meanwhile: these mixes belong to the old account.
+                    return;
+                }
+
+                Volatile.Write(ref _content, content);
+                Save(content);
+            }
+
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+        finally
+        {
+            _makeLock.Release();
+        }
+    }
+
+    /// <summary>The user's top artists over about four weeks, or six months when that says too little.</summary>
+    private async Task<List<MixSeed>> TopArtistsAsync(CancellationToken cancellationToken)
+    {
+        var seeds = new List<MixSeed>();
+        foreach (var range in new[] { TopRange.ShortTerm, TopRange.MediumTerm })
+        {
+            if (seeds.Count >= TopArtistsLimit / 2)
+            {
+                break;
+            }
+
+            try
+            {
+                var page = await _api.GetTopArtistsAsync(range, 0, TopArtistsLimit, cancellationToken).ConfigureAwait(false);
+                foreach (var artist in page.Items.OfType<Artist>())
+                {
+                    var image = ImagePicker.Pick(artist.Images, 300);
+                    _artistImages[artist.Id] = image ?? string.Empty;
+                    seeds.Add(new MixSeed(artist.Id, artist.Name, image));
+                }
+            }
+            catch (SpotifyApiException)
+            {
+                // Not allowed (an older sign-in) or not now: the history and Liked Songs still give seeds.
+                break;
+            }
+        }
+
+        return seeds.DistinctBy(s => s.Id).ToList();
+    }
+
+    private async Task<List<TrackInfo>> OnRepeatAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var page = await _api.GetTopTracksAsync(TopRange.ShortTerm, 0, OnRepeatSize, cancellationToken).ConfigureAwait(false);
+            return page.Items
+                .Select((PlayableItem? t, int i) => TrackInfo.From(t, position: i))
+                .OfType<TrackInfo>()
+                .Where(t => t.IsPlayable)
+                .ToList();
+        }
+        catch (SpotifyApiException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// The songs of the user's own playlists: the stored copies (no
+    /// requests), plus a few not stored yet, which are stored for next time.
+    /// </summary>
+    private async Task<List<IReadOnlyList<TrackInfo>>> OwnPlaylistSongsAsync(CancellationToken cancellationToken)
+    {
+        var lists = new List<IReadOnlyList<TrackInfo>>();
+        var loads = 0;
+        foreach (var playlist in _library.Snapshot?.Playlists.ToList() ?? [])
+        {
+            if (!_library.CanListSongs(playlist))
+            {
+                continue;
+            }
+
+            if (_library.GetStoredPlaylistTracks(playlist.Id) is { } stored)
+            {
+                lists.Add(stored);
+                continue;
+            }
+
+            if (loads >= MaxPlaylistsToLoad || playlist.ItemCount is 0 or > MaxPlaylistSize)
+            {
+                continue;
+            }
+
+            loads++;
+            try
+            {
+                var list = await _library.GetAllPlaylistTracksAsync(playlist.Id, playlist.SnapshotId, cancellationToken).ConfigureAwait(false);
+                if (!list.ItemsHidden)
+                {
+                    lists.Add(list.Tracks);
+                }
+            }
+            catch (SpotifyApiException)
+            {
+                // One playlist less to learn from.
+            }
+        }
+
+        return lists;
+    }
+
+    /// <summary>Seeds found in the history or Liked Songs come without a picture; ask for it (at most one request per mix).</summary>
+    private async Task AddMissingImagesAsync(List<DailyMix> mixes, CancellationToken cancellationToken)
+    {
+        foreach (var mix in mixes)
+        {
+            if (mix.ImageUrl is not null)
+            {
+                continue;
+            }
+
+            if (_artistImages.TryGetValue(mix.SeedId, out var known))
+            {
+                mix.ImageUrl = known.Length > 0 ? known : null;
+                continue;
+            }
+
+            try
+            {
+                mix.ImageUrl = await FetchArtistImageAsync(mix.SeedId, cancellationToken).ConfigureAwait(false);
+            }
+            catch (SpotifyApiException)
+            {
+                // The card shows its colours instead.
+            }
+        }
+    }
+
+    private async Task<string?> FetchArtistImageAsync(string artistId, CancellationToken cancellationToken)
+    {
+        var artist = await _api.GetArtistAsync(artistId, cancellationToken).ConfigureAwait(false);
+        var url = ImagePicker.Pick(artist.Images, 300);
+        _artistImages[artistId] = url ?? string.Empty;
+        return url;
+    }
+
+    private void SaveWithImages(HomeContent content)
+    {
+        lock (_gate)
+        {
+            if (Content != content)
+            {
+                return;
+            }
+
+            Save(new HomeContent
+            {
+                Day = content.Day,
+                MadeAt = content.MadeAt,
+                Mixes = content.Mixes,
+                OnRepeat = content.OnRepeat,
+                ArtistImages = new Dictionary<string, string>(_artistImages, StringComparer.Ordinal),
+            });
+        }
+    }
+
+    private HomeContent? Read()
+    {
+        if (_path is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            if (!File.Exists(_path))
+            {
+                return null;
+            }
+
+            using var stream = File.OpenRead(_path);
+            return JsonSerializer.Deserialize(stream, SpotifyJsonContext.Default.HomeContent);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            return null;
+        }
+    }
+
+    private void Save(HomeContent content)
+    {
+        if (_path is null)
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+            var temporary = _path + ".tmp";
+            using (var stream = File.Create(temporary))
+            {
+                JsonSerializer.Serialize(stream, content, SpotifyJsonContext.Default.HomeContent);
+            }
+
+            File.Move(temporary, _path, overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Made again next time.
+        }
+    }
+
+    private void Delete()
+    {
+        if (_path is null)
+        {
+            return;
+        }
+
+        try
+        {
+            File.Delete(_path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best effort.
+        }
+    }
+}

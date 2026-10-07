@@ -26,6 +26,29 @@
                 <TextBlock Style="{StaticResource ResonateSecondaryTextStyle}" Text="{x:Bind Subtitle}" />
             </StackPanel>
         </DataTemplate>
+        <DataTemplate x:Key="ArtistCardTemplate" x:DataType="vm:CardItem">
+            <StackPanel
+                Width="168"
+                Padding="4,4,4,8"
+                Spacing="8">
+                <Grid
+                    Width="160"
+                    Height="160"
+                    Background="{x:Bind PlaceholderBrush}"
+                    CornerRadius="80">
+                    <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
+                </Grid>
+                <TextBlock
+                    FontWeight="SemiBold"
+                    Style="{StaticResource ResonateBodyTextStyle}"
+                    Text="{x:Bind Title}"
+                    TextAlignment="Center" />
+                <TextBlock
+                    Style="{StaticResource ResonateSecondaryTextStyle}"
+                    Text="{x:Bind Subtitle}"
+                    TextAlignment="Center" />
+            </StackPanel>
+        </DataTemplate>
     </Page.Resources>
 
     <Grid Padding="28,28,28,0" RowSpacing="20">
@@ -55,19 +78,23 @@
                     x:Name="HintText"
                     Margin="0,8,0,0"
                     Style="{StaticResource ResonateSecondaryTextStyle}"
-                    Text="Search for songs, albums and playlists. Double-click a song to play it." />
+                    Text="Search for songs, artists, albums and playlists. Double-click a song to play it." />
 
                 <StackPanel x:Name="SongsSection" Spacing="6" Visibility="Collapsed">
                     <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Songs" />
                     <ListView
                         x:Name="SongList"
+                        ContextRequested="OnSongContextRequested"
                         DoubleTapped="OnSongDoubleTapped"
                         ItemsSource="{x:Bind Songs}"
                         KeyDown="OnSongListKeyDown"
                         SelectionMode="Single">
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="vm:TrackRow">
-                                <Grid Height="56" ColumnSpacing="16">
+                                <Grid
+                                    Height="56"
+                                    Background="{StaticResource ResonateTransparentBrush}"
+                                    ColumnSpacing="16">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="40" />
                                         <ColumnDefinition Width="5*" />
@@ -106,6 +133,16 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
+                </StackPanel>
+
+                <StackPanel x:Name="ArtistsSection" Spacing="6" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Artists" />
+                    <GridView
+                        IsItemClickEnabled="True"
+                        ItemClick="OnArtistClick"
+                        ItemTemplate="{StaticResource ArtistCardTemplate}"
+                        ItemsSource="{x:Bind ArtistCards}"
+                        SelectionMode="None" />
                 </StackPanel>
 
                 <StackPanel x:Name="PlaylistsSection" Spacing="6" Visibility="Collapsed">

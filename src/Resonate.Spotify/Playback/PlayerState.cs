@@ -1,3 +1,5 @@
+using Resonate.Spotify.WebApi;
+
 namespace Resonate.Spotify.Playback;
 
 /// <summary>What the player bar shows. Immutable; every change is a new instance.</summary>
@@ -36,6 +38,24 @@ public sealed record PlayerState
 
     /// <summary>From 0 to 1.</summary>
     public double Volume { get; init; } = 1;
+
+    /// <summary>Shuffle is on (Resonate's truly random shuffle, or Spotify's own when Resonate can not list the songs).</summary>
+    public bool Shuffle { get; init; }
+
+    public RepeatMode Repeat { get; init; }
+
+    /// <summary>Shuffle can be changed now (Spotify forbids it in some situations).</summary>
+    public bool CanShuffle { get; init; } = true;
+
+    public bool CanRepeat { get; init; } = true;
+
+    public PlaybackSource Source { get; init; } = PlaybackSource.Spotify;
+
+    /// <summary>The Spotify Connect device that plays, when it is not the Spotify app on this computer.</summary>
+    public string? DeviceName { get; init; }
+
+    /// <summary>What the music plays from, in words ("Liked Songs", a playlist's name), when Resonate knows.</summary>
+    public string? SourceName { get; init; }
 
     public bool HasTrack => Title is not null;
 

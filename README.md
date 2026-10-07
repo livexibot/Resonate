@@ -3,10 +3,11 @@
 A fast, modern Windows interface for Spotify, with themes and smooth
 animations, that keeps Spotify's own lossless playback.
 
-> **Status: first version in testing.** Sign-in, the library, playlists,
-> search, the player bar, themes and automatic updates are built; it has not
-> been tried with a real Spotify account yet. Nothing is released, so there
-> is nothing to download yet. The plan is in [CLAUDE.md](CLAUDE.md).
+> **Status: early versions in testing.** Home with listening stats and
+> daily mixes, the library, playlists, search, Local Files, DJ, sorting,
+> truly random shuffle, repeat, the queue, the equalizer, themes and
+> automatic updates are built. It has not been tried with a real Spotify
+> account yet. The plan is in [CLAUDE.md](CLAUDE.md).
 
 ## Why
 
@@ -25,11 +26,15 @@ your own looks, share them as text, and pick how switching animates.
 
 ## How it works
 
-Resonate does not play music itself. The official Spotify app runs hidden in
-the background and does all the playback, so every song plays in Spotify
-Lossless. Resonate is the window you use: it controls Spotify through
-Windows' own media controls (instant play, pause and skip) and through
-Spotify's official Web API (library, search, playlists).
+Resonate never plays Spotify's music itself. The official Spotify app runs
+hidden in the background and does all the playback, so every song plays in
+Spotify Lossless. Resonate is the window you use: it controls Spotify
+through Windows' own media controls (instant play, pause and skip) and
+through Spotify's official Web API (library, search, playlists). The
+equalizer in Settings is Spotify's own.
+
+The only music Resonate plays itself is your own files in Local Files,
+which Spotify does not let other apps start.
 
 ## Requirements
 

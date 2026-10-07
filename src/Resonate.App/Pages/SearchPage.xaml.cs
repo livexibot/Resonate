@@ -3,6 +3,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
+using Resonate.App.Helpers;
+using Resonate.App.Pages.Lists;
 using Resonate.App.Services;
 using Resonate.App.ViewModels;
 using Resonate.Spotify.Library;
@@ -12,7 +14,7 @@ using VirtualKey = Windows.System.VirtualKey;
 
 namespace Resonate.App.Pages;
 
-/// <summary>Search as you type: songs (double-click to play), playlists and albums.</summary>
+/// <summary>Search as you type: songs (double-click to play), artists, playlists and albums.</summary>
 public sealed partial class SearchPage : Page
 {
     private static readonly TimeSpan TypingPause = TimeSpan.FromMilliseconds(250);
@@ -36,6 +38,8 @@ public sealed partial class SearchPage : Page
     public ObservableCollection<CardItem> PlaylistCards { get; } = [];
 
     public ObservableCollection<CardItem> AlbumCards { get; } = [];
+
+    public ObservableCollection<CardItem> ArtistCards { get; } = [];
 
     /// <summary>Moves the keyboard to the search box when the search page is showing.</summary>
     public static void FocusSearchBox(Frame frame)
@@ -79,6 +83,8 @@ public sealed partial class SearchPage : Page
 
         if (query.Length == 0)
         {
+            // A search cancelled above leaves the ring to the newest call, which is this one.
+            SearchingRing.IsActive = false;
             Show(null);
             return;
         }
@@ -87,6 +93,9 @@ public sealed partial class SearchPage : Page
         {
             // Wait for a pause in typing so each key press does not cost a request.
             await Task.Delay(wait, token);
+
+            // A newer call may have run before this one resumed; the ring is its now.
+            token.ThrowIfCancellationRequested();
             SearchingRing.IsActive = Songs.Count == 0;
             var library = _services.Library;
             var results = await Task.Run(() => library.SearchAsync(query, token), token);
@@ -116,13 +125,19 @@ public sealed partial class SearchPage : Page
         Songs.Clear();
         PlaylistCards.Clear();
         AlbumCards.Clear();
+        ArtistCards.Clear();
 
         if (results is not null)
         {
             var number = 1;
             foreach (var track in results.Tracks)
             {
-                Songs.Add(new TrackRow(track, number++));
+                Songs.Add(new TrackRow(track, number++, isLiked: _services.Likes.IsLiked(track.Uri)));
+            }
+
+            foreach (var artist in results.Artists)
+            {
+                ArtistCards.Add(new CardItem(artist.Name, "Artist", artist.Uri, artist.Id, ImagePicker.Pick(artist.Images, 300), isPlaylist: false));
             }
 
             foreach (var playlist in results.Playlists)
@@ -153,12 +168,13 @@ public sealed partial class SearchPage : Page
             }
         }
 
-        HintText.Text = "Search for songs, albums and playlists. Double-click a song to play it.";
+        HintText.Text = "Search for songs, artists, albums and playlists. Double-click a song to play it.";
         HintText.Visibility = results is null ? Visibility.Visible : Visibility.Collapsed;
         SongsSection.Visibility = Songs.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        ArtistsSection.Visibility = ArtistCards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         PlaylistsSection.Visibility = PlaylistCards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         AlbumsSection.Visibility = AlbumCards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        if (results is not null && Songs.Count + PlaylistCards.Count + AlbumCards.Count == 0)
+        if (results is not null && Songs.Count + ArtistCards.Count + PlaylistCards.Count + AlbumCards.Count == 0)
         {
             HintText.Text = "Nothing found. Try other words.";
             HintText.Visibility = Visibility.Visible;
@@ -167,7 +183,7 @@ public sealed partial class SearchPage : Page
 
     private void OnSongDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
-        if ((e.OriginalSource as FrameworkElement)?.DataContext is TrackRow row)
+        if (ListEvents.DoubleTapped<TrackRow>(SongList, e) is { } row)
         {
             Play(row);
         }
@@ -187,7 +203,24 @@ public sealed partial class SearchPage : Page
         // Play the song inside its album, so the album continues after it.
         if (row.Track.IsPlayable)
         {
-            _ = _services.Player.PlayTrackAsync(row.Track, row.Track.AlbumUri);
+            _ = _services.Player.PlayAsync(new PlayRequest([row.Track], 0, row.Track.AlbumUri, row.Track.Album));
+        }
+    }
+
+    private void OnSongContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (ListEvents.ContextRequested<TrackRow>(SongList, args) is { } row)
+        {
+            SongList.SelectedItem = row;
+            TrackActions.ShowMenu(TrackActions.BuildMenu(row.Track, new TrackMenuOptions { Play = () => Play(row) }), SongList, args);
+        }
+    }
+
+    private void OnArtistClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is CardItem { Id: { } id })
+        {
+            App.MainWindow?.Open(TrackActions.ArtistKey(id));
         }
     }
 
@@ -195,15 +228,15 @@ public sealed partial class SearchPage : Page
     {
         if (e.ClickedItem is CardItem { Id: { } id })
         {
-            App.MainWindow?.OpenPlaylist(id);
+            App.MainWindow?.Open(id);
         }
     }
 
     private void OnAlbumClick(object sender, ItemClickEventArgs e)
     {
-        if (e.ClickedItem is CardItem card)
+        if (e.ClickedItem is CardItem { Id: { } id })
         {
-            _ = _services.Player.PlayContextAsync(card.Uri);
+            App.MainWindow?.Open(AlbumSource.Prefix + id);
         }
     }
 }
