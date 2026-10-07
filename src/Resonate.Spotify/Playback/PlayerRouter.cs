@@ -63,15 +63,22 @@ public sealed class PlayerRouter : IPlayer, IDisposable
         return Spotify.PlayContextAsync(contextUri);
     }
 
-    /// <summary>Adds a song to the queue of the player that has the music.</summary>
-    public Task AddToQueueAsync(TrackInfo track)
+    /// <summary>Raised on any thread after Resonate added a song to a queue, so a queue view can show it.</summary>
+    public event EventHandler? QueueChanged;
+
+    /// <summary>Adds a song to the queue of the player that plays such songs (files to the local player, the rest to Spotify).</summary>
+    public async Task AddToQueueAsync(TrackInfo track)
     {
         if (track.FilePath is not null)
         {
-            return _local.AddToQueueAsync(track);
+            await _local.AddToQueueAsync(track).ConfigureAwait(false);
+        }
+        else
+        {
+            await Spotify.AddToQueueAsync(track).ConfigureAwait(false);
         }
 
-        return Spotify.AddToQueueAsync(track);
+        QueueChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public Task TogglePlayPauseAsync() => Active.TogglePlayPauseAsync();

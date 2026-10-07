@@ -51,6 +51,11 @@ internal sealed class ScreenshotTour
             await Task.Delay(1500);
             await CaptureAsync("2-playlist.png");
 
+            _window.ToggleQueue();
+            await Task.Delay(1200);
+            await CaptureAsync("2-queue.png");
+            _window.ToggleQueue();
+
             SearchPage.PendingQuery = "mid";
             _window.OpenSearch();
             await Task.Delay(2000);

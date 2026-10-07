@@ -155,11 +155,23 @@ internal sealed class FakeWebApi : ISpotifyWebApi
 
     public List<SimplifiedAlbum> ArtistAlbums { get; } = [];
 
-    public Task SetShuffleAsync(bool shuffle, string? deviceId, CancellationToken cancellationToken) =>
-        Record($"shuffle {(shuffle ? "on" : "off")}@{deviceId}");
+    public async Task SetShuffleAsync(bool shuffle, string? deviceId, CancellationToken cancellationToken)
+    {
+        await Record($"shuffle {(shuffle ? "on" : "off")}@{deviceId}");
+        if (Playback is { } playback)
+        {
+            playback.ShuffleState = shuffle;
+        }
+    }
 
-    public Task SetRepeatAsync(RepeatMode mode, string? deviceId, CancellationToken cancellationToken) =>
-        Record($"repeat {RepeatModes.ToSpotify(mode)}@{deviceId}");
+    public async Task SetRepeatAsync(RepeatMode mode, string? deviceId, CancellationToken cancellationToken)
+    {
+        await Record($"repeat {RepeatModes.ToSpotify(mode)}@{deviceId}");
+        if (Playback is { } playback)
+        {
+            playback.RepeatState = RepeatModes.ToSpotify(mode);
+        }
+    }
 
     public Task AddToQueueAsync(string uri, string? deviceId, CancellationToken cancellationToken) =>
         Record($"queue {uri}@{deviceId}");
@@ -206,16 +218,29 @@ internal sealed class FakeWebApi : ISpotifyWebApi
     public Task<IReadOnlyList<bool>> CheckLibraryAsync(IReadOnlyList<string> uris, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<bool>>(uris.Select(Library.Contains).ToList());
 
-    public Task SaveToLibraryAsync(IReadOnlyList<string> uris, CancellationToken cancellationToken)
+    /// <summary>When set, saving and removing library items waits for this task (a slow answer).</summary>
+    public Task? HoldLibraryWrites { get; set; }
+
+    public async Task SaveToLibraryAsync(IReadOnlyList<string> uris, CancellationToken cancellationToken)
     {
+        if (HoldLibraryWrites is { } hold)
+        {
+            await hold;
+        }
+
+        await Record($"save {string.Join(',', uris)}");
         Library.UnionWith(uris);
-        return Record($"save {string.Join(',', uris)}");
     }
 
-    public Task RemoveFromLibraryAsync(IReadOnlyList<string> uris, CancellationToken cancellationToken)
+    public async Task RemoveFromLibraryAsync(IReadOnlyList<string> uris, CancellationToken cancellationToken)
     {
+        if (HoldLibraryWrites is { } hold)
+        {
+            await hold;
+        }
+
+        await Record($"unsave {string.Join(',', uris)}");
         Library.ExceptWith(uris);
-        return Record($"unsave {string.Join(',', uris)}");
     }
 
     public async Task<string?> ReorderPlaylistItemsAsync(
