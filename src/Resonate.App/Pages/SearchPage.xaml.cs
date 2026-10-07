@@ -83,6 +83,8 @@ public sealed partial class SearchPage : Page
 
         if (query.Length == 0)
         {
+            // A search cancelled above leaves the ring to the newest call, which is this one.
+            SearchingRing.IsActive = false;
             Show(null);
             return;
         }
