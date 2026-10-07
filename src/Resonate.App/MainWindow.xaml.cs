@@ -8,8 +8,10 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
+using Resonate.App.Controls;
 using Resonate.App.Pages;
 using Resonate.App.Services;
+using Resonate.App.Themes;
 using Resonate.App.ViewModels;
 using Resonate.Spotify.Auth;
 using Resonate.Spotify.Library;
@@ -45,7 +47,13 @@ public sealed partial class MainWindow : Window
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Resonate.ico"));
         PlaceWindow(1280, 820);
 
-        services.Theme.AttachRoot(RootGrid);
+        // The look's backdrop goes behind the content, and switching looks animates above it.
+        var content = RootGrid;
+        Content = null;
+        var themeHost = new ThemeHost(content, services);
+        Content = themeHost;
+        services.Theme.AttachWindow(this, themeHost, themeHost.Scene, themeHost.Overlay);
+        services.Theme.Changed += (_, _) => ApplyCaptionButtonColors();
         ApplyCaptionButtonColors();
 
         _messageTimer = DispatcherQueue.CreateTimer();
@@ -362,7 +370,7 @@ public sealed partial class MainWindow : Window
         }
         else if (options.ScreenshotFolder is { } folder)
         {
-            _ = new ScreenshotTour(this, RootGrid, folder).RunAsync();
+            _ = new ScreenshotTour(this, (FrameworkElement)Content, folder).RunAsync();
         }
         else if (options is { UpdateCheckFeed: { } feed, UpdateCheckResultFile: { } result })
         {
@@ -395,18 +403,18 @@ public sealed partial class MainWindow : Window
         _services.Dispose();
     }
 
-    internal void ApplyCaptionButtonColors()
+    private void ApplyCaptionButtonColors()
     {
-        var theme = _services.Theme.Current;
+        var palette = _services.Theme.Palette;
         var titleBar = AppWindow.TitleBar;
         titleBar.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
         titleBar.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
-        titleBar.ButtonForegroundColor = theme.TextSecondary;
-        titleBar.ButtonInactiveForegroundColor = theme.TextTertiary;
-        titleBar.ButtonHoverBackgroundColor = theme.SurfaceHover;
-        titleBar.ButtonHoverForegroundColor = theme.TextPrimary;
-        titleBar.ButtonPressedBackgroundColor = theme.SurfacePressed;
-        titleBar.ButtonPressedForegroundColor = theme.TextPrimary;
+        titleBar.ButtonForegroundColor = palette.TextSecondary.ToColor();
+        titleBar.ButtonInactiveForegroundColor = palette.TextTertiary.ToColor();
+        titleBar.ButtonHoverBackgroundColor = palette.Hover.ToColor();
+        titleBar.ButtonHoverForegroundColor = palette.TextPrimary.ToColor();
+        titleBar.ButtonPressedBackgroundColor = palette.Pressed.ToColor();
+        titleBar.ButtonPressedForegroundColor = palette.TextPrimary.ToColor();
     }
 
     /// <summary>Sizes the window in device-independent pixels and centres it on its screen.</summary>

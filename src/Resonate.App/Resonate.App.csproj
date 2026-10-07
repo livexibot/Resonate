@@ -40,6 +40,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Resonate.Spotify\Resonate.Spotify.csproj" />
+    <ProjectReference Include="..\Resonate.Themes\Resonate.Themes.csproj" />
     <ProjectReference Include="..\Resonate.Windows\Resonate.Windows.csproj" />
   </ItemGroup>
 

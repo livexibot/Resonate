@@ -2,12 +2,19 @@
 <UserControl
     x:Class="Resonate.App.Controls.PlayerBar"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Resonate.App.Controls">
 
+    <!-- Docked along the bottom, or floating as a card (the look decides; see ThemeService). -->
     <Grid
         Height="88"
+        Margin="{ThemeResource ResonatePlayerMargin}"
         Padding="20,0"
-        ColumnSpacing="24">
+        Background="{StaticResource ResonatePlayerBrush}"
+        BorderBrush="{StaticResource ResonateBorderBrush}"
+        BorderThickness="{ThemeResource ResonatePlayerBorderThickness}"
+        ColumnSpacing="24"
+        CornerRadius="{ThemeResource ResonatePlayerCorner}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="3*" MinWidth="220" />
             <ColumnDefinition Width="4*" MinWidth="320" />
@@ -25,7 +32,7 @@
                 Width="56"
                 Height="56"
                 Background="{StaticResource ResonateSurfaceHoverBrush}"
-                CornerRadius="{StaticResource ResonateCornerMedium}">
+                CornerRadius="{ThemeResource ResonateCornerMedium}">
                 <FontIcon
                     x:Name="ArtworkGlyph"
                     FontFamily="{StaticResource ResonateIconFont}"
@@ -37,6 +44,20 @@
                     ImageOpened="OnArtworkOpened"
                     Opacity="0"
                     Stretch="UniformToFill" />
+                <!-- The vinyl cover style: a groove and the spindle hole. -->
+                <Grid x:Name="VinylCentre" Visibility="Collapsed">
+                    <Ellipse
+                        Width="22"
+                        Height="22"
+                        Stroke="{StaticResource ResonateBorderBrush}"
+                        StrokeThickness="1" />
+                    <Ellipse
+                        Width="10"
+                        Height="10"
+                        Fill="{StaticResource ResonatePlayerBrush}"
+                        Stroke="{StaticResource ResonateBorderBrush}"
+                        StrokeThickness="1" />
+                </Grid>
             </Grid>
             <StackPanel
                 Grid.Column="1"
@@ -97,12 +118,11 @@
                     Style="{StaticResource ResonateCaptionTextStyle}"
                     Text="0:00"
                     TextAlignment="Right" />
-                <Slider
-                    x:Name="SeekSlider"
+                <controls:SeekBar
+                    x:Name="PositionBar"
                     Grid.Column="1"
                     VerticalAlignment="Center"
                     AutomationProperties.Name="Position"
-                    IsThumbToolTipEnabled="False"
                     Maximum="1"
                     Minimum="0"
                     ValueChanged="OnSeekValueChanged" />
@@ -129,15 +149,15 @@
                 Content="&#xE767;"
                 Style="{StaticResource ResonateIconButtonStyle}"
                 ToolTipService.ToolTip="Mute" />
-            <Slider
-                x:Name="VolumeSlider"
+            <controls:SeekBar
+                x:Name="VolumeBar"
                 Width="128"
                 VerticalAlignment="Center"
                 AutomationProperties.Name="Volume"
-                IsThumbToolTipEnabled="False"
                 Maximum="100"
                 Minimum="0"
-                ValueChanged="OnVolumeValueChanged" />
+                ValueChanged="OnVolumeValueChanged"
+                WheelStep="5" />
         </StackPanel>
     </Grid>
 </UserControl>

@@ -2,6 +2,8 @@ using System.Globalization;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Resonate.App.Themes;
+using Resonate.Themes;
 using Windows.Foundation;
 
 namespace Resonate.App.Helpers;
@@ -45,6 +47,20 @@ public static class Artwork
     /// <summary>The same name always gets the same gradient.</summary>
     public static Brush PlaceholderBrush(string name)
     {
+        var (from, to) = PlaceholderColors(name);
+        var brush = new LinearGradientBrush
+        {
+            StartPoint = new Point(0, 0),
+            EndPoint = new Point(1, 1),
+        };
+        brush.GradientStops.Add(new GradientStop { Color = from.ToColor(), Offset = 0 });
+        brush.GradientStops.Add(new GradientStop { Color = to.ToColor(), Offset = 1 });
+        return brush;
+    }
+
+    /// <summary>The two colours of <see cref="PlaceholderBrush"/>.</summary>
+    public static (ThemeColor From, ThemeColor To) PlaceholderColors(string name)
+    {
         var hash = 0u;
         foreach (var c in name)
         {
@@ -52,14 +68,7 @@ public static class Artwork
         }
 
         var (from, to) = Palettes[hash % (uint)Palettes.Length];
-        var brush = new LinearGradientBrush
-        {
-            StartPoint = new Point(0, 0),
-            EndPoint = new Point(1, 1),
-        };
-        brush.GradientStops.Add(new GradientStop { Color = Themes.ThemePreset.Hex(from), Offset = 0 });
-        brush.GradientStops.Add(new GradientStop { Color = Themes.ThemePreset.Hex(to), Offset = 1 });
-        return brush;
+        return (ThemeColor.FromRgb(from), ThemeColor.FromRgb(to));
     }
 }
 

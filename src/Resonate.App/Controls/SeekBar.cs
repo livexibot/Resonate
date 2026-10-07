@@ -1,0 +1,540 @@
+using System.Diagnostics;
+using System.Numerics;
+using Microsoft.UI.Composition;
+using Microsoft.UI.Input;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation.Peers;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Hosting;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
+using Resonate.Themes;
+using Windows.Foundation;
+using VirtualKey = Windows.System.VirtualKey;
+
+namespace Resonate.App.Controls;
+
+/// <summary>
+/// The progress and volume bars, drawn in the theme's style: a slim line, a
+/// bold bar, a glowing gradient, a moving wave, or a hairline. While a song
+/// plays, the bar glides on the compositor at the display's refresh rate
+/// (values are seconds, advancing one per second), so the interface thread
+/// does nothing between the clock's updates.
+/// </summary>
+public sealed partial class SeekBar : RangeBase
+{
+    public static readonly DependencyProperty BarStyleProperty = DependencyProperty.Register(
+        nameof(BarStyle),
+        typeof(ProgressStyle),
+        typeof(SeekBar),
+        new PropertyMetadata(ProgressStyle.Line, (d, _) => ((SeekBar)d).OnBarStyleChanged()));
+
+    public static readonly DependencyProperty IsAdvancingProperty = DependencyProperty.Register(
+        nameof(IsAdvancing),
+        typeof(bool),
+        typeof(SeekBar),
+        new PropertyMetadata(false, (d, _) => ((SeekBar)d).OnAdvancingChanged()));
+
+    private const double Wavelength = 22;
+    private const double WaveAmplitude = 3.2;
+
+    private Grid? _trackArea;
+    private Border? _track;
+    private Border? _fill;
+    private Grid? _waveHost;
+    private Microsoft.UI.Xaml.Shapes.Path? _wave;
+    private Border? _thumb;
+    private Visual? _thumbVisual;
+    private Visual? _waveVisual;
+    private InsetClip? _fillClip;
+    private InsetClip? _waveClip;
+    private InsetClip? _trackClip;
+    private bool _pointerOver;
+    private bool _gliding;
+    private double _glideStartValue;
+    private long _glideStartTime;
+    private double _waveWidth;
+    private double _thumbOpacity = -1;
+
+    public SeekBar()
+    {
+        SizeChanged += (_, _) => Refresh();
+    }
+
+    /// <summary>The user started dragging.</summary>
+    public event EventHandler? DragStarted;
+
+    /// <summary>The user let go; <see cref="RangeBase.Value"/> is where they let go.</summary>
+    public event EventHandler? DragCompleted;
+
+    public ProgressStyle BarStyle
+    {
+        get => (ProgressStyle)GetValue(BarStyleProperty);
+        set => SetValue(BarStyleProperty, value);
+    }
+
+    /// <summary>The song is playing: the bar moves on by itself, one unit per second.</summary>
+    public bool IsAdvancing
+    {
+        get => (bool)GetValue(IsAdvancingProperty);
+        set => SetValue(IsAdvancingProperty, value);
+    }
+
+    /// <summary>How much one notch of the mouse wheel changes the value (0 for none).</summary>
+    public double WheelStep { get; set; }
+
+    public bool IsDragging { get; private set; }
+
+    protected override void OnApplyTemplate()
+    {
+        base.OnApplyTemplate();
+        _trackArea = GetTemplateChild("TrackArea") as Grid;
+        _track = GetTemplateChild("Track") as Border;
+        _fill = GetTemplateChild("Fill") as Border;
+        _waveHost = GetTemplateChild("WaveHost") as Grid;
+        _wave = GetTemplateChild("Wave") as Microsoft.UI.Xaml.Shapes.Path;
+        _thumb = GetTemplateChild("Thumb") as Border;
+
+        if (_track is not null)
+        {
+            // Only the wave style hides the played part of the track (the wave draws it instead).
+            var visual = ElementCompositionPreview.GetElementVisual(_track);
+            _trackClip = visual.Compositor.CreateInsetClip();
+            visual.Clip = _trackClip;
+        }
+
+        if (_fill is not null)
+        {
+            var visual = ElementCompositionPreview.GetElementVisual(_fill);
+            _fillClip = visual.Compositor.CreateInsetClip();
+            visual.Clip = _fillClip;
+        }
+
+        if (_waveHost is not null)
+        {
+            var visual = ElementCompositionPreview.GetElementVisual(_waveHost);
+            _waveClip = visual.Compositor.CreateInsetClip();
+            visual.Clip = _waveClip;
+        }
+
+        if (_wave is not null)
+        {
+            ElementCompositionPreview.SetIsTranslationEnabled(_wave, true);
+            _waveVisual = ElementCompositionPreview.GetElementVisual(_wave);
+        }
+
+        if (_thumb is not null)
+        {
+            ElementCompositionPreview.SetIsTranslationEnabled(_thumb, true);
+            _thumbVisual = ElementCompositionPreview.GetElementVisual(_thumb);
+        }
+
+        _thumbOpacity = -1;
+        UpdateLook();
+        AnimateWave();
+    }
+
+    protected override AutomationPeer OnCreateAutomationPeer() => new RangeBaseAutomationPeer(this);
+
+    protected override void OnValueChanged(double oldValue, double newValue)
+    {
+        base.OnValueChanged(oldValue, newValue);
+        if (IsDragging || !IsAdvancing)
+        {
+            StopGlide();
+            ShowPosition();
+            return;
+        }
+
+        // The clock reports where the song is a few times a second; leave the
+        // glide alone while it agrees, and start again after a jump.
+        if (_gliding && Math.Abs(_glideStartValue + Stopwatch.GetElapsedTime(_glideStartTime).TotalSeconds - newValue) < 0.6)
+        {
+            return;
+        }
+
+        StartGlide();
+    }
+
+    protected override void OnMaximumChanged(double oldMaximum, double newMaximum)
+    {
+        base.OnMaximumChanged(oldMaximum, newMaximum);
+        Refresh();
+    }
+
+    protected override void OnPointerEntered(PointerRoutedEventArgs e)
+    {
+        base.OnPointerEntered(e);
+        _pointerOver = true;
+        UpdateLook();
+    }
+
+    protected override void OnPointerExited(PointerRoutedEventArgs e)
+    {
+        base.OnPointerExited(e);
+        _pointerOver = false;
+        UpdateLook();
+    }
+
+    protected override void OnGotFocus(RoutedEventArgs e)
+    {
+        base.OnGotFocus(e);
+        UpdateLook();
+    }
+
+    protected override void OnLostFocus(RoutedEventArgs e)
+    {
+        base.OnLostFocus(e);
+        UpdateLook();
+    }
+
+    protected override void OnPointerPressed(PointerRoutedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+        var point = e.GetCurrentPoint(this);
+        if (e.Pointer.PointerDeviceType == PointerDeviceType.Mouse && !point.Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        if (CapturePointer(e.Pointer))
+        {
+            _ = Focus(FocusState.Pointer);
+            IsDragging = true;
+            DragStarted?.Invoke(this, EventArgs.Empty);
+            SetValueFrom(e);
+            UpdateLook();
+            e.Handled = true;
+        }
+    }
+
+    protected override void OnPointerMoved(PointerRoutedEventArgs e)
+    {
+        base.OnPointerMoved(e);
+        if (IsDragging)
+        {
+            SetValueFrom(e);
+            e.Handled = true;
+        }
+    }
+
+    protected override void OnPointerReleased(PointerRoutedEventArgs e)
+    {
+        base.OnPointerReleased(e);
+        if (IsDragging)
+        {
+            SetValueFrom(e);
+            ReleasePointerCapture(e.Pointer);
+            EndDrag();
+            e.Handled = true;
+        }
+    }
+
+    protected override void OnPointerCaptureLost(PointerRoutedEventArgs e)
+    {
+        base.OnPointerCaptureLost(e);
+        if (IsDragging)
+        {
+            EndDrag();
+        }
+    }
+
+    protected override void OnPointerWheelChanged(PointerRoutedEventArgs e)
+    {
+        base.OnPointerWheelChanged(e);
+        if (WheelStep > 0)
+        {
+            var delta = e.GetCurrentPoint(this).Properties.MouseWheelDelta;
+            Value = Math.Clamp(Value + (Math.Sign(delta) * WheelStep), Minimum, Maximum);
+            e.Handled = true;
+        }
+    }
+
+    protected override void OnKeyDown(KeyRoutedEventArgs e)
+    {
+        double? target = e.Key switch
+        {
+            VirtualKey.Left or VirtualKey.Down => Value - SmallChange,
+            VirtualKey.Right or VirtualKey.Up => Value + SmallChange,
+            VirtualKey.PageDown => Value - LargeChange,
+            VirtualKey.PageUp => Value + LargeChange,
+            VirtualKey.Home => Minimum,
+            VirtualKey.End => Maximum,
+            _ => null,
+        };
+
+        if (target is { } value)
+        {
+            Value = Math.Clamp(value, Minimum, Maximum);
+            e.Handled = true;
+            return;
+        }
+
+        base.OnKeyDown(e);
+    }
+
+    private double Ratio => Maximum > Minimum ? Math.Clamp((Value - Minimum) / (Maximum - Minimum), 0, 1) : 0;
+
+    private double TrackWidth => _trackArea?.ActualWidth ?? 0;
+
+    // The handle is centred on the position (moved, not laid out, so it is never clipped at the ends).
+    private float ThumbOffset => (float)(_thumb?.Width ?? 0) / 2;
+
+    private void SetValueFrom(PointerRoutedEventArgs e)
+    {
+        if (_trackArea is null || TrackWidth <= 0)
+        {
+            return;
+        }
+
+        var x = e.GetCurrentPoint(_trackArea).Position.X;
+        Value = Minimum + (Math.Clamp(x / TrackWidth, 0, 1) * (Maximum - Minimum));
+    }
+
+    private void EndDrag()
+    {
+        IsDragging = false;
+        DragCompleted?.Invoke(this, EventArgs.Empty);
+        UpdateLook();
+        Refresh();
+    }
+
+    private void OnAdvancingChanged()
+    {
+        Refresh();
+        AnimateWave();
+    }
+
+    private void OnBarStyleChanged()
+    {
+        UpdateLook();
+        Refresh();
+        AnimateWave();
+    }
+
+    /// <summary>Redraws for a new size, value range or play state.</summary>
+    private void Refresh()
+    {
+        if (BarStyle == ProgressStyle.Wave && Math.Abs(_waveWidth - TrackWidth) > 0.5)
+        {
+            BuildWave();
+        }
+
+        if (IsAdvancing && !IsDragging)
+        {
+            StartGlide();
+        }
+        else
+        {
+            StopGlide();
+            ShowPosition();
+        }
+    }
+
+    private void ShowPosition()
+    {
+        var width = (float)TrackWidth;
+        var inset = width * (float)(1 - Ratio);
+        _fillClip?.RightInset = inset;
+        _waveClip?.RightInset = inset;
+        _trackClip?.LeftInset = BarStyle == ProgressStyle.Wave ? width - inset : 0;
+        _thumbVisual?.Properties.InsertVector3("Translation", new Vector3(width - inset - ThumbOffset, 0, 0));
+    }
+
+    private void StartGlide()
+    {
+        var width = (float)TrackWidth;
+        if (_fillClip is null || width <= 0 || Maximum <= Minimum)
+        {
+            ShowPosition();
+            return;
+        }
+
+        StopGlide();
+        var ratio = (float)Ratio;
+        var remaining = Maximum - Value;
+        if (remaining <= 0.05)
+        {
+            ShowPosition();
+            return;
+        }
+
+        var compositor = _fillClip.Compositor;
+        var linear = compositor.CreateLinearEasingFunction();
+        var duration = TimeSpan.FromSeconds(remaining);
+
+        var inset = compositor.CreateScalarKeyFrameAnimation();
+        inset.InsertKeyFrame(0, width * (1 - ratio));
+        inset.InsertKeyFrame(1, 0, linear);
+        inset.Duration = duration;
+        _fillClip.StartAnimation("RightInset", inset);
+        _waveClip?.StartAnimation("RightInset", inset);
+        if (BarStyle == ProgressStyle.Wave && _trackClip is not null)
+        {
+            var played = compositor.CreateScalarKeyFrameAnimation();
+            played.InsertKeyFrame(0, width * ratio);
+            played.InsertKeyFrame(1, width, linear);
+            played.Duration = duration;
+            _trackClip.StartAnimation("LeftInset", played);
+        }
+
+        if (_thumbVisual is not null)
+        {
+            var move = compositor.CreateVector3KeyFrameAnimation();
+            move.InsertKeyFrame(0, new Vector3((width * ratio) - ThumbOffset, 0, 0));
+            move.InsertKeyFrame(1, new Vector3(width - ThumbOffset, 0, 0), linear);
+            move.Duration = duration;
+            _thumbVisual.StartAnimation("Translation", move);
+        }
+
+        _gliding = true;
+        _glideStartValue = Value;
+        _glideStartTime = Stopwatch.GetTimestamp();
+    }
+
+    private void StopGlide()
+    {
+        if (!_gliding)
+        {
+            return;
+        }
+
+        _gliding = false;
+        _fillClip?.StopAnimation("RightInset");
+        _waveClip?.StopAnimation("RightInset");
+        _trackClip?.StopAnimation("LeftInset");
+        _thumbVisual?.StopAnimation("Translation");
+    }
+
+    /// <summary>Sizes and colours for the bar style, and whether the handle shows.</summary>
+    private void UpdateLook()
+    {
+        if (_trackArea is null || _track is null || _fill is null || _thumb is null || _waveHost is null)
+        {
+            return;
+        }
+
+        var style = BarStyle;
+        var active = _pointerOver || IsDragging || FocusState == FocusState.Keyboard;
+        var (height, activeHeight, thumb, thumbAlways) = style switch
+        {
+            ProgressStyle.Bold => (6.0, 8.0, 14.0, true),
+            ProgressStyle.Gradient => (5.0, 7.0, 14.0, false),
+            ProgressStyle.Wave => (3.0, 3.0, 0.0, true),
+            ProgressStyle.Minimal => (2.0, 2.0, 0.0, false),
+            _ => (4.0, 6.0, 12.0, false),
+        };
+
+        _trackArea.Height = active ? activeHeight : height;
+        var round = style == ProgressStyle.Minimal ? 0 : _trackArea.Height / 2;
+        _track.CornerRadius = new CornerRadius(round);
+        _fill.CornerRadius = new CornerRadius(round);
+        _fill.Background = App.Services.Theme.GetBrush(style == ProgressStyle.Gradient ? "ResonateAccentGradientBrush" : "ResonateAccentBrush");
+
+        var wave = style == ProgressStyle.Wave;
+        _waveHost.Visibility = wave ? Visibility.Visible : Visibility.Collapsed;
+        _fill.Visibility = wave ? Visibility.Collapsed : Visibility.Visible;
+        if (wave && Math.Abs(_waveWidth - TrackWidth) > 0.5)
+        {
+            BuildWave();
+        }
+
+        // The handle: a dot (or a bar for the wave), shaped like the theme's buttons.
+        var buttonCorner = App.Services.Theme.Palette.CornerButton;
+        if (wave)
+        {
+            _thumb.Width = 4;
+            _thumb.Height = 16;
+            _thumb.CornerRadius = new CornerRadius(Math.Min(buttonCorner, 2));
+            _thumb.BorderThickness = new Thickness(0);
+            _thumb.Background = App.Services.Theme.GetBrush("ResonateAccentBrush");
+        }
+        else
+        {
+            _thumb.Width = thumb;
+            _thumb.Height = thumb;
+            _thumb.CornerRadius = new CornerRadius(Math.Min(buttonCorner, thumb / 2));
+            _thumb.Background = App.Services.Theme.GetBrush(style == ProgressStyle.Gradient ? "ResonateTextPrimaryBrush" : "ResonateAccentBrush");
+            _thumb.BorderBrush = App.Services.Theme.GetBrush("ResonateAccentBrush");
+            _thumb.BorderThickness = new Thickness(style == ProgressStyle.Gradient ? 3 : 0);
+        }
+
+        ShowThumb(thumb > 0 || wave ? (thumbAlways || active ? 1 : 0) : 0);
+    }
+
+    private void ShowThumb(double opacity)
+    {
+        if (_thumbVisual is null || Math.Abs(opacity - _thumbOpacity) < 0.01)
+        {
+            return;
+        }
+
+        var first = _thumbOpacity < 0;
+        _thumbOpacity = opacity;
+        if (first || !App.Services.Theme.AnimationsEnabled)
+        {
+            _thumbVisual.Opacity = (float)opacity;
+            return;
+        }
+
+        var fade = _thumbVisual.Compositor.CreateScalarKeyFrameAnimation();
+        fade.InsertKeyFrame(1, (float)opacity);
+        fade.Duration = TimeSpan.FromMilliseconds(140);
+        _thumbVisual.StartAnimation("Opacity", fade);
+    }
+
+    /// <summary>A sine wave one wavelength wider than the bar, so it can scroll without a gap.</summary>
+    private void BuildWave()
+    {
+        if (_wave is null || _waveHost is null)
+        {
+            return;
+        }
+
+        _waveWidth = TrackWidth;
+        var middle = _waveHost.Height / 2;
+        var points = new PointCollection();
+        for (double x = 0; x <= _waveWidth + Wavelength; x += 1.5)
+        {
+            points.Add(new Point(x, middle - (Math.Sin(x / Wavelength * Math.PI * 2) * WaveAmplitude)));
+        }
+
+        var figure = new PathFigure { StartPoint = points.Count > 0 ? points[0] : default, IsClosed = false, IsFilled = false };
+        figure.Segments.Add(new PolyLineSegment { Points = points });
+        var geometry = new PathGeometry();
+        geometry.Figures.Add(figure);
+        _wave.Data = geometry;
+        _waveVisual?.CenterPoint = new Vector3(0, (float)middle, 0);
+    }
+
+    /// <summary>The wave rolls while playing and flattens when paused.</summary>
+    private void AnimateWave()
+    {
+        if (_waveVisual is null)
+        {
+            return;
+        }
+
+        var compositor = _waveVisual.Compositor;
+        var rolling = BarStyle == ProgressStyle.Wave && IsAdvancing && App.Services.Theme.AnimationsEnabled;
+        if (rolling)
+        {
+            var roll = compositor.CreateVector3KeyFrameAnimation();
+            roll.InsertKeyFrame(0, Vector3.Zero);
+            roll.InsertKeyFrame(1, new Vector3((float)-Wavelength, 0, 0), compositor.CreateLinearEasingFunction());
+            roll.Duration = TimeSpan.FromMilliseconds(1100);
+            roll.IterationBehavior = AnimationIterationBehavior.Forever;
+            _waveVisual.StartAnimation("Translation", roll);
+        }
+        else
+        {
+            _waveVisual.StopAnimation("Translation");
+        }
+
+        var amplitude = compositor.CreateVector3KeyFrameAnimation();
+        amplitude.InsertKeyFrame(1, new Vector3(1, IsAdvancing ? 1 : 0.18f, 1));
+        amplitude.Duration = TimeSpan.FromMilliseconds(320);
+        _waveVisual.StartAnimation("Scale", amplitude);
+    }
+}

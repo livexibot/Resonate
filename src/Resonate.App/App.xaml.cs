@@ -1,6 +1,5 @@
 using Microsoft.UI.Xaml;
 using Resonate.App.Services;
-using Resonate.App.Themes;
 
 namespace Resonate.App;
 
@@ -21,7 +20,7 @@ public partial class App : Application
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         Services = StartupOptions.Current.Demo ? AppServices.CreateDemo() : AppServices.Create();
-        Services.Theme.Initialize(this, ThemePreset.ById(Services.Settings.ThemeId));
+        Services.Theme.Initialize(this);
 
         _window = new MainWindow(Services);
         _window.Activate();
