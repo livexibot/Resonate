@@ -34,6 +34,13 @@ public sealed partial class MainWindow : Window
 
     private const int HistoryLimit = 50;
 
+    /// <summary>
+    /// How often the listening history is saved while Resonate is open.
+    /// Spotify only shares the last 50 songs played (at least 100 minutes
+    /// of music), so this keeps every play even without opening Home.
+    /// </summary>
+    private static readonly TimeSpan ListeningHistoryInterval = TimeSpan.FromMinutes(30);
+
     private readonly AppServices _services;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly DispatcherQueueTimer _messageTimer;
@@ -395,6 +402,7 @@ public sealed partial class MainWindow : Window
 
         await RefreshLibraryAsync();
         _ = LoadLikesAsync(token);
+        _ = KeepListeningHistoryAsync(token);
 
         // Updates last, quietly; an installed copy downloads them in the
         // background, then keeps looking while Resonate stays open.
@@ -433,6 +441,30 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Hearts fill in as songs are liked; nothing to tell the user.
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    /// <summary>Saves new plays (and makes the day's mixes when the day changed) now and every half hour.</summary>
+    private async Task KeepListeningHistoryAsync(CancellationToken token)
+    {
+        try
+        {
+            while (true)
+            {
+                try
+                {
+                    await Task.Run(() => _services.Home.RefreshAsync(token), token);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // Offline, signed out or refused: tried again next round, and Home shows what is stored.
+                }
+
+                await Task.Delay(ListeningHistoryInterval, token);
+            }
         }
         catch (OperationCanceledException)
         {

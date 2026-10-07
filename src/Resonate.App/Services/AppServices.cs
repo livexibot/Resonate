@@ -2,6 +2,7 @@ using System.Net;
 using Resonate.App.Demo;
 using Resonate.App.Themes;
 using Resonate.Spotify.Auth;
+using Resonate.Spotify.History;
 using Resonate.Spotify.Library;
 using Resonate.Spotify.Playback;
 using Resonate.Spotify.WebApi;
@@ -21,6 +22,7 @@ public sealed class AppServices : IDisposable
         AccountService account,
         ISpotifyWebApi api,
         LibraryService library,
+        HomeFeed home,
         PlayerRouter player,
         ISpotifyAppLauncher launcher,
         ISpotifyAppWindow spotifyWindow)
@@ -31,6 +33,7 @@ public sealed class AppServices : IDisposable
         Account = account;
         Api = api;
         Library = library;
+        Home = home;
         Likes = new LikedSongs(api, library);
         Player = player;
         Launcher = launcher;
@@ -52,6 +55,9 @@ public sealed class AppServices : IDisposable
     public ISpotifyWebApi Api { get; }
 
     public LibraryService Library { get; }
+
+    /// <summary>The listening history, stats and daily mixes on Home.</summary>
+    public HomeFeed Home { get; }
 
     /// <summary>Which songs are in Liked Songs, for every heart in the interface.</summary>
     public LikedSongs Likes { get; }
@@ -92,6 +98,11 @@ public sealed class AppServices : IDisposable
             api,
             new LibraryCache(Path.Combine(AppPaths.CacheFolder, "library.json")),
             lists: new TrackListStore(Path.Combine(AppPaths.CacheFolder, "lists")));
+        var home = new HomeFeed(
+            api,
+            library,
+            new ListeningHistory(api, Path.Combine(AppPaths.CacheFolder, "history.json")),
+            Path.Combine(AppPaths.CacheFolder, "home.json"));
         var smtc = new SmtcMediaChannel();
         var background = new SpotifyBackground();
         var launcher = new SpotifyAppLauncher(background);
@@ -103,8 +114,8 @@ public sealed class AppServices : IDisposable
             launcher);
         var player = new PlayerRouter(spotify);
 
-        var services = new AppServices(false, settingsStore, settings, account, api, library, player, launcher, background);
-        services._owned.AddRange([player, spotify, library, smtc, launcher, background, account, http]);
+        var services = new AppServices(false, settingsStore, settings, account, api, library, home, player, launcher, background);
+        services._owned.AddRange([player, spotify, home, library, smtc, launcher, background, account, http]);
 
         // At once, so a Spotify already on the taskbar (started with Windows) disappears from it.
         background.Start();
@@ -121,11 +132,12 @@ public sealed class AppServices : IDisposable
         var http = new HttpClient();
         var account = new AccountService(http, new InMemoryTokenStore(), clientId: null, alwaysSignedIn: true);
         var library = new LibraryService(api, cache: null);
+        var home = new HomeFeed(api, library, new ListeningHistory(api, path: null), path: null);
         var spotify = new PlayerController(demoPlayer, demoPlayer, api, new LocalDeviceResolver(api, Environment.MachineName), demoPlayer);
         var player = new PlayerRouter(spotify);
 
-        var services = new AppServices(true, settingsStore, settings, account, api, library, player, demoPlayer, demoPlayer);
-        services._owned.AddRange([player, spotify, library, account, http]);
+        var services = new AppServices(true, settingsStore, settings, account, api, library, home, player, demoPlayer, demoPlayer);
+        services._owned.AddRange([player, spotify, home, library, account, http]);
         return services;
     }
 

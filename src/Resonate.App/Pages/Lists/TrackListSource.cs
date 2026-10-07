@@ -1,3 +1,4 @@
+using System.Globalization;
 using Resonate.App.Services;
 using Resonate.Spotify.Library;
 
@@ -74,13 +75,18 @@ public abstract class TrackListSource
     public virtual Task RemoveAsync(IReadOnlyList<TrackInfo> before, TrackInfo track, CancellationToken cancellationToken) => Task.CompletedTask;
 
     /// <summary>
-    /// The list for a navigation key: "liked", "local", "album:&lt;id&gt;",
-    /// "liked-artist:&lt;id&gt;", or a playlist ID.
+    /// The list for a navigation key: "liked", "local", "onrepeat",
+    /// "mix:&lt;number&gt;", "album:&lt;id&gt;", "liked-artist:&lt;id&gt;",
+    /// or a playlist ID.
     /// </summary>
     public static TrackListSource For(string key, AppServices services) => key switch
     {
         LikedSongsSource.ListKey => new LikedSongsSource(services),
         LocalFilesSource.ListKey => new LocalFilesSource(services),
+        OnRepeatSource.ListKey => new OnRepeatSource(services),
+        _ when key.StartsWith(DailyMixSource.Prefix, StringComparison.Ordinal)
+            && int.TryParse(key.AsSpan(DailyMixSource.Prefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var number) =>
+            new DailyMixSource(services, number),
         _ when key.StartsWith(AlbumSource.Prefix, StringComparison.Ordinal) => new AlbumSource(services, key[AlbumSource.Prefix.Length..]),
         _ when key.StartsWith(LikedByArtistSource.Prefix, StringComparison.Ordinal) => new LikedByArtistSource(services, key[LikedByArtistSource.Prefix.Length..]),
         _ => new PlaylistSource(services, key),
