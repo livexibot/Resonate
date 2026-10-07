@@ -111,6 +111,11 @@ internal sealed partial class PerformanceTour
             theme.Select(Glass, transition: ThemeTransitionKind.None);
             await Task.Delay(2000);
             await MeasureIdleAsync("Playing, Liquid Glass (moving cover)");
+            ShowWindow(window, ShowMinimized);
+            await Task.Delay(1000);
+            await MeasureIdleAsync("Playing, Liquid Glass, minimised");
+            ShowWindow(window, ShowRestored);
+            await Task.Delay(1000);
             await WithinAsync(player.PauseAsync());
             await Task.Delay(1000);
             await MeasureIdleAsync("Paused, Liquid Glass");
@@ -242,7 +247,8 @@ internal sealed partial class PerformanceTour
             }
         }
 
-        foreach (var (name, cpu, _) in _idle.Where(i => i.Name is "Paused" or "Playing, minimised"))
+        // Liquid Glass's cover holds still while nothing plays or nobody can see it.
+        foreach (var (name, cpu, _) in _idle.Where(i => i.Name is "Paused" or "Playing, minimised" or "Playing, Liquid Glass, minimised" or "Paused, Liquid Glass"))
         {
             if (cpu > IdleCpuLimitPercent)
             {
