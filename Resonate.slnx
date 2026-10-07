@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Resonate.Spotify/Resonate.Spotify.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Resonate.Spotify.Tests/Resonate.Spotify.Tests.csproj" />
+  </Folder>
+</Solution>
