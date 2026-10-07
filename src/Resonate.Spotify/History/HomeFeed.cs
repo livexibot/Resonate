@@ -75,7 +75,7 @@ public sealed class HomeFeed : IDisposable
     private readonly Lock _gate = new();
     private readonly ConcurrentDictionary<string, string> _artistImages = new(StringComparer.Ordinal);
     private HomeContent? _content;
-    private bool _loaded;
+    private volatile bool _loaded;
     private int _generation;
     private DateTimeOffset _topTriedAt = DateTimeOffset.MinValue;
 
@@ -97,16 +97,8 @@ public sealed class HomeFeed : IDisposable
     /// <summary>The latest mixes and top lists, possibly from an earlier day; null before any were made or loaded.</summary>
     public HomeContent? Content => Volatile.Read(ref _content);
 
-    public bool IsLoaded
-    {
-        get
-        {
-            lock (_gate)
-            {
-                return _loaded && History.IsLoaded;
-            }
-        }
-    }
+    /// <summary>Read without the lock, which is held while files are read and written: Home asks from the interface thread.</summary>
+    public bool IsLoaded => _loaded && History.IsLoaded;
 
     /// <summary>Today, in the user's time zone: mixes change at local midnight.</summary>
     public DateOnly Today => DateOnly.FromDateTime(_time.GetLocalNow().DateTime);

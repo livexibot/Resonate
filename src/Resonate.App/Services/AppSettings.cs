@@ -103,10 +103,18 @@ public sealed class AppSettings
 [JsonSerializable(typeof(AppSettings))]
 internal sealed partial class AppJsonContext : JsonSerializerContext;
 
-/// <summary>Reads and writes <see cref="AppSettings"/> as JSON in the user's app data folder.</summary>
+/// <summary>
+/// Reads and writes <see cref="AppSettings"/> as JSON in the user's app data
+/// folder. Saving copies the settings at once and writes them in the
+/// background (the newest copy wins), so a slow disk never holds a frame.
+/// </summary>
 public sealed class SettingsStore
 {
     private readonly string _path;
+    private readonly Lock _gate = new();
+    private byte[]? _pending;
+    private bool _writing;
+    private Task _writer = Task.CompletedTask;
 
     public SettingsStore(string path) => _path = path;
 
@@ -128,17 +136,61 @@ public sealed class SettingsStore
         return new AppSettings();
     }
 
+    /// <summary>Call on the thread that changes the settings; the file is written in the background.</summary>
     public void Save(AppSettings settings)
+    {
+        var json = JsonSerializer.SerializeToUtf8Bytes(settings, AppJsonContext.Default.AppSettings);
+        lock (_gate)
+        {
+            _pending = json;
+            if (!_writing)
+            {
+                _writing = true;
+                _writer = Task.Run(WritePending);
+            }
+        }
+    }
+
+    /// <summary>Waits for the last save to reach the disk (before the app closes).</summary>
+    public void Flush()
+    {
+        Task writer;
+        lock (_gate)
+        {
+            writer = _writer;
+        }
+
+        writer.Wait(TimeSpan.FromSeconds(5));
+    }
+
+    private void WritePending()
+    {
+        while (true)
+        {
+            byte[] json;
+            lock (_gate)
+            {
+                if (_pending is null)
+                {
+                    _writing = false;
+                    return;
+                }
+
+                json = _pending;
+                _pending = null;
+            }
+
+            Write(json);
+        }
+    }
+
+    private void Write(byte[] json)
     {
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
             var temporary = _path + ".tmp";
-            using (var stream = File.Create(temporary))
-            {
-                JsonSerializer.Serialize(stream, settings, AppJsonContext.Default.AppSettings);
-            }
-
+            File.WriteAllBytes(temporary, json);
             File.Move(temporary, _path, overwrite: true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

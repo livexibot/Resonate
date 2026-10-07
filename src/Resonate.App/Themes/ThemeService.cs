@@ -260,6 +260,13 @@ public sealed class ThemeService
                 var covered = structural && await _transitions!.CoverAsync();
                 if (version != _version)
                 {
+                    // A newer switch that took no picture of its own is already
+                    // showing; this picture would stay frozen over it.
+                    if (covered)
+                    {
+                        _transitions!.Clear();
+                    }
+
                     return;
                 }
 
@@ -276,12 +283,18 @@ public sealed class ThemeService
             default:
                 if (!await _transitions!.CoverAsync())
                 {
-                    ApplyNow(next, palette);
+                    // Nothing to picture (minimised), or a newer switch took over.
+                    if (version == _version)
+                    {
+                        ApplyNow(next, palette);
+                    }
+
                     break;
                 }
 
                 if (version != _version)
                 {
+                    _transitions.Clear();
                     return;
                 }
 

@@ -1,5 +1,6 @@
 using System.Numerics;
 using Microsoft.UI.Composition;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
@@ -19,6 +20,8 @@ namespace Resonate.App.Controls;
 /// </summary>
 internal sealed partial class BackdropLayer : Grid
 {
+    private static readonly string[] DriftProperties = ["Scale", "RotationAngleInDegrees"];
+
     private static readonly TimeSpan LayerFade = TimeSpan.FromMilliseconds(450);
     private static readonly TimeSpan CoverFade = TimeSpan.FromMilliseconds(900);
     private static readonly TimeSpan DriftPeriod = TimeSpan.FromSeconds(28);
@@ -37,6 +40,10 @@ internal sealed partial class BackdropLayer : Grid
     private readonly Rectangle _tint;
     private int _front;
     private bool _drifting;
+    private bool _playing;
+    private bool _windowShown = true;
+    private int _playerUpdateQueued;
+    private MainWindow? _window;
 
     public BackdropLayer(ThemeService theme, ArtworkSampler artwork)
     {
@@ -70,6 +77,15 @@ internal sealed partial class BackdropLayer : Grid
     {
         _theme.Changed += OnThemeChanged;
         _artwork.Changed += OnArtworkChanged;
+        App.Services.Player.StateChanged += OnPlayerStateChanged;
+        _playing = App.Services.Player.State.IsPlaying;
+        _window = App.MainWindow;
+        if (_window is not null)
+        {
+            _window.ShownChanged += OnWindowShownChanged;
+            _windowShown = _window.IsShown;
+        }
+
         ShowCover(animate: false);
         UpdateLayers();
     }
@@ -78,7 +94,38 @@ internal sealed partial class BackdropLayer : Grid
     {
         _theme.Changed -= OnThemeChanged;
         _artwork.Changed -= OnArtworkChanged;
+        App.Services.Player.StateChanged -= OnPlayerStateChanged;
+        if (_window is not null)
+        {
+            _window.ShownChanged -= OnWindowShownChanged;
+            _window = null;
+        }
+
         StopDrift();
+    }
+
+    /// <summary>On any thread; the drift follows the newest state once.</summary>
+    private void OnPlayerStateChanged(object? sender, EventArgs e)
+    {
+        if (Interlocked.Exchange(ref _playerUpdateQueued, 1) == 0)
+        {
+            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
+            {
+                Interlocked.Exchange(ref _playerUpdateQueued, 0);
+                var playing = App.Services.Player.State.IsPlaying;
+                if (playing != _playing)
+                {
+                    _playing = playing;
+                    UpdateDrift();
+                }
+            });
+        }
+    }
+
+    private void OnWindowShownChanged(object? sender, EventArgs e)
+    {
+        _windowShown = _window?.IsShown ?? true;
+        UpdateDrift();
     }
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
@@ -135,7 +182,12 @@ internal sealed partial class BackdropLayer : Grid
         visual.StartAnimation("Opacity", fade);
     }
 
-    /// <summary>A slow zoom and turn, so the cover behind the panels feels alive. Only while it shows.</summary>
+    /// <summary>
+    /// A slow zoom and turn, so the cover behind the panels feels alive. Only
+    /// while it shows, and paused while nothing plays or the window is
+    /// minimised: a moving picture behind everything redraws the whole window
+    /// at the screen's refresh rate.
+    /// </summary>
     private void UpdateDrift()
     {
         var shown = _theme.Current.Backdrop == WindowBackdrop.Artwork && ActualWidth > 0;
@@ -158,6 +210,7 @@ internal sealed partial class BackdropLayer : Grid
 
         if (_drifting)
         {
+            PauseDrift(!_playing || !_windowShown);
             return;
         }
 
@@ -181,6 +234,27 @@ internal sealed partial class BackdropLayer : Grid
 
         visual.StartAnimation("Scale", zoom);
         visual.StartAnimation("RotationAngleInDegrees", turn);
+        PauseDrift(!_playing || !_windowShown);
+    }
+
+    /// <summary>Holds the drift where it is (and picks it up from there), so nothing jumps.</summary>
+    private void PauseDrift(bool paused)
+    {
+        var visual = ElementCompositionPreview.GetElementVisual(_drift);
+        foreach (var property in DriftProperties)
+        {
+            if (visual.TryGetAnimationController(property) is { } controller)
+            {
+                if (paused)
+                {
+                    controller.Pause();
+                }
+                else
+                {
+                    controller.Resume();
+                }
+            }
+        }
     }
 
     private void StopDrift()
@@ -192,8 +266,10 @@ internal sealed partial class BackdropLayer : Grid
 
         _drifting = false;
         var visual = ElementCompositionPreview.GetElementVisual(_drift);
-        visual.StopAnimation("Scale");
-        visual.StopAnimation("RotationAngleInDegrees");
+        foreach (var property in DriftProperties)
+        {
+            visual.StopAnimation(property);
+        }
     }
 
     private T Layer<T>(T element)
