@@ -307,6 +307,26 @@ public sealed class LikedSongsTests : IDisposable
     }
 
     [Fact]
+    public async Task A_heart_clicked_while_the_list_loads_stays_as_clicked()
+    {
+        _web.SavedTracks.Add(Saved("a"));
+        var answer = new TaskCompletionSource();
+        _web.HoldSavedTrackReads = answer.Task;
+        var loading = _likes.LoadAsync(TestContext.Current.CancellationToken);
+
+        // Spotify's answer was made before these clicks.
+        var liking = _likes.SetLikedAsync(Song("b"), liked: true, TestContext.Current.CancellationToken);
+        var unliking = _likes.SetLikedAsync(Song("a"), liked: false, TestContext.Current.CancellationToken);
+        answer.SetResult();
+        await loading;
+        await liking;
+        await unliking;
+
+        Assert.True(_likes.IsLiked("spotify:track:b"));
+        Assert.False(_likes.IsLiked("spotify:track:a"));
+    }
+
+    [Fact]
     public async Task Unliking_before_the_list_is_read_still_reaches_Spotify()
     {
         // Liked Songs shows every heart filled before the whole list is read.

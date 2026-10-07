@@ -14,7 +14,11 @@ public sealed class LikedSongs
     private readonly ISpotifyWebApi _api;
     private readonly LibraryService _library;
     private readonly Lock _gate = new();
+
+    /// <summary>Likes and unlikes made while the list loads, which the list may miss.</summary>
+    private readonly Dictionary<string, bool> _changedWhileLoading = new(StringComparer.Ordinal);
     private HashSet<string> _uris = new(StringComparer.Ordinal);
+    private int _loads;
     private int _generation;
 
     public LikedSongs(ISpotifyWebApi api, LibraryService library)
@@ -49,20 +53,47 @@ public sealed class LikedSongs
         lock (_gate)
         {
             generation = _generation;
+            _loads++;
         }
 
-        var all = await _library.GetAllLikedSongsAsync(cancellationToken).ConfigureAwait(false);
-        var uris = all.Select(t => t.Uri).OfType<string>().ToHashSet(StringComparer.Ordinal);
-        lock (_gate)
+        try
         {
-            if (generation != _generation)
+            var all = await _library.GetAllLikedSongsAsync(cancellationToken).ConfigureAwait(false);
+            var uris = all.Select(t => t.Uri).OfType<string>().ToHashSet(StringComparer.Ordinal);
+            lock (_gate)
             {
-                // Signed out meanwhile: the list belongs to the account before.
-                return;
-            }
+                if (generation != _generation)
+                {
+                    // Signed out meanwhile: the list belongs to the account before.
+                    return;
+                }
 
-            _uris = uris;
-            IsLoaded = true;
+                // A heart clicked while the list loaded stays as the user left it.
+                foreach (var (uri, liked) in _changedWhileLoading)
+                {
+                    if (liked)
+                    {
+                        uris.Add(uri);
+                    }
+                    else
+                    {
+                        uris.Remove(uri);
+                    }
+                }
+
+                _uris = uris;
+                IsLoaded = true;
+            }
+        }
+        finally
+        {
+            lock (_gate)
+            {
+                if (--_loads == 0)
+                {
+                    _changedWhileLoading.Clear();
+                }
+            }
         }
 
         Changed?.Invoke(this, LikeChange.Everything);
@@ -75,6 +106,7 @@ public sealed class LikedSongs
         {
             _generation++;
             _uris = new HashSet<string>(StringComparer.Ordinal);
+            _changedWhileLoading.Clear();
             IsLoaded = false;
         }
 
@@ -131,6 +163,10 @@ public sealed class LikedSongs
         lock (_gate)
         {
             changed = liked ? _uris.Add(uri) : _uris.Remove(uri);
+            if (_loads > 0)
+            {
+                _changedWhileLoading[uri] = liked;
+            }
         }
 
         if (changed)
