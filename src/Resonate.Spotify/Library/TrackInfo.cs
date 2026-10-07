@@ -1,8 +1,14 @@
+using System.Globalization;
 using Resonate.Spotify.WebApi;
 
 namespace Resonate.Spotify.Library;
 
 /// <summary>A song (or episode) as the interface shows it in a list.</summary>
+/// <param name="IsPlayable">
+/// It can be started on its own by its URI. Local files in a playlist can
+/// not (Spotify refuses their URIs), but they still play inside their
+/// playlist, by position; see <see cref="IsLocal"/> and <see cref="Position"/>.
+/// </param>
 public sealed record TrackInfo(
     string? Uri,
     string Title,
@@ -15,14 +21,46 @@ public sealed record TrackInfo(
     bool IsExplicit,
     bool IsPlayable)
 {
-    public static TrackInfo? From(PlayableItem? item)
+    /// <summary>Spotify's ID for the song, when it has one (local files do not).</summary>
+    public string? Id { get; init; }
+
+    /// <summary>A file on the user's computer that was added to a Spotify playlist.</summary>
+    public bool IsLocal { get; init; }
+
+    /// <summary>
+    /// The full path of a music file in Local Files, which Resonate plays
+    /// itself (Spotify's audio never is). Null for everything from Spotify.
+    /// </summary>
+    public string? FilePath { get; init; }
+
+    /// <summary>When it was added to the playlist or to Liked Songs.</summary>
+    public DateTimeOffset? AddedAt { get; init; }
+
+    /// <summary>Where it sits in its playlist, album or list (0 for the first), when known.</summary>
+    public int? Position { get; init; }
+
+    /// <summary>The artists one by one, for "go to artist".</summary>
+    public IReadOnlyList<ArtistRef> ArtistRefs { get; init; } = [];
+
+    public string? AlbumId { get; init; }
+
+    public int? TrackNumber { get; init; }
+
+    public int? DiscNumber { get; init; }
+
+    /// <summary>The first artist's name, for grouping and statistics.</summary>
+    public string PrimaryArtist => ArtistRefs.Count > 0 ? ArtistRefs[0].Name : Artists;
+
+    /// <param name="album">The album, for songs listed on an album's page (they carry none of their own).</param>
+    public static TrackInfo? From(PlayableItem? item, DateTimeOffset? addedAt = null, int? position = null, SimplifiedAlbum? album = null)
     {
         if (item is null)
         {
             return null;
         }
 
-        var images = item.Album?.Images ?? item.Images;
+        album ??= item.Album;
+        var images = album?.Images ?? item.Images;
         var artists = item.Artists is { Count: > 0 }
             ? string.Join(", ", item.Artists.Select(a => a.Name))
             : item.Show?.Name ?? string.Empty;
@@ -31,16 +69,35 @@ public sealed record TrackInfo(
             item.Uri,
             item.Name,
             artists,
-            item.Album?.Name ?? item.Show?.Name ?? string.Empty,
-            item.Album?.Uri,
+            album?.Name ?? item.Show?.Name ?? string.Empty,
+            album?.Uri,
             TimeSpan.FromMilliseconds(item.DurationMs),
             ImagePicker.Pick(images, 64),
             ImagePicker.Pick(images, 300),
             item.Explicit,
-            // Local files can not be started through the Web API.
-            !item.IsLocal && item.Uri is not null && item.IsPlayable != false);
+            // Local files can not be started through the Web API by their URI.
+            !item.IsLocal && item.Uri is not null && item.IsPlayable != false)
+        {
+            Id = item.Id,
+            IsLocal = item.IsLocal || (item.Uri?.StartsWith("spotify:local:", StringComparison.Ordinal) ?? false),
+            AddedAt = addedAt,
+            Position = position,
+            ArtistRefs = item.Artists?.Select(a => new ArtistRef(a.Name, a.Id)).ToList() ?? [],
+            AlbumId = album?.Id,
+            TrackNumber = item.TrackNumber,
+            DiscNumber = item.DiscNumber,
+        };
     }
+
+    /// <summary>Reads Spotify's "added_at" (ISO 8601); null when missing or unreadable.</summary>
+    public static DateTimeOffset? ParseTime(string? value) =>
+        DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var time)
+            ? time
+            : null;
 }
+
+/// <summary>One artist of a song.</summary>
+public sealed record ArtistRef(string Name, string? Id);
 
 public static class ImagePicker
 {

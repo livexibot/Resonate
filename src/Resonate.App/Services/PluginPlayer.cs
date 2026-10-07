@@ -4,12 +4,15 @@ using Resonate.Spotify.Playback;
 
 namespace Resonate.App.Services;
 
-/// <summary>The player as plugins see it: what plays, and the same controls as the player bar.</summary>
+/// <summary>
+/// The player as plugins see it: what plays, and the same controls as the
+/// player bar, for Spotify or Local Files, whichever has the music.
+/// </summary>
 internal sealed class PluginPlayer : IPluginPlayer, IDisposable
 {
-    private readonly PlayerController _player;
+    private readonly IPlayer _player;
 
-    public PluginPlayer(PlayerController player)
+    public PluginPlayer(IPlayer player)
     {
         _player = player;
         player.StateChanged += OnStateChanged;

@@ -21,6 +21,12 @@ public sealed class SpotifyWebApi : ISpotifyWebApi
     /// <summary>Most list endpoints return at most 50 entries per page.</summary>
     public const int MaxPageLimit = 50;
 
+    /// <summary>The library endpoints (save, remove, contains) take at most 40 URIs per request.</summary>
+    public const int MaxLibraryUris = 40;
+
+    /// <summary>Adding or removing playlist songs takes at most 100 URIs per request.</summary>
+    public const int MaxPlaylistUris = 100;
+
     /// <summary>Retry a rate-limited request by itself only when the wait is this short.</summary>
     private static readonly TimeSpan MaxAutomaticRetryWait = TimeSpan.FromSeconds(3);
 
@@ -143,6 +149,185 @@ public sealed class SpotifyWebApi : ISpotifyWebApi
             "me/player",
             JsonContent.Create(new TransferPlaybackBody { DeviceIds = [deviceId], Play = play }, SpotifyJsonContext.Default.TransferPlaybackBody),
             cancellationToken);
+
+    public Task SetShuffleAsync(bool shuffle, string? deviceId, CancellationToken cancellationToken) =>
+        SendAndForgetAsync(
+            HttpMethod.Put,
+            WithDevice($"me/player/shuffle?state={(shuffle ? "true" : "false")}", deviceId),
+            null,
+            cancellationToken);
+
+    public Task SetRepeatAsync(RepeatMode mode, string? deviceId, CancellationToken cancellationToken) =>
+        SendAndForgetAsync(
+            HttpMethod.Put,
+            WithDevice($"me/player/repeat?state={RepeatModes.ToSpotify(mode)}", deviceId),
+            null,
+            cancellationToken);
+
+    public Task AddToQueueAsync(string uri, string? deviceId, CancellationToken cancellationToken) =>
+        SendAndForgetAsync(
+            HttpMethod.Post,
+            WithDevice($"me/player/queue?uri={Uri.EscapeDataString(uri)}", deviceId),
+            null,
+            cancellationToken);
+
+    public async Task<PlayerQueue> GetQueueAsync(CancellationToken cancellationToken)
+    {
+        using var response = await SendAsync(HttpMethod.Get, "me/player/queue", null, cancellationToken).ConfigureAwait(false);
+        if (response.StatusCode == HttpStatusCode.NoContent)
+        {
+            return new PlayerQueue();
+        }
+
+        return await response.Content.ReadFromJsonAsync(SpotifyJsonContext.Default.PlayerQueue, cancellationToken).ConfigureAwait(false)
+            ?? new PlayerQueue();
+    }
+
+    public Task<CursorPage<PlayHistoryItem>> GetRecentlyPlayedAsync(int limit, DateTimeOffset? after, CancellationToken cancellationToken)
+    {
+        var path = $"me/player/recently-played?limit={ClampPage(limit)}";
+        if (after is { } since)
+        {
+            path += $"&after={since.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)}";
+        }
+
+        return GetAsync(path, SpotifyJsonContext.Default.CursorPagePlayHistoryItem, cancellationToken);
+    }
+
+    public Task<Page<Artist>> GetTopArtistsAsync(TopRange range, int offset, int limit, CancellationToken cancellationToken) =>
+        GetAsync($"me/top/artists?time_range={RangeName(range)}&offset={offset}&limit={ClampPage(limit)}", SpotifyJsonContext.Default.PageArtist, cancellationToken);
+
+    public Task<Page<PlayableItem>> GetTopTracksAsync(TopRange range, int offset, int limit, CancellationToken cancellationToken) =>
+        GetAsync($"me/top/tracks?time_range={RangeName(range)}&offset={offset}&limit={ClampPage(limit)}", SpotifyJsonContext.Default.PagePlayableItem, cancellationToken);
+
+    public async Task<IReadOnlyList<bool>> CheckLibraryAsync(IReadOnlyList<string> uris, CancellationToken cancellationToken)
+    {
+        if (uris.Count == 0)
+        {
+            return [];
+        }
+
+        return await GetAsync($"me/library/contains?uris={JoinUris(uris, MaxLibraryUris)}", SpotifyJsonContext.Default.ListBoolean, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    // Spotify takes the URIs in the query string here, not in a JSON body.
+    public Task SaveToLibraryAsync(IReadOnlyList<string> uris, CancellationToken cancellationToken) =>
+        uris.Count == 0
+            ? Task.CompletedTask
+            : SendAndForgetAsync(HttpMethod.Put, $"me/library?uris={JoinUris(uris, MaxLibraryUris)}", null, cancellationToken);
+
+    public Task RemoveFromLibraryAsync(IReadOnlyList<string> uris, CancellationToken cancellationToken) =>
+        uris.Count == 0
+            ? Task.CompletedTask
+            : SendAndForgetAsync(HttpMethod.Delete, $"me/library?uris={JoinUris(uris, MaxLibraryUris)}", null, cancellationToken);
+
+    public Task<string?> ReorderPlaylistItemsAsync(
+        string playlistId,
+        int rangeStart,
+        int insertBefore,
+        int rangeLength,
+        string? snapshotId,
+        CancellationToken cancellationToken) =>
+        SendForSnapshotAsync(
+            HttpMethod.Put,
+            $"playlists/{Uri.EscapeDataString(playlistId)}/items",
+            JsonContent.Create(
+                new ReorderItemsBody { RangeStart = rangeStart, InsertBefore = insertBefore, RangeLength = rangeLength, SnapshotId = snapshotId },
+                SpotifyJsonContext.Default.ReorderItemsBody),
+            cancellationToken);
+
+    public Task<string?> AddPlaylistItemsAsync(string playlistId, IReadOnlyList<string> uris, int? position, CancellationToken cancellationToken)
+    {
+        if (uris.Count > MaxPlaylistUris)
+        {
+            throw new ArgumentException($"At most {MaxPlaylistUris} songs per request.", nameof(uris));
+        }
+
+        return SendForSnapshotAsync(
+            HttpMethod.Post,
+            $"playlists/{Uri.EscapeDataString(playlistId)}/items",
+            JsonContent.Create(new AddItemsBody { Uris = [.. uris], Position = position }, SpotifyJsonContext.Default.AddItemsBody),
+            cancellationToken);
+    }
+
+    public Task<string?> RemovePlaylistItemsAsync(string playlistId, IReadOnlyList<string> uris, string? snapshotId, CancellationToken cancellationToken)
+    {
+        if (uris.Count > MaxPlaylistUris)
+        {
+            throw new ArgumentException($"At most {MaxPlaylistUris} songs per request.", nameof(uris));
+        }
+
+        return SendForSnapshotAsync(
+            HttpMethod.Delete,
+            $"playlists/{Uri.EscapeDataString(playlistId)}/items",
+            JsonContent.Create(
+                new RemoveItemsBody { Items = [.. uris.Select(u => new ItemReference { Uri = u })], SnapshotId = snapshotId },
+                SpotifyJsonContext.Default.RemoveItemsBody),
+            cancellationToken);
+    }
+
+    public async Task<SimplifiedPlaylist> CreatePlaylistAsync(string name, string? description, bool isPublic, CancellationToken cancellationToken)
+    {
+        using var response = await SendAsync(
+            HttpMethod.Post,
+            "me/playlists",
+            JsonContent.Create(new CreatePlaylistBody { Name = name, Description = description, Public = isPublic }, SpotifyJsonContext.Default.CreatePlaylistBody),
+            cancellationToken).ConfigureAwait(false);
+        return await response.Content.ReadFromJsonAsync(SpotifyJsonContext.Default.SimplifiedPlaylist, cancellationToken).ConfigureAwait(false)
+            ?? throw new SpotifyApiException(response.StatusCode, null, "Spotify sent an empty answer.");
+    }
+
+    public Task<Album> GetAlbumAsync(string albumId, CancellationToken cancellationToken) =>
+        GetAsync($"albums/{Uri.EscapeDataString(albumId)}", SpotifyJsonContext.Default.Album, cancellationToken);
+
+    public Task<Page<PlayableItem>> GetAlbumTracksAsync(string albumId, int offset, int limit, CancellationToken cancellationToken) =>
+        GetAsync($"albums/{Uri.EscapeDataString(albumId)}/tracks?offset={offset}&limit={ClampPage(limit)}", SpotifyJsonContext.Default.PagePlayableItem, cancellationToken);
+
+    public Task<Artist> GetArtistAsync(string artistId, CancellationToken cancellationToken) =>
+        GetAsync($"artists/{Uri.EscapeDataString(artistId)}", SpotifyJsonContext.Default.Artist, cancellationToken);
+
+    public Task<Page<SimplifiedAlbum>> GetArtistAlbumsAsync(string artistId, int offset, int limit, CancellationToken cancellationToken) =>
+        GetAsync(
+            $"artists/{Uri.EscapeDataString(artistId)}/albums?include_groups=album,single,compilation&offset={offset}&limit={ClampPage(limit)}",
+            SpotifyJsonContext.Default.PageSimplifiedAlbum,
+            cancellationToken);
+
+    private static string RangeName(TopRange range) => range switch
+    {
+        TopRange.ShortTerm => "short_term",
+        TopRange.LongTerm => "long_term",
+        _ => "medium_term",
+    };
+
+    private static string JoinUris(IReadOnlyList<string> uris, int max)
+    {
+        if (uris.Count > max)
+        {
+            throw new ArgumentException($"At most {max} URIs per request.", nameof(uris));
+        }
+
+        return string.Join(',', uris.Select(Uri.EscapeDataString));
+    }
+
+    private async Task<string?> SendForSnapshotAsync(HttpMethod method, string path, HttpContent content, CancellationToken cancellationToken)
+    {
+        using var response = await SendAsync(method, path, content, cancellationToken).ConfigureAwait(false);
+        if (response.Content.Headers.ContentLength == 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            var snapshot = await response.Content.ReadFromJsonAsync(SpotifyJsonContext.Default.SnapshotResponse, cancellationToken).ConfigureAwait(false);
+            return snapshot?.SnapshotId;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
 
     private static int ClampPage(int limit) => Math.Clamp(limit, 1, MaxPageLimit);
 

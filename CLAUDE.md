@@ -17,6 +17,11 @@ visitors; keep it short and in step with this file.
   request that an installed copy can install and update. The Spotify logic is tested on Linux; the
   WinUI 3 app is only compiled, timed and photographed on GitHub's Windows
   machines (CI), because cloud sessions run on Linux.
+- The feature update (pull request #9, 7 October 2026) adds Home with
+  listening stats and daily mixes, Local Files, DJ, sorting and filtering
+  of every list, likes, album and artist pages, truly random shuffle,
+  repeat, the queue and the equalizer. See "Second milestone" for what it
+  does and what only the owner's PC can confirm.
 - Nobody has run Resonate against a real Spotify account yet. The first run
   on the owner's PC must check what CI cannot: sign-in, that Spotify's media
   session (SMTC) reports position and allows seeking, that the per-app mixer
@@ -27,11 +32,11 @@ visitors; keep it short and in step with this file.
   software lets the downloaded helper run.
 - The two oldest commits are authored "Claude". Fixing that needs a force
   push, which the permission system blocked. Ask the owner before trying.
-- Pull request #1 could not be squash-merged: GitHub answered every squash
-  (web and API) with an empty HTTP 500, so the owner merged it with a merge
-  commit. That merge commit carries the owner's account email
-  (`livexibot@gmail.com`), not the private no-reply address. If squash keeps
-  failing on later pull requests, find out why before merging another way.
+- Pull request #1 could not be squash-merged (GitHub answered with an empty
+  HTTP 500), so its merge commit carries the owner's account email
+  (`livexibot@gmail.com`). Squash merging has worked since pull request #7
+  and credits the private no-reply address. If it fails again, find out why
+  before merging another way.
 - The permission system has refused force pushes, deleting branches,
   rewriting history, making release signing optional, and a workflow that
   publishes releases on its own. When a step is refused, explain it to the
@@ -151,7 +156,13 @@ Windows:
   wraps the object as the declared type (`GetRuntimeClassForTypeCreation`).
   CI's screenshots caught this for a `Path` template part and for
   `FindDescendant<ScrollViewer>`. Build such elements in code, or reach them
-  through `x:Name`.
+  through `x:Name`. A hard cast of a resource,
+  `(FontFamily)Application.Current.Resources[...]`, ended the published app
+  outright; put such variants in XAML and switch their `Visibility`. List
+  rows have a transparent background so clicks land on the row's own
+  elements (`ListEvents` in `Helpers.cs`).
+- The screenshot tour writes any error to `tour-errors.txt`, and CI fails
+  when that file exists or the last (sign-in) screenshot is missing.
 - Themes swap colours by changing the `Color` of shared brushes in
   `Themes/Tokens.xaml`, which updates everything at once, even through
   `StaticResource`; the same trick lets colours slide from one look to the
@@ -169,6 +180,69 @@ Windows:
   whole picture larger, which is why `BackdropLayer` clips itself. The hard
   shadow is plain XAML so it shows. Judge the transitions and the soft
   shadows on a real PC.
+
+Spotify features Resonate builds on (researched 2026-10-07; "measure" means
+only the owner's PC can tell):
+- DJ is the playlist `spotify:playlist:37i9dQZF1EYkqdzj48dyYq`. The Web API
+  quietly declines to start it (and a PUT play with it stops the music), so
+  never send it as a context. Resonate opens that URI in the Spotify app and
+  then follows `/me/player`. While DJ plays, shuffle and repeat are
+  disallowed and the item can be empty while the DJ talks. Measure: that
+  opening the URI starts DJ.
+- Local files: the Web API refuses `spotify:local:` URIs (400 "Invalid track
+  uri") in `uris`, offsets by URI and the queue; there is no context for
+  the Local Files collection. Local entries inside the user's own playlists
+  do play when the playlist starts as `context_uri` with
+  `offset {position}`. Spotify's own Local Files list and its folder
+  settings are client-internal (not in prefs). So Resonate keeps its own
+  Local Files list from folders the user picks and plays those files itself.
+- Equalizer: Spotify's per-account settings file is
+  `%APPDATA%\Spotify\Users\<name>-user\prefs` (installer) or
+  `%LOCALAPPDATA%\Packages\SpotifyAB.SpotifyMusic_zpdnekdrzrea0\LocalState\Spotify\Users\<name>-user\prefs`
+  (Store); the newest one is the account in use. The keys are
+  `audio.equalizer_v2` (true or false) and
+  `audio.equalizer.{low_shelf,low_peak,low_mid_peak,high_mid_peak,high_peak,high_shelf}_gain_v2`,
+  whole numbers where 2147483647 is +12 dB. The bands are a 60 Hz low shelf,
+  peaks at 150 Hz, 400 Hz, 1 kHz and 2.4 kHz, and a 15 kHz high shelf.
+  Spotify reads the file when it starts and rewrites it when it quits, so
+  Resonate writes only while Spotify is closed. Never open the global
+  `%APPDATA%\Spotify\prefs` (it holds sign-in data) and never log either
+  file. `audio.play_bitrate_enumeration=5` means Lossless (4 is Very high);
+  Spotify leaves the key out while at its default. Measure all of these.
+- Windows has no per-app equalizer, and processing Spotify's audio is
+  forbidden here, so the Spotify app's own equalizer is the only one for
+  Spotify songs.
+- `/me/player/recently-played` returns at most the last 50 plays, so the
+  listening stats are only as complete as Resonate's polling (every
+  30 minutes, and on each Home visit).
+- `uris` on PUT play has no documented limit, but about 800 returns 413 and
+  long lists are reported to stall or lose their order. Resonate sends at
+  most 100 songs at a time and sends the next 100 as the last one starts.
+  A `uris` list started while Spotify's own shuffle is on starts at a random
+  song, so Resonate switches Spotify's shuffle off first and checks it.
+- Local files play through Windows' AudioGraph (built-in equalizer effects
+  need no registration in an unpackaged app). Its equalizer has four
+  peaking bands per effect, gain 0.126 to 7.94 (about ±18 dB) and works
+  between 22 and 48 kHz. Measure: a device set to 96 or 192 kHz.
+- The system media controls for Resonate's own playback come from
+  `SystemMediaTransportControlsInterop.GetForWindow(hwnd)`;
+  `GetForCurrentView` fails in WinUI 3.
+- Local Files' index is `local-files.json` and its cover thumbnails
+  `local-covers\` in the cache folder, keyed by path, size and last-write
+  time. The first folders are Music and the real Downloads folder
+  (`SHGetKnownFolderPath`). Scanning starts after the first frame (never in
+  benchmark, update-check or demo runs), rescans only new or changed files,
+  and watches the folders. `%APPDATA%\Spotify`, `%LOCALAPPDATA%\Spotify` and
+  any `SpotifyAB.SpotifyMusic_*` folder are never scanned, watched or
+  played; the scanner and the engine both check. "Date added" is the
+  earlier of when Resonate first saw a file and its creation time.
+- The local files engine (`AudioGraphEngine`) creates its graph on the
+  first local song, pinned to 48 kHz when the device runs higher, stops
+  the file node on pause and the graph after 60 s paused, and opens the
+  next song 12 s before the end. Ogg and Opus need Microsoft's Web Media
+  Extensions. Local playback goes through the Windows mixer: lossless
+  decoding, resampled to the device rate, not bit-perfect. Measure: formats,
+  gaps between songs, clicks, and device changes.
 
 Plugins (checked 2026-10-07):
 - A Native AOT app cannot load .NET code at run time, so plugins are
@@ -266,7 +340,7 @@ owner sees and touches has to be fast.
 ## How it works
 
 Spotify streams lossless audio only to its own official apps, so Resonate
-never plays audio itself. Instead it is split in two:
+never plays Spotify's audio itself. Instead it is split in two:
 
 1. **The official Spotify desktop app is the audio engine.** It runs in the
    background, minimised or in the tray, signed in to the owner's Premium
@@ -301,6 +375,14 @@ Now-playing information (song, artwork, position, play state) should come
 from the local channel where possible, so it updates instantly, with the
 Web API filling in the rest.
 
+The one thing Resonate plays itself is the user's own music files (Local
+Files), because Spotify will not let another app start them. A small
+player in `Resonate.Windows/LocalAudio` plays files from the folders the
+user chose, with its own queue, shuffle, repeat, media controls and the
+same six-band equalizer. Starting one player pauses the other
+(`PlayerRouter`). This never touches Spotify's audio, so lossless Spotify
+playback is unchanged.
+
 ## Requirements and limits
 
 - Spotify Premium (needed for lossless and for controlling playback).
@@ -316,14 +398,20 @@ Web API filling in the rest.
 - Starting a new song or playlist may go through Spotify's servers (always
   on Windows). That is about as fast as the official app, which also has to
   fetch the song first.
-- Resonate cannot see the audio, so an equaliser or visualiser inside the
-  app is out of scope for now. Spotify's own equaliser still applies.
+- Resonate cannot see Spotify's audio, so a visualiser is out of scope.
+  The equaliser in Settings is Spotify's own: Resonate writes it into
+  Spotify's settings file while Spotify is closed, so a change reaches
+  Spotify songs when Spotify next starts (Resonate starts it, or the user
+  presses "Restart Spotify now"). Local files get the same bands at once.
+- Spotify's DJ can only be started by opening it in the Spotify app.
 
 ## Hard rules
 
 - Never play, decode, record, download or save Spotify audio inside
   Resonate, and do not use librespot. Spotify's app does all playback.
 - Never bypass or work around Spotify's DRM or copy protection.
+- The local files player plays only files from folders the user chose,
+  never anything from Spotify's own folders.
 - No ad blocking, no unlocking Premium features for free accounts.
 - No embedded browser engine (no Electron, no webview for the interface).
 - No telemetry and no hosted backend. Everything runs on the owner's
@@ -381,6 +469,32 @@ on the owner's PC: everything that needs a real Spotify account (see
    installer (x64, and arm64 if cheap) with Velopack, plus the in-app
    updater that installs new releases from this repository. Never commit a
    private key or token.
+
+## Second milestone
+
+Built in pull request #9 (themes and the look are a separate pull request):
+
+1. Home: stats for the last 24 hours and 7 days, six daily mixes built from
+   Liked Songs (Spotify removed recommendations for new apps), "On repeat"
+   and recently played. History is kept in `history.json`, mixes in
+   `home.json` (cache folder).
+2. Every song list (playlists, Liked Songs, albums, mixes, Local Files) can
+   be sorted and filtered; the sort is remembered per list. Playlists in
+   the sidebar can be sorted or dragged into any order. Songs can be liked,
+   added to playlists, dragged into a new order in the user's own
+   playlists, and opened by album or artist.
+3. Truly random shuffle (Fisher–Yates with the system's cryptographic
+   random numbers), repeat all and one, and a queue pane.
+4. Local Files and DJ under Liked Songs.
+5. The equalizer in Settings (Spotify's own, plus local files).
+6. Back navigation (title bar, Alt+Left, the mouse's back button) and
+   keyboard shortcuts (Ctrl+S shuffle, Ctrl+R repeat, Ctrl+Up/Down volume,
+   Ctrl+N new playlist).
+
+To check on the owner's PC: Home after signing in again (two new
+permissions), that DJ starts, the equalizer reaching Spotify (and "Restart
+Spotify now" bringing the song back), local files playing with the
+equalizer, and shuffle staying random across 100-song windows.
 
 ## How work gets done
 
@@ -471,13 +585,17 @@ Keep it obvious what is what:
   token, `ThemeService.cs` applies looks, `ThemeTransitions.cs` animates
   switching, `Controls/ThemeStudio` is the Look section of Settings).
 - `src/Resonate.Spotify/` everything about Spotify that is not Windows:
-  sign-in, the Web API client, the library, and the player logic. Any OS.
+  sign-in, the Web API client, the library, the player logic, listening
+  history and daily mixes (`History/`), the equalizer and Spotify's
+  settings file (`Audio/`), and Local Files' tag reader and index
+  (`LocalFiles/`). Any OS.
 - `src/Resonate.Themes/` the theme model, independent of WinUI: the six
   presets, what a look can set, the palette worked out from it (readable
   text guaranteed), saved looks, sharing a look as text, and picking colours
   from a cover. Any OS, tested.
 - `src/Resonate.Windows/` the Windows side of the player: the media
-  session, the mixer volume, starting Spotify, the Credential Manager.
+  session, the mixer volume, starting and restarting Spotify, the local
+  files player (`LocalAudio/`), the Credential Manager.
 - `src/Resonate.Plugins/` optional plugins, everything but running them:
   the catalog built into the app, downloading and checking a plugin,
   its settings, permissions and rate limits (`PluginManager`), and the
@@ -536,8 +654,10 @@ when the work first needs them, then tick them off here.
   sandbox for the helper (an AppContainer with no network or file access)
   and a way to review or sign them first.
 - Keyboard shortcuts for everything, and a command palette.
-- Lyrics, a mini player, and tray controls.
-- Queue editing and play history.
+- Lyrics (LRCLIB would contact a host other than Spotify and GitHub: ask
+  the owner first), a mini player, a Now Playing view, and tray and
+  taskbar-thumbnail controls. (The sleep timer is a plugin.)
+- Queue editing (Spotify's queue can only be read and added to).
 
 ## Decisions and open questions
 
@@ -557,6 +677,14 @@ when the work first needs them, then tick them off here.
   tokens (7 October 2026). The choice was offered with the Developer Policy
   question spelled out; the logo question below is still open.
 - Open: the owner's monitor refresh rate, for the frame-time target.
+- Decided (7 October 2026): Local Files are played by Resonate itself,
+  because Spotify refuses to start them for other apps; the owner asked
+  for Local Files "just like in Spotify". Only the user's own files.
+- Decided: the equaliser is Spotify's own, edited in Spotify's settings
+  file only while Spotify is closed, with one backup
+  (`prefs.resonate-backup`). A change made while Spotify runs waits
+  (`EqualizerPendingForSpotify` in settings) until Resonate next starts
+  Spotify or the user restarts it from Settings.
 - Themes (asked 7 October 2026, "akin to Spicetify"): six presets that
   differ in shape and material, not just colour: Midnight (the default),
   Daylight, Liquid Glass (the song's blurred cover behind see-through

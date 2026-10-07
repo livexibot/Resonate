@@ -31,12 +31,69 @@ public sealed class AppSettings
     /// <summary>Put Spotify's window-drawing processes in efficiency mode while hidden.</summary>
     public bool SaveSpotifyResources { get; set; } = true;
 
+    /// <summary>The equalizer is on, for Spotify's songs (the Spotify app's own equalizer) and local files alike.</summary>
+    public bool EqualizerEnabled { get; set; }
+
+    /// <summary>The equalizer's gain for each band, in decibels.</summary>
+    public List<double> EqualizerGainsDb { get; set; } = [];
+
+    /// <summary>The equalizer changed while Spotify was running; Spotify gets it the next time it starts.</summary>
+    public bool EqualizerPendingForSpotify { get; set; }
+
+    [JsonIgnore]
+    public Resonate.Spotify.Audio.EqualizerSettings Equalizer
+    {
+        get
+        {
+            var settings = Resonate.Spotify.Audio.EqualizerSettings.Flat with { Enabled = EqualizerEnabled };
+            for (var band = 0; band < EqualizerGainsDb.Count; band++)
+            {
+                settings = settings.WithGain(band, double.IsFinite(EqualizerGainsDb[band]) ? EqualizerGainsDb[band] : 0);
+            }
+
+            return settings;
+        }
+
+        set
+        {
+            EqualizerEnabled = value.Enabled;
+            EqualizerGainsDb = [.. value.GainsDb];
+        }
+    }
+
     [JsonIgnore]
     public Resonate.Spotify.Playback.ControlChannel ParsedControlChannel =>
         ControlChannel == "webapi" ? Resonate.Spotify.Playback.ControlChannel.WebApi : Resonate.Spotify.Playback.ControlChannel.Local;
 
     /// <summary>The last measured time from starting the process to the first frame.</summary>
     public double? LastStartupMilliseconds { get; set; }
+
+    /// <summary>How the sidebar orders playlists (a <see cref="Resonate.Spotify.Library.PlaylistSortMode"/> name).</summary>
+    public string PlaylistSort { get; set; } = "Spotify";
+
+    /// <summary>Playlist IDs in the user's own order, for the "Custom order" sort.</summary>
+    public List<string> PlaylistOrder { get; set; } = [];
+
+    /// <summary>When each playlist (by ID) was last played from Resonate, for the "Recently played" sort.</summary>
+    public Dictionary<string, DateTimeOffset> PlaylistLastPlayed { get; set; } = [];
+
+    /// <summary>The sort chosen for each song list (by list key), as <see cref="Resonate.Spotify.Library.TrackSort.Serialize"/> writes it.</summary>
+    public Dictionary<string, string> TrackSorts { get; set; } = [];
+
+    /// <summary>The folders Local Files looks in; null for the user's Music and Downloads folders.</summary>
+    public List<string>? LocalFolders { get; set; }
+
+    /// <summary>Show Local Files in the sidebar.</summary>
+    public bool ShowLocalFiles { get; set; } = true;
+
+    /// <summary>The local files player's volume, from 0 to 1 (the Spotify app keeps its own).</summary>
+    public double LocalVolume { get; set; } = 1;
+
+    [JsonIgnore]
+    public Resonate.Spotify.Library.PlaylistSortMode ParsedPlaylistSort =>
+        Enum.TryParse<Resonate.Spotify.Library.PlaylistSortMode>(PlaylistSort, ignoreCase: true, out var mode)
+            ? mode
+            : Resonate.Spotify.Library.PlaylistSortMode.Spotify;
 }
 
 [JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]

@@ -26,6 +26,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="56" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <Grid
                 x:Name="ArtworkFrame"
@@ -73,6 +74,19 @@
                     Style="{StaticResource ResonateSecondaryTextStyle}"
                     Text="Pick a song to start" />
             </StackPanel>
+            <Button
+                x:Name="LikeButton"
+                Grid.Column="2"
+                Width="32"
+                Height="32"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Save to Liked Songs"
+                Click="OnLikeClick"
+                Content="&#xEB51;"
+                FontSize="14"
+                Style="{StaticResource ResonateIconButtonStyle}"
+                ToolTipService.ToolTip="Save to Liked Songs"
+                Visibility="Collapsed" />
         </Grid>
 
         <!-- Transport controls and the seek bar -->
@@ -84,6 +98,13 @@
                 HorizontalAlignment="Center"
                 Orientation="Horizontal"
                 Spacing="14">
+                <ToggleButton
+                    x:Name="ShuffleButton"
+                    AutomationProperties.Name="Shuffle"
+                    Click="OnShuffleClick"
+                    Content="&#xE8B1;"
+                    Style="{StaticResource ResonateToggleIconButtonStyle}"
+                    ToolTipService.ToolTip="Shuffle, truly random (Ctrl+S)" />
                 <Button
                     x:Name="PreviousButton"
                     AutomationProperties.Name="Previous"
@@ -105,6 +126,13 @@
                     Content="&#xE893;"
                     Style="{StaticResource ResonateIconButtonStyle}"
                     ToolTipService.ToolTip="Next (Ctrl+Right)" />
+                <ToggleButton
+                    x:Name="RepeatButton"
+                    AutomationProperties.Name="Repeat"
+                    Click="OnRepeatClick"
+                    Content="&#xE8EE;"
+                    Style="{StaticResource ResonateToggleIconButtonStyle}"
+                    ToolTipService.ToolTip="Repeat (Ctrl+R)" />
             </StackPanel>
             <Grid ColumnSpacing="10">
                 <Grid.ColumnDefinitions>
@@ -151,6 +179,13 @@
                 Style="{StaticResource ResonateIconButtonStyle}"
                 ToolTipService.ToolTip="Plugins"
                 Visibility="Collapsed" />
+            <Button
+                x:Name="QueueButton"
+                AutomationProperties.Name="Queue"
+                Click="OnQueueClick"
+                Content="&#xE8FD;"
+                Style="{StaticResource ResonateIconButtonStyle}"
+                ToolTipService.ToolTip="Queue" />
             <Button
                 x:Name="MuteButton"
                 AutomationProperties.Name="Mute"

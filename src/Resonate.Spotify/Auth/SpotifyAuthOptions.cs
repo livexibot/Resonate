@@ -21,6 +21,11 @@ public sealed record SpotifyAuthOptions
         "playlist-read-private",       // the playlists in the sidebar
         "playlist-read-collaborative",
         "user-library-read",           // Liked Songs
+        "user-library-modify",         // like and unlike songs
+        "playlist-modify-private",     // reorder, add to and create your own playlists
+        "playlist-modify-public",
+        "user-top-read",               // your top artists and songs, for the daily mixes
+        "user-read-recently-played",   // listening statistics on the Home page
     ];
 
     public required string ClientId { get; init; }

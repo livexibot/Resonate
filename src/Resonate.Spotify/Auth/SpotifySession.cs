@@ -40,6 +40,23 @@ public sealed class SpotifySession : IAccessTokenSource, IDisposable
     public bool IsSignedIn => Volatile.Read(ref _token) is not null;
 
     /// <summary>
+    /// The permissions in <paramref name="wanted"/> that the saved sign-in
+    /// lacks (it was made by an older Resonate that asked for fewer). Empty
+    /// when signed out or when Spotify did not say which were granted.
+    /// </summary>
+    public IReadOnlyList<string> MissingScopes(IReadOnlyList<string> wanted)
+    {
+        var scope = Volatile.Read(ref _token)?.Scope;
+        if (string.IsNullOrWhiteSpace(scope))
+        {
+            return [];
+        }
+
+        var granted = scope.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.Ordinal);
+        return wanted.Where(w => !granted.Contains(w)).ToList();
+    }
+
+    /// <summary>
     /// Opens the browser at Spotify's approval page and waits for the user to
     /// approve. <paramref name="openBrowser"/> shows the page in the user's
     /// default browser (Resonate never embeds one).
