@@ -39,6 +39,10 @@ public sealed class AppServices : IDisposable
         player.Spotify.Channel = settings.ParsedControlChannel;
         spotifyWindow.KeepHidden = settings.KeepSpotifyHidden;
         spotifyWindow.SaveResources = settings.SaveSpotifyResources;
+
+        // Demo mode has no Spotify settings to find, and nothing to restart.
+        Equalizer = new EqualizerService(this, isDemo ? [] : SpotifyAppLauncher.SettingsFolders(), launcher as ISpotifyAppRestarter);
+        _owned.Add(Equalizer);
     }
 
     public bool IsDemo { get; }
@@ -63,6 +67,9 @@ public sealed class AppServices : IDisposable
 
     /// <summary>The Spotify app's window: hidden in the background, shown on request.</summary>
     public ISpotifyAppWindow SpotifyWindow { get; }
+
+    /// <summary>The equalizer: the Spotify app's own for Spotify's songs, and the same setting for local files.</summary>
+    public EqualizerService Equalizer { get; }
 
     public ThemeService Theme { get; } = new();
 

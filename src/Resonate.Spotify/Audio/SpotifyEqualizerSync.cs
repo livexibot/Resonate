@@ -105,17 +105,8 @@ public sealed class SpotifyEqualizerSync
     /// <summary>Raised on any thread when <see cref="Pending"/> changes.</summary>
     public event EventHandler? PendingChanged;
 
-    /// <summary>A change Spotify has not been given yet, or null.</summary>
-    public EqualizerSettings? Pending
-    {
-        get
-        {
-            lock (_gate)
-            {
-                return _pending;
-            }
-        }
-    }
+    /// <summary>A change Spotify has not been given yet, or null. Never waits for file work in progress.</summary>
+    public EqualizerSettings? Pending => Volatile.Read(ref _pending);
 
     /// <summary>Whether Resonate can restart Spotify here (not in demo mode).</summary>
     public bool CanRestart => _restarter is not null;
@@ -374,7 +365,7 @@ public sealed class SpotifyEqualizerSync
             return;
         }
 
-        _pending = pending;
+        Volatile.Write(ref _pending, pending);
 
         // Raised under the lock so listeners see changes in order; they must not call back in.
         PendingChanged?.Invoke(this, EventArgs.Empty);

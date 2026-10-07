@@ -20,6 +20,36 @@ public sealed class AppSettings
     /// <summary>Put Spotify's window-drawing processes in efficiency mode while hidden.</summary>
     public bool SaveSpotifyResources { get; set; } = true;
 
+    /// <summary>The equalizer is on, for Spotify's songs (the Spotify app's own equalizer) and local files alike.</summary>
+    public bool EqualizerEnabled { get; set; }
+
+    /// <summary>The equalizer's gain for each band, in decibels.</summary>
+    public List<double> EqualizerGainsDb { get; set; } = [];
+
+    /// <summary>The equalizer changed while Spotify was running; Spotify gets it the next time it starts.</summary>
+    public bool EqualizerPendingForSpotify { get; set; }
+
+    [JsonIgnore]
+    public Resonate.Spotify.Audio.EqualizerSettings Equalizer
+    {
+        get
+        {
+            var settings = Resonate.Spotify.Audio.EqualizerSettings.Flat with { Enabled = EqualizerEnabled };
+            for (var band = 0; band < EqualizerGainsDb.Count; band++)
+            {
+                settings = settings.WithGain(band, double.IsFinite(EqualizerGainsDb[band]) ? EqualizerGainsDb[band] : 0);
+            }
+
+            return settings;
+        }
+
+        set
+        {
+            EqualizerEnabled = value.Enabled;
+            EqualizerGainsDb = [.. value.GainsDb];
+        }
+    }
+
     [JsonIgnore]
     public Resonate.Spotify.Playback.ControlChannel ParsedControlChannel =>
         ControlChannel == "webapi" ? Resonate.Spotify.Playback.ControlChannel.WebApi : Resonate.Spotify.Playback.ControlChannel.Local;

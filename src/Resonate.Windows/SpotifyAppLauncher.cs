@@ -297,8 +297,9 @@ public sealed class SpotifyAppLauncher : ISpotifyAppLauncher, ISpotifyAppRestart
     }
 
     /// <summary>
-    /// Spotify's main windows (top-level, with a title and no owner), hidden
-    /// ones included: Resonate usually keeps Spotify's window hidden.
+    /// Spotify's main windows: top-level Chromium windows with a title and no
+    /// owner, hidden ones included (Resonate usually keeps Spotify's window
+    /// hidden). Helper windows, which also have titles, are left alone.
     /// </summary>
     private static List<nint> MainWindows(HashSet<uint> processIds)
     {
@@ -309,7 +310,8 @@ public sealed class SpotifyAppLauncher : ISpotifyAppLauncher, ISpotifyAppRestart
             Windowing.GetWindowThreadProcessId(window, out var processId);
             if (processIds.Contains(processId)
                 && Windowing.GetWindow(window, Windowing.GwOwner) == 0
-                && Windowing.GetWindowTextLength(window) > 0)
+                && Windowing.GetWindowTextLength(window) > 0
+                && WindowMessages.ClassName(window).StartsWith("Chrome_WidgetWin_", StringComparison.Ordinal))
             {
                 found.Add(window);
             }

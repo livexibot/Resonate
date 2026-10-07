@@ -1,6 +1,8 @@
 using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Resonate.App.Controls;
 using Resonate.App.Pages;
 using Resonate.App.Themes;
 using Windows.Graphics.Imaging;
@@ -47,6 +49,11 @@ internal sealed class ScreenshotTour
             await Task.Delay(1200);
             await CaptureAsync("4-settings.png");
 
+            // Further down the same page (demo values; there are no Spotify settings to find in CI).
+            FindDescendant<EqualizerPanel>(_root)?.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false, VerticalAlignmentRatio = 0.1 });
+            await Task.Delay(800);
+            await CaptureAsync("4b-equalizer.png");
+
             App.Services.Theme.Apply(ThemePreset.Daylight);
             _window.ApplyCaptionButtonColors();
             _window.OpenPlaylist("focus");
@@ -62,6 +69,21 @@ internal sealed class ScreenshotTour
         {
             Application.Current.Exit();
         }
+    }
+
+    private static T? FindDescendant<T>(DependencyObject parent)
+        where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if ((child as T ?? FindDescendant<T>(child)) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     private async Task CaptureAsync(string name)

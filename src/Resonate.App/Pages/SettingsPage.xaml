@@ -66,6 +66,9 @@
                 </StackPanel>
             </StackPanel>
 
+            <!-- Equalizer: the Spotify app's own, and the same setting for local files -->
+            <controls:EqualizerPanel xmlns:controls="using:Resonate.App.Controls" />
+
             <!-- Account -->
             <StackPanel Spacing="12">
                 <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Spotify account" />
