@@ -27,7 +27,7 @@
                             x:Name="CoverFrame"
                             Width="184"
                             Height="184"
-                            CornerRadius="{StaticResource ResonateCornerLarge}">
+                            CornerRadius="{ThemeResource ResonateCornerLarge}">
                             <FontIcon
                                 x:Name="CoverGlyph"
                                 FontFamily="{StaticResource ResonateIconFont}"
@@ -137,7 +137,7 @@
                         x:Name="HiddenNotice"
                         Padding="16,12"
                         Background="{StaticResource ResonateSurfaceHoverBrush}"
-                        CornerRadius="{StaticResource ResonateCornerMedium}"
+                        CornerRadius="{ThemeResource ResonateCornerMedium}"
                         Visibility="Collapsed">
                         <TextBlock
                             Style="{StaticResource ResonateSecondaryTextStyle}"
@@ -275,7 +275,7 @@
                                 Width="40"
                                 Height="40"
                                 Background="{x:Bind PlaceholderBrush}"
-                                CornerRadius="{StaticResource ResonateCornerSmall}">
+                                CornerRadius="{ThemeResource ResonateCornerSmall}">
                                 <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
                             </Grid>
                             <StackPanel
