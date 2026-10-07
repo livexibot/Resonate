@@ -166,8 +166,20 @@ internal sealed class FakeWebApi : ISpotifyWebApi
 
     public Task<PlayerQueue> GetQueueAsync(CancellationToken cancellationToken) => Task.FromResult(QueueResult);
 
+    /// <summary>The "after" of each recently played request, in order.</summary>
+    public List<DateTimeOffset?> RecentlyPlayedRequests { get; } = [];
+
+    /// <summary>The range of each top artists request, in order.</summary>
+    public List<TopRange> TopArtistRequests { get; } = [];
+
+    public int TopTrackReads { get; private set; }
+
+    /// <summary>Thrown by the top artists and top tracks requests while set (such as a sign-in without the permission).</summary>
+    public Exception? TopItemsFailure { get; set; }
+
     public Task<CursorPage<PlayHistoryItem>> GetRecentlyPlayedAsync(int limit, DateTimeOffset? after, CancellationToken cancellationToken)
     {
+        RecentlyPlayedRequests.Add(after);
         var items = RecentlyPlayed
             .Where(p => after is null || TimeOf(p) > after)
             .Take(limit)
@@ -175,11 +187,21 @@ internal sealed class FakeWebApi : ISpotifyWebApi
         return Task.FromResult(new CursorPage<PlayHistoryItem> { Items = items, Limit = limit });
     }
 
-    public Task<Page<Artist>> GetTopArtistsAsync(TopRange range, int offset, int limit, CancellationToken cancellationToken) =>
-        Task.FromResult(Paged(TopArtists.ToList<Artist?>(), offset, limit));
+    public Task<Page<Artist>> GetTopArtistsAsync(TopRange range, int offset, int limit, CancellationToken cancellationToken)
+    {
+        TopArtistRequests.Add(range);
+        return TopItemsFailure is { } failure
+            ? Task.FromException<Page<Artist>>(failure)
+            : Task.FromResult(Paged(TopArtists.ToList<Artist?>(), offset, limit));
+    }
 
-    public Task<Page<PlayableItem>> GetTopTracksAsync(TopRange range, int offset, int limit, CancellationToken cancellationToken) =>
-        Task.FromResult(Paged(TopTracks.ToList<PlayableItem?>(), offset, limit));
+    public Task<Page<PlayableItem>> GetTopTracksAsync(TopRange range, int offset, int limit, CancellationToken cancellationToken)
+    {
+        TopTrackReads++;
+        return TopItemsFailure is { } failure
+            ? Task.FromException<Page<PlayableItem>>(failure)
+            : Task.FromResult(Paged(TopTracks.ToList<PlayableItem?>(), offset, limit));
+    }
 
     public Task<IReadOnlyList<bool>> CheckLibraryAsync(IReadOnlyList<string> uris, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<bool>>(uris.Select(Library.Contains).ToList());
@@ -234,8 +256,14 @@ internal sealed class FakeWebApi : ISpotifyWebApi
             ? Paged(tracks.Items, offset, limit)
             : new Page<PlayableItem>());
 
-    public Task<Artist> GetArtistAsync(string artistId, CancellationToken cancellationToken) =>
-        Task.FromResult(Artists.TryGetValue(artistId, out var artist) ? artist : new Artist { Id = artistId, Name = "Artist", Uri = "spotify:artist:" + artistId });
+    /// <summary>The ID of each single-artist request, in order.</summary>
+    public List<string> ArtistRequests { get; } = [];
+
+    public Task<Artist> GetArtistAsync(string artistId, CancellationToken cancellationToken)
+    {
+        ArtistRequests.Add(artistId);
+        return Task.FromResult(Artists.TryGetValue(artistId, out var artist) ? artist : new Artist { Id = artistId, Name = "Artist", Uri = "spotify:artist:" + artistId });
+    }
 
     public Task<Page<SimplifiedAlbum>> GetArtistAlbumsAsync(string artistId, int offset, int limit, CancellationToken cancellationToken) =>
         Task.FromResult(Paged(ArtistAlbums.ToList<SimplifiedAlbum?>(), offset, limit));
