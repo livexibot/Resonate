@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Resonate.App.Controls;
+using Resonate.App.Demo;
 using Resonate.App.Pages;
 using Resonate.App.Pages.Lists;
 using Resonate.Spotify.WebApi;
@@ -82,6 +83,11 @@ internal sealed class ScreenshotTour
             _window.OpenSearch();
             await Task.Delay(2000);
             await CaptureAsync("3-search.png");
+
+            // Releases come ten at a time, as Spotify allows.
+            _window.Open(TrackActions.ArtistKey(DemoCatalog.ArtistId("Mira Sol")));
+            await Task.Delay(1500);
+            await CaptureAsync("3b-artist.png");
 
             ThemeStudio.CustomizeOpen = true;
             _window.OpenSettings();

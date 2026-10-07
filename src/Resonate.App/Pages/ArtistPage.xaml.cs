@@ -16,6 +16,9 @@ namespace Resonate.App.Pages;
 /// <summary>An artist: their picture, Play (Spotify plays their best-known songs), and their releases.</summary>
 public sealed partial class ArtistPage : Page
 {
+    /// <summary>The most releases shown, read ten at a time (all Spotify allows per request).</summary>
+    private const int MaxReleases = 50;
+
     private readonly AppServices _services = App.Services;
     private readonly CancellationTokenSource _leaving = new();
     private string _artistId = string.Empty;
@@ -52,7 +55,7 @@ public sealed partial class ArtistPage : Page
         try
         {
             var artistTask = Task.Run(() => api.GetArtistAsync(id, token), token);
-            var albumsTask = Task.Run(() => api.GetArtistAlbumsAsync(id, 0, LibraryService.PageSize, token), token);
+            var albumsTask = Task.Run(() => api.GetArtistAlbumsAsync(id, 0, SpotifyWebApi.MaxArtistAlbumsLimit, token), token);
 
             var artist = await artistTask;
             _name = artist.Name;
@@ -65,28 +68,15 @@ public sealed partial class ArtistPage : Page
                 GenresText.Visibility = Visibility.Visible;
             }
 
+            // The first ten show at once; the rest follow ten at a time.
             var releases = await albumsTask;
-            foreach (var album in releases.Items.OfType<SimplifiedAlbum>())
+            ShowReleases(releases);
+            for (var offset = releases.Items.Count; releases.HasMore && releases.Items.Count > 0 && offset < MaxReleases; offset += releases.Items.Count)
             {
-                if (album.Id is null)
-                {
-                    continue;
-                }
-
-                var year = album.ReleaseDate is { Length: >= 4 } date ? date[..4] : string.Empty;
-                var card = new CardItem(album.Name, year, album.Uri ?? string.Empty, album.Id, ImagePicker.Pick(album.Images, 300), isPlaylist: false);
-                var target = album.AlbumType switch
-                {
-                    "single" => Singles,
-                    "compilation" => Compilations,
-                    _ => Albums,
-                };
-                target.Add(card);
+                var from = offset;
+                releases = await Task.Run(() => api.GetArtistAlbumsAsync(id, from, SpotifyWebApi.MaxArtistAlbumsLimit, token), token);
+                ShowReleases(releases);
             }
-
-            AlbumsSection.Visibility = Albums.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-            SinglesSection.Visibility = Singles.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-            CompilationsSection.Visibility = Compilations.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         }
         catch (OperationCanceledException)
         {
@@ -99,6 +89,31 @@ public sealed partial class ArtistPage : Page
         {
             LoadingRing.IsActive = false;
         }
+    }
+
+    private void ShowReleases(Page<SimplifiedAlbum> releases)
+    {
+        foreach (var album in releases.Items.OfType<SimplifiedAlbum>())
+        {
+            if (album.Id is null)
+            {
+                continue;
+            }
+
+            var year = album.ReleaseDate is { Length: >= 4 } date ? date[..4] : string.Empty;
+            var card = new CardItem(album.Name, year, album.Uri ?? string.Empty, album.Id, ImagePicker.Pick(album.Images, 300), isPlaylist: false);
+            var target = album.AlbumType switch
+            {
+                "single" => Singles,
+                "compilation" => Compilations,
+                _ => Albums,
+            };
+            target.Add(card);
+        }
+
+        AlbumsSection.Visibility = Albums.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        SinglesSection.Visibility = Singles.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        CompilationsSection.Visibility = Compilations.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void OnPlayClick(object sender, RoutedEventArgs e) => _ = _services.Player.PlayContextAsync(ContextUri);

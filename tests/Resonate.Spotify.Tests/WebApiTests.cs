@@ -92,6 +92,18 @@ public class SpotifyWebApiTests
     }
 
     [Fact]
+    public async Task Asks_for_no_more_than_ten_of_an_artists_releases()
+    {
+        _handler.Respond(HttpStatusCode.OK, """{"items":[],"total":0}""");
+
+        await Api().GetArtistAlbumsAsync("abc", 20, 50, TestContext.Current.CancellationToken);
+
+        var uri = _handler.Requests[0].Uri.AbsoluteUri;
+        Assert.Contains("artists/abc/albums?", uri, StringComparison.Ordinal);
+        Assert.Contains("offset=20&limit=10", uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Starts_a_song_in_its_playlist_on_the_chosen_device()
     {
         _handler.Respond(HttpStatusCode.NoContent);

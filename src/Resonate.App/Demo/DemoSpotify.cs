@@ -402,15 +402,24 @@ public sealed class DemoWebApi : ISpotifyWebApi
 
     public Task<Page<SimplifiedAlbum>> GetArtistAlbumsAsync(string artistId, int offset, int limit, CancellationToken cancellationToken)
     {
-        var albums = DemoCatalog.AllTracks()
+        // As Spotify does since February 2026, so a caller asking for more shows up in demo runs too.
+        if (limit > SpotifyWebApi.MaxArtistAlbumsLimit)
+        {
+            return Task.FromException<Page<SimplifiedAlbum>>(new SpotifyApiException(System.Net.HttpStatusCode.BadRequest, null, "Invalid limit"));
+        }
+
+        var all = DemoCatalog.AllTracks()
             .Where(t => t.Artists?.Any(a => a.Id == artistId) == true)
             .Select(t => t.Album!)
             .DistinctBy(a => a.Id)
+            .ToList();
+        var albums = all
             .Skip(offset)
             .Take(limit)
             .Select(a => (SimplifiedAlbum?)new SimplifiedAlbum { Id = a.Id, Name = a.Name, Uri = a.Uri, Artists = a.Artists, AlbumType = "album", ReleaseDate = "2024" })
             .ToList();
-        return Task.FromResult(new Page<SimplifiedAlbum> { Items = albums, Total = albums.Count, Offset = offset, Limit = limit });
+        var next = offset + albums.Count < all.Count ? "demo:next" : null;
+        return Task.FromResult(new Page<SimplifiedAlbum> { Items = albums, Total = all.Count, Offset = offset, Limit = limit, Next = next });
     }
 }
 
