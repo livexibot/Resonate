@@ -138,7 +138,9 @@ public sealed partial class MainWindow : Window
         }
         else
         {
+            // Signed in again, perhaps as someone else: their playlists and hearts.
             _ = RefreshLibraryAsync();
+            _ = LoadLikesAsync(_lifetime.Token);
         }
     }
 
@@ -476,7 +478,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>Reads Liked Songs once, so every heart is right (from the stored copy when it is current).</summary>
+    /// <summary>Reads Liked Songs, so every heart is right (from the stored copy when it is current).</summary>
     private async Task LoadLikesAsync(CancellationToken token)
     {
         try

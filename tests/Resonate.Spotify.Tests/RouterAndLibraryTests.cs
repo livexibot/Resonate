@@ -269,6 +269,56 @@ public sealed class LikedSongsTests : IDisposable
         Assert.Null(Assert.Single(_changes).Track);
     }
 
+    [Fact]
+    public async Task Signing_out_forgets_the_hearts_and_the_next_account_gets_its_own()
+    {
+        _web.SavedTracks.Add(Saved("a"));
+        await _likes.LoadAsync(TestContext.Current.CancellationToken);
+        _changes.Clear();
+
+        _likes.Forget();
+
+        Assert.False(_likes.IsLoaded);
+        Assert.False(_likes.IsLiked("spotify:track:a"));
+        Assert.Null(Assert.Single(_changes).Track);
+
+        _web.SavedTracks.Clear();
+        _web.SavedTracks.Add(Saved("b"));
+        await _likes.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(_likes.IsLiked("spotify:track:b"));
+        Assert.False(_likes.IsLiked("spotify:track:a"));
+    }
+
+    [Fact]
+    public async Task A_list_still_loading_when_signing_out_is_not_used()
+    {
+        _web.SavedTracks.Add(Saved("a"));
+        var answer = new TaskCompletionSource();
+        _web.HoldSavedTrackReads = answer.Task;
+        var loading = _likes.LoadAsync(TestContext.Current.CancellationToken);
+
+        _likes.Forget();
+        answer.SetResult();
+        await loading;
+
+        Assert.False(_likes.IsLoaded);
+        Assert.False(_likes.IsLiked("spotify:track:a"));
+    }
+
+    [Fact]
+    public async Task Unliking_before_the_list_is_read_still_reaches_Spotify()
+    {
+        // Liked Songs shows every heart filled before the whole list is read.
+        await _likes.SetLikedAsync(Song("a"), liked: false, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["unsave spotify:track:a"], _web.Commands);
+        Assert.False(Assert.Single(_changes).IsLiked);
+    }
+
+    private static SavedTrack Saved(string id) =>
+        new() { Track = new PlayableItem { Name = $"Song {id}", Uri = $"spotify:track:{id}", DurationMs = 1000 } };
+
     private static TrackInfo Song(string id) =>
         new($"spotify:track:{id}", $"Song {id}", "Band", "Record", null, TimeSpan.FromSeconds(200), null, null, IsExplicit: false, IsPlayable: true);
 }
