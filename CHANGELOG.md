@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/livexibot/Resonate/compare/v0.2.0...v0.3.0) (2026-10-07)
+
+
+### New features
+
+* add Home, Local Files, DJ, sorting, likes, shuffle, repeat, the queue and an equalizer ([#9](https://github.com/livexibot/Resonate/issues/9)) ([d918c9b](https://github.com/livexibot/Resonate/commit/d918c9be44f93f4b2d936803a7a375ee38833928))
+* themes with six presets, a customizer and animated switching ([#10](https://github.com/livexibot/Resonate/issues/10)) ([4ff35df](https://github.com/livexibot/Resonate/commit/4ff35df782c8ef862ae983a70b714dbc218f6fe2))
+
+
+### Fixes
+
+* make playback and sign-in more reliable ([#7](https://github.com/livexibot/Resonate/issues/7)) ([b262f32](https://github.com/livexibot/Resonate/commit/b262f329df77c334849d148fd00c48759fbc3f32))
+
 ## [0.2.0](https://github.com/livexibot/Resonate/compare/v0.1.0...v0.2.0) (2026-10-07)
 
 
