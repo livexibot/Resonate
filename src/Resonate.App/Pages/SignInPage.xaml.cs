@@ -58,16 +58,16 @@ public sealed partial class SignInPage : Page
         _services.Account.Configure(clientId);
 
         _signIn = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+        var token = _signIn.Token;
         ErrorText.Visibility = Visibility.Collapsed;
         WaitingPanel.Visibility = Visibility.Visible;
         UpdateSignInButton();
         try
         {
-            var token = _signIn.Token;
             await Task.Run(() => _services.Account.SignInAsync(token), token);
             App.MainWindow?.ShowShell();
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
             // Cancelled, or the browser was left alone too long.
         }
@@ -80,9 +80,20 @@ public sealed partial class SignInPage : Page
                 _ => ex.Message,
             });
         }
-        catch (HttpRequestException)
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException)
         {
+            // Offline, or Spotify took too long to answer.
             ShowError("Spotify could not be reached. Check the internet connection and try again.");
+        }
+        catch (Exception ex)
+        {
+            // Anything else must not close Resonate (this handler is async void).
+            ShowError(ex switch
+            {
+                System.ComponentModel.Win32Exception => "Resonate could not open your web browser. Check that Windows has a default browser, then try again.",
+                InvalidOperationException => ex.Message,
+                _ => "Signing in did not work. Try again.",
+            });
         }
         finally
         {

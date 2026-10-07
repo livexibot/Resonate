@@ -132,6 +132,13 @@ public sealed class LibraryService
             results.Playlists?.Items.OfType<SimplifiedPlaylist>().ToList() ?? []);
     }
 
+    /// <summary>Forgets the account's library, in memory and on disk, for example on signing out.</summary>
+    public void Forget()
+    {
+        Snapshot = null;
+        _cache?.Clear();
+    }
+
     /// <summary>Whether Spotify will list this playlist's songs for the signed-in user.</summary>
     public bool CanListSongs(SimplifiedPlaylist playlist) =>
         playlist.Collaborative || (Snapshot?.User?.Id is { } me && playlist.Owner?.Id == me);

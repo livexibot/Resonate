@@ -32,6 +32,19 @@ public sealed class LibraryTests : IDisposable
     }
 
     [Fact]
+    public async Task Forgetting_the_library_also_empties_the_cache()
+    {
+        _web.Playlists.Add(new SimplifiedPlaylist { Id = "p", Name = "Mine", Uri = "spotify:playlist:p" });
+        var library = new LibraryService(_web, new LibraryCache(_cacheFile));
+        await library.RefreshAsync(TestContext.Current.CancellationToken);
+
+        library.Forget();
+
+        Assert.Null(library.Snapshot);
+        Assert.Null(new LibraryService(_web, new LibraryCache(_cacheFile)).Snapshot);
+    }
+
+    [Fact]
     public async Task A_playlist_Spotify_will_not_list_is_marked_hidden()
     {
         _web.PlaylistResult = new Playlist { Id = "p", Name = "Someone else's", Uri = "spotify:playlist:p", Items = null };

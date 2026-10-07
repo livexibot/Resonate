@@ -81,6 +81,9 @@ public interface ISpotifyAppWindow
     /// <summary>While hidden, put Spotify's window-drawing processes in Windows' efficiency mode.</summary>
     bool SaveResources { get; set; }
 
-    /// <summary>Brings Spotify's window to the front, for example to sign in or change its settings.</summary>
-    void ShowSpotify();
+    /// <summary>
+    /// Brings Spotify's window to the front, for example to sign in or change
+    /// its settings. False when Spotify could not be opened (not installed).
+    /// </summary>
+    bool ShowSpotify();
 }
