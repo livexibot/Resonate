@@ -499,7 +499,10 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>Saves new plays (and makes the day's mixes when the day changed) now and every half hour.</summary>
+    /// <summary>
+    /// Saves new plays (and makes the day's mixes when the day changed) now
+    /// and every half hour, and reads Liked Songs again if that failed before.
+    /// </summary>
     private async Task KeepListeningHistoryAsync(CancellationToken token)
     {
         try
@@ -516,6 +519,12 @@ public sealed partial class MainWindow : Window
                 }
 
                 await Task.Delay(ListeningHistoryInterval, token);
+
+                // Offline at start, say: the hearts still need Liked Songs.
+                if (!_services.Likes.IsLoaded)
+                {
+                    await LoadLikesAsync(token);
+                }
             }
         }
         catch (OperationCanceledException)
