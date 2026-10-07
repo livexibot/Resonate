@@ -362,8 +362,12 @@ public sealed class LocalLibrary : IDisposable
                 ShouldIncludePredicate = (ref FileSystemEntry entry) => !entry.IsDirectory && TagReader.IsSupported(entry.FileName),
 
                 // Links can loop back up the tree; Spotify's folders are off limits.
+                // Folders synced by OneDrive and other cloud services are
+                // reparse points too, but not links, so they are looked into
+                // (reading the tags of an online-only file downloads it).
                 ShouldRecursePredicate = (ref FileSystemEntry entry) =>
-                    (entry.Attributes & (FileAttributes.ReparsePoint | FileAttributes.Hidden | FileAttributes.System)) == 0
+                    (entry.Attributes & (FileAttributes.Hidden | FileAttributes.System)) == 0
+                    && ((entry.Attributes & FileAttributes.ReparsePoint) == 0 || !IsLink(entry.ToFullPath()))
                     && !IsExcluded(entry.ToFullPath()),
             };
 
@@ -385,6 +389,19 @@ public sealed class LocalLibrary : IDisposable
         }
 
         return found;
+    }
+
+    /// <summary>True for symbolic links and junctions, and for folders that can not be checked.</summary>
+    private static bool IsLink(string folder)
+    {
+        try
+        {
+            return new DirectoryInfo(folder).LinkTarget is not null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return true;
+        }
     }
 
     private static LocalFile ReadFile(FoundFile file, DateTimeOffset addedAt)

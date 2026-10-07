@@ -66,6 +66,26 @@ public sealed class LocalLibraryTests : IDisposable
     }
 
     [Fact]
+    public async Task Linked_folders_are_not_followed_so_a_loop_lists_each_song_once()
+    {
+        var song = WriteSong("Album/song.mp3", "Song");
+        try
+        {
+            Directory.CreateSymbolicLink(Path.Combine(_music, "Album", "loop"), _music);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Assert.Skip("This account can not make symbolic links.");
+        }
+
+        var library = Create();
+
+        await library.ScanAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal([song], library.Files.Select(f => f.Path));
+    }
+
+    [Fact]
     public async Task A_chosen_folder_inside_Spotify_is_not_scanned()
     {
         WriteSong("AppData/Spotify/song.mp3", "Spotify's");
