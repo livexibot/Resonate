@@ -27,6 +27,12 @@ public sealed record TrackInfo(
     /// <summary>A file on the user's computer that was added to a Spotify playlist.</summary>
     public bool IsLocal { get; init; }
 
+    /// <summary>
+    /// The full path of a music file in Local Files, which Resonate plays
+    /// itself (Spotify's audio never is). Null for everything from Spotify.
+    /// </summary>
+    public string? FilePath { get; init; }
+
     /// <summary>When it was added to the playlist or to Liked Songs.</summary>
     public DateTimeOffset? AddedAt { get; init; }
 

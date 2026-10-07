@@ -14,7 +14,7 @@ namespace Resonate.Spotify.Playback;
 /// what the user just did. A command that really fails is rolled back and
 /// reported through <see cref="ErrorOccurred"/>.
 /// </summary>
-public sealed class PlayerController : IDisposable
+public sealed class PlayerController : IPlayer, IDisposable
 {
     internal static readonly TimeSpan PlayStateHold = TimeSpan.FromSeconds(2.5);
     internal static readonly TimeSpan PositionHold = TimeSpan.FromSeconds(2.5);
@@ -48,6 +48,8 @@ public sealed class PlayerController : IDisposable
     private Hold<TimeSpan>? _positionHold;
     private Hold<string>? _trackHold;
     private Hold<double>? _volumeHold;
+    private Hold<bool>? _shuffleHold;
+    private Hold<RepeatMode>? _repeatHold;
     private TimeSpan? _pendingSeek;
     private Task _pendingSeekTask = Task.CompletedTask;
     private double? _pendingVolume;
@@ -287,6 +289,55 @@ public sealed class PlayerController : IDisposable
         return _pendingVolumeTask;
     }
 
+    /// <summary>Adds a song to the end of Spotify's queue ("Add to queue").</summary>
+    public Task AddToQueueAsync(TrackInfo track)
+    {
+        if (track.Uri is not { } uri || !track.IsPlayable)
+        {
+            return Task.CompletedTask;
+        }
+
+        return RunTransportAsync(ct => WithLocalDeviceAsync((id, c) => _api.AddToQueueAsync(uri, id, c), ct), revert: null);
+    }
+
+    /// <summary>Spotify's own shuffle, through the Web API. Optimistic like every command.</summary>
+    public Task SetShuffleAsync(bool shuffle)
+    {
+        PlayerState before;
+        long generation;
+        lock (_gate)
+        {
+            before = _state;
+            generation = ++_generation;
+            _shuffleHold = new Hold<bool>(shuffle, _time.GetUtcNow() + PlayStateHold);
+            SetState(_state with { Shuffle = shuffle });
+        }
+
+        RaiseStateChanged();
+        return RunTransportAsync(
+            ct => WithLocalDeviceAsync((id, c) => _api.SetShuffleAsync(shuffle, id, c), ct),
+            () => RevertSetting(generation, before));
+    }
+
+    /// <summary>Repeats nothing, the whole list, or the current song.</summary>
+    public Task SetRepeatAsync(RepeatMode mode)
+    {
+        PlayerState before;
+        long generation;
+        lock (_gate)
+        {
+            before = _state;
+            generation = ++_generation;
+            _repeatHold = new Hold<RepeatMode>(mode, _time.GetUtcNow() + PlayStateHold);
+            SetState(_state with { Repeat = mode });
+        }
+
+        RaiseStateChanged();
+        return RunTransportAsync(
+            ct => WithLocalDeviceAsync((id, c) => _api.SetRepeatAsync(mode, id, c), ct),
+            () => RevertSetting(generation, before));
+    }
+
     /// <summary>
     /// Plays <paramref name="track"/> on this computer, inside
     /// <paramref name="contextUri"/> (its playlist or album) when given, so
@@ -301,6 +352,41 @@ public sealed class PlayerController : IDisposable
             return Task.CompletedTask;
         }
 
+        var body = contextUri is null
+            ? new StartPlaybackBody { Uris = [track.Uri] }
+            : new StartPlaybackBody { ContextUri = contextUri, Offset = new PlaybackOffset { Uri = track.Uri } };
+        var fallback = contextUri is not null && fallbackUris is { Count: > 0 }
+            ? new StartPlaybackBody { Uris = WindowAround(fallbackUris, track.Uri), Offset = new PlaybackOffset { Uri = track.Uri } }
+            : null;
+        return StartTrackAsync(track, contextUri, body, fallback);
+    }
+
+    /// <summary>
+    /// Plays a list the way a page shows it: inside its Spotify context when
+    /// it has one (so Spotify shows where it plays from), otherwise as a list
+    /// of songs in the order shown.
+    /// </summary>
+    public Task PlayAsync(PlayRequest request)
+    {
+        var playable = request.Tracks.Where(t => t.IsPlayable && t.Uri is not null && t.FilePath is null).ToList();
+        var start = request.StartTrack is { IsPlayable: true, Uri: not null } picked ? picked : playable.FirstOrDefault();
+        if (start is null)
+        {
+            return request.ContextUri is null ? Task.CompletedTask : PlayContextAsync(request.ContextUri);
+        }
+
+        var uris = playable.Select(t => t.Uri!).ToList();
+        if (request.ContextUri is not null)
+        {
+            return PlayTrackAsync(start, request.ContextUri, uris);
+        }
+
+        var body = new StartPlaybackBody { Uris = WindowAround(uris, start.Uri!), Offset = new PlaybackOffset { Uri = start.Uri } };
+        return StartTrackAsync(start, null, body, fallback: null);
+    }
+
+    private Task StartTrackAsync(TrackInfo track, string? contextUri, StartPlaybackBody body, StartPlaybackBody? fallback)
+    {
         PlayerState before;
         long generation;
         lock (_gate)
@@ -332,24 +418,15 @@ public sealed class PlayerController : IDisposable
         return RunTransportAsync(
             async ct =>
             {
-                var body = contextUri is null
-                    ? new StartPlaybackBody { Uris = [track.Uri] }
-                    : new StartPlaybackBody { ContextUri = contextUri, Offset = new PlaybackOffset { Uri = track.Uri } };
                 try
                 {
                     await WithLocalDeviceAsync((id, c) => _api.StartPlaybackAsync(body, id, c), ct).ConfigureAwait(false);
                 }
                 catch (SpotifyApiException ex) when (
-                    contextUri is not null
-                    && fallbackUris is { Count: > 0 }
+                    fallback is not null
                     && !ex.IsPremiumRequired
                     && ex.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Forbidden)
                 {
-                    var fallback = new StartPlaybackBody
-                    {
-                        Uris = WindowAround(fallbackUris, track.Uri),
-                        Offset = new PlaybackOffset { Uri = track.Uri },
-                    };
                     await WithLocalDeviceAsync((id, c) => _api.StartPlaybackAsync(fallback, id, c), ct).ConfigureAwait(false);
                 }
             },
@@ -595,6 +672,22 @@ public sealed class PlayerController : IDisposable
             };
         }
 
+        if (!IsHeld(_shuffleHold, now))
+        {
+            next = next with { Shuffle = playback.ShuffleState };
+        }
+
+        if (!IsHeld(_repeatHold, now))
+        {
+            next = next with { Repeat = playback.Repeat };
+        }
+
+        next = next with
+        {
+            CanShuffle = playback.Actions?.Disallowed("toggling_shuffle") != true,
+            CanRepeat = playback.Actions?.Disallowed("toggling_repeat_context") != true,
+        };
+
         if (!mixerVolumeKnown
             && playback.Device?.VolumePercent is int percent
             && !IsHeld(_volumeHold, now))
@@ -826,6 +919,23 @@ public sealed class PlayerController : IDisposable
             _playingHold = null;
             var now = _time.GetUtcNow();
             SetState(_state with { IsPlaying = wasPlaying, Position = _state.PositionAt(now), PositionTimestamp = now });
+        }
+
+        RaiseStateChanged();
+    }
+
+    private void RevertSetting(long generation, PlayerState before)
+    {
+        lock (_gate)
+        {
+            if (_generation != generation)
+            {
+                return;
+            }
+
+            _shuffleHold = null;
+            _repeatHold = null;
+            SetState(_state with { Shuffle = before.Shuffle, Repeat = before.Repeat });
         }
 
         RaiseStateChanged();

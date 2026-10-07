@@ -63,6 +63,9 @@ public sealed class LibraryService : IDisposable
     /// <summary>Raised on any thread when Liked Songs changed (a song was liked or unliked through Resonate).</summary>
     public event EventHandler? LikedSongsChanged;
 
+    /// <summary>Raised on any thread when Resonate changed the playlists in <see cref="Snapshot"/> (created one, or changed a song count).</summary>
+    public event EventHandler? PlaylistsChanged;
+
     /// <summary>The newest known library; from the disk cache until <see cref="RefreshAsync"/> finishes.</summary>
     public LibrarySnapshot? Snapshot { get; private set; }
 
@@ -230,8 +233,103 @@ public sealed class LibraryService : IDisposable
         return (album, tracks);
     }
 
-    /// <summary>Tells listeners (the Liked Songs page, mixes) that Liked Songs changed, and forgets the stored copy's newest page.</summary>
-    public void NotifyLikedSongsChanged() => LikedSongsChanged?.Invoke(this, EventArgs.Empty);
+    /// <summary>Whether the signed-in user may change this playlist's songs (their own, or a collaborative one).</summary>
+    public bool CanEdit(string playlistId) =>
+        Snapshot?.Playlists.FirstOrDefault(p => p.Id == playlistId) is { } playlist && CanListSongs(playlist);
+
+    /// <summary>
+    /// Moves the song at <paramref name="from"/> to <paramref name="to"/> in
+    /// the playlist's own order (both are positions before the move), and
+    /// keeps the stored copy in step so the playlist does not load again.
+    /// </summary>
+    public async Task MovePlaylistTrackAsync(string playlistId, IReadOnlyList<TrackInfo> before, int from, int to, CancellationToken cancellationToken)
+    {
+        if (from == to || from < 0 || to < 0 || from >= before.Count || to >= before.Count)
+        {
+            return;
+        }
+
+        // Spotify counts every entry, including ones it no longer lists, so
+        // use the songs' own positions; "insert_before" is counted before the move.
+        var rangeStart = before[from].Position ?? from;
+        var target = before[to].Position ?? to;
+        var insertBefore = to > from ? target + 1 : target;
+        var version = Snapshot?.Playlists.FirstOrDefault(p => p.Id == playlistId)?.SnapshotId;
+        var snapshot = await _api.ReorderPlaylistItemsAsync(playlistId, rangeStart, insertBefore, 1, version, cancellationToken).ConfigureAwait(false);
+
+        // Keep the stored copy only when the list has no gaps, so positions stay exact.
+        var after = before.ToList();
+        var moved = after[from];
+        after.RemoveAt(from);
+        after.Insert(to, moved);
+        Remember(playlistId, snapshot, IsDense(before) ? Renumber(after) : null);
+    }
+
+    /// <summary>Removes every copy of a song from the playlist.</summary>
+    public async Task RemoveFromPlaylistAsync(string playlistId, IReadOnlyList<TrackInfo> before, string uri, CancellationToken cancellationToken)
+    {
+        var version = Snapshot?.Playlists.FirstOrDefault(p => p.Id == playlistId)?.SnapshotId;
+        var snapshot = await _api.RemovePlaylistItemsAsync(playlistId, [uri], version, cancellationToken).ConfigureAwait(false);
+        var after = before.Where(t => t.Uri != uri).ToList();
+        Remember(playlistId, snapshot, IsDense(before) ? Renumber(after) : null, countChange: -(before.Count - after.Count));
+    }
+
+    /// <summary>Adds songs to the end of a playlist (a hundred at a time).</summary>
+    public async Task AddToPlaylistAsync(string playlistId, IReadOnlyList<string> uris, CancellationToken cancellationToken)
+    {
+        string? snapshot = null;
+        foreach (var batch in uris.Chunk(SpotifyWebApi.MaxPlaylistUris))
+        {
+            snapshot = await _api.AddPlaylistItemsAsync(playlistId, batch, null, cancellationToken).ConfigureAwait(false);
+        }
+
+        // The stored copy no longer matches; the next visit loads the playlist again.
+        Remember(playlistId, snapshot, tracks: null, countChange: uris.Count);
+    }
+
+    /// <summary>Creates a private playlist and puts it at the top of the sidebar's list.</summary>
+    public async Task<SimplifiedPlaylist> CreatePlaylistAsync(string name, CancellationToken cancellationToken)
+    {
+        var playlist = await _api.CreatePlaylistAsync(name, description: null, isPublic: false, cancellationToken).ConfigureAwait(false);
+        playlist.Owner ??= new PlaylistOwner { Id = Snapshot?.User?.Id ?? string.Empty, DisplayName = Snapshot?.User?.DisplayName };
+        if (Snapshot is { } snapshot)
+        {
+            snapshot.Playlists.Insert(0, playlist);
+            _cache?.Save(snapshot);
+            PlaylistsChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        return playlist;
+    }
+
+    /// <summary>
+    /// Keeps the stored copy of Liked Songs in step after a song was liked
+    /// or unliked in Resonate (so it does not load again), then tells
+    /// listeners such as the Liked Songs page.
+    /// </summary>
+    public async Task NoteLikeChangedAsync(TrackInfo track, bool liked, CancellationToken cancellationToken)
+    {
+        await _likedLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (_lists.Load(LikedSongsKey) is { } cached)
+            {
+                var tracks = cached.Tracks.Where(t => t.Uri != track.Uri).ToList();
+                if (liked)
+                {
+                    tracks.Insert(0, track with { AddedAt = _time.GetUtcNow() });
+                }
+
+                SaveList(LikedSongsKey, null, Renumber(tracks));
+            }
+        }
+        finally
+        {
+            _likedLock.Release();
+        }
+
+        LikedSongsChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     /// <summary>Forgets every stored song list (on sign-out).</summary>
     public void ClearStoredLists() => _lists.Clear();
@@ -258,7 +356,8 @@ public sealed class LibraryService : IDisposable
         var index = -1;
         for (var i = 0; i < first.Tracks.Count; i++)
         {
-            if (first.Tracks[i].Uri == anchor.Uri && first.Tracks[i].AddedAt == anchor.AddedAt)
+            // By address only: a song liked in Resonate is stored with an approximate time.
+            if (first.Tracks[i].Uri == anchor.Uri)
             {
                 index = i;
                 break;
@@ -285,6 +384,20 @@ public sealed class LibraryService : IDisposable
         return Renumber(result);
     }
 
+    /// <summary>Every song sits at its index (Spotify left no entry out), so positions can be renumbered after a change.</summary>
+    private static bool IsDense(IReadOnlyList<TrackInfo> tracks)
+    {
+        for (var i = 0; i < tracks.Count; i++)
+        {
+            if (tracks[i].Position is { } position && position != i)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private static List<TrackInfo> Renumber(List<TrackInfo> tracks)
     {
         for (var i = 0; i < tracks.Count; i++)
@@ -304,11 +417,12 @@ public sealed class LibraryService : IDisposable
         Func<int, CancellationToken, Task<TrackListPage>> loadPage,
         CancellationToken cancellationToken)
     {
+        // Positions come from Spotify's offsets, so they stay right even when it leaves an entry out.
         var all = new List<TrackInfo>(Math.Max(first.Total, first.Tracks.Count));
         all.AddRange(first.Tracks);
         if (!first.HasMore)
         {
-            return Renumber(all);
+            return all;
         }
 
         // Offsets are known from the total, so a few pages can load at once.
@@ -327,7 +441,33 @@ public sealed class LibraryService : IDisposable
             }
         }
 
-        return Renumber(all);
+        return all;
+    }
+
+    /// <summary>Notes a playlist's new version after a change, with its songs when they are known.</summary>
+    private void Remember(string playlistId, string? snapshotId, List<TrackInfo>? tracks, int countChange = 0)
+    {
+        if (Snapshot?.Playlists.FirstOrDefault(p => p.Id == playlistId) is not { } playlist)
+        {
+            return;
+        }
+
+        playlist.SnapshotId = snapshotId;
+        if (countChange != 0 && (playlist.Items ?? playlist.Tracks) is { } reference)
+        {
+            reference.Total = Math.Max(0, reference.Total + countChange);
+        }
+
+        if (snapshotId is not null && tracks is not null)
+        {
+            SaveList("playlist-" + playlistId, snapshotId, tracks);
+        }
+
+        _cache?.Save(Snapshot);
+        if (countChange != 0)
+        {
+            PlaylistsChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     private void SaveList(string key, string? version, List<TrackInfo> tracks) =>
