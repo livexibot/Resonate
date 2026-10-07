@@ -14,6 +14,28 @@ public static class Format
             : duration.ToString(@"m\:ss", CultureInfo.InvariantCulture);
 
     public static string SongCount(int count) => count == 1 ? "1 song" : $"{count:N0} songs";
+
+    /// <summary>"3 days ago" within a month, then the date, the way Spotify shows when a song was added.</summary>
+    public static string DateAdded(DateTimeOffset? added, DateTimeOffset now)
+    {
+        if (added is not { } time)
+        {
+            return string.Empty;
+        }
+
+        var age = now - time;
+        return age.TotalMinutes switch
+        {
+            < 1 => "just now",
+            < 60 => Ago((int)age.TotalMinutes, "minute"),
+            < 60 * 24 => Ago((int)age.TotalHours, "hour"),
+            < 60 * 24 * 7 => Ago((int)age.TotalDays, "day"),
+            < 60 * 24 * 30 => Ago((int)(age.TotalDays / 7), "week"),
+            _ => time.ToLocalTime().ToString("MMM d, yyyy", CultureInfo.CurrentCulture),
+        };
+
+        static string Ago(int count, string unit) => count == 1 ? $"1 {unit} ago" : $"{count} {unit}s ago";
+    }
 }
 
 public static class Artwork
@@ -42,7 +64,10 @@ public static class Artwork
         return new BitmapImage(uri) { DecodePixelWidth = displayWidth, DecodePixelType = DecodePixelType.Logical };
     }
 
-    /// <summary>The same name always gets the same gradient.</summary>
+    // One brush per gradient, shared by every tile (lists can have thousands of rows).
+    private static readonly Brush?[] PlaceholderBrushes = new Brush?[Palettes.Length];
+
+    /// <summary>The same name always gets the same gradient. Call on the interface thread.</summary>
     public static Brush PlaceholderBrush(string name)
     {
         var hash = 0u;
@@ -51,7 +76,13 @@ public static class Artwork
             hash = (hash * 31) + c;
         }
 
-        var (from, to) = Palettes[hash % (uint)Palettes.Length];
+        var index = (int)(hash % (uint)Palettes.Length);
+        if (PlaceholderBrushes[index] is { } cached)
+        {
+            return cached;
+        }
+
+        var (from, to) = Palettes[index];
         var brush = new LinearGradientBrush
         {
             StartPoint = new Point(0, 0),
@@ -59,6 +90,7 @@ public static class Artwork
         };
         brush.GradientStops.Add(new GradientStop { Color = Themes.ThemePreset.Hex(from), Offset = 0 });
         brush.GradientStops.Add(new GradientStop { Color = Themes.ThemePreset.Hex(to), Offset = 1 });
+        PlaceholderBrushes[index] = brush;
         return brush;
     }
 }

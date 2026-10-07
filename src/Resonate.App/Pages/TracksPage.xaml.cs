@@ -2,103 +2,127 @@ using System.Collections.ObjectModel;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using Resonate.App.Helpers;
+using Resonate.App.Pages.Lists;
 using Resonate.App.Services;
 using Resonate.App.ViewModels;
 using Resonate.Spotify.Library;
 using Resonate.Spotify.Playback;
+using DataPackageOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation;
 using Launcher = Windows.System.Launcher;
 using VirtualKey = Windows.System.VirtualKey;
 
 namespace Resonate.App.Pages;
 
-/// <summary>A playlist, or Liked Songs: header, Play, and the songs (loaded a page at a time while scrolling).</summary>
-public sealed partial class PlaylistPage : Page
+/// <summary>
+/// A list of songs: Liked Songs, a playlist, an album, Local Files or a mix.
+/// The whole list loads once (from the stored copy when it is current), so
+/// sorting, filtering and shuffling cover every song and happen at once.
+/// </summary>
+public sealed partial class TracksPage : Page
 {
+    private const string UpGlyph = "";
+    private const string DownGlyph = "";
+
     private readonly AppServices _services = App.Services;
     private readonly CancellationTokenSource _leaving = new();
-    private string _key = MainWindow.LikedSongsKey;
-    private string? _contextUri;
-    private string? _spotifyLink;
-    private bool _hasMore;
-    private bool _loadingMore;
-    private int _nextOffset;
-    private ScrollViewer? _scroller;
+    private readonly Dictionary<TrackInfo, TrackRow> _rowCache = new(ReferenceEqualityComparer.Instance);
+    private readonly DispatcherQueueTimer _filterTimer;
+    private TrackListSource _source = null!;
+    private ListHeader _header = null!;
+    private TrackColumns _columns = null!;
+    private List<TrackInfo> _all = [];
+    private List<TrackInfo> _shown = [];
+    private ObservableCollection<TrackRow> _rows = [];
+    private Task<FullTrackList>? _fullLoad;
+    private bool _complete;
+    private bool _itemsHidden;
+    private TrackSort _sort = TrackSort.Default;
+    private string _filter = string.Empty;
     private string? _highlightedTrack;
     private int _highlightQueued;
+    private TrackRow? _dragged;
+    private int _dragFrom = -1;
 
-    public PlaylistPage()
+    public TracksPage()
     {
         InitializeComponent();
-        Loaded += OnLoaded;
+        _filterTimer = DispatcherQueue.CreateTimer();
+        _filterTimer.Interval = TimeSpan.FromMilliseconds(150);
+        _filterTimer.IsRepeating = false;
+        _filterTimer.Tick += (_, _) => ApplyView();
     }
 
-    public ObservableCollection<TrackRow> Tracks { get; } = [];
-
-    private bool IsLikedSongs => _key == MainWindow.LikedSongsKey;
+    /// <summary>The list shown is in its own order, unfiltered (so it can play inside its Spotify context and be rearranged).</summary>
+    private bool InOwnOrder => _sort.IsDefault && _filter.Length == 0;
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
-        _key = e.Parameter as string ?? MainWindow.LikedSongsKey;
+        _source = e.Parameter as TrackListSource
+            ?? TrackListSource.For(e.Parameter as string ?? LikedSongsSource.ListKey, _services);
+        _columns = new TrackColumns(album: !_source.IsAlbum, dateAdded: _source.HasDateAdded);
+        AlbumHeadingColumn.Width = _columns.AlbumWidth;
+        AddedHeadingColumn.Width = _columns.AddedWidth;
+        AlbumHeading.Visibility = _source.IsAlbum ? Visibility.Collapsed : Visibility.Visible;
+        AddedHeading.Visibility = _source.HasDateAdded ? Visibility.Visible : Visibility.Collapsed;
+
+        _sort = TrackSort.Parse(_services.Settings.TrackSorts.GetValueOrDefault(_source.Key));
+        if (!SortFields().Contains(_sort.Field))
+        {
+            _sort = TrackSort.Default;
+        }
+
+        BuildSortMenu();
         _services.Player.StateChanged += OnPlayerStateChanged;
+        _services.Likes.Changed += OnLikesChanged;
         _ = LoadAsync();
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         _services.Player.StateChanged -= OnPlayerStateChanged;
+        _services.Likes.Changed -= OnLikesChanged;
+        _filterTimer.Stop();
         _leaving.Cancel();
-        if (_scroller is not null)
-        {
-            _scroller.ViewChanged -= OnScrolled;
-        }
-    }
-
-    private void OnLoaded(object sender, RoutedEventArgs e)
-    {
-        _scroller = VisualTree.FindDescendant<ScrollViewer>(TrackList);
-        if (_scroller is not null)
-        {
-            _scroller.ViewChanged += OnScrolled;
-        }
     }
 
     private async Task LoadAsync()
     {
         var token = _leaving.Token;
-        var library = _services.Library;
-        ShowHeaderFromCache();
+        var source = _source;
+        ShowHeader(source.CachedHeader);
+        _ = LoadHeaderAsync(source, token);
 
-        var slow = Task.Delay(150, token);
-        var loading = IsLikedSongs
-            ? Task.Run(() => LoadLikedSongsAsync(library, token), token)
-            : Task.Run(() => LoadPlaylistAsync(library, token), token);
+        var full = Task.Run(() => source.LoadAllAsync(token), token);
+        _fullLoad = full;
 
-        // Only show a spinner if Spotify is slow; a fast answer should just appear.
-        if (await Task.WhenAny(loading, slow) == slow && !loading.IsCompleted)
+        // A quick answer just appears. A slow one shows the first songs
+        // meanwhile, and a spinner only if even those are slow.
+        var quick = Task.Delay(120, token);
+        if (await Task.WhenAny(full, quick) == quick && !full.IsCompleted)
         {
-            LoadingRing.IsActive = true;
+            _ = ShowPreviewAsync(source, full, token);
+            if (await Task.WhenAny(full, Task.Delay(150, token)) != full && _rows.Count == 0)
+            {
+                LoadingRing.IsActive = true;
+            }
         }
 
         try
         {
-            var (details, page) = await loading;
-            if (details is not null)
-            {
-                ShowHeader(details);
-            }
-
-            AddPage(page);
+            ShowAll(await full);
         }
         catch (OperationCanceledException)
         {
-            return;
         }
         catch (Exception ex)
         {
             App.MainWindow?.ShowMessage(PlayerController.DescribeError(ex), InfoBarSeverity.Warning);
+            UpdateEmpty();
         }
         finally
         {
@@ -106,182 +130,562 @@ public sealed partial class PlaylistPage : Page
         }
     }
 
-    private static async Task<(PlaylistDetails? Details, TrackListPage Page)> LoadLikedSongsAsync(LibraryService library, CancellationToken token) =>
-        (null, await library.GetLikedSongsAsync(0, token));
-
-    private async Task<(PlaylistDetails? Details, TrackListPage Page)> LoadPlaylistAsync(LibraryService library, CancellationToken token)
+    private async Task LoadHeaderAsync(TrackListSource source, CancellationToken token)
     {
-        var details = await library.GetPlaylistAsync(_key, token);
-        return (details, details.FirstPage);
-    }
-
-    private void ShowHeaderFromCache()
-    {
-        if (IsLikedSongs)
-        {
-            KindText.Text = "COLLECTION";
-            TitleText.Text = "Liked Songs";
-            CoverFrame.Background = Artwork.PlaceholderBrush("Liked Songs");
-            CoverGlyph.Visibility = Visibility.Visible;
-            var userId = _services.Library.Snapshot?.User?.Id;
-            _contextUri = userId is null ? null : $"spotify:user:{userId}:collection";
-            _spotifyLink = "spotify:collection:tracks";
-            return;
-        }
-
-        var cached = _services.Library.Snapshot?.Playlists.FirstOrDefault(p => p.Id == _key);
-        KindText.Text = "PLAYLIST";
-        CoverFrame.Background = Artwork.PlaceholderBrush(cached?.Name ?? _key);
-        if (cached is not null)
-        {
-            TitleText.Text = cached.Name;
-            _contextUri = cached.Uri;
-            _spotifyLink = cached.Uri;
-            CoverImage.Source = Artwork.FromUrl(ImagePicker.Pick(cached.Images, 300), 184);
-            DetailsText.Text = Format.SongCount(cached.ItemCount);
-        }
-    }
-
-    private void ShowHeader(PlaylistDetails details)
-    {
-        TitleText.Text = details.Name;
-        _contextUri = details.Uri;
-        _spotifyLink = details.Uri;
-        CoverFrame.Background = Artwork.PlaceholderBrush(details.Name);
-        if (details.ImageUrl is not null)
-        {
-            CoverImage.Source = Artwork.FromUrl(details.ImageUrl, 184);
-        }
-
-        if (details.Description is { Length: > 0 } description)
-        {
-            DescriptionText.Text = description;
-            DescriptionText.Visibility = Visibility.Visible;
-        }
-
-        var count = details.FirstPage.ItemsHidden ? null : Format.SongCount(details.FirstPage.Total);
-        DetailsText.Text = string.Join(" · ", new[] { details.Owner, count }.Where(s => !string.IsNullOrEmpty(s)));
-    }
-
-    private void AddPage(TrackListPage page)
-    {
-        if (page.ItemsHidden)
-        {
-            HiddenNotice.Visibility = Visibility.Visible;
-            ColumnHeadings.Visibility = Visibility.Collapsed;
-            _hasMore = false;
-            return;
-        }
-
-        if (IsLikedSongs && Tracks.Count == 0)
-        {
-            DetailsText.Text = Format.SongCount(page.Total);
-        }
-
-        foreach (var track in page.Tracks)
-        {
-            Tracks.Add(new TrackRow(track, Tracks.Count + 1));
-        }
-
-        _hasMore = page.HasMore;
-        _nextOffset = page.NextOffset;
-        HighlightPlayingTrack();
-
-        // If the songs do not fill the screen yet, scrolling will never ask for more.
-        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, LoadMoreIfNearEnd);
-    }
-
-    private void OnScrolled(object? sender, ScrollViewerViewChangedEventArgs e) => LoadMoreIfNearEnd();
-
-    private void LoadMoreIfNearEnd()
-    {
-        if (!_hasMore || _loadingMore || _scroller is null)
-        {
-            return;
-        }
-
-        if (_scroller.VerticalOffset >= _scroller.ScrollableHeight - (_scroller.ViewportHeight * 2))
-        {
-            _ = LoadMoreAsync();
-        }
-    }
-
-    private async Task LoadMoreAsync()
-    {
-        _loadingMore = true;
-        var token = _leaving.Token;
-        var offset = _nextOffset;
         try
         {
-            var library = _services.Library;
-            var page = IsLikedSongs
-                ? await Task.Run(() => library.GetLikedSongsAsync(offset, token), token)
-                : await Task.Run(() => library.GetPlaylistTracksAsync(_key, offset, token), token);
-            AddPage(page);
+            if (await Task.Run(() => source.LoadHeaderAsync(token), token) is { } header)
+            {
+                ShowHeader(header);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The cached header stays; the songs report their own errors.
         }
         catch (OperationCanceledException)
         {
         }
-        catch (Exception ex)
+    }
+
+    private async Task ShowPreviewAsync(TrackListSource source, Task<FullTrackList> full, CancellationToken token)
+    {
+        try
         {
-            _hasMore = false;
-            App.MainWindow?.ShowMessage(PlayerController.DescribeError(ex), InfoBarSeverity.Warning);
+            var preview = await Task.Run(() => source.LoadPreviewAsync(token), token);
+            if (preview is { Count: > 0 } && !full.IsCompleted && !_complete)
+            {
+                LoadingRing.IsActive = false;
+                _all = preview.ToList();
+                ApplyView();
+            }
         }
-        finally
+        catch (Exception)
         {
-            _loadingMore = false;
+            // The full list reports any error.
         }
     }
 
+    private void ShowHeader(ListHeader header)
+    {
+        _header = header;
+        KindText.Text = header.Kind;
+        TitleText.Text = header.Title.Length > 0 ? header.Title : " ";
+        DescriptionText.Text = header.Description ?? string.Empty;
+        DescriptionText.Visibility = string.IsNullOrEmpty(header.Description) ? Visibility.Collapsed : Visibility.Visible;
+
+        CoverFrame.Background = Artwork.PlaceholderBrush(header.PlaceholderName);
+        CoverGlyph.Glyph = header.Glyph ?? string.Empty;
+        CoverGlyph.Visibility = header.Glyph is null ? Visibility.Collapsed : Visibility.Visible;
+        if (header.ImageUrl is not null)
+        {
+            CoverImage.Source = Artwork.FromUrl(header.ImageUrl, 184);
+        }
+
+        ArtistLinks.Children.Clear();
+        foreach (var artist in header.Artists)
+        {
+            var link = new HyperlinkButton { Content = artist.Name, Padding = new Thickness(0), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
+            if (artist.Id is { } id)
+            {
+                link.Click += (_, _) => App.MainWindow?.Open(TrackActions.ArtistKey(id));
+            }
+
+            ArtistLinks.Children.Add(link);
+        }
+
+        OpenInSpotifyButton.Visibility = _source.SpotifyLink is null ? Visibility.Collapsed : Visibility.Visible;
+        UpdateDetails();
+    }
+
+    private void UpdateDetails()
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrEmpty(_header.Details))
+        {
+            parts.Add(_header.Details);
+        }
+
+        if (_complete && !_itemsHidden)
+        {
+            parts.Add(ListFormat.CountAndLength(_all));
+        }
+
+        // After the artist links, the details continue the same line.
+        var details = string.Join(" · ", parts);
+        DetailsText.Text = _header.Artists.Count > 0 && details.Length > 0 ? "· " + details : details;
+    }
+
+    private void ShowAll(FullTrackList list)
+    {
+        var previous = _all;
+        _complete = true;
+        _itemsHidden = list.ItemsHidden;
+        _all = list.Tracks.ToList();
+
+        HiddenNotice.Visibility = _itemsHidden ? Visibility.Visible : Visibility.Collapsed;
+        ColumnHeadings.Visibility = _itemsHidden ? Visibility.Collapsed : Visibility.Visible;
+        FilterBox.IsEnabled = !_itemsHidden;
+        SortButton.IsEnabled = !_itemsHidden;
+        UpdateDetails();
+
+        // The first songs are already shown in order: add the rest below them, so nothing jumps.
+        if (InOwnOrder && previous.Count > 0 && previous.Count <= _all.Count && _rows.Count == previous.Count
+            && previous.Select(t => t.Uri).SequenceEqual(_all.Take(previous.Count).Select(t => t.Uri)))
+        {
+            for (var i = 0; i < previous.Count; i++)
+            {
+                if (_rowCache.Remove(previous[i], out var row))
+                {
+                    row.Replace(_all[i]);
+                    _rowCache[_all[i]] = row;
+                }
+            }
+
+            _shown = _all.ToList();
+            for (var i = previous.Count; i < _all.Count; i++)
+            {
+                _rows.Add(RowFor(_all[i], i));
+            }
+
+            UpdateEditing();
+            UpdateEmpty();
+            HighlightPlayingTrack(force: true);
+            return;
+        }
+
+        ApplyView();
+    }
+
+    /// <summary>Sorts and filters every song and shows the result.</summary>
+    private void ApplyView()
+    {
+        _shown = TrackSorter.Apply(_all.Where(t => TrackSorter.Matches(t, _filter)), _sort);
+        var rows = new List<TrackRow>(_shown.Count);
+        for (var i = 0; i < _shown.Count; i++)
+        {
+            rows.Add(RowFor(_shown[i], i));
+        }
+
+        _rows = new ObservableCollection<TrackRow>(rows);
+        TrackList.ItemsSource = _rows;
+        UpdateEditing();
+        UpdateEmpty();
+        UpdateSortIndicators();
+        HighlightPlayingTrack(force: true);
+    }
+
+    private TrackRow RowFor(TrackInfo track, int index)
+    {
+        var liked = _source is LikedSongsSource || _services.Likes.IsLiked(track.Uri);
+        if (!_rowCache.TryGetValue(track, out var row))
+        {
+            row = new TrackRow(track, index + 1, _columns, liked);
+            _rowCache[track] = row;
+        }
+        else
+        {
+            row.IsLiked = liked;
+        }
+
+        // Albums number songs by track number while shown in album order.
+        row.Number = (_source.IsAlbum && InOwnOrder && track.TrackNumber is { } number ? number : index + 1)
+            .ToString(System.Globalization.CultureInfo.CurrentCulture);
+        return row;
+    }
+
+    private void Renumber()
+    {
+        for (var i = 0; i < _rows.Count; i++)
+        {
+            _rows[i].Number = (i + 1).ToString(System.Globalization.CultureInfo.CurrentCulture);
+        }
+    }
+
+    private void UpdateEmpty()
+    {
+        var empty = _complete && !_itemsHidden && _shown.Count == 0;
+        EmptyText.Text = _all.Count == 0 ? _source.EmptyText : "No songs match the filter.";
+        EmptyText.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Songs can be dragged into a new order in the user's own playlists, shown in their own order.</summary>
+    private void UpdateEditing()
+    {
+        var canDrag = _source.CanEdit && _complete && InOwnOrder;
+        TrackList.CanDragItems = canDrag;
+        TrackList.CanReorderItems = canDrag;
+        TrackList.AllowDrop = canDrag;
+    }
+
+    // ---- Sorting and filtering ----
+
+    private List<TrackSortField> SortFields()
+    {
+        var fields = new List<TrackSortField> { TrackSortField.Custom, TrackSortField.Title, TrackSortField.Artist };
+        if (!_source.IsAlbum)
+        {
+            fields.Add(TrackSortField.Album);
+        }
+
+        if (_source.HasDateAdded)
+        {
+            fields.Add(TrackSortField.DateAdded);
+        }
+
+        fields.Add(TrackSortField.Duration);
+        return fields;
+    }
+
+    private string FieldName(TrackSortField field) => field switch
+    {
+        TrackSortField.Custom => _source.OwnOrderName,
+        TrackSortField.Title => "Title",
+        TrackSortField.Artist => "Artist",
+        TrackSortField.Album => "Album",
+        TrackSortField.DateAdded => "Date added",
+        TrackSortField.Duration => "Duration",
+        _ => field.ToString(),
+    };
+
+    private void BuildSortMenu()
+    {
+        SortMenu.Items.Clear();
+        foreach (var field in SortFields())
+        {
+            var item = new RadioMenuFlyoutItem { Text = FieldName(field), GroupName = "field", IsChecked = _sort.Field == field };
+            item.Click += (_, _) => SetSort(new TrackSort(field, field != TrackSortField.Custom && _sort.Descending));
+            SortMenu.Items.Add(item);
+        }
+
+        if (_sort.Field != TrackSortField.Custom)
+        {
+            SortMenu.Items.Add(new MenuFlyoutSeparator());
+            foreach (var descending in new[] { false, true })
+            {
+                var item = new RadioMenuFlyoutItem
+                {
+                    Text = descending ? "Descending" : "Ascending",
+                    GroupName = "direction",
+                    IsChecked = _sort.Descending == descending,
+                };
+                item.Click += (_, _) => SetSort(_sort with { Descending = descending });
+                SortMenu.Items.Add(item);
+            }
+        }
+
+        SortText.Text = FieldName(_sort.Field);
+    }
+
+    private void SetSort(TrackSort sort)
+    {
+        if (sort == _sort)
+        {
+            return;
+        }
+
+        _sort = sort;
+        if (sort.IsDefault)
+        {
+            _services.Settings.TrackSorts.Remove(_source.Key);
+        }
+        else
+        {
+            _services.Settings.TrackSorts[_source.Key] = sort.Serialize();
+        }
+
+        _services.SaveSettings();
+        BuildSortMenu();
+        ApplyView();
+    }
+
+    private void UpdateSortIndicators()
+    {
+        foreach (var (arrow, field) in new[]
+        {
+            (TitleArrow, TrackSortField.Title),
+            (AlbumArrow, TrackSortField.Album),
+            (AddedArrow, TrackSortField.DateAdded),
+            (DurationArrow, TrackSortField.Duration),
+        })
+        {
+            arrow.Visibility = _sort.Field == field ? Visibility.Visible : Visibility.Collapsed;
+            arrow.Glyph = _sort.Descending ? DownGlyph : UpGlyph;
+        }
+    }
+
+    /// <summary>A click on a heading sorts by it, a second reverses, a third goes back to the list's own order.</summary>
+    private void OnHeadingTapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (_itemsHidden || (sender as FrameworkElement)?.Tag is not string tag || !Enum.TryParse<TrackSortField>(tag, out var field))
+        {
+            return;
+        }
+
+        // Newest first is the useful start for dates.
+        var first = field == TrackSortField.DateAdded;
+        SetSort(_sort.Field != field
+            ? new TrackSort(field, first)
+            : _sort.Descending != first ? TrackSort.Default : new TrackSort(field, !first));
+    }
+
+    private void OnFilterChanged(object sender, TextChangedEventArgs e)
+    {
+        _filter = FilterBox.Text.Trim();
+        _filterTimer.Stop();
+        _filterTimer.Start();
+    }
+
+    // ---- Playing ----
+
     private void OnTrackDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
-        if ((e.OriginalSource as FrameworkElement)?.DataContext is TrackRow row)
+        if (!IsInsideButton(e.OriginalSource as DependencyObject) && RowOf(e.OriginalSource) is { } row)
         {
-            Play(row);
+            _ = PlayAsync(row);
         }
     }
 
     private void OnTrackListKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key == VirtualKey.Enter && TrackList.SelectedItem is TrackRow row)
-        {
-            e.Handled = true;
-            Play(row);
-        }
-    }
-
-    private void OnPlayClick(object sender, RoutedEventArgs e)
-    {
-        var first = Tracks.FirstOrDefault(t => t.Track.IsPlayable);
-        if (first is not null)
-        {
-            Play(first);
-        }
-        else if (_contextUri is not null)
-        {
-            _ = _services.Player.PlayContextAsync(_contextUri);
-        }
-    }
-
-    private void Play(TrackRow row)
-    {
-        if (!row.Track.IsPlayable)
+        if (TrackList.SelectedItem is not TrackRow row)
         {
             return;
         }
 
-        // Spotify may refuse Liked Songs as a context; the loaded songs are the fallback.
-        var fallback = IsLikedSongs ? Tracks.Select(t => t.Track.Uri).OfType<string>().ToList() : null;
-        _ = _services.Player.PlayTrackAsync(row.Track, _contextUri, fallback);
+        if (e.Key == VirtualKey.Enter)
+        {
+            e.Handled = true;
+            _ = PlayAsync(row);
+        }
+        else if (e.Key == VirtualKey.Delete && _source.CanEdit && _complete)
+        {
+            e.Handled = true;
+            _ = RemoveAsync(row);
+        }
+    }
+
+    private void OnPlayClick(object sender, RoutedEventArgs e) => _ = PlayListAsync(shuffle: false);
+
+    private void OnShuffleClick(object sender, RoutedEventArgs e) => _ = PlayListAsync(shuffle: true);
+
+    private Task PlayAsync(TrackRow row)
+    {
+        var index = _shown.IndexOf(row.Track);
+        return index < 0 ? Task.CompletedTask : PlayFromAsync(index, shuffle: null);
+    }
+
+    /// <summary>"Play" from the top in the order shown, or "Shuffle" in a truly random order.</summary>
+    private Task PlayListAsync(bool shuffle) => PlayFromAsync(-1, shuffle);
+
+    private async Task PlayFromAsync(int index, bool? shuffle)
+    {
+        var picked = index >= 0 ? _shown[index] : null;
+
+        // A random order needs every song; wait for the rest if only the first ones are here.
+        if ((shuffle ?? _services.Player.State.Shuffle) && !_complete && _fullLoad is { } full)
+        {
+            try
+            {
+                await full;
+            }
+            catch (Exception)
+            {
+                // Play what is there.
+            }
+
+            index = picked is null ? -1 : _shown.FindIndex(t => t.Uri == picked.Uri && t.FilePath == picked.FilePath);
+        }
+
+        var request = new PlayRequest(_shown.ToList(), index, InOwnOrder ? _source.ContextUri : null, _header.Title)
+        {
+            Shuffle = shuffle,
+        };
+        App.MainWindow?.NoteListPlayed(_source.Key);
+        await _services.Player.PlayAsync(request);
     }
 
     private void OnOpenInSpotifyClick(object sender, RoutedEventArgs e)
     {
-        if (_spotifyLink is not null && Uri.TryCreate(_spotifyLink, UriKind.Absolute, out var uri))
+        if (_source.SpotifyLink is { } link && Uri.TryCreate(link, UriKind.Absolute, out var uri))
         {
             _ = Launcher.LaunchUriAsync(uri);
         }
     }
+
+    // ---- Likes, the menu, rearranging ----
+
+    private void OnHeartClick(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is TrackRow row)
+        {
+            _ = TrackActions.SetLikedAsync(row.Track, !row.IsLiked);
+        }
+    }
+
+    private void OnLikesChanged(object? sender, LikeChange change) =>
+        DispatcherQueue.TryEnqueue(() => ShowLikeChange(change));
+
+    private void ShowLikeChange(LikeChange change)
+    {
+        if (_leaving.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (_source is LikedSongsSource && change.Track is { } track && _complete)
+        {
+            // Liked Songs follows at once, without loading again.
+            if (!change.IsLiked)
+            {
+                RemoveRows(t => t.Uri == track.Uri);
+            }
+            else if (!_all.Any(t => t.Uri == track.Uri))
+            {
+                var added = track with { AddedAt = DateTimeOffset.UtcNow };
+                _all.Insert(0, added);
+                if (InOwnOrder)
+                {
+                    _shown.Insert(0, added);
+                    _rows.Insert(0, RowFor(added, 0));
+                    Renumber();
+                }
+                else
+                {
+                    ApplyView();
+                }
+            }
+
+            UpdateDetails();
+            UpdateEmpty();
+            return;
+        }
+
+        foreach (var row in _rowCache.Values)
+        {
+            if (change.Uri is null || row.Track.Uri == change.Uri)
+            {
+                row.IsLiked = _source is LikedSongsSource || _services.Likes.IsLiked(row.Track.Uri);
+            }
+        }
+    }
+
+    private void OnTrackContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (RowOf(args.OriginalSource) is not { } row)
+        {
+            return;
+        }
+
+        TrackList.SelectedItem = row;
+        var options = new TrackMenuOptions
+        {
+            Play = () => _ = PlayAsync(row),
+            Remove = _source.CanEdit && _complete ? () => _ = RemoveAsync(row) : null,
+            CurrentPlaylistId = (_source as PlaylistSource)?.PlaylistId,
+        };
+        TrackActions.ShowMenu(TrackActions.BuildMenu(row.Track, options), TrackList, args);
+    }
+
+    private async Task RemoveAsync(TrackRow row)
+    {
+        var before = _all.ToList();
+        var track = row.Track;
+        RemoveRows(t => t.Uri == track.Uri);
+        UpdateDetails();
+        UpdateEmpty();
+        try
+        {
+            await Task.Run(() => _source.RemoveAsync(before, track, CancellationToken.None));
+        }
+        catch (Exception ex)
+        {
+            App.MainWindow?.ShowMessage(PlayerController.DescribeError(ex), InfoBarSeverity.Warning);
+            ShowAll(new FullTrackList(before, ItemsHidden: false));
+        }
+    }
+
+    private void RemoveRows(Func<TrackInfo, bool> match)
+    {
+        _all.RemoveAll(t => match(t));
+        _shown.RemoveAll(t => match(t));
+        for (var i = _rows.Count - 1; i >= 0; i--)
+        {
+            if (match(_rows[i].Track))
+            {
+                _rows.RemoveAt(i);
+            }
+        }
+
+        Renumber();
+    }
+
+    private void OnDragItemsStarting(object sender, DragItemsStartingEventArgs e)
+    {
+        _dragged = e.Items.Count == 1 ? e.Items[0] as TrackRow : null;
+        _dragFrom = _dragged is null ? -1 : _rows.IndexOf(_dragged);
+        if (_dragged is null)
+        {
+            e.Cancel = true;
+        }
+    }
+
+    private async void OnDragItemsCompleted(ListViewBase sender, DragItemsCompletedEventArgs args)
+    {
+        var row = _dragged;
+        var from = _dragFrom;
+        _dragged = null;
+        if (row is null || args.DropResult != DataPackageOperation.Move)
+        {
+            return;
+        }
+
+        var to = _rows.IndexOf(row);
+        if (to < 0 || to == from)
+        {
+            return;
+        }
+
+        var before = _all.ToList();
+        _all = _rows.Select(r => r.Track).ToList();
+        _shown = _all.ToList();
+        Renumber();
+        try
+        {
+            await Task.Run(() => _source.MoveAsync(before, from, to, CancellationToken.None));
+            RenumberPositions();
+        }
+        catch (Exception ex)
+        {
+            App.MainWindow?.ShowMessage(PlayerController.DescribeError(ex), InfoBarSeverity.Warning);
+            ShowAll(new FullTrackList(before, ItemsHidden: false));
+        }
+    }
+
+    /// <summary>After a move, songs sit at new positions in the playlist; the next move counts from them.</summary>
+    private void RenumberPositions()
+    {
+        for (var i = 0; i < _all.Count; i++)
+        {
+            var old = _all[i];
+            if (old.Position == i)
+            {
+                continue;
+            }
+
+            var moved = old with { Position = i };
+            _all[i] = moved;
+            if (_rowCache.Remove(old, out var row))
+            {
+                row.Replace(moved);
+                _rowCache[moved] = row;
+            }
+        }
+
+        _shown = _all.ToList();
+    }
+
+    // ---- The playing song ----
 
     private void OnPlayerStateChanged(object? sender, EventArgs e)
     {
@@ -290,26 +694,44 @@ public sealed partial class PlaylistPage : Page
             DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
             {
                 Interlocked.Exchange(ref _highlightQueued, 0);
-                HighlightPlayingTrack();
+                HighlightPlayingTrack(force: false);
             });
         }
     }
 
-    private void HighlightPlayingTrack()
+    private void HighlightPlayingTrack(bool force)
     {
         var state = _services.Player.State;
         var key = state.TrackUri ?? state.Title;
-        if (key == _highlightedTrack && Tracks.Count > 0 && Tracks.Any(t => t.IsCurrent))
+        if (!force && key == _highlightedTrack)
         {
             return;
         }
 
         _highlightedTrack = key;
-        foreach (var row in Tracks)
+        foreach (var row in _rows)
         {
             row.IsCurrent = state.TrackUri is not null
                 ? row.Track.Uri == state.TrackUri
                 : state.Title is not null && row.Title == state.Title;
         }
+    }
+
+    private static TrackRow? RowOf(object? source) => (source as FrameworkElement)?.DataContext as TrackRow;
+
+    /// <summary>Double-clicking the heart should like the song, not play it.</summary>
+    private static bool IsInsideButton(DependencyObject? element)
+    {
+        while (element is not null and not ListViewItem)
+        {
+            if (element is ButtonBase)
+            {
+                return true;
+            }
+
+            element = VisualTreeHelper.GetParent(element);
+        }
+
+        return false;
     }
 }

@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using Resonate.App.Helpers;
 using Resonate.Spotify.Library;
@@ -27,22 +28,53 @@ public abstract partial class ObservableObject : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
 
+/// <summary>Which optional columns a song list shows; shared by all its rows.</summary>
+public sealed class TrackColumns
+{
+    public TrackColumns(bool album, bool dateAdded)
+    {
+        AlbumWidth = album ? new GridLength(3, GridUnitType.Star) : new GridLength(0);
+        AddedWidth = dateAdded ? new GridLength(132) : new GridLength(0);
+    }
+
+    public GridLength AlbumWidth { get; }
+
+    public GridLength AddedWidth { get; }
+}
+
 /// <summary>One song in a list.</summary>
 public sealed partial class TrackRow : ObservableObject
 {
+    private const string HeartGlyphOutline = "\uEB51";
+    private const string HeartGlyphFilled = "\uEB52";
+
+    private string _number;
     private bool _isCurrent;
+    private bool _isLiked;
     private ImageSource? _image;
 
-    public TrackRow(TrackInfo track, int number)
+    public TrackRow(TrackInfo track, int number, TrackColumns? columns = null, bool isLiked = false)
     {
         Track = track;
-        Number = number.ToString(System.Globalization.CultureInfo.CurrentCulture);
+        _number = number.ToString(System.Globalization.CultureInfo.CurrentCulture);
+        _isLiked = isLiked;
+        Columns = columns ?? Default;
+        DateAdded = Format.DateAdded(track.AddedAt, DateTimeOffset.UtcNow);
         PlaceholderBrush = Artwork.PlaceholderBrush(track.Album.Length > 0 ? track.Album : track.Title);
     }
 
-    public TrackInfo Track { get; }
+    private static TrackColumns Default { get; } = new(album: true, dateAdded: false);
 
-    public string Number { get; }
+    public TrackInfo Track { get; private set; }
+
+    public TrackColumns Columns { get; }
+
+    /// <summary>The row's place in the list as shown (or the track number on an album).</summary>
+    public string Number
+    {
+        get => _number;
+        set => Set(ref _number, value);
+    }
 
     public string Title => Track.Title;
 
@@ -50,14 +82,19 @@ public sealed partial class TrackRow : ObservableObject
 
     public string Album => Track.Album;
 
+    public string DateAdded { get; }
+
     public string Duration => Format.Duration(Track.Duration);
 
-    public double RowOpacity => Track.IsPlayable ? 1 : 0.45;
+    public double RowOpacity => Track.IsPlayable || Track.IsLocal ? 1 : 0.45;
 
     public Brush PlaceholderBrush { get; }
 
     /// <summary>Created on first use, on the interface thread, at the size it is shown.</summary>
     public ImageSource? Image => _image ??= Artwork.FromUrl(Track.SmallImageUrl, 80);
+
+    /// <summary>Only Spotify songs can be liked (not local files or podcast episodes).</summary>
+    public Visibility HeartVisibility => CanLike(Track) ? Visibility.Visible : Visibility.Collapsed;
 
     public bool IsCurrent
     {
@@ -71,8 +108,34 @@ public sealed partial class TrackRow : ObservableObject
         }
     }
 
+    public bool IsLiked
+    {
+        get => _isLiked;
+        set
+        {
+            if (Set(ref _isLiked, value))
+            {
+                OnPropertyChanged(nameof(HeartGlyph));
+                OnPropertyChanged(nameof(HeartBrush));
+                OnPropertyChanged(nameof(HeartLabel));
+            }
+        }
+    }
+
+    public string HeartGlyph => IsLiked ? HeartGlyphFilled : HeartGlyphOutline;
+
+    public Brush HeartBrush => App.Services.Theme.GetBrush(IsLiked ? "ResonateAccentBrush" : "ResonateTextTertiaryBrush");
+
+    public string HeartLabel => IsLiked ? "Remove from Liked Songs" : "Save to Liked Songs";
+
     /// <summary>The playing song's title is drawn in the accent colour.</summary>
     public Brush TitleBrush => App.Services.Theme.GetBrush(IsCurrent ? "ResonateAccentBrush" : "ResonateTextPrimaryBrush");
+
+    /// <summary>The same song with new details that are not shown (its position after a move).</summary>
+    public void Replace(TrackInfo track) => Track = track;
+
+    public static bool CanLike(TrackInfo track) =>
+        track.FilePath is null && !track.IsLocal && track.Uri?.StartsWith("spotify:track:", StringComparison.Ordinal) == true;
 }
 
 /// <summary>A playlist in the sidebar.</summary>
