@@ -194,6 +194,8 @@ public sealed partial class TracksPage : Page
             ArtistLinks.Children.Add(link);
         }
 
+        // An empty panel would still push the details over by the row's spacing.
+        ArtistLinks.Visibility = header.Artists.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         OpenInSpotifyButton.Visibility = _source.SpotifyLink is null ? Visibility.Collapsed : Visibility.Visible;
         UpdateDetails();
     }
