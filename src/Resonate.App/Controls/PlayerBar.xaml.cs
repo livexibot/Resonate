@@ -75,7 +75,6 @@ public sealed partial class PlayerBar : UserControl
             }
         };
         Show(player.State);
-        _clock.Start();
     }
 
     private void OnStateChanged(object? sender, EventArgs e)
@@ -125,6 +124,17 @@ public sealed partial class PlayerBar : UserControl
         ShowLike(state);
         ShowArtwork(state);
         UpdateClock();
+
+        // The clock only moves while music plays; paused, it would wake the app four times a second for nothing.
+        if (!state.IsPlaying)
+        {
+            _clock.Stop();
+        }
+        else if (!_clock.IsRunning)
+        {
+            _clock.Start();
+        }
+
         PositionBar.IsAdvancing = state.IsPlaying && state.Duration > TimeSpan.Zero;
         UpdateVinylSpin();
     }

@@ -565,6 +565,14 @@ public sealed class LocalLibrary : IDisposable
 
     private void OnFileEvent(object sender, FileSystemEventArgs e)
     {
+        // A folder "changes" whenever any file in it is added or removed, music
+        // or not (another app's library files, a download). New, deleted and
+        // renamed music files and folders arrive as their own events.
+        if (e.ChangeType == WatcherChangeTypes.Changed && !TagReader.IsSupported(e.FullPath))
+        {
+            return;
+        }
+
         if (IsRelevant(e.FullPath))
         {
             ScheduleRescan();

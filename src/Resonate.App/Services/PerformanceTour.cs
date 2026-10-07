@@ -46,6 +46,8 @@ internal sealed partial class PerformanceTour
     private readonly List<ScrollResult> _scrolls = [];
     private readonly List<string> _leftAlive = [];
     private readonly List<string> _errors = [];
+    private string _stage = "starting";
+    private bool _finished;
 
     public PerformanceTour(MainWindow window, FrameworkElement root, string folder, double startupMs)
     {
@@ -80,13 +82,14 @@ internal sealed partial class PerformanceTour
 
             // Resonate opens on Home; let it and the background work finish.
             await Task.Delay(3000);
+            Checkpoint("measuring memory and idle use");
             _memory.Add(("After start", await SampleMemoryAsync()));
 
             // Doing nothing should cost (almost) nothing, also while music plays.
-            await player.PauseAsync();
+            await WithinAsync(player.PauseAsync());
             await Task.Delay(1000);
             await MeasureIdleAsync("Paused");
-            await player.PlayAsync();
+            await WithinAsync(player.PlayAsync());
             await Task.Delay(1000);
             await MeasureIdleAsync("Playing");
             var window = WinRT.Interop.WindowNative.GetWindowHandle(_window);
@@ -97,7 +100,8 @@ internal sealed partial class PerformanceTour
             await Task.Delay(1000);
 
             // The clock in the player bar would keep the layout busy; pages are timed paused.
-            await player.PauseAsync();
+            await WithinAsync(player.PauseAsync());
+            Checkpoint("opening pages");
 
             foreach (var (name, key) in Pages)
             {
@@ -108,6 +112,7 @@ internal sealed partial class PerformanceTour
             _window.ToggleQueue();
             await SettleAsync();
 
+            Checkpoint("scrolling");
             _window.Open(MainWindow.LikedSongsKey);
             await SettleAsync();
             if (FindDescendant<ListView>(_root) is { } songs)
@@ -123,6 +128,7 @@ internal sealed partial class PerformanceTour
             _memory.Add(("After scrolling 10,000 songs", await SampleMemoryAsync()));
 
             // Each switching animation once, each to the next preset, from a playlist.
+            Checkpoint("switching looks");
             _window.Open("focus");
             await SettleAsync();
             var theme = App.Services.Theme;
@@ -137,7 +143,9 @@ internal sealed partial class PerformanceTour
             theme.Select(ThemePresets.Default.Id, transition: ThemeTransitionKind.None);
             await SettleAsync();
 
+            Checkpoint("visiting every page again");
             await FindLeaksAsync();
+            _finished = true;
         }
         catch (Exception ex)
         {
@@ -196,6 +204,9 @@ internal sealed partial class PerformanceTour
             .Select(g => $"{g.Key} ×{g.Count()}"));
     }
 
+    /// <summary>Waits for a command to the pretend player, but never for long.</summary>
+    private static async Task WithinAsync(Task command) => await Task.WhenAny(command, Task.Delay(TimeSpan.FromSeconds(5)));
+
     private Task<StepResult> OpenAsync(string name, string key) => MeasureAsync(name, () => _window.Open(key));
 
     /// <summary>
@@ -214,7 +225,7 @@ internal sealed partial class PerformanceTour
 
         action();
         var held = Stopwatch.GetElapsedTime(start);
-        var firstFrame = await frames.WhenFrameAsync(2);
+        var firstFrame = await frames.WhenFrameAsync(2, SettleLimit);
         var settled = await layout.WhenQuietAsync(Quiet, SettleLimit);
 
         return new StepResult(
@@ -268,7 +279,11 @@ internal sealed partial class PerformanceTour
         }
 
         CompositionTarget.Rendering += OnRendering;
-        await done.Task;
+        if (await Task.WhenAny(done.Task, Task.Delay(TimeSpan.FromMinutes(1))) != done.Task)
+        {
+            CompositionTarget.Rendering -= OnRendering;
+        }
+
         return new ScrollResult(name, gaps, (GC.GetTotalAllocatedBytes() - allocated) / Megabyte);
     }
 
@@ -293,9 +308,14 @@ internal sealed partial class PerformanceTour
     {
         for (var i = 0; i < 3; i++)
         {
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
+            // Off the interface thread: finalizers of WinUI objects hand their
+            // release to it, so waiting for them there would never end.
+            await Task.Run(() =>
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
+            });
 
             // WinUI lets go of what it held for collected objects on a later tick.
             await Task.Delay(300);
@@ -333,6 +353,19 @@ internal sealed partial class PerformanceTour
         _errors.Add($"{e.Message}{Environment.NewLine}{e.Exception}");
     }
 
+    /// <summary>Saves what is measured so far, so a test that hangs still leaves its results.</summary>
+    private void Checkpoint(string stage)
+    {
+        _stage = stage;
+        try
+        {
+            Write();
+        }
+        catch (IOException)
+        {
+        }
+    }
+
     private void Write()
     {
         Directory.CreateDirectory(_folder);
@@ -351,6 +384,8 @@ internal sealed partial class PerformanceTour
         using (var json = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true }))
         {
             json.WriteStartObject();
+            json.WriteBoolean("finished", _finished);
+            json.WriteString("stage", _stage);
             json.WriteNumber("startupMs", Round(_startupMs));
             json.WriteNumber("likedSongs", LikedSongs);
 
@@ -440,6 +475,11 @@ internal sealed partial class PerformanceTour
         md.AppendLine();
         md.AppendLine(CultureInfo.InvariantCulture, $"Start-up to first frame: **{_startupMs:N0} ms**");
         md.AppendLine();
+        if (!_finished)
+        {
+            md.AppendLine(CultureInfo.InvariantCulture, $"**Incomplete: the test stopped while {_stage}.**");
+            md.AppendLine();
+        }
 
         md.AppendLine("| Memory | Working set | Private | .NET heap | Handles | Threads | GDI / USER objects |");
         md.AppendLine("|---|---:|---:|---:|---:|---:|---:|");
@@ -554,17 +594,17 @@ internal sealed partial class PerformanceTour
             CompositionTarget.Rendering += OnRendering;
         }
 
-        /// <summary>The time from the start to the <paramref name="number"/>th frame.</summary>
-        public async Task<TimeSpan> WhenFrameAsync(int number)
+        /// <summary>The time from the start to the <paramref name="number"/>th frame (or the limit, when no frame comes).</summary>
+        public async Task<TimeSpan> WhenFrameAsync(int number, TimeSpan limit)
         {
             if (_frames.Count < number)
             {
                 _waitingFor = number;
                 _waiting = new TaskCompletionSource();
-                await _waiting.Task;
+                await Task.WhenAny(_waiting.Task, Task.Delay(limit));
             }
 
-            return Stopwatch.GetElapsedTime(_start, _frames[number - 1]);
+            return _frames.Count >= number ? Stopwatch.GetElapsedTime(_start, _frames[number - 1]) : limit;
         }
 
         public void Dispose() => CompositionTarget.Rendering -= OnRendering;

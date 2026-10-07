@@ -44,22 +44,23 @@ public static class TrackSorter
     private static readonly CompareInfo Compare = CultureInfo.InvariantCulture.CompareInfo;
     private const CompareOptions TextOptions = CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace | CompareOptions.IgnoreWidth;
 
+    private static QueryWords? _lastQuery;
+
     /// <summary>A sorted copy. Ties keep the list's own order, so sorting is stable.</summary>
     public static List<TrackInfo> Apply(IEnumerable<TrackInfo> tracks, TrackSort sort)
     {
         var indexed = tracks.Select((t, i) => (Track: t, Index: t.Position ?? i)).ToList();
+
+        // Each comparison stops at the first difference: comparing text is the
+        // costly part, and a long list makes over a hundred thousand of them.
         Comparison<(TrackInfo Track, int Index)> compare = sort.Field switch
         {
             TrackSortField.Title => (a, b) => Text(a.Track.Title, b.Track.Title),
-            TrackSortField.Artist => (a, b) => FirstNonZero(
-                Text(a.Track.PrimaryArtist, b.Track.PrimaryArtist),
-                Text(a.Track.Album, b.Track.Album),
-                Nullable(a.Track.DiscNumber, b.Track.DiscNumber),
-                Nullable(a.Track.TrackNumber, b.Track.TrackNumber)),
-            TrackSortField.Album => (a, b) => FirstNonZero(
-                Text(a.Track.Album, b.Track.Album),
-                Nullable(a.Track.DiscNumber, b.Track.DiscNumber),
-                Nullable(a.Track.TrackNumber, b.Track.TrackNumber)),
+            TrackSortField.Artist => (a, b) => Text(a.Track.PrimaryArtist, b.Track.PrimaryArtist) is var artist and not 0 ? artist
+                : Text(a.Track.Album, b.Track.Album) is var album and not 0 ? album
+                : CompareDiscAndTrack(a.Track, b.Track),
+            TrackSortField.Album => (a, b) => Text(a.Track.Album, b.Track.Album) is var album and not 0 ? album
+                : CompareDiscAndTrack(a.Track, b.Track),
             TrackSortField.DateAdded => (a, b) => Nullable(a.Track.AddedAt, b.Track.AddedAt),
             TrackSortField.Duration => (a, b) => a.Track.Duration.CompareTo(b.Track.Duration),
             _ => (_, _) => 0,
@@ -86,7 +87,7 @@ public static class TrackSorter
             return true;
         }
 
-        foreach (var word in query.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        foreach (var word in WordsOf(query))
         {
             if (Compare.IndexOf(track.Title, word, TextOptions) < 0
                 && Compare.IndexOf(track.Artists, word, TextOptions) < 0
@@ -98,6 +99,22 @@ public static class TrackSorter
 
         return true;
     }
+
+    /// <summary>The filter's words, split once for a whole list rather than once per song.</summary>
+    private static string[] WordsOf(string query)
+    {
+        if (_lastQuery is { } last && last.Query == query)
+        {
+            return last.Words;
+        }
+
+        var words = query.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        _lastQuery = new QueryWords(query, words);
+        return words;
+    }
+
+    private static int CompareDiscAndTrack(TrackInfo a, TrackInfo b) =>
+        Nullable(a.DiscNumber, b.DiscNumber) is var disc and not 0 ? disc : Nullable(a.TrackNumber, b.TrackNumber);
 
     internal static int Text(string? a, string? b) => Compare.Compare(a ?? string.Empty, b ?? string.Empty, TextOptions);
 
@@ -111,18 +128,7 @@ public static class TrackSorter
             _ => a.Value.CompareTo(b.Value),
         };
 
-    private static int FirstNonZero(params ReadOnlySpan<int> results)
-    {
-        foreach (var result in results)
-        {
-            if (result != 0)
-            {
-                return result;
-            }
-        }
-
-        return 0;
-    }
+    private sealed record QueryWords(string Query, string[] Words);
 }
 
 /// <summary>How the sidebar orders playlists.</summary>
