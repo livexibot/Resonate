@@ -285,6 +285,8 @@ public sealed partial class MainWindow : Window
     {
         if (snapshot is null)
         {
+            // Nothing known yet (first start, or just signed out).
+            Playlists.Clear();
             return;
         }
 

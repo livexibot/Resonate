@@ -85,10 +85,31 @@ internal sealed class FakeWebApi : ISpotifyWebApi
 
     private int _playbackStateReads;
 
+    /// <summary>Thrown by every read of the playback state while set.</summary>
+    public Exception? PlaybackFailure { get; set; }
+
+    /// <summary>
+    /// Makes the next read of the playback state answer with what is true at
+    /// the moment it is asked, but only once this task completes (a slow answer).
+    /// </summary>
+    public Task? HoldNextPlaybackAnswer { get; set; }
+
     public Task<PlaybackState?> GetPlaybackStateAsync(CancellationToken cancellationToken)
     {
         Interlocked.Increment(ref _playbackStateReads);
-        return Task.FromResult(Playback);
+        if (PlaybackFailure is { } failure)
+        {
+            return Task.FromException<PlaybackState?>(failure);
+        }
+
+        var answer = Playback;
+        if (HoldNextPlaybackAnswer is { } hold)
+        {
+            HoldNextPlaybackAnswer = null;
+            return AnswerLaterAsync(hold, answer);
+        }
+
+        return Task.FromResult(answer);
     }
 
     public Task StartPlaybackAsync(StartPlaybackBody? body, string? deviceId, CancellationToken cancellationToken)
@@ -233,6 +254,12 @@ internal sealed class FakeWebApi : ISpotifyWebApi
             Limit = limit,
             Next = offset + items.Count < all.Count ? "next" : null,
         };
+    }
+
+    private static async Task<PlaybackState?> AnswerLaterAsync(Task hold, PlaybackState? answer)
+    {
+        await hold;
+        return answer;
     }
 
     private Task Record(string command)

@@ -331,10 +331,15 @@ public sealed class LibraryService : IDisposable
         LikedSongsChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>Forgets every stored song list (on sign-out).</summary>
-    public void ClearStoredLists() => _lists.Clear();
-
     public void Dispose() => _likedLock.Dispose();
+
+    /// <summary>Forgets the account's library, in memory and on disk (playlists and stored song lists), for example on signing out.</summary>
+    public void Forget()
+    {
+        Snapshot = null;
+        _cache?.Clear();
+        _lists.Clear();
+    }
 
     /// <summary>Whether Spotify will list this playlist's songs for the signed-in user.</summary>
     public bool CanListSongs(SimplifiedPlaylist playlist) =>

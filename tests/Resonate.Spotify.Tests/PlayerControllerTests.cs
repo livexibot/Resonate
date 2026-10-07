@@ -353,6 +353,68 @@ public sealed class PlayerControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task A_slow_answer_asked_for_before_a_pause_does_not_undo_it()
+    {
+        _web.Playback = OnTheWeb(isPlaying: true);
+        _player.Channel = ControlChannel.WebApi;
+        await _player.StartAsync(TestContext.Current.CancellationToken);
+
+        // A regular check leaves just before the click and comes back late.
+        var slowAnswer = new TaskCompletionSource();
+        _web.HoldNextPlaybackAnswer = slowAnswer.Task;
+        var slowCheck = _player.RefreshFromWebApiAsync(TestContext.Current.CancellationToken);
+
+        await _player.PauseAsync();
+        _web.Playback = OnTheWeb(isPlaying: false);
+        await _player.RefreshFromWebApiAsync(TestContext.Current.CancellationToken);
+        Assert.False(_player.State.IsPlaying);
+
+        slowAnswer.SetResult();
+        await slowCheck;
+
+        Assert.False(_player.State.IsPlaying);
+    }
+
+    [Fact]
+    public async Task An_answer_asked_for_before_a_pause_is_ignored_even_after_the_pause_settles()
+    {
+        _web.Playback = OnTheWeb(isPlaying: true);
+        _player.Channel = ControlChannel.WebApi;
+        await _player.StartAsync(TestContext.Current.CancellationToken);
+
+        var slowAnswer = new TaskCompletionSource();
+        _web.HoldNextPlaybackAnswer = slowAnswer.Task;
+        var slowCheck = _player.RefreshFromWebApiAsync(TestContext.Current.CancellationToken);
+
+        await _player.PauseAsync();
+
+        // Spotify can not be reached for a while, so nothing confirms the pause.
+        _web.PlaybackFailure = new HttpRequestException("offline");
+        var readsBefore = _web.PlaybackStateReads;
+        _time.Advance(PlayerController.PlayStateHold + TimeSpan.FromSeconds(1));
+        await WaitUntil(() => _web.PlaybackStateReads > readsBefore);
+
+        slowAnswer.SetResult();
+        await slowCheck;
+
+        Assert.False(_player.State.IsPlaying);
+    }
+
+    [Fact]
+    public async Task Checking_Spotify_keeps_going_after_an_unreadable_answer()
+    {
+        // For example a Wi-Fi sign-in page answering instead of Spotify.
+        _web.PlaybackFailure = new System.Text.Json.JsonException("Not JSON.");
+        await _player.StartAsync(TestContext.Current.CancellationToken);
+
+        _web.PlaybackFailure = null;
+        _web.Playback = OnTheWeb(isPlaying: true);
+        _time.Advance(PlayerController.WebPollInterval);
+
+        await WaitUntil(() => _player.State.Title == "Web Song");
+    }
+
+    [Fact]
     public void A_window_of_at_most_100_songs_contains_the_chosen_one()
     {
         var uris = Enumerable.Range(0, 250).Select(i => $"spotify:track:{i}").ToList();
@@ -362,6 +424,14 @@ public sealed class PlayerControllerTests : IDisposable
         Assert.Equal(100, window.Count);
         Assert.Contains("spotify:track:200", window);
     }
+
+    private static PlaybackState OnTheWeb(bool isPlaying) => new()
+    {
+        Device = new Device { Id = "here", Name = "MY-PC", Type = "Computer" },
+        IsPlaying = isPlaying,
+        ProgressMs = 10_000,
+        Item = new PlayableItem { Name = "Web Song", Uri = "spotify:track:w", DurationMs = 100_000 },
+    };
 
     private static async Task WaitUntil(Func<bool> condition)
     {

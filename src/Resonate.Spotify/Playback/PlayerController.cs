@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Resonate.Spotify.Auth;
 using Resonate.Spotify.Library;
 using Resonate.Spotify.WebApi;
@@ -55,6 +56,10 @@ public sealed class PlayerController : IPlayer, IDisposable
     private double? _pendingVolume;
     private Task _pendingVolumeTask = Task.CompletedTask;
     private long _generation;
+    private long _commandEpoch;
+    private int _commandsInFlight;
+    private long _webRequests;
+    private long _webApplied;
     private bool _webConnected;
     private bool _needsWebDetails = true;
     private DateTimeOffset _webPausedUntil;
@@ -281,7 +286,13 @@ public sealed class PlayerController : IPlayer, IDisposable
             _pendingVolume = volume;
             if (!alreadyQueued)
             {
-                _pendingVolumeTask = _volumeLane.Enqueue(ct => RunReportingErrorsAsync(SendPendingVolumeAsync, revert: null, ct));
+                _pendingVolumeTask = _volumeLane.Enqueue(async ct =>
+                {
+                    if (await RunReportingErrorsAsync(SendPendingVolumeAsync, revert: null, ct).ConfigureAwait(false))
+                    {
+                        ConfirmSoonWithoutLocalReports();
+                    }
+                });
             }
         }
 
@@ -463,10 +474,18 @@ public sealed class PlayerController : IPlayer, IDisposable
             return;
         }
 
+        long request;
+        long epoch;
+        lock (_gate)
+        {
+            request = ++_webRequests;
+            epoch = _commandEpoch;
+        }
+
         try
         {
             var playback = await _api.GetPlaybackStateAsync(cancellationToken).ConfigureAwait(false);
-            ApplyWeb(playback);
+            ApplyWeb(playback, request, epoch);
         }
         catch (SpotifyAuthException)
         {
@@ -476,9 +495,10 @@ public sealed class PlayerController : IPlayer, IDisposable
         {
             _webPausedUntil = _time.GetUtcNow() + wait;
         }
-        catch (Exception ex) when (ex is SpotifyApiException or HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (ex is SpotifyApiException or HttpRequestException or TaskCanceledException or JsonException && !cancellationToken.IsCancellationRequested)
         {
-            // Offline or a passing error: try again on the next round.
+            // Offline, a passing error, or something other than Spotify answering
+            // (such as a Wi-Fi sign-in page): try again on the next round.
         }
     }
 
@@ -597,12 +617,20 @@ public sealed class PlayerController : IPlayer, IDisposable
         }
     }
 
-    private void ApplyWeb(PlaybackState? playback)
+    /// <param name="request">The number of the request this answers; an older answer than one already shown is dropped.</param>
+    /// <param name="epoch">The command epoch when the request was sent.</param>
+    private void ApplyWeb(PlaybackState? playback, long request, long epoch)
     {
         // Read the mixer outside the lock; it is a call into the audio service.
         var mixerVolumeKnown = UseLocal && _appVolume.TryGetVolume() is not null;
         lock (_gate)
         {
+            if (!IsCurrentAnswer(request, epoch))
+            {
+                return;
+            }
+
+            _webApplied = request;
             var now = _time.GetUtcNow();
             var s = _state;
             _webConnected = playback?.Device is not null;
@@ -625,6 +653,18 @@ public sealed class PlayerController : IPlayer, IDisposable
 
         RaiseStateChanged();
     }
+
+    /// <summary>
+    /// Whether an answer from the Web API may still be shown. An answer to a
+    /// request sent before the user's latest command had gone through
+    /// describes the situation before that command, so showing it would undo
+    /// the command on screen. The holds do not cover this on their own: they
+    /// end as soon as Spotify confirms the command, and a slow older answer
+    /// can arrive after that. An answer older than one already shown is
+    /// dropped too.
+    /// </summary>
+    private bool IsCurrentAnswer(long request, long epoch) =>
+        request > _webApplied && epoch == _commandEpoch && _commandsInFlight == 0;
 
     private PlayerState MergeWeb(
         PlayerState s,
@@ -872,28 +912,69 @@ public sealed class PlayerController : IPlayer, IDisposable
         throw new SpotifyApiException(HttpStatusCode.NotFound, "NO_ACTIVE_DEVICE", "Spotify on this computer is not online.");
     }
 
-    private Task RunTransportAsync(Func<CancellationToken, Task> command, Action? revert) =>
-        _transport.Enqueue(ct => RunReportingErrorsAsync(command, revert, ct));
+    /// <summary>
+    /// Queues a playback command. While it is queued or running, and for any
+    /// Web API request sent before it settled, answers from the Web API are
+    /// not shown (see <see cref="IsCurrentAnswer"/>).
+    /// </summary>
+    private Task RunTransportAsync(Func<CancellationToken, Task> command, Action? revert)
+    {
+        lock (_gate)
+        {
+            _commandEpoch++;
+            _commandsInFlight++;
+        }
 
-    private async Task RunReportingErrorsAsync(Func<CancellationToken, Task> command, Action? revert, CancellationToken cancellationToken)
+        return _transport.Enqueue(async ct =>
+        {
+            var sent = false;
+            try
+            {
+                sent = await RunReportingErrorsAsync(command, revert, ct).ConfigureAwait(false);
+            }
+            finally
+            {
+                lock (_gate)
+                {
+                    _commandEpoch++;
+                    _commandsInFlight--;
+                }
+            }
+
+            if (sent)
+            {
+                ConfirmSoonWithoutLocalReports();
+            }
+        });
+    }
+
+    /// <summary>Runs a command; when it fails, puts back what it changed and says why. True when it went through.</summary>
+    private async Task<bool> RunReportingErrorsAsync(Func<CancellationToken, Task> command, Action? revert, CancellationToken cancellationToken)
     {
         try
         {
             await command(cancellationToken).ConfigureAwait(false);
-            if (!UseLocal)
-            {
-                // No local reports in this mode: ask Spotify how things stand.
-                _ = RefreshSoonAsync(WebOnlyConfirmDelay);
-            }
+            return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             // Shutting down.
+            return false;
         }
         catch (Exception ex)
         {
             revert?.Invoke();
             ErrorOccurred?.Invoke(this, DescribeError(ex));
+            return false;
+        }
+    }
+
+    private void ConfirmSoonWithoutLocalReports()
+    {
+        if (!UseLocal)
+        {
+            // No local reports in this mode: ask Spotify how things stand.
+            _ = RefreshSoonAsync(WebOnlyConfirmDelay);
         }
     }
 
@@ -983,26 +1064,43 @@ public sealed class PlayerController : IPlayer, IDisposable
     {
         try
         {
-            await RefreshFromWebApiAsync(cancellationToken).ConfigureAwait(false);
+            await PollOnceAsync(first: true, cancellationToken).ConfigureAwait(false);
             while (!cancellationToken.IsCancellationRequested)
             {
                 await Task.Delay(NextPollDelay(), _time, cancellationToken).ConfigureAwait(false);
-                ReadAppVolume();
-                bool needsWeb;
-                lock (_gate)
-                {
-                    needsWeb = !UseLocal || !_lastLocal.HasSession || !_lastLocal.HasTimeline || _needsWebDetails;
-                }
-
-                if (needsWeb)
-                {
-                    await RefreshFromWebApiAsync(cancellationToken).ConfigureAwait(false);
-                }
+                await PollOnceAsync(first: false, cancellationToken).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
         {
             // Shutting down.
+        }
+    }
+
+    /// <param name="first">The first round always asks the Web API; <see cref="StartAsync"/> has just read the mixer.</param>
+    private async Task PollOnceAsync(bool first, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!first)
+            {
+                ReadAppVolume();
+            }
+
+            bool needsWeb;
+            lock (_gate)
+            {
+                needsWeb = first || !UseLocal || !_lastLocal.HasSession || !_lastLocal.HasTimeline || _needsWebDetails;
+            }
+
+            if (needsWeb)
+            {
+                await RefreshFromWebApiAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Never let one odd answer stop the player from following Spotify.
         }
     }
 

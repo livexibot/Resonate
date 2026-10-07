@@ -36,58 +36,116 @@ public sealed class LoopbackCallbackListener : IDisposable
     /// <summary>
     /// Waits for the redirect that carries <paramref name="expectedState"/> and
     /// returns its authorization code. Other requests (a favicon, a stale tab)
-    /// are answered and ignored.
+    /// are answered and ignored. Each connection is served on its own, because
+    /// browsers open spare connections ahead of time and may never send
+    /// anything on them; waiting on one of those would hold up the redirect.
     /// </summary>
     public async Task<string> WaitForCodeAsync(string expectedState, CancellationToken cancellationToken)
     {
-        while (true)
+        using var stopping = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var outcome = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var connections = new List<Task>();
+        Task<TcpClient>? accepting = null;
+        try
         {
-            using var client = await _listener.AcceptTcpClientAsync(cancellationToken).ConfigureAwait(false);
-            await using var stream = client.GetStream();
+            while (!outcome.Task.IsCompleted)
+            {
+                accepting = _listener.AcceptTcpClientAsync(stopping.Token).AsTask();
+                if (await Task.WhenAny(accepting, outcome.Task).ConfigureAwait(false) == outcome.Task)
+                {
+                    break;
+                }
 
-            string? target;
-            try
-            {
-                target = await ReadRequestTargetAsync(stream, cancellationToken).ConfigureAwait(false);
-            }
-            catch (IOException)
-            {
-                continue;
-            }
-
-            if (target is null || !target.StartsWith(_path, StringComparison.Ordinal))
-            {
-                await WriteResponseAsync(stream, HttpStatusCode.NotFound, "Not found.", cancellationToken).ConfigureAwait(false);
-                continue;
+                var client = await accepting.ConfigureAwait(false);
+                accepting = null;
+                connections.Add(ServeAsync(client, expectedState, outcome, stopping.Token));
             }
 
-            var query = ParseQuery(target);
-            if (!query.TryGetValue("state", out var state) || !string.Equals(state, expectedState, StringComparison.Ordinal))
+            return await outcome.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            // Stop waiting on idle connections and let each one close.
+            await stopping.CancelAsync().ConfigureAwait(false);
+            if (accepting is { IsCompletedSuccessfully: true })
             {
-                await WriteResponseAsync(stream, HttpStatusCode.BadRequest, "This sign-in link is out of date. Start the sign-in again from Resonate.", cancellationToken).ConfigureAwait(false);
-                continue;
+                accepting.Result.Dispose();
             }
 
-            if (query.TryGetValue("error", out var error))
-            {
-                await WriteResponseAsync(stream, HttpStatusCode.OK, "Sign-in was cancelled. You can close this tab.", cancellationToken).ConfigureAwait(false);
-                throw new SpotifyAuthException(error, error == "access_denied"
-                    ? "You chose not to give Resonate access."
-                    : "Spotify reported a problem with the sign-in: " + error);
-            }
-
-            if (!query.TryGetValue("code", out var code) || string.IsNullOrEmpty(code))
-            {
-                await WriteResponseAsync(stream, HttpStatusCode.BadRequest, "Spotify did not send a sign-in code.", cancellationToken).ConfigureAwait(false);
-                continue;
-            }
-
-            await WriteResponseAsync(stream, HttpStatusCode.OK, "Signed in. You can close this tab and go back to Resonate.", cancellationToken).ConfigureAwait(false);
-            return code;
+            await Task.WhenAll(connections).ConfigureAwait(false);
         }
     }
 
     public void Dispose() => _listener.Dispose();
+
+    /// <summary>Answers one connection, and settles <paramref name="outcome"/> when it carries the redirect. Never throws.</summary>
+    private async Task ServeAsync(TcpClient client, string expectedState, TaskCompletionSource<string> outcome, CancellationToken cancellationToken)
+    {
+        using (client)
+        {
+            try
+            {
+                await using var stream = client.GetStream();
+                var target = await ReadRequestTargetAsync(stream, cancellationToken).ConfigureAwait(false);
+                var (status, message, code, error) = Decide(target, expectedState);
+
+                try
+                {
+                    await WriteResponseAsync(stream, status, message, cancellationToken).ConfigureAwait(false);
+                }
+                catch (IOException)
+                {
+                    // The browser stopped listening; what it sent still counts.
+                }
+
+                if (code is not null)
+                {
+                    outcome.TrySetResult(code);
+                }
+                else if (error is not null)
+                {
+                    outcome.TrySetException(error);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or SocketException or OperationCanceledException or ObjectDisposedException)
+            {
+                // Closed before sending a request, or the sign-in is over.
+            }
+        }
+    }
+
+    /// <summary>The answer to a request, with the code or the error it brings when it is the redirect.</summary>
+    private (HttpStatusCode Status, string Message, string? Code, SpotifyAuthException? Error) Decide(string? target, string expectedState)
+    {
+        if (target is null || !target.StartsWith(_path, StringComparison.Ordinal))
+        {
+            return (HttpStatusCode.NotFound, "Not found.", null, null);
+        }
+
+        var query = ParseQuery(target);
+        if (!query.TryGetValue("state", out var state) || !string.Equals(state, expectedState, StringComparison.Ordinal))
+        {
+            return (HttpStatusCode.BadRequest, "This sign-in link is out of date. Start the sign-in again from Resonate.", null, null);
+        }
+
+        if (query.TryGetValue("error", out var error))
+        {
+            return (
+                HttpStatusCode.OK,
+                "Sign-in was cancelled. You can close this tab.",
+                null,
+                new SpotifyAuthException(error, error == "access_denied"
+                    ? "You chose not to give Resonate access."
+                    : "Spotify reported a problem with the sign-in: " + error));
+        }
+
+        if (!query.TryGetValue("code", out var code) || string.IsNullOrEmpty(code))
+        {
+            return (HttpStatusCode.BadRequest, "Spotify did not send a sign-in code.", null, null);
+        }
+
+        return (HttpStatusCode.OK, "Signed in. You can close this tab and go back to Resonate.", code, null);
+    }
 
     private static async Task<string?> ReadRequestTargetAsync(NetworkStream stream, CancellationToken cancellationToken)
     {

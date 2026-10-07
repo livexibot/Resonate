@@ -149,12 +149,22 @@ public sealed partial class SettingsPage : Page
         _services.SaveSettings();
     }
 
-    private void OnShowSpotifyClick(object sender, RoutedEventArgs e) => _services.SpotifyWindow.ShowSpotify();
+    private void OnShowSpotifyClick(object sender, RoutedEventArgs e)
+    {
+        if (!_services.SpotifyWindow.ShowSpotify())
+        {
+            App.MainWindow?.ShowMessage(
+                "The Spotify app could not be opened. Install it from spotify.com/download or the Microsoft Store, sign in, then come back.",
+                InfoBarSeverity.Error);
+        }
+    }
 
     private void OnSignOutClick(object sender, RoutedEventArgs e)
     {
         _services.Account.SignOut();
-        _services.Library.ClearStoredLists();
+
+        // The next account to sign in must not see this one's playlists or songs.
+        _services.Library.Forget();
         App.MainWindow?.ShowSignIn();
     }
 

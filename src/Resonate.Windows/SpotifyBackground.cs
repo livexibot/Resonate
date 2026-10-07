@@ -80,7 +80,7 @@ public sealed class SpotifyBackground : ISpotifyAppWindow, IDisposable
     public void WatchClosely() =>
         Interlocked.Exchange(ref _closeWatchTicks, (int)(TimeSpan.FromSeconds(15) / CloseWatchInterval));
 
-    public void ShowSpotify()
+    public bool ShowSpotify()
     {
         // Full speed while the user looks at it.
         RestoreSavings();
@@ -92,12 +92,21 @@ public sealed class SpotifyBackground : ISpotifyAppWindow, IDisposable
         if (window == 0)
         {
             // Not running (or no window yet): opening a Spotify link starts it in front.
-            Process.Start(new ProcessStartInfo("spotify:") { UseShellExecute = true })?.Dispose();
-            return;
+            try
+            {
+                Process.Start(new ProcessStartInfo("spotify:") { UseShellExecute = true })?.Dispose();
+                return true;
+            }
+            catch (Win32Exception)
+            {
+                // Nothing opens Spotify links: Spotify is not installed.
+                return false;
+            }
         }
 
         User32.ShowWindowAsync(window, Windowing.SwRestore);
         Windowing.SetForegroundWindow(window);
+        return true;
     }
 
     public void Dispose()
@@ -194,14 +203,21 @@ public sealed class SpotifyBackground : ISpotifyAppWindow, IDisposable
 
     private nint FindSpotifyWindow()
     {
+        nint[] hidden;
         lock (_gate)
         {
-            foreach (var window in _hiddenByUs)
+            // Spotify may have restarted since; forget windows that are gone.
+            _hiddenByUs.RemoveWhere(w => !Windowing.IsWindow(w));
+            hidden = [.. _hiddenByUs];
+        }
+
+        foreach (var window in hidden)
+        {
+            // Window handles are reused, so check it still belongs to Spotify.
+            Windowing.GetWindowThreadProcessId(window, out var processId);
+            if (IsSpotifyProcess(processId))
             {
-                if (Windowing.IsWindow(window))
-                {
-                    return window;
-                }
+                return window;
             }
         }
 
