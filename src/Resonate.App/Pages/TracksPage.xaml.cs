@@ -642,8 +642,11 @@ public sealed partial class TracksPage : Page
     {
         var picked = index >= 0 ? _shown[index] : null;
 
-        // A random order needs every song; wait for the rest if only the first ones are here.
-        if ((shuffle ?? _services.Player.State.Shuffle) && !_complete && _fullLoad is { } full)
+        // A random order needs every song, and so does following the list
+        // inside its playlist or album (or shuffling it later): wait for the
+        // rest if only the first ones are here.
+        var needsAll = (shuffle ?? _services.Player.State.Shuffle) || (InOwnOrder && _source.ContextUri is not null);
+        if (needsAll && !_complete && _fullLoad is { } full)
         {
             try
             {

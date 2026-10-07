@@ -258,13 +258,13 @@ public sealed partial class HomePage : Page
         Play(card);
     }
 
-    /// <summary>Plays the song inside its album (as Search does), among the other recent songs if Spotify refuses the album.</summary>
-    private void Play(RecentCard card)
-    {
-        var tracks = Recent.Select(r => r.Track).ToList();
-        var index = tracks.IndexOf(card.Track);
-        _ = _services.Player.PlayAsync(new PlayRequest(tracks, index, card.Track.AlbumUri, card.Track.Album));
-    }
+    /// <summary>
+    /// Plays the song inside its album, as Search does. The other recent
+    /// songs are not sent with it: Resonate would take them for the album's
+    /// songs, and shuffle would not work once the album moves past them.
+    /// </summary>
+    private void Play(RecentCard card) =>
+        _ = _services.Player.PlayAsync(new PlayRequest([card.Track], 0, card.Track.AlbumUri, card.Track.Album));
 
     private void OnRecentContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {

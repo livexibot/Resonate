@@ -344,8 +344,9 @@ public sealed class PlayerController : IPlayer, IDisposable
     /// Shuffle. While a list Resonate knows plays, this is Resonate's truly
     /// random order: the rest of the list is planned again after the current
     /// song (which keeps playing where it is). Otherwise (music started
-    /// elsewhere, or a list whose songs Spotify does not share) it is
-    /// Spotify's own shuffle. Optimistic like every command.
+    /// elsewhere, a list whose songs Spotify does not share, or a playlist or
+    /// album that plays a song Resonate's copy of it lacks) it is Spotify's
+    /// own shuffle. Optimistic like every command.
     /// </summary>
     public Task SetShuffleAsync(bool shuffle)
     {
@@ -367,7 +368,15 @@ public sealed class PlayerController : IPlayer, IDisposable
             previous = _session;
             _shuffleHold = new Hold<bool>(shuffle, now + PlayStateHold);
             var state = _state with { Shuffle = shuffle };
-            if (previous is not null)
+            if (previous is { InContext: true, PlayingOther: true })
+            {
+                // Spotify plays the playlist or album itself, at a song that is not in
+                // Resonate's copy of it (not all loaded, added since, or queued): an order
+                // made from that copy would leave songs out, so Spotify shuffles it.
+                _session = null;
+                _sourceContext = previous.ContextUri;
+            }
+            else if (previous is not null)
             {
                 next = previous.WithShuffle(shuffle, _state.IsPlaying);
                 _session = next;
@@ -394,7 +403,19 @@ public sealed class PlayerController : IPlayer, IDisposable
                         NoteSpotifyShuffle(shuffle);
                     },
                     ct),
-                () => RevertSetting(generation, before));
+                () =>
+                {
+                    lock (_gate)
+                    {
+                        if (_generation == generation && _session is null)
+                        {
+                            // The list set aside above, if any, plays on as before.
+                            _session = previous;
+                        }
+                    }
+
+                    RevertSetting(generation, before);
+                });
         }
 
         if (body is null)

@@ -325,6 +325,60 @@ public sealed class ListPlaybackTests : IDisposable
     }
 
     [Fact]
+    public async Task Shuffle_is_Spotifys_own_while_the_playlist_plays_a_song_Resonate_has_not_listed()
+    {
+        // Resonate knows only some of the playlist's songs (the first ones, or a playlist changed since).
+        var known = Songs(4);
+        await StartAsync();
+        await _player.PlayAsync(new PlayRequest(known, 1, Playlist, "Mix") { Shuffle = false });
+        Playing(known[1]);
+        var unlisted = Song(50);
+        Playing(unlisted);
+        _web.Commands.Clear();
+        _web.PlayBodies.Clear();
+
+        await _player.SetShuffleAsync(true);
+
+        Assert.True(_player.State.Shuffle);
+        Assert.Equal(["shuffle on@here"], _web.Commands);
+        Assert.Empty(_web.PlayBodies);
+
+        // Spotify reports its own shuffle on: the button and the list's name stay.
+        _time.Advance(TimeSpan.FromSeconds(30));
+        _web.Playback = OnTheWeb(unlisted, shuffle: true, context: Playlist);
+        await _player.RefreshFromWebApiAsync(TestContext.Current.CancellationToken);
+        Assert.True(_player.State.Shuffle);
+        Assert.Equal("Mix", _player.State.SourceName);
+
+        await _player.SetShuffleAsync(false);
+        Assert.Equal(["shuffle on@here", "shuffle off@here"], _web.Commands);
+        Assert.Empty(_web.PlayBodies);
+    }
+
+    [Fact]
+    public async Task A_failed_switch_to_Spotifys_shuffle_keeps_the_list()
+    {
+        var known = Songs(4);
+        await StartAsync();
+        await _player.PlayAsync(new PlayRequest(known, 1, Playlist, "Mix") { Shuffle = false });
+        Playing(known[1]);
+        Playing(Song(50));
+        _web.FailNextCommand = new HttpRequestException("offline");
+
+        await _player.SetShuffleAsync(true);
+
+        Assert.False(_player.State.Shuffle);
+        Assert.Single(_errors);
+
+        // The list is Resonate's again: once one of its songs plays, shuffle is Resonate's order.
+        Playing(known[2]);
+        _web.PlayBodies.Clear();
+        await _player.SetShuffleAsync(true);
+        var body = Assert.Single(_web.PlayBodies)!;
+        Assert.Equal(known[2].Uri, body.Uris![0]);
+    }
+
+    [Fact]
     public async Task A_failed_shuffle_switch_puts_back_the_old_plan()
     {
         var songs = Songs(8);
