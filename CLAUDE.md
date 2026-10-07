@@ -187,6 +187,21 @@ requests, a changelog, and releases with real notes.
 - Never force-push `main`, never rewrite its history, never commit secrets,
   and never leave old branches lying around.
 
+### Commit as the owner
+
+Every commit is made in the owner's name, so the history shows their
+account. At the start of each session, before the first commit, run:
+
+```
+git config user.name "livexibot"
+git config user.email "320484903+livexibot@users.noreply.github.com"
+```
+
+That is the owner's private GitHub address, so their real email never
+appears in the public history. Keep the `Co-Authored-By` line for Claude
+at the end of commit messages, so it stays clear that Claude helped write
+the change.
+
 ### Commit and pull request types
 
 `feat` (new feature), `fix` (bug fix), `perf` (faster), `refactor` (no
@@ -233,8 +248,7 @@ Keep it obvious what is what. A suggested layout:
 Claude cannot change these repository settings. Walk the owner through them
 when the work first needs them, then tick them off here.
 
-- [ ] Delete the leftover branches `claude/nice-bohr-4cqscw` and `wip/meld`
-  and the tag `test` (from the reset; GitHub, Branches and Tags pages).
+- [x] Delete the leftover branches and tag from the reset.
 - [ ] Settings, General, Pull Requests: allow squash merging only, and turn
   on "Automatically delete head branches".
 - [ ] Settings, Actions, General, Workflow permissions: "Read and write
