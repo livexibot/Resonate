@@ -113,9 +113,19 @@
                         <Button
                             x:Name="OpenInSpotifyButton"
                             Grid.Column="2"
+                            AutomationProperties.Name="Open in Spotify"
                             Click="OnOpenInSpotifyClick"
-                            Content="Open in Spotify"
-                            Style="{StaticResource ResonateSubtleButtonStyle}" />
+                            Style="{StaticResource ResonateSubtleButtonStyle}">
+                            <Grid>
+                                <TextBlock x:Name="OpenInSpotifyText" Text="Open in Spotify" />
+                                <FontIcon
+                                    x:Name="OpenInSpotifyIcon"
+                                    FontFamily="{StaticResource ResonateIconFont}"
+                                    FontSize="14"
+                                    Glyph="&#xE8A7;"
+                                    Visibility="Collapsed" />
+                            </Grid>
+                        </Button>
                         <TextBox
                             x:Name="FilterBox"
                             Grid.Column="4"

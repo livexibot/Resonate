@@ -548,9 +548,8 @@ public sealed partial class TracksPage : Page
         FilterBox.Width = compact ? double.NaN : 200;
         Grid.SetRow(SortButton, compact ? 1 : 0);
         SortText.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-        OpenInSpotifyButton.Content = compact
-            ? new FontIcon { FontFamily = (FontFamily)Application.Current.Resources["ResonateIconFont"], FontSize = 14, Glyph = "\uE8A7" }
-            : OpenInSpotifyLabel;
+        OpenInSpotifyText.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        OpenInSpotifyIcon.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
         ToolTipService.SetToolTip(OpenInSpotifyButton, compact ? OpenInSpotifyLabel : null);
     }
 

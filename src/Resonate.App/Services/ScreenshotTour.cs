@@ -14,10 +14,13 @@ namespace Resonate.App.Services;
 /// <summary>
 /// For "--screenshots": walks through the main pages with demo data, saves a
 /// picture of each, then quits. CI uses it so every pull request shows what
-/// changed on screen.
+/// changed on screen. Any error on the way is written to
+/// <see cref="ErrorFile"/> in the same folder, which fails the CI run.
 /// </summary>
 internal sealed class ScreenshotTour
 {
+    private const string ErrorFile = "tour-errors.txt";
+
     private readonly MainWindow _window;
     private readonly FrameworkElement _root;
     private readonly string _folder;
@@ -31,6 +34,9 @@ internal sealed class ScreenshotTour
 
     public async Task RunAsync()
     {
+        // An error in an event handler would otherwise end the app silently
+        // and leave the later screenshots missing. Record it and carry on.
+        Application.Current.UnhandledException += OnUnhandledException;
         try
         {
             Directory.CreateDirectory(_folder);
@@ -81,10 +87,26 @@ internal sealed class ScreenshotTour
             await Task.Delay(1200);
             await CaptureAsync("6-sign-in.png");
         }
+        catch (Exception ex)
+        {
+            Record(ex.ToString());
+        }
         finally
         {
             Application.Current.Exit();
         }
+    }
+
+    private void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
+    {
+        e.Handled = true;
+        Record($"{e.Message}{Environment.NewLine}{e.Exception}");
+    }
+
+    private void Record(string error)
+    {
+        Directory.CreateDirectory(_folder);
+        File.AppendAllText(Path.Combine(_folder, ErrorFile), error + Environment.NewLine + Environment.NewLine);
     }
 
     private static T? FindDescendant<T>(DependencyObject parent)

@@ -2,7 +2,6 @@ using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Media;
 using Resonate.App.Services;
 using Resonate.Spotify.Library;
 using Resonate.Spotify.Playback;
@@ -282,6 +281,6 @@ public static class TrackActions
         return item;
     }
 
-    private static FontIcon Icon(string glyph) =>
-        new() { Glyph = glyph, FontFamily = (FontFamily)Application.Current.Resources["ResonateIconFont"] };
+    // FontIcon's default font is the system icon font, the same as ResonateIconFont.
+    private static FontIcon Icon(string glyph) => new() { Glyph = glyph };
 }
