@@ -71,8 +71,9 @@ public sealed class Skin
 
     /// <summary>
     /// Reads a .wsz (or .zip) archive. Anything wrong with it (not an archive,
-    /// too large, no classic skin pictures, a damaged bitmap) throws
-    /// <see cref="SkinFormatException"/> with a message for the user.
+    /// too large, no classic skin pictures it can read) throws
+    /// <see cref="SkinFormatException"/> with a message for the user. A single
+    /// picture that cannot be read is left out, so the built-in skin's shows.
     /// </summary>
     public static Skin Load(ReadOnlySpan<byte> archive, string name) => SkinArchive.Read(archive, name);
 }
