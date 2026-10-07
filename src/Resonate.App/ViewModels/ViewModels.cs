@@ -29,18 +29,50 @@ public abstract partial class ObservableObject : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
 
-/// <summary>Which optional columns a song list shows; shared by all its rows.</summary>
-public sealed class TrackColumns
+/// <summary>
+/// Which optional columns a song list shows. One instance is shared by all
+/// of a list's rows, so when the list gets narrow (a small window, or the
+/// queue open beside it) every row drops the same columns at once: the date
+/// added first, then the album, as Spotify does.
+/// </summary>
+public sealed partial class TrackColumns : ObservableObject
 {
+    /// <summary>Below this list width the album column goes, so titles keep their room.</summary>
+    public const double AlbumMinWidth = 560;
+
+    /// <summary>Below this list width the date added column goes.</summary>
+    public const double AddedMinWidth = 760;
+
+    private readonly bool _album;
+    private readonly bool _dateAdded;
+    private GridLength _albumWidth;
+    private GridLength _addedWidth;
+
     public TrackColumns(bool album, bool dateAdded)
     {
-        AlbumWidth = album ? new GridLength(3, GridUnitType.Star) : new GridLength(0);
-        AddedWidth = dateAdded ? new GridLength(132) : new GridLength(0);
+        _album = album;
+        _dateAdded = dateAdded;
+        Fit(double.PositiveInfinity);
     }
 
-    public GridLength AlbumWidth { get; }
+    public GridLength AlbumWidth
+    {
+        get => _albumWidth;
+        private set => Set(ref _albumWidth, value);
+    }
 
-    public GridLength AddedWidth { get; }
+    public GridLength AddedWidth
+    {
+        get => _addedWidth;
+        private set => Set(ref _addedWidth, value);
+    }
+
+    /// <summary>Shows the columns the list has that fit in <paramref name="width"/>.</summary>
+    public void Fit(double width)
+    {
+        AlbumWidth = _album && width >= AlbumMinWidth ? new GridLength(3, GridUnitType.Star) : new GridLength(0);
+        AddedWidth = _dateAdded && width >= AddedMinWidth ? new GridLength(132) : new GridLength(0);
+    }
 }
 
 /// <summary>One song in a list.</summary>

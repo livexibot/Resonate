@@ -10,6 +10,7 @@
         <ListView
             x:Name="TrackList"
             Padding="16,0,16,24"
+            SizeChanged="OnTrackListSizeChanged"
             ContextRequested="OnTrackContextRequested"
             DoubleTapped="OnTrackDoubleTapped"
             DragItemsCompleted="OnDragItemsCompleted"
@@ -20,7 +21,7 @@
                 <StackPanel Padding="12,36,12,8" Spacing="24">
                     <Grid ColumnSpacing="28">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="184" />
+                            <ColumnDefinition x:Name="CoverColumn" Width="184" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <Grid
@@ -46,8 +47,10 @@
                                 Style="{StaticResource ResonateCaptionTextStyle}" />
                             <TextBlock
                                 x:Name="TitleText"
+                                MaxLines="2"
                                 Style="{StaticResource ResonateDisplayTextStyle}"
-                                Text=" " />
+                                Text=" "
+                                TextWrapping="WrapWholeWords" />
                             <TextBlock
                                 x:Name="DescriptionText"
                                 MaxLines="2"
@@ -67,8 +70,15 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- Play, shuffle, filter and sort -->
-                    <Grid ColumnSpacing="12">
+                    <!-- Play, shuffle, filter and sort (filter and sort move to a second row when narrow) -->
+                    <Grid
+                        x:Name="ActionsGrid"
+                        ColumnSpacing="12"
+                        RowSpacing="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
@@ -252,8 +262,8 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="40" />
                             <ColumnDefinition Width="5*" />
-                            <ColumnDefinition Width="{x:Bind Columns.AlbumWidth}" />
-                            <ColumnDefinition Width="{x:Bind Columns.AddedWidth}" />
+                            <ColumnDefinition Width="{x:Bind Columns.AlbumWidth, Mode=OneWay}" />
+                            <ColumnDefinition Width="{x:Bind Columns.AddedWidth, Mode=OneWay}" />
                             <ColumnDefinition Width="40" />
                             <ColumnDefinition Width="64" />
                         </Grid.ColumnDefinitions>

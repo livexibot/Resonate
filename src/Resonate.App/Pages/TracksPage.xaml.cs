@@ -25,6 +25,10 @@ namespace Resonate.App.Pages;
 /// </summary>
 public sealed partial class TracksPage : Page
 {
+    /// <summary>Below this list width the page uses its compact layout.</summary>
+    private const double CompactWidth = 600;
+
+    private const string OpenInSpotifyLabel = "Open in Spotify";
     private const string UpGlyph = "";
     private const string DownGlyph = "";
 
@@ -41,6 +45,7 @@ public sealed partial class TracksPage : Page
     private Task<FullTrackList>? _fullLoad;
     private bool _complete;
     private bool _itemsHidden;
+    private bool? _compact;
     private TrackSort _sort = TrackSort.Default;
     private string _filter = string.Empty;
     private string? _highlightedTrack;
@@ -65,8 +70,7 @@ public sealed partial class TracksPage : Page
         _source = e.Parameter as TrackListSource
             ?? TrackListSource.For(e.Parameter as string ?? LikedSongsSource.ListKey, _services);
         _columns = new TrackColumns(album: !_source.IsAlbum, dateAdded: _source.HasDateAdded);
-        AlbumHeadingColumn.Width = _columns.AlbumWidth;
-        AddedHeadingColumn.Width = _columns.AddedWidth;
+        FitToWidth(TrackList.ActualWidth > 0 ? TrackList.ActualWidth : double.PositiveInfinity);
         AlbumHeading.Visibility = _source.IsAlbum ? Visibility.Collapsed : Visibility.Visible;
         AddedHeading.Visibility = _source.HasDateAdded ? Visibility.Visible : Visibility.Collapsed;
 
@@ -505,6 +509,49 @@ public sealed partial class TracksPage : Page
         };
         App.MainWindow?.NoteListPlayed(_source.Key);
         await _services.Player.PlayAsync(request);
+    }
+
+    private void OnTrackListSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (e.NewSize.Width != e.PreviousSize.Width)
+        {
+            FitToWidth(e.NewSize.Width);
+        }
+    }
+
+    /// <summary>
+    /// Fits the page to the list's width: narrow lists (a small window, or
+    /// the queue open beside them) drop columns, get a smaller cover, and
+    /// put the filter and sort on a row of their own.
+    /// </summary>
+    private void FitToWidth(double width)
+    {
+        _columns.Fit(width);
+        AlbumHeadingColumn.Width = _columns.AlbumWidth;
+        AddedHeadingColumn.Width = _columns.AddedWidth;
+
+        var compact = width < CompactWidth;
+        if (compact == _compact)
+        {
+            return;
+        }
+
+        _compact = compact;
+        var cover = compact ? 128 : 184;
+        CoverColumn.Width = new GridLength(cover);
+        CoverFrame.Width = cover;
+        CoverFrame.Height = cover;
+
+        Grid.SetRow(FilterBox, compact ? 1 : 0);
+        Grid.SetColumn(FilterBox, compact ? 0 : 4);
+        Grid.SetColumnSpan(FilterBox, compact ? 5 : 1);
+        FilterBox.Width = compact ? double.NaN : 200;
+        Grid.SetRow(SortButton, compact ? 1 : 0);
+        SortText.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        OpenInSpotifyButton.Content = compact
+            ? new FontIcon { FontFamily = (FontFamily)Application.Current.Resources["ResonateIconFont"], FontSize = 14, Glyph = "\uE8A7" }
+            : OpenInSpotifyLabel;
+        ToolTipService.SetToolTip(OpenInSpotifyButton, compact ? OpenInSpotifyLabel : null);
     }
 
     private void OnOpenInSpotifyClick(object sender, RoutedEventArgs e)
