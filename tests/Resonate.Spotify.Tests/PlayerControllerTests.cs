@@ -285,6 +285,74 @@ public sealed class PlayerControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task Web_API_only_sends_every_command_through_the_Web_API()
+    {
+        _local.Volume = 0.5;
+        await StartPlayingSongA();
+        _player.Channel = ControlChannel.WebApi;
+
+        await _player.PauseAsync();
+        await _player.NextAsync();
+        await _player.SeekAsync(TimeSpan.FromSeconds(30));
+        await _player.SetVolumeAsync(0.4);
+
+        Assert.Empty(_local.Commands);
+        Assert.Equal(["pause@here", "next@here", "seek 30@here", "volume 40@here"], _web.Commands);
+    }
+
+    [Fact]
+    public async Task Web_API_only_shows_what_Spotify_reports_and_ignores_the_media_session()
+    {
+        _web.Playback = new PlaybackState
+        {
+            Device = new Device { Id = "here", Name = "MY-PC", Type = "Computer", VolumePercent = 30 },
+            IsPlaying = true,
+            ProgressMs = 10_000,
+            Item = new PlayableItem { Name = "Web Song", Uri = "spotify:track:w", DurationMs = 100_000 },
+        };
+        _local.Volume = 0.9;
+        _local.Report(PlayingSongA with { PositionUpdatedAt = _time.GetUtcNow() });
+        _player.Channel = ControlChannel.WebApi;
+
+        await _player.StartAsync(TestContext.Current.CancellationToken);
+        _local.Report(PlayingSongA with { Title = "Song C", PositionUpdatedAt = _time.GetUtcNow() });
+
+        Assert.Equal("Web Song", _player.State.Title);
+        Assert.Equal(0.3, _player.State.Volume, 3);
+    }
+
+    [Fact]
+    public async Task Switching_back_to_the_media_session_uses_its_latest_report()
+    {
+        _web.Playback = new PlaybackState
+        {
+            Device = new Device { Id = "here", Name = "MY-PC", Type = "Computer" },
+            IsPlaying = true,
+            Item = new PlayableItem { Name = "Web Song", Uri = "spotify:track:w", DurationMs = 100_000 },
+        };
+        _player.Channel = ControlChannel.WebApi;
+        await _player.StartAsync(TestContext.Current.CancellationToken);
+        _local.Report(PlayingSongA with { PositionUpdatedAt = _time.GetUtcNow() });
+
+        _player.Channel = ControlChannel.Local;
+
+        Assert.Equal("Song A", _player.State.Title);
+    }
+
+    [Fact]
+    public async Task Web_API_only_asks_Spotify_again_shortly_after_a_command()
+    {
+        _player.Channel = ControlChannel.WebApi;
+        await _player.StartAsync(TestContext.Current.CancellationToken);
+        await _player.PlayAsync();
+        var readsBefore = _web.PlaybackStateReads;
+
+        _time.Advance(PlayerController.WebOnlyConfirmDelay);
+
+        await WaitUntil(() => _web.PlaybackStateReads > readsBefore);
+    }
+
+    [Fact]
     public void A_window_of_at_most_100_songs_contains_the_chosen_one()
     {
         var uris = Enumerable.Range(0, 250).Select(i => $"spotify:track:{i}").ToList();
@@ -293,6 +361,16 @@ public sealed class PlayerControllerTests : IDisposable
 
         Assert.Equal(100, window.Count);
         Assert.Contains("spotify:track:200", window);
+    }
+
+    private static async Task WaitUntil(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!condition())
+        {
+            Assert.True(DateTime.UtcNow < deadline, "The condition did not come true in time.");
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
     }
 
     private async Task StartPlayingSongA()

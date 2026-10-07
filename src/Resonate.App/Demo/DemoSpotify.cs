@@ -240,7 +240,7 @@ public sealed class DemoWebApi : ISpotifyWebApi
 }
 
 /// <summary>A pretend Spotify app: keeps a now-playing state and reports it like the media session would.</summary>
-public sealed class DemoPlayer : ILocalMediaChannel, IAppVolume, ISpotifyAppLauncher
+public sealed class DemoPlayer : ILocalMediaChannel, IAppVolume, ISpotifyAppLauncher, ISpotifyAppWindow
 {
     private readonly Lock _gate = new();
     private LocalMediaSnapshot _current;
@@ -269,6 +269,14 @@ public sealed class DemoPlayer : ILocalMediaChannel, IAppVolume, ISpotifyAppLaun
     }
 
     public bool IsRunning => true;
+
+    public bool KeepHidden { get; set; } = true;
+
+    public bool SaveResources { get; set; } = true;
+
+    public void ShowSpotify()
+    {
+    }
 
     public Task<SpotifyAppStatus> EnsureRunningAsync(CancellationToken cancellationToken) => Task.FromResult(SpotifyAppStatus.Running);
 

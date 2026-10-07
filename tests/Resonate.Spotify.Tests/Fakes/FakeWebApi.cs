@@ -62,7 +62,15 @@ internal sealed class FakeWebApi : ISpotifyWebApi
     public Task<IReadOnlyList<Device>> GetDevicesAsync(CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<Device>>(Devices);
 
-    public Task<PlaybackState?> GetPlaybackStateAsync(CancellationToken cancellationToken) => Task.FromResult(Playback);
+    public int PlaybackStateReads => Volatile.Read(ref _playbackStateReads);
+
+    private int _playbackStateReads;
+
+    public Task<PlaybackState?> GetPlaybackStateAsync(CancellationToken cancellationToken)
+    {
+        Interlocked.Increment(ref _playbackStateReads);
+        return Task.FromResult(Playback);
+    }
 
     public Task StartPlaybackAsync(StartPlaybackBody? body, string? deviceId, CancellationToken cancellationToken)
     {

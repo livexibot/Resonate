@@ -17,6 +17,10 @@ public sealed class SpotifyAppLauncher : ISpotifyAppLauncher, IDisposable
     private const string ProcessName = "Spotify";
 
     private readonly SemaphoreSlim _launching = new(1, 1);
+    private readonly SpotifyBackground? _background;
+
+    /// <param name="background">Hides Spotify's window once it appears; without it, the window is minimised instead.</param>
+    public SpotifyAppLauncher(SpotifyBackground? background = null) => _background = background;
 
     public bool IsRunning
     {
@@ -54,13 +58,15 @@ public sealed class SpotifyAppLauncher : ISpotifyAppLauncher, IDisposable
 
             if (FindInstallerVersion() is { } exe)
             {
-                // "--minimized" is what Spotify's own "start minimised" setting uses.
+                // "--minimized" is what Spotify's own "start minimised" setting
+                // uses; a hidden start window keeps the first frame off screen.
                 using var started = Process.Start(new ProcessStartInfo(exe, "--minimized")
                 {
                     UseShellExecute = false,
+                    WindowStyle = ProcessWindowStyle.Hidden,
                     WorkingDirectory = Path.GetDirectoryName(exe)!,
                 });
-                _ = KeepMinimizedAsync(CancellationToken.None);
+                KeepOutOfTheWay();
                 return SpotifyAppStatus.Started;
             }
 
@@ -69,7 +75,7 @@ public sealed class SpotifyAppLauncher : ISpotifyAppLauncher, IDisposable
                 var entries = await package.GetAppListEntriesAsync().AsTask(cancellationToken).ConfigureAwait(false);
                 if (entries.Count > 0 && await entries[0].LaunchAsync().AsTask(cancellationToken).ConfigureAwait(false))
                 {
-                    _ = KeepMinimizedAsync(CancellationToken.None);
+                    KeepOutOfTheWay();
                     return SpotifyAppStatus.Started;
                 }
 
@@ -89,6 +95,18 @@ public sealed class SpotifyAppLauncher : ISpotifyAppLauncher, IDisposable
     }
 
     public void Dispose() => _launching.Dispose();
+
+    private void KeepOutOfTheWay()
+    {
+        if (_background is { KeepHidden: true })
+        {
+            _background.WatchClosely();
+        }
+        else
+        {
+            _ = KeepMinimizedAsync(CancellationToken.None);
+        }
+    }
 
     private static global::Windows.ApplicationModel.Package? FindStorePackage()
     {

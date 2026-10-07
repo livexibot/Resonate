@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using Resonate.App.Services;
 using Resonate.App.Themes;
+using Resonate.Spotify.Playback;
 
 namespace Resonate.App.Pages;
 
@@ -17,9 +18,17 @@ public sealed partial class SettingsPage : Page
         InitializeComponent();
     }
 
+    private bool _loading;
+
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         BuildThemeChoices();
+
+        _loading = true;
+        ChannelChoice.SelectedIndex = _services.Player.Channel == ControlChannel.WebApi ? 1 : 0;
+        KeepHiddenSwitch.IsOn = _services.SpotifyWindow.KeepHidden;
+        SaveResourcesSwitch.IsOn = _services.SpotifyWindow.SaveResources;
+        _loading = false;
 
         var user = _services.Library.Snapshot?.User;
         AccountText.Text = _services.IsDemo
@@ -102,6 +111,45 @@ public sealed partial class SettingsPage : Page
             BuildThemeChoices();
         }
     }
+
+    private void OnChannelChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || ChannelChoice.SelectedIndex < 0)
+        {
+            return;
+        }
+
+        var channel = ChannelChoice.SelectedIndex == 1 ? ControlChannel.WebApi : ControlChannel.Local;
+        _services.Player.Channel = channel;
+        _services.Settings.ControlChannel = channel == ControlChannel.WebApi ? "webapi" : "local";
+        _services.SaveSettings();
+    }
+
+    private void OnKeepHiddenToggled(object sender, RoutedEventArgs e)
+    {
+        if (_loading)
+        {
+            return;
+        }
+
+        _services.SpotifyWindow.KeepHidden = KeepHiddenSwitch.IsOn;
+        _services.Settings.KeepSpotifyHidden = KeepHiddenSwitch.IsOn;
+        _services.SaveSettings();
+    }
+
+    private void OnSaveResourcesToggled(object sender, RoutedEventArgs e)
+    {
+        if (_loading)
+        {
+            return;
+        }
+
+        _services.SpotifyWindow.SaveResources = SaveResourcesSwitch.IsOn;
+        _services.Settings.SaveSpotifyResources = SaveResourcesSwitch.IsOn;
+        _services.SaveSettings();
+    }
+
+    private void OnShowSpotifyClick(object sender, RoutedEventArgs e) => _services.SpotifyWindow.ShowSpotify();
 
     private void OnSignOutClick(object sender, RoutedEventArgs e)
     {

@@ -43,16 +43,20 @@ internal sealed class ScreenshotTour
             await Task.Delay(2000);
             await CaptureAsync("3-search.png");
 
+            _window.OpenSettings();
+            await Task.Delay(1200);
+            await CaptureAsync("4-settings.png");
+
             App.Services.Theme.Apply(ThemePreset.Daylight);
             _window.ApplyCaptionButtonColors();
             _window.OpenPlaylist("focus");
             await Task.Delay(1500);
-            await CaptureAsync("4-daylight-theme.png");
+            await CaptureAsync("5-daylight-theme.png");
 
             App.Services.Theme.Apply(ThemePreset.Midnight);
             _window.ShowSignIn();
             await Task.Delay(1200);
-            await CaptureAsync("5-sign-in.png");
+            await CaptureAsync("6-sign-in.png");
         }
         finally
         {

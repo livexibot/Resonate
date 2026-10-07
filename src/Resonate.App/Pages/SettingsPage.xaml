@@ -29,6 +29,43 @@
                     Spacing="12" />
             </StackPanel>
 
+            <!-- Playback and the Spotify app -->
+            <StackPanel Spacing="12">
+                <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Playback" />
+                <TextBlock
+                    Style="{StaticResource ResonateSecondaryTextStyle}"
+                    Text="How Resonate controls the Spotify app on this computer."
+                    TextWrapping="Wrap" />
+                <RadioButtons x:Name="ChannelChoice" SelectionChanged="OnChannelChanged">
+                    <RadioButton Content="Windows' media controls, with the Web API as backup (fastest)" />
+                    <RadioButton Content="Spotify Web API only (every control goes through Spotify's servers)" />
+                </RadioButtons>
+
+                <ToggleSwitch
+                    x:Name="KeepHiddenSwitch"
+                    Header="Keep the Spotify app hidden"
+                    OffContent="Off: Spotify stays on the taskbar, minimised"
+                    OnContent="On: no taskbar button; it shows only while you use it"
+                    Toggled="OnKeepHiddenToggled" />
+                <ToggleSwitch
+                    x:Name="SaveResourcesSwitch"
+                    Header="Let the hidden Spotify app use less power and memory"
+                    OffContent="Off"
+                    OnContent="On: only the parts that draw its window slow down; playback is untouched"
+                    Toggled="OnSaveResourcesToggled" />
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Button
+                        Click="OnShowSpotifyClick"
+                        Content="Show the Spotify app"
+                        Style="{StaticResource ResonateSubtleButtonStyle}" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Style="{StaticResource ResonateCaptionTextStyle}"
+                        Text="For example to sign in to it or set Lossless. It hides again when you switch away."
+                        TextWrapping="Wrap" />
+                </StackPanel>
+            </StackPanel>
+
             <!-- Account -->
             <StackPanel Spacing="12">
                 <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Spotify account" />
