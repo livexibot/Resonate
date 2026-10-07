@@ -12,7 +12,9 @@ visitors; keep it short and in step with this file.
 ## Status and handoff (read first)
 
 - The first milestone is built and merged (pull request #1, 7 October
-  2026; see "First milestone"). The Spotify logic is tested on Linux; the
+  2026; see "First milestone"). Release v0.1.0 is published with x64 and
+  arm64 installers (`Resonate-win-x64-Setup.exe`); CI proves on every pull
+  request that an installed copy can install and update. The Spotify logic is tested on Linux; the
   WinUI 3 app is only compiled, timed and photographed on GitHub's Windows
   machines (CI), because cloud sessions run on Linux.
 - Nobody has run Resonate against a real Spotify account yet. The first run
@@ -419,9 +421,9 @@ when the work first needs them, then tick them off here.
 - [x] Delete the leftover branches and tag from the reset.
 - [ ] Settings, General, Pull Requests: allow squash merging only, and turn
   on "Automatically delete head branches".
-- [ ] Settings, Actions, General, Workflow permissions: "Read and write
+- [x] Settings, Actions, General, Workflow permissions: "Read and write
   permissions" and "Allow GitHub Actions to create and approve pull
-  requests" (release-please needs both). Asked on 7 October 2026.
+  requests" (release-please needs both). Done 7 October 2026.
 - [ ] GitHub account Settings, Emails: tick "Keep my email addresses
   private", so commits made on the website use the no-reply address.
 - [ ] Settings, Rules: protect `main` so changes arrive only through pull
