@@ -54,6 +54,10 @@ internal sealed class ScreenshotTour
             await CaptureAsync("5-daylight-theme.png");
 
             App.Services.Theme.Apply(ThemePreset.Midnight);
+            _window.Open(MainWindow.LocalFilesKey);
+            await Task.Delay(1500);
+            await CaptureAsync("7-local-files.png");
+
             _window.ShowSignIn();
             await Task.Delay(1200);
             await CaptureAsync("6-sign-in.png");

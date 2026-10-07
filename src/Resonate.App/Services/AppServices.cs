@@ -3,9 +3,11 @@ using Resonate.App.Demo;
 using Resonate.App.Themes;
 using Resonate.Spotify.Auth;
 using Resonate.Spotify.Library;
+using Resonate.Spotify.LocalFiles;
 using Resonate.Spotify.Playback;
 using Resonate.Spotify.WebApi;
 using Resonate.Windows;
+using Resonate.Windows.LocalAudio;
 
 namespace Resonate.App.Services;
 
@@ -23,7 +25,8 @@ public sealed class AppServices : IDisposable
         LibraryService library,
         PlayerRouter player,
         ISpotifyAppLauncher launcher,
-        ISpotifyAppWindow spotifyWindow)
+        ISpotifyAppWindow spotifyWindow,
+        LocalFilesService localFiles)
     {
         IsDemo = isDemo;
         SettingsStore = settingsStore;
@@ -39,6 +42,8 @@ public sealed class AppServices : IDisposable
         player.Spotify.Channel = settings.ParsedControlChannel;
         spotifyWindow.KeepHidden = settings.KeepSpotifyHidden;
         spotifyWindow.SaveResources = settings.SaveSpotifyResources;
+        LocalFiles = localFiles;
+        ConnectLocalPlayer();
     }
 
     public bool IsDemo { get; }
@@ -63,6 +68,9 @@ public sealed class AppServices : IDisposable
 
     /// <summary>The Spotify app's window: hidden in the background, shown on request.</summary>
     public ISpotifyAppWindow SpotifyWindow { get; }
+
+    /// <summary>The user's own music files (Local Files) and the folders they come from.</summary>
+    public LocalFilesService LocalFiles { get; }
 
     public ThemeService Theme { get; } = new();
 
@@ -101,10 +109,18 @@ public sealed class AppServices : IDisposable
             api,
             new LocalDeviceResolver(api, Environment.MachineName),
             launcher);
-        var player = new PlayerRouter(spotify);
+        var localControls = new LocalMediaControls();
+        var local = new LocalPlayer(new AudioGraphEngine(), localControls);
+        var player = new PlayerRouter(spotify, local);
+        var localFiles = new LocalFilesService(
+            settings,
+            () => settingsStore.Save(settings),
+            new LocalLibrary(Path.Combine(AppPaths.CacheFolder, "local-files.json")),
+            new LocalCoverCache(Path.Combine(AppPaths.CacheFolder, "local-covers")),
+            localControls);
 
-        var services = new AppServices(false, settingsStore, settings, account, api, library, player, launcher, background);
-        services._owned.AddRange([player, spotify, library, smtc, launcher, background, account, http]);
+        var services = new AppServices(false, settingsStore, settings, account, api, library, player, launcher, background, localFiles);
+        services._owned.AddRange([player, spotify, local, localFiles, library, smtc, launcher, background, account, http]);
 
         // At once, so a Spotify already on the taskbar (started with Windows) disappears from it.
         background.Start();
@@ -122,11 +138,42 @@ public sealed class AppServices : IDisposable
         var account = new AccountService(http, new InMemoryTokenStore(), clientId: null, alwaysSignedIn: true);
         var library = new LibraryService(api, cache: null);
         var spotify = new PlayerController(demoPlayer, demoPlayer, api, new LocalDeviceResolver(api, Environment.MachineName), demoPlayer);
-        var player = new PlayerRouter(spotify);
+        var local = new LocalPlayer(new DemoLocalAudio(), readCover: _ => null);
+        var player = new PlayerRouter(spotify, local);
+        var localFiles = new LocalFilesService(
+            settings,
+            saveSettings: () => { },
+            new LocalLibrary(indexFile: null),
+            covers: null,
+            controls: null,
+            DemoLocalFiles.Tracks(DateTimeOffset.UtcNow));
 
-        var services = new AppServices(true, settingsStore, settings, account, api, library, player, demoPlayer, demoPlayer);
-        services._owned.AddRange([player, spotify, library, account, http]);
+        var services = new AppServices(true, settingsStore, settings, account, api, library, player, demoPlayer, demoPlayer, localFiles);
+        services._owned.AddRange([player, spotify, local, localFiles, library, account, http]);
         return services;
+    }
+
+    /// <summary>
+    /// Windows' media controls follow whichever player has the music, and the
+    /// local files player keeps its own volume between launches.
+    /// </summary>
+    private void ConnectLocalPlayer()
+    {
+        if (Player.Local is not LocalPlayer local)
+        {
+            return;
+        }
+
+        _ = local.SetVolumeAsync(Settings.LocalVolume);
+        Player.StateChanged += (_, _) =>
+        {
+            var active = Player.ActiveSource == PlaybackSource.LocalFiles;
+            local.SystemControlsEnabled = active;
+            if (active)
+            {
+                Settings.LocalVolume = local.State.Volume;
+            }
+        };
     }
 
     public void SaveSettings()

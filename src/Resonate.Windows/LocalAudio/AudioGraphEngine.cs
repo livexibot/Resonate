@@ -351,6 +351,12 @@ public sealed partial class AudioGraphEngine : ILocalAudioEngine
     /// <summary>Opens <paramref name="path"/> as a stopped file node connected to the EQ bus.</summary>
     private async Task<Track> CreateTrackAsync(AudioGraph graph, AudioSubmixNode bus, string path, CancellationToken cancellationToken)
     {
+        // Resonate plays the user's own files, never anything of the Spotify app's.
+        if (LocalLibrary.IsInSpotifyFolder(path))
+        {
+            throw new LocalAudioException($"Resonate does not play “{Name(path)}”: it is in the Spotify app's own folder.");
+        }
+
         StorageFile file;
         try
         {

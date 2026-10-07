@@ -45,6 +45,10 @@ public sealed partial class TracksPage : Page
     private string _filter = string.Empty;
     private string? _highlightedTrack;
     private int _highlightQueued;
+    private int _sourceChangeQueued;
+    private int _sourceSongsChanged;
+    private bool _reloading;
+    private bool _reloadAgain;
     private TrackRow? _dragged;
     private int _dragFrom = -1;
 
@@ -79,11 +83,13 @@ public sealed partial class TracksPage : Page
         BuildSortMenu();
         _services.Player.StateChanged += OnPlayerStateChanged;
         _services.Likes.Changed += OnLikesChanged;
+        _source.Attach(OnSourceChanged);
         _ = LoadAsync();
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
+        _source.Detach();
         _services.Player.StateChanged -= OnPlayerStateChanged;
         _services.Likes.Changed -= OnLikesChanged;
         _filterTimer.Stop();
@@ -316,6 +322,153 @@ public sealed partial class TracksPage : Page
         TrackList.CanDragItems = canDrag;
         TrackList.CanReorderItems = canDrag;
         TrackList.AllowDrop = canDrag;
+    }
+
+    // ---- Lists that change by themselves (Local Files) ----
+
+    /// <summary>Called on any thread, often during a scan; the page follows at most once per frame.</summary>
+    private void OnSourceChanged(bool songsChanged)
+    {
+        if (songsChanged)
+        {
+            Interlocked.Exchange(ref _sourceSongsChanged, 1);
+        }
+
+        if (Interlocked.Exchange(ref _sourceChangeQueued, 1) == 0)
+        {
+            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, ShowSourceChange);
+        }
+    }
+
+    private void ShowSourceChange()
+    {
+        Interlocked.Exchange(ref _sourceChangeQueued, 0);
+        var songsChanged = Interlocked.Exchange(ref _sourceSongsChanged, 0) == 1;
+        if (_leaving.IsCancellationRequested)
+        {
+            return;
+        }
+
+        ShowHeader(_source.CachedHeader);
+        UpdateEmpty();
+        if (!songsChanged)
+        {
+            return;
+        }
+
+        if (_reloading)
+        {
+            _reloadAgain = true;
+        }
+        else
+        {
+            _ = ReloadAsync();
+        }
+    }
+
+    /// <summary>Loads the songs again and shows what changed; one load at a time, the last one after the last change.</summary>
+    private async Task ReloadAsync()
+    {
+        var token = _leaving.Token;
+        _reloading = true;
+        try
+        {
+            do
+            {
+                _reloadAgain = false;
+                if (_fullLoad is { } first && !first.IsCompleted)
+                {
+                    // The first load lands first; its own errors are shown by it.
+                    try
+                    {
+                        await first;
+                    }
+                    catch (Exception)
+                    {
+                    }
+                }
+
+                var list = await Task.Run(() => _source.LoadAllAsync(token), token);
+                if (!_complete)
+                {
+                    ShowAll(list);
+                    continue;
+                }
+
+                _all = list.Tracks.ToList();
+                UpdateDetails();
+                SyncRows(TrackSorter.Apply(_all.Where(t => TrackSorter.Matches(t, _filter)), _sort));
+                UpdateEmpty();
+                HighlightPlayingTrack(force: true);
+            }
+            while (_reloadAgain && !token.IsCancellationRequested);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The list keeps what it shows; the next change tries again.
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            _reloading = false;
+        }
+    }
+
+    /// <summary>
+    /// Brings the rows in line with <paramref name="shown"/> by adding,
+    /// removing and moving only what changed, so the list does not jump or
+    /// lose its scroll position.
+    /// </summary>
+    private void SyncRows(List<TrackInfo> shown)
+    {
+        _shown = shown;
+        var keep = new HashSet<TrackInfo>(shown, ReferenceEqualityComparer.Instance);
+        if (shown.Count - _rows.Count(r => keep.Contains(r.Track)) > 500)
+        {
+            // A first scan's big step: building the list again is quicker.
+            ApplyView();
+            return;
+        }
+
+        for (var i = _rows.Count - 1; i >= 0; i--)
+        {
+            if (!keep.Contains(_rows[i].Track))
+            {
+                _rows.RemoveAt(i);
+            }
+        }
+
+        for (var i = 0; i < shown.Count; i++)
+        {
+            if (i < _rows.Count && ReferenceEquals(_rows[i].Track, shown[i]))
+            {
+                continue;
+            }
+
+            var from = -1;
+            for (var j = i + 1; j < _rows.Count; j++)
+            {
+                if (ReferenceEquals(_rows[j].Track, shown[i]))
+                {
+                    from = j;
+                    break;
+                }
+            }
+
+            if (from >= 0)
+            {
+                _rows.Move(from, i);
+            }
+            else
+            {
+                _rows.Insert(i, RowFor(shown[i], i));
+            }
+        }
+
+        Renumber();
+        UpdateEditing();
     }
 
     // ---- Sorting and filtering ----

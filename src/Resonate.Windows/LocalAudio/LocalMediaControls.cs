@@ -17,6 +17,9 @@ public sealed partial class LocalMediaControls : ILocalSystemControls
 {
     private readonly Lock _gate = new();
     private SystemMediaTransportControls? _controls;
+
+    // The window's thread: the controls are changed there, as for any window.
+    private SynchronizationContext? _windowThread;
     private string? _shownTrack;
     private byte[]? _shownArtwork;
     private bool _disposed;
@@ -64,15 +67,18 @@ public sealed partial class LocalMediaControls : ILocalSystemControls
         lock (_gate)
         {
             _controls = controls;
+            _windowThread = SynchronizationContext.Current;
         }
     }
 
     public Task ShowAsync(PlayerState? state)
     {
         SystemMediaTransportControls? controls;
+        SynchronizationContext? windowThread;
         lock (_gate)
         {
             controls = _disposed ? null : _controls;
+            windowThread = _windowThread;
         }
 
         if (controls is null)
@@ -80,11 +86,46 @@ public sealed partial class LocalMediaControls : ILocalSystemControls
             return Task.CompletedTask;
         }
 
+        if (windowThread is null || windowThread == SynchronizationContext.Current)
+        {
+            Show(controls, state);
+        }
+        else
+        {
+            // Posted in order, never waited for: the player does not wait on the window.
+            windowThread.Post(_ => Show(controls, state), null);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void Show(SystemMediaTransportControls controls, PlayerState? state)
+    {
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+        }
+
+        try
+        {
+            ShowState(controls, state);
+        }
+        catch (Exception ex) when (ex is COMException or InvalidOperationException or ObjectDisposedException)
+        {
+            // The media controls are a convenience; the music plays on without them.
+        }
+    }
+
+    private void ShowState(SystemMediaTransportControls controls, PlayerState? state)
+    {
         if (state is null || !state.HasTrack)
         {
             controls.PlaybackStatus = MediaPlaybackStatus.Closed;
             controls.IsEnabled = false;
-            return Task.CompletedTask;
+            return;
         }
 
         controls.IsEnabled = true;
@@ -125,7 +166,6 @@ public sealed partial class LocalMediaControls : ILocalSystemControls
             MaxSeekTime = duration,
             Position = duration > TimeSpan.Zero && position > duration ? duration : position,
         });
-        return Task.CompletedTask;
     }
 
     public void Dispose()

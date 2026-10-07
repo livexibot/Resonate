@@ -203,6 +203,18 @@ public sealed class LocalLibraryTests : IDisposable
     }
 
     [Fact]
+    public void Files_in_Spotify_folders_are_recognised_wherever_they_are()
+    {
+        foreach (var folder in LocalLibrary.SpotifyFolders())
+        {
+            Assert.True(LocalLibrary.IsInSpotifyFolder(Path.Combine(folder, "Storage", "x.mp3")));
+        }
+
+        Assert.True(LocalLibrary.IsInSpotifyFolder(Path.Combine(_root.FullName, "SpotifyAB.SpotifyMusic_zpdnekdrzrea0", "x.mp3")));
+        Assert.False(LocalLibrary.IsInSpotifyFolder(Path.Combine(_music, "Spotify Downloads Are Not Here", "x.mp3")));
+    }
+
+    [Fact]
     public void Covers_come_from_the_file_or_else_the_folder_picture()
     {
         var album = Path.Combine(_music, "Album");

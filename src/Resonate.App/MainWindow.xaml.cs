@@ -83,6 +83,7 @@ public sealed partial class MainWindow : Window
         }
 
         CompositionTarget.Rendering += OnFirstFrame;
+        SetUpLocalFiles();
     }
 
     public ObservableCollection<NavItem> NavItems { get; } =

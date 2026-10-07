@@ -129,12 +129,19 @@ public sealed class LocalLibrary : IDisposable
     }
 
     /// <summary>True for Spotify's folders and anything inside them, wherever the Store package sits.</summary>
-    public bool IsExcluded(string path)
+    public bool IsExcluded(string path) => IsExcluded(Normalize(path), _excluded);
+
+    /// <summary>
+    /// True for anything in the Spotify app's own folders on this computer.
+    /// The local files player refuses those files, whatever list they came from.
+    /// </summary>
+    public static bool IsInSpotifyFolder(string path) => IsExcluded(Normalize(path), SpotifyFolders().Select(Normalize));
+
+    private static bool IsExcluded(string full, IEnumerable<string> excluded)
     {
-        var full = Normalize(path);
-        foreach (var excluded in _excluded)
+        foreach (var folder in excluded)
         {
-            if (IsSameOrInside(full, excluded))
+            if (IsSameOrInside(full, folder))
             {
                 return true;
             }
