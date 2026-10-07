@@ -65,6 +65,10 @@ public sealed class LocalPlayerTests : IDisposable
     public async Task Previous_restarts_a_song_that_has_played_for_a_while()
     {
         await Play(SongB);
+
+        // The engine plays on with the clock; otherwise the once-a-second sync
+        // would (rightly) pull the shown position back to the engine's 0:00.
+        _engine.Position = TimeSpan.FromSeconds(5);
         _time.Advance(TimeSpan.FromSeconds(5));
 
         await _player.PreviousAsync();
