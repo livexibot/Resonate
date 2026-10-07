@@ -59,18 +59,29 @@
                 Modifiers="Control" />
         </Grid.KeyboardAccelerators>
 
-        <!-- Title bar (the whole strip drags the window) -->
+        <!-- Title bar (the whole strip drags the window, except the back button) -->
         <Grid x:Name="AppTitleBar" Background="{StaticResource ResonateTransparentBrush}">
-            <StackPanel
-                Margin="18,0,0,0"
-                VerticalAlignment="Center"
-                Orientation="Horizontal"
-                Spacing="10">
+            <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                <Button
+                    x:Name="BackButton"
+                    Width="40"
+                    Height="32"
+                    Margin="6,0,-4,0"
+                    AutomationProperties.Name="Back"
+                    Click="OnBackClick"
+                    Content="&#xE72B;"
+                    CornerRadius="{ThemeResource ResonateCornerSmall}"
+                    FontSize="13"
+                    Style="{StaticResource ResonateIconButtonStyle}"
+                    ToolTipService.ToolTip="Back (Alt+Left)"
+                    Visibility="Collapsed" />
                 <Image
                     Width="16"
                     Height="16"
+                    Margin="18,0,0,0"
                     Source="ms-appx:///Assets/Resonate-64.png" />
                 <TextBlock
+                    Margin="10,0,0,0"
                     VerticalAlignment="Center"
                     Style="{StaticResource ResonateCaptionTextStyle}"
                     Text="Resonate" />
@@ -232,18 +243,6 @@
                 Background="{StaticResource ResonateSurfaceBrush}"
                 CornerRadius="{StaticResource ResonateCornerLarge}">
                 <Frame x:Name="ContentFrame" />
-                <Button
-                    x:Name="BackButton"
-                    Margin="10"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Top"
-                    AutomationProperties.Name="Back"
-                    Background="{StaticResource ResonateSurfaceHoverBrush}"
-                    Click="OnBackClick"
-                    Content="&#xE72B;"
-                    Style="{StaticResource ResonateIconButtonStyle}"
-                    ToolTipService.ToolTip="Back (Alt+Left)"
-                    Visibility="Collapsed" />
                 <InfoBar
                     x:Name="MessageBar"
                     MaxWidth="720"

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -50,6 +51,8 @@ public sealed partial class MainWindow : Window
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
+        BackButton.SizeChanged += (_, _) => UpdateTitleBarPassthrough();
+        AppTitleBar.SizeChanged += (_, _) => UpdateTitleBarPassthrough();
         AppWindow.Title = "Resonate";
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Resonate.ico"));
         PlaceWindow(1280, 820);
@@ -89,7 +92,7 @@ public sealed partial class MainWindow : Window
     [
         new(HomeKey, "\uE80F", "Home"),
         new(SearchKey, "\uE721", "Search"),
-        new(LikedSongsKey, "\uEB52", "Liked Songs"),
+        new(LikedSongsKey, "\uEB51", "Liked Songs"),
         new(LocalFilesKey, "\uE8B7", "Local Files"),
         new(DjKey, "\uE7F6", "DJ"),
     ];
@@ -206,6 +209,7 @@ public sealed partial class MainWindow : Window
 
         _currentPage = key;
         BackButton.Visibility = _history.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        UpdateTitleBarPassthrough();
 
         NavigationTransitionInfo transition = remember
             ? new EntranceNavigationTransitionInfo()
@@ -616,6 +620,26 @@ public sealed partial class MainWindow : Window
         titleBar.ButtonHoverForegroundColor = theme.TextPrimary;
         titleBar.ButtonPressedBackgroundColor = theme.SurfacePressed;
         titleBar.ButtonPressedForegroundColor = theme.TextPrimary;
+    }
+
+    /// <summary>
+    /// The title bar drags the window, so clicks only reach the back button
+    /// through a "passthrough" area, kept in step with where the button is.
+    /// </summary>
+    private void UpdateTitleBarPassthrough()
+    {
+        var input = InputNonClientPointerSource.GetForWindowId(AppWindow.Id);
+        if (BackButton.Visibility != Visibility.Visible || BackButton.ActualWidth == 0 || BackButton.XamlRoot is not { } root)
+        {
+            input.ClearRegionRects(NonClientRegionKind.Passthrough);
+            return;
+        }
+
+        var scale = root.RasterizationScale;
+        var box = BackButton.TransformToVisual(null).TransformBounds(new global::Windows.Foundation.Rect(0, 0, BackButton.ActualWidth, BackButton.ActualHeight));
+        input.SetRegionRects(
+            NonClientRegionKind.Passthrough,
+            [new RectInt32((int)Math.Round(box.X * scale), (int)Math.Round(box.Y * scale), (int)Math.Round(box.Width * scale), (int)Math.Round(box.Height * scale))]);
     }
 
     /// <summary>Sizes the window in device-independent pixels and centres it on its screen.</summary>
