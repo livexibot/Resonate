@@ -6,14 +6,20 @@ namespace Resonate.Spotify.Tests.Fakes;
 /// <summary>Answers HTTP requests from a script and records what was sent.</summary>
 internal sealed class FakeHttpHandler : HttpMessageHandler
 {
-    private readonly Queue<Func<HttpRequestMessage, HttpResponseMessage>> _responses = new();
+    private readonly Queue<Func<HttpRequestMessage, Task<HttpResponseMessage>>> _responses = new();
 
     public List<RecordedRequest> Requests { get; } = [];
 
-    public FakeHttpHandler Respond(HttpStatusCode status, string? json = null, Action<HttpResponseMessage>? configure = null)
+    /// <param name="after">When given, the answer is only sent once this task completes.</param>
+    public FakeHttpHandler Respond(HttpStatusCode status, string? json = null, Action<HttpResponseMessage>? configure = null, Task? after = null)
     {
-        _responses.Enqueue(_ =>
+        _responses.Enqueue(async _ =>
         {
+            if (after is not null)
+            {
+                await after;
+            }
+
             var response = new HttpResponseMessage(status);
             if (json is not null)
             {
@@ -41,7 +47,7 @@ internal sealed class FakeHttpHandler : HttpMessageHandler
             throw new InvalidOperationException($"No scripted response for {request.Method} {request.RequestUri}.");
         }
 
-        return _responses.Dequeue()(request);
+        return await _responses.Dequeue()(request);
     }
 }
 

@@ -21,6 +21,9 @@ public sealed class SpotifySession : IAccessTokenSource, IDisposable
     private readonly ITokenStore _store;
     private readonly TimeProvider _time;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
+
+    /// <summary>Keeps the token in memory and in the store in step.</summary>
+    private readonly Lock _storeGate = new();
     private SpotifyToken? _token;
 
     public SpotifySession(SpotifyAuthClient auth, ITokenStore store, TimeProvider? time = null)
@@ -67,8 +70,11 @@ public sealed class SpotifySession : IAccessTokenSource, IDisposable
 
     public void SignOut()
     {
-        Volatile.Write(ref _token, null);
-        _store.Clear();
+        lock (_storeGate)
+        {
+            Volatile.Write(ref _token, null);
+            _store.Clear();
+        }
     }
 
     public async Task<string> GetAccessTokenAsync(string? rejectedToken, CancellationToken cancellationToken)
@@ -96,12 +102,22 @@ public sealed class SpotifySession : IAccessTokenSource, IDisposable
             }
             catch (SpotifyAuthException ex) when (ex.RequiresSignIn)
             {
-                SignOut();
-                SignedOut?.Invoke(this, EventArgs.Empty);
+                // Unless a new sign-in replaced the token meanwhile, that one still counts.
+                if (Replace(token, null))
+                {
+                    SignedOut?.Invoke(this, EventArgs.Empty);
+                }
+
                 throw;
             }
 
-            Store(renewed);
+            if (!Replace(token, renewed))
+            {
+                // Signed out (or in again) while this renewal was under way: the
+                // renewed token belongs to a sign-in that no longer counts.
+                return (Volatile.Read(ref _token) ?? throw new SpotifyAuthException("not_signed_in", "Sign in to Spotify first.")).AccessToken;
+            }
+
             return renewed.AccessToken;
         }
         finally
@@ -114,7 +130,37 @@ public sealed class SpotifySession : IAccessTokenSource, IDisposable
 
     private void Store(SpotifyToken token)
     {
-        Volatile.Write(ref _token, token);
-        _store.Save(token);
+        lock (_storeGate)
+        {
+            Volatile.Write(ref _token, token);
+            _store.Save(token);
+        }
+    }
+
+    /// <summary>
+    /// Stores <paramref name="replacement"/> (or forgets the sign-in, for null)
+    /// only if <paramref name="current"/> is still the token in use.
+    /// </summary>
+    private bool Replace(SpotifyToken current, SpotifyToken? replacement)
+    {
+        lock (_storeGate)
+        {
+            if (!ReferenceEquals(Volatile.Read(ref _token), current))
+            {
+                return false;
+            }
+
+            Volatile.Write(ref _token, replacement);
+            if (replacement is null)
+            {
+                _store.Clear();
+            }
+            else
+            {
+                _store.Save(replacement);
+            }
+
+            return true;
+        }
     }
 }

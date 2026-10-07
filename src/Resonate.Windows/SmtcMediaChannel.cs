@@ -18,6 +18,7 @@ public sealed partial class SmtcMediaChannel : ILocalMediaChannel
     private LocalMediaSnapshot _current = LocalMediaSnapshot.None;
     private (string? Title, string? Artist, string? Album) _artworkKey;
     private byte[]? _artwork;
+    private bool _artworkRead;
     private bool _disposed;
 
     public event EventHandler<LocalMediaSnapshot>? Changed;
@@ -190,12 +191,17 @@ public sealed partial class SmtcMediaChannel : ILocalMediaChannel
             {
                 _artworkKey = key;
                 _artwork = null;
-                if (media?.Thumbnail is { } thumbnail)
-                {
-                    // Publish the new song at once; the cover follows when read.
-                    Publish(Build(media, playback, timeline, controls, artwork: null));
-                    _artwork = await ReadThumbnailAsync(thumbnail, cancellationToken).ConfigureAwait(false);
-                }
+                _artworkRead = false;
+            }
+
+            // A media session may name the new song first and add its cover in
+            // a later update, so keep looking until a cover has been read.
+            if (!_artworkRead && media?.Thumbnail is { } thumbnail)
+            {
+                // Publish the new song at once; the cover follows when read.
+                Publish(Build(media, playback, timeline, controls, artwork: null));
+                _artwork = await ReadThumbnailAsync(thumbnail, cancellationToken).ConfigureAwait(false);
+                _artworkRead = _artwork is not null;
             }
 
             Publish(Build(media, playback, timeline, controls, _artwork));

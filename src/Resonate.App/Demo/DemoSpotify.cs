@@ -274,9 +274,7 @@ public sealed class DemoPlayer : ILocalMediaChannel, IAppVolume, ISpotifyAppLaun
 
     public bool SaveResources { get; set; } = true;
 
-    public void ShowSpotify()
-    {
-    }
+    public bool ShowSpotify() => true;
 
     public Task<SpotifyAppStatus> EnsureRunningAsync(CancellationToken cancellationToken) => Task.FromResult(SpotifyAppStatus.Running);
 

@@ -178,6 +178,28 @@ public class LoopbackCallbackListenerTests
     }
 
     [Fact]
+    public async Task A_spare_connection_the_browser_leaves_idle_does_not_hold_up_the_redirect()
+    {
+        using var listener = new LoopbackCallbackListener(new Uri("http://127.0.0.1:0/callback"));
+        listener.Start();
+        var waiting = listener.WaitForCodeAsync("s1", TestContext.Current.CancellationToken);
+
+        // Browsers open connections ahead of time and may never send anything on them.
+        using var idle = new System.Net.Sockets.TcpClient();
+        await idle.ConnectAsync(IPAddress.Loopback, listener.Port, TestContext.Current.CancellationToken);
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(10));
+        using var http = new HttpClient();
+        var response = await http.GetAsync(
+            new Uri($"http://127.0.0.1:{listener.Port}/callback?code=c&state=s1"),
+            timeout.Token);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("c", await waiting.WaitAsync(timeout.Token));
+    }
+
+    [Fact]
     public void Refuses_a_non_loopback_redirect() =>
         Assert.Throws<ArgumentException>(() => new LoopbackCallbackListener(new Uri("http://localhost:43821/callback")));
 }
@@ -244,6 +266,27 @@ public class SpotifySessionTests
             () => session.GetAccessTokenAsync(null, TestContext.Current.CancellationToken));
 
         Assert.True(signedOut);
+        Assert.False(session.IsSignedIn);
+        Assert.Null(store.Load());
+    }
+
+    [Fact]
+    public async Task Signing_out_while_a_token_is_being_renewed_stays_signed_out()
+    {
+        var store = new InMemoryTokenStore();
+        store.Save(new SpotifyToken("AT", "RT", Start, "s"));
+        var renewal = new TaskCompletionSource();
+        var handler = new FakeHttpHandler().Respond(
+            HttpStatusCode.OK,
+            """{"access_token":"AT2","expires_in":3600,"refresh_token":"RT2","scope":"s"}""",
+            after: renewal.Task);
+        using var session = NewSession(handler, store, new FakeTimeProvider(Start));
+
+        var renewing = session.GetAccessTokenAsync(null, TestContext.Current.CancellationToken);
+        session.SignOut();
+        renewal.SetResult();
+
+        await Assert.ThrowsAsync<SpotifyAuthException>(() => renewing);
         Assert.False(session.IsSignedIn);
         Assert.Null(store.Load());
     }
