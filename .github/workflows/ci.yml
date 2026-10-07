@@ -19,6 +19,8 @@ concurrency:
 env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
+  # Keep in step with the Velopack package in Directory.Packages.props and release.yml.
+  VPK_VERSION: 1.2.161
 
 jobs:
   logic:
@@ -115,6 +117,43 @@ jobs:
           git push origin "${commit}:${ref}"
           "Screenshots: ${{ github.server_url }}/${{ github.repository }}/tree/$commit" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
 
+      # The same packaging as a release, then a silent install, a start of the
+      # installed copy, and an update to a newer local version, so a broken
+      # installer or updater shows up here rather than after a release.
+      - name: Install and update test
+        shell: pwsh
+        run: |
+          dotnet tool install -g vpk --version $env:VPK_VERSION
+          $feed = Join-Path $env:RUNNER_TEMP 'feed'
+          $pack = @('--packId', 'Resonate', '--packDir', 'artifacts/win-x64', '--mainExe', 'Resonate.exe',
+                    '--packTitle', 'Resonate', '--packAuthors', 'livexibot', '--icon', 'src/Resonate.App/Assets/Resonate.ico',
+                    '--runtime', 'win-x64', '--channel', 'win-x64', '--outputDir', $feed)
+          vpk pack @pack --packVersion 0.0.1-ci
+          if ($LASTEXITCODE -ne 0) { throw 'Packaging failed.' }
+          Get-ChildItem $feed | Format-Table Name, Length
+
+          $setup = Get-ChildItem $feed -Filter '*Setup.exe' | Select-Object -First 1
+          $process = Start-Process $setup.FullName -ArgumentList '--silent' -PassThru
+          if (-not $process.WaitForExit(300000)) { throw 'Setup did not finish within five minutes.' }
+          if ($process.ExitCode -ne 0) { throw "Setup failed with exit code $($process.ExitCode)." }
+          $installed = Join-Path $env:LOCALAPPDATA 'Resonate/current/Resonate.exe'
+          if (-not (Test-Path (Join-Path $env:LOCALAPPDATA 'Resonate/Resonate.exe'))) { throw 'Setup did not create the Resonate shortcut target.' }
+          if (-not (Test-Path $installed)) { throw 'Setup did not install Resonate.' }
+
+          $startup = Join-Path $env:RUNNER_TEMP 'installed-startup.txt'
+          $process = Start-Process $installed -ArgumentList '--demo', '--startup-benchmark', $startup -PassThru
+          if (-not $process.WaitForExit(60000)) { $process.Kill(); throw 'The installed Resonate did not start.' }
+          Write-Output "Installed copy: first frame after $(Get-Content $startup) ms"
+
+          vpk pack @pack --packVersion 0.0.2-ci
+          if ($LASTEXITCODE -ne 0) { throw 'Packaging the second version failed.' }
+          $result = Join-Path $env:RUNNER_TEMP 'update-result.txt'
+          $process = Start-Process $installed -ArgumentList '--update-check', $feed, $result -PassThru
+          if (-not $process.WaitForExit(120000)) { $process.Kill(); throw 'The update check did not finish.' }
+          $outcome = Get-Content $result
+          Write-Output "Update check: $outcome"
+          if ($outcome -ne 'ReadyToRestart 0.0.2-ci') { throw "The installed copy did not download the new version ($outcome)." }
+
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v7
@@ -130,3 +169,17 @@ jobs:
           name: publish-log
           path: artifacts/publish.binlog
           if-no-files-found: ignore
+
+  app-arm64:
+    name: Windows app (arm64 build)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish (arm64, Native AOT)
+        run: dotnet publish src/Resonate.App/Resonate.App.csproj -c Release -r win-arm64 -p:Platform=ARM64 -o artifacts/win-arm64

@@ -46,6 +46,15 @@ public sealed record StartupOptions
     /// <summary>Save screenshots of the main pages to this folder, then quit.</summary>
     public string? ScreenshotFolder { get; init; }
 
+    /// <summary>
+    /// Look for an update in this Velopack feed folder instead of GitHub,
+    /// download it, write the outcome to <see cref="UpdateCheckResultFile"/>,
+    /// then quit. CI uses it to prove an installed copy can update.
+    /// </summary>
+    public string? UpdateCheckFeed { get; init; }
+
+    public string? UpdateCheckResultFile { get; init; }
+
     public static StartupOptions Parse(IReadOnlyList<string> args)
     {
         var options = new StartupOptions();
@@ -64,6 +73,10 @@ public sealed record StartupOptions
                 case "--screenshots" when next is not null:
                     options = options with { ScreenshotFolder = next, Demo = true };
                     i++;
+                    break;
+                case "--update-check" when next is not null && i + 2 < args.Count:
+                    options = options with { UpdateCheckFeed = next, UpdateCheckResultFile = args[i + 2], Demo = true };
+                    i += 2;
                     break;
             }
         }

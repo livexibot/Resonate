@@ -252,9 +252,14 @@ public sealed partial class MainWindow : Window
 
         await RefreshLibraryAsync();
 
-        // Updates last, quietly; an installed copy downloads them in the background.
+        // Updates last, quietly; an installed copy downloads them in the
+        // background, then keeps looking while Resonate stays open.
         await Task.Delay(TimeSpan.FromSeconds(8), token);
-        await Task.Run(() => _services.Updates.CheckAndDownloadAsync(token), token);
+        while (await Task.Run(() => _services.Updates.CheckAndDownloadAsync(token), token) != UpdateStatus.ReadyToRestart
+            && _services.Updates.IsInstalled)
+        {
+            await Task.Delay(UpdateService.CheckInterval, token);
+        }
     }
 
     private async Task RefreshLibraryAsync()
@@ -350,6 +355,28 @@ public sealed partial class MainWindow : Window
         else if (options.ScreenshotFolder is { } folder)
         {
             _ = new ScreenshotTour(this, RootGrid, folder).RunAsync();
+        }
+        else if (options is { UpdateCheckFeed: { } feed, UpdateCheckResultFile: { } result })
+        {
+            _ = CheckForUpdateAndQuitAsync(feed, result);
+        }
+    }
+
+    private static async Task CheckForUpdateAndQuitAsync(string feed, string resultFile)
+    {
+        try
+        {
+            var updates = new UpdateService(new Velopack.Sources.SimpleFileSource(new DirectoryInfo(feed)));
+            var status = await Task.Run(() => updates.CheckAndDownloadAsync(CancellationToken.None));
+            await File.WriteAllTextAsync(resultFile, $"{status} {updates.PendingVersion}");
+        }
+        catch (Exception ex)
+        {
+            await File.WriteAllTextAsync(resultFile, "Error " + ex.GetType().Name);
+        }
+        finally
+        {
+            Application.Current.Exit();
         }
     }
 

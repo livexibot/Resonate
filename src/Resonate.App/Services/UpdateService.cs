@@ -23,17 +23,27 @@ public sealed class UpdateService
     private readonly UpdateManager? _manager;
     private UpdateInfo? _pending;
 
+    /// <summary>Checks this project's GitHub releases (they must be public).</summary>
     public UpdateService()
+        : this(new GithubSource(RepositoryUrl, accessToken: null, prerelease: false))
+    {
+    }
+
+    /// <summary>Checks another source, such as a local folder in CI's install test.</summary>
+    public UpdateService(IUpdateSource source)
     {
         try
         {
-            _manager = new UpdateManager(new GithubSource(RepositoryUrl, accessToken: null, prerelease: false));
+            _manager = new UpdateManager(source);
         }
         catch (Exception)
         {
             _manager = null;
         }
     }
+
+    /// <summary>How often a running Resonate looks for a new version.</summary>
+    public static TimeSpan CheckInterval { get; } = TimeSpan.FromHours(4);
 
     /// <summary>Raised on a background thread when an update has been downloaded.</summary>
     public event EventHandler? UpdateReady;

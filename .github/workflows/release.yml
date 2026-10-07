@@ -32,6 +32,8 @@ jobs:
     timeout-minutes: 60
     strategy:
       fail-fast: false
+      # One at a time: both add files to the same GitHub release.
+      max-parallel: 1
       matrix:
         include:
           - rid: win-x64
