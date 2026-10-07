@@ -3,12 +3,18 @@
     <Project Path="src/Resonate.App/Resonate.App.csproj">
       <Platform Project="x64" />
     </Project>
+    <Project Path="src/Resonate.PluginHost/Resonate.PluginHost.csproj" />
+    <Project Path="src/Resonate.Plugins/Resonate.Plugins.csproj" />
     <Project Path="src/Resonate.Spotify/Resonate.Spotify.csproj" />
     <Project Path="src/Resonate.Themes/Resonate.Themes.csproj" />
     <Project Path="src/Resonate.Windows/Resonate.Windows.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Resonate.Plugins.Tests/Resonate.Plugins.Tests.csproj" />
     <Project Path="tests/Resonate.Spotify.Tests/Resonate.Spotify.Tests.csproj" />
     <Project Path="tests/Resonate.Themes.Tests/Resonate.Themes.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Resonate.PluginPack/Resonate.PluginPack.csproj" />
   </Folder>
 </Solution>

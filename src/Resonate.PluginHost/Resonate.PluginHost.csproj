@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The helper that runs plugins: a small console program with a JavaScript
+    engine (Jint), compiled ahead of time like the app. It is not part of
+    the installer; Resonate downloads it from the release the first time a
+    plugin is turned on. Any OS, so it is tested on Linux.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Resonate.PluginHost</RootNamespace>
+    <AssemblyName>Resonate.PluginHost</AssemblyName>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- For [LibraryImport], which reads each call's processor time (CpuTimeConstraint). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!--
+      Jint has four trim warnings, all in its .NET interop (reflection,
+      expression trees, loading namespaces), which the helper never turns
+      on. The native compiler reports them per method even when asked for
+      one note per assembly, so it only warns. Resonate's own code is still
+      held to the trim and AOT analyzers as errors when it compiles.
+    -->
+    <IlcTreatWarningsAsErrors>false</IlcTreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="prelude.js" LogicalName="prelude.js" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Jint" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Resonate.Plugins\Resonate.Plugins.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Resonate.Plugins.Tests" />
+  </ItemGroup>
+
+</Project>

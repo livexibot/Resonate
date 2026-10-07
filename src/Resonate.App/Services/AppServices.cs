@@ -1,6 +1,8 @@
 using System.Net;
 using Resonate.App.Demo;
 using Resonate.App.Themes;
+using Resonate.Plugins;
+using Resonate.Plugins.Installing;
 using Resonate.Spotify.Auth;
 using Resonate.Spotify.History;
 using Resonate.Spotify.Library;
@@ -29,7 +31,8 @@ public sealed class AppServices : IDisposable
         ISpotifyAppLauncher launcher,
         ISpotifyAppWindow spotifyWindow,
         HttpClient http,
-        LocalFilesService localFiles)
+        LocalFilesService localFiles,
+        PluginManager plugins)
     {
         IsDemo = isDemo;
         SettingsStore = settingsStore;
@@ -42,6 +45,8 @@ public sealed class AppServices : IDisposable
         Player = player;
         Launcher = launcher;
         SpotifyWindow = spotifyWindow;
+        Plugins = plugins;
+        _owned.Add(plugins);
         Theme = new ThemeService(settings, SaveSettings);
         Artwork = new ArtworkSampler(player, Theme, http);
         _owned.Add(Artwork);
@@ -88,6 +93,9 @@ public sealed class AppServices : IDisposable
 
     /// <summary>The user's own music files (Local Files) and the folders they come from.</summary>
     public LocalFilesService LocalFiles { get; }
+
+    /// <summary>Optional plugins, downloaded only when turned on in Settings.</summary>
+    public PluginManager Plugins { get; }
 
     /// <summary>The look: presets, the user's own looks, and switching between them.</summary>
     public ThemeService Theme { get; }
@@ -145,8 +153,18 @@ public sealed class AppServices : IDisposable
             new LocalCoverCache(Path.Combine(AppPaths.CacheFolder, "local-covers")),
             localControls);
 
-        var services = new AppServices(false, settingsStore, settings, account, api, library, home, player, launcher, background, http, localFiles);
-        services._owned.AddRange([player, spotify, local, localFiles, home, library, smtc, launcher, background, account, http]);
+        // Plugins download from this release's own files on GitHub, checked against the catalog built into the app.
+        var catalog = LoadPluginCatalog();
+        var pluginPlayer = new PluginPlayer(player);
+        var plugins = new PluginManager(
+            catalog,
+            catalog.Source is { } source ? new PluginInstaller(AppPaths.PluginsFolder, new HttpPluginFeed(http, new Uri(source))) : null,
+            new PluginStateStore(AppPaths.PluginsFile),
+            new ProcessPluginHostLauncher(),
+            pluginPlayer);
+
+        var services = new AppServices(false, settingsStore, settings, account, api, library, home, player, launcher, background, http, localFiles, plugins);
+        services._owned.AddRange([pluginPlayer, player, spotify, local, localFiles, home, library, smtc, launcher, background, account, http]);
 
         // At once, so a Spotify already on the taskbar (started with Windows) disappears from it.
         background.Start();
@@ -175,8 +193,12 @@ public sealed class AppServices : IDisposable
             controls: null,
             DemoLocalFiles.Tracks(DateTimeOffset.UtcNow));
 
-        var services = new AppServices(true, settingsStore, settings, account, api, library, home, player, demoPlayer, demoPlayer, http, localFiles);
-        services._owned.AddRange([player, spotify, local, localFiles, home, library, account, http]);
+        // A preview: plugins can be turned on to see their settings, but nothing downloads or runs.
+        var pluginPlayer = new PluginPlayer(player);
+        var plugins = new PluginManager(LoadPluginCatalog(), installer: null, new PluginStateStore(null), launcher: null, pluginPlayer);
+
+        var services = new AppServices(true, settingsStore, settings, account, api, library, home, player, demoPlayer, demoPlayer, http, localFiles, plugins);
+        services._owned.AddRange([pluginPlayer, player, spotify, local, localFiles, home, library, account, http]);
         return services;
     }
 
@@ -201,6 +223,16 @@ public sealed class AppServices : IDisposable
                 Settings.LocalVolume = local.State.Volume;
             }
         };
+    }
+
+    /// <summary>
+    /// The plugins this build offers, embedded when it was built (CI and
+    /// releases pass -p:PluginCatalog; a local build has none).
+    /// </summary>
+    public static PluginCatalog LoadPluginCatalog()
+    {
+        using var stream = typeof(AppServices).Assembly.GetManifestResourceStream("plugin-catalog.json");
+        return PluginCatalog.Load(stream);
     }
 
     public void SaveSettings()

@@ -15,6 +15,7 @@ using Resonate.App.Pages.Lists;
 using Resonate.App.Services;
 using Resonate.App.Themes;
 using Resonate.App.ViewModels;
+using Resonate.Plugins;
 using Resonate.Spotify.Auth;
 using Resonate.Spotify.Library;
 using Resonate.Spotify.Playback;
@@ -92,6 +93,9 @@ public sealed partial class MainWindow : Window
         BuildPlaylistSortMenu();
         services.Account.SignedOut += (_, _) => DispatcherQueue.TryEnqueue(ShowSignIn);
         services.Updates.UpdateReady += (_, _) => DispatcherQueue.TryEnqueue(ShowUpdateReady);
+        services.Plugins.Notified += (_, note) =>
+            DispatcherQueue.TryEnqueue(() => ShowMessage($"{note.PluginName}: {note.Text}", InfoBarSeverity.Informational));
+        PlayerBar.AttachPlugins(services.Plugins);
         AppWindow.Changed += OnAppWindowChanged;
         Closed += OnClosed;
 
@@ -459,6 +463,10 @@ public sealed partial class MainWindow : Window
                 InfoBarSeverity.Error);
         }
 
+        // Plugins that are on start in their helper, off the interface thread;
+        // nothing is downloaded or started when none is on.
+        _ = Task.Run(() => _services.Plugins.StartAsync(token), token);
+
         await RefreshLibraryAsync();
         _ = LoadLikesAsync(token);
         _ = KeepListeningHistoryAsync(token);
@@ -680,6 +688,33 @@ public sealed partial class MainWindow : Window
         else if (options is { UpdateCheckFeed: { } feed, UpdateCheckResultFile: { } result })
         {
             _ = CheckForUpdateAndQuitAsync(feed, result);
+        }
+        else if (options is { PluginCheckFeed: { } pluginFeed, PluginCheckResultFile: { } pluginResult })
+        {
+            _ = CheckPluginsAndQuitAsync(pluginFeed, pluginResult);
+        }
+    }
+
+    private static async Task CheckPluginsAndQuitAsync(string feed, string resultFile)
+    {
+        try
+        {
+            var work = Path.Combine(Path.GetTempPath(), "resonate-plugin-check");
+            var outcome = await Task.Run(() => PluginSelfTest.RunAsync(
+                AppServices.LoadPluginCatalog(),
+                feed,
+                work,
+                new ProcessPluginHostLauncher(),
+                TimeSpan.FromMinutes(2)));
+            await File.WriteAllTextAsync(resultFile, outcome);
+        }
+        catch (Exception ex)
+        {
+            await File.WriteAllTextAsync(resultFile, $"Error {ex.GetType().Name}: {ex.Message}");
+        }
+        finally
+        {
+            Application.Current.Exit();
         }
     }
 
