@@ -1,18 +1,22 @@
+using System.Numerics;
+using Microsoft.UI.Composition;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Resonate.App.Helpers;
 using Resonate.Spotify.Playback;
+using Resonate.Themes;
 
 namespace Resonate.App.Controls;
 
 /// <summary>
 /// Now playing, play and pause, skip, seek and volume. Every control acts on
 /// the player at once (the player is optimistic), so the bar never waits for
-/// Spotify.
+/// Spotify. The look decides the bar's shape, its progress bar and how the
+/// cover is drawn.
 /// </summary>
 public sealed partial class PlayerBar : UserControl
 {
@@ -20,13 +24,16 @@ public sealed partial class PlayerBar : UserControl
     private const string PauseGlyph = "";
     private const string VolumeGlyph = "";
     private const string MutedGlyph = "";
+    private const float ArtworkSize = 56;
+    private static readonly TimeSpan VinylTurn = TimeSpan.FromSeconds(7);
 
     private readonly DispatcherQueueTimer _clock;
     private PlayerController? _player;
     private PlayerState _shown = PlayerState.Empty;
     private bool _settingValues;
-    private bool _seeking;
     private int _updateQueued;
+    private CoverStyle? _coverStyle;
+    private AnimationController? _vinylSpin;
     private double _volumeBeforeMute = 0.5;
     private object? _artworkKey;
 
@@ -37,10 +44,11 @@ public sealed partial class PlayerBar : UserControl
         // Fade covers in instead of popping them (runs on the compositor).
         ArtworkImage.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(180) };
 
-        // Tell a drag on the seek bar from the clock moving it.
-        SeekSlider.AddHandler(PointerPressedEvent, new PointerEventHandler(OnSeekPointerPressed), handledEventsToo: true);
-        SeekSlider.AddHandler(PointerReleasedEvent, new PointerEventHandler(OnSeekPointerReleased), handledEventsToo: true);
-        SeekSlider.AddHandler(PointerCaptureLostEvent, new PointerEventHandler(OnSeekPointerReleased), handledEventsToo: true);
+        // A drag only moves the bar; the seek is sent when it is let go.
+        PositionBar.DragCompleted += OnSeekDragCompleted;
+
+        App.Services.Theme.Changed += (_, _) => ApplyLook();
+        ApplyLook();
 
         _clock = DispatcherQueue.GetForCurrentThread().CreateTimer();
         _clock.Interval = TimeSpan.FromMilliseconds(250);
@@ -85,10 +93,10 @@ public sealed partial class PlayerBar : UserControl
         _settingValues = true;
         try
         {
-            SeekSlider.IsEnabled = state.CanSeek;
-            if (!_seeking)
+            PositionBar.IsEnabled = state.CanSeek;
+            if (!VolumeBar.IsDragging)
             {
-                VolumeSlider.Value = Math.Round(state.Volume * 100);
+                VolumeBar.Value = Math.Round(state.Volume * 100);
             }
 
             MuteButton.Content = state.Volume <= 0.001 ? MutedGlyph : VolumeGlyph;
@@ -100,6 +108,71 @@ public sealed partial class PlayerBar : UserControl
 
         ShowArtwork(state);
         UpdateClock();
+        PositionBar.IsAdvancing = state.IsPlaying && state.Duration > TimeSpan.Zero;
+        UpdateVinylSpin();
+    }
+
+    /// <summary>The look's progress bar and cover style.</summary>
+    private void ApplyLook()
+    {
+        var look = App.Services.Theme.Current;
+        PositionBar.BarStyle = look.Progress;
+
+        // A rolling wave makes no sense for volume; it gets the plain line.
+        VolumeBar.BarStyle = look.Progress == ProgressStyle.Wave ? ProgressStyle.Line : look.Progress;
+
+        var palette = App.Services.Theme.Palette;
+        ArtworkFrame.CornerRadius = new CornerRadius(look.Cover switch
+        {
+            CoverStyle.Square => 0,
+            CoverStyle.Vinyl => ArtworkSize / 2,
+            _ => palette.CornerMedium,
+        });
+
+        if (_coverStyle != look.Cover)
+        {
+            _coverStyle = look.Cover;
+            VinylCentre.Visibility = look.Cover == CoverStyle.Vinyl ? Visibility.Visible : Visibility.Collapsed;
+            UpdateVinylSpin();
+        }
+    }
+
+    /// <summary>A vinyl cover turns slowly while the song plays, and stops where it is when paused.</summary>
+    private void UpdateVinylSpin()
+    {
+        var visual = ElementCompositionPreview.GetElementVisual(ArtworkFrame);
+        if (_coverStyle != CoverStyle.Vinyl || !App.Services.Theme.AnimationsEnabled)
+        {
+            if (_vinylSpin is not null)
+            {
+                _vinylSpin = null;
+                visual.StopAnimation("RotationAngleInDegrees");
+                visual.RotationAngleInDegrees = 0;
+            }
+
+            return;
+        }
+
+        if (_vinylSpin is null)
+        {
+            var spin = visual.Compositor.CreateScalarKeyFrameAnimation();
+            spin.InsertKeyFrame(0, 0);
+            spin.InsertKeyFrame(1, 360, visual.Compositor.CreateLinearEasingFunction());
+            spin.Duration = VinylTurn;
+            spin.IterationBehavior = AnimationIterationBehavior.Forever;
+            visual.CenterPoint = new Vector3(ArtworkSize / 2, ArtworkSize / 2, 0);
+            visual.StartAnimation("RotationAngleInDegrees", spin);
+            _vinylSpin = visual.TryGetAnimationController("RotationAngleInDegrees");
+        }
+
+        if (_shown.IsPlaying)
+        {
+            _vinylSpin?.Resume();
+        }
+        else
+        {
+            _vinylSpin?.Pause();
+        }
     }
 
     private void ShowArtwork(PlayerState state)
@@ -166,7 +239,7 @@ public sealed partial class PlayerBar : UserControl
         var duration = _shown.Duration;
 
         DurationText.Text = duration > TimeSpan.Zero ? Format.Duration(duration) : "-:--";
-        if (_seeking)
+        if (PositionBar.IsDragging)
         {
             return;
         }
@@ -175,8 +248,8 @@ public sealed partial class PlayerBar : UserControl
         _settingValues = true;
         try
         {
-            SeekSlider.Maximum = Math.Max(1, duration.TotalSeconds);
-            SeekSlider.Value = Math.Min(position.TotalSeconds, SeekSlider.Maximum);
+            PositionBar.Maximum = Math.Max(1, duration.TotalSeconds);
+            PositionBar.Value = Math.Min(position.TotalSeconds, PositionBar.Maximum);
         }
         finally
         {
@@ -190,18 +263,8 @@ public sealed partial class PlayerBar : UserControl
 
     private void OnNextClick(object sender, RoutedEventArgs e) => _ = _player?.NextAsync();
 
-    private void OnSeekPointerPressed(object sender, PointerRoutedEventArgs e) => _seeking = true;
-
-    private void OnSeekPointerReleased(object sender, PointerRoutedEventArgs e)
-    {
-        if (!_seeking)
-        {
-            return;
-        }
-
-        _seeking = false;
-        _ = _player?.SeekAsync(TimeSpan.FromSeconds(SeekSlider.Value));
-    }
+    private void OnSeekDragCompleted(object? sender, EventArgs e) =>
+        _ = _player?.SeekAsync(TimeSpan.FromSeconds(PositionBar.Value));
 
     private void OnSeekValueChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
@@ -210,7 +273,7 @@ public sealed partial class PlayerBar : UserControl
             return;
         }
 
-        if (_seeking)
+        if (PositionBar.IsDragging)
         {
             // While dragging, only the label follows; the seek is sent on release.
             PositionText.Text = Format.Duration(TimeSpan.FromSeconds(e.NewValue));

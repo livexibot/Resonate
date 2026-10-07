@@ -140,9 +140,31 @@ Windows:
 - Native AOT for WinUI 3 is supported since Windows App SDK 1.6. The current
   Windows App SDK is 2.x (2.5.1 used). Use `x:Bind` (no `{Binding}`), mark
   classes that cross into WinRT `partial`, and avoid reflection.
+- Under Native AOT, `as` or `is` on an element that XAML created (a template
+  part, a `VisualTreeHelper` child, `ContainerFromItem`) fails silently when
+  its type is one the app never creates with `new` or names with `x:Name`.
+  C#/WinRT cannot find the type by its class name after trimming, so it
+  wraps the object as the declared type (`GetRuntimeClassForTypeCreation`).
+  CI's screenshots caught this for a `Path` template part and for
+  `FindDescendant<ScrollViewer>`. Build such elements in code, or reach them
+  through `x:Name`.
 - Themes swap colours by changing the `Color` of shared brushes in
   `Themes/Tokens.xaml`, which updates everything at once, even through
-  `StaticResource`. Corner and font tokens apply at start-up only.
+  `StaticResource`; the same trick lets colours slide from one look to the
+  next frame by frame. Corners, outlines, spacing and fonts live in the
+  theme dictionary of `Tokens.xaml` and are used with `ThemeResource`:
+  `ThemeService` replaces their values, then switches the window's
+  `RequestedTheme` away and back so every `ThemeResource` is read again
+  (a known workaround; CI's screenshots switch all six presets at run time
+  to check it). New XAML must use `ThemeResource` for those tokens.
+- `RenderTargetBitmap` (used by CI's screenshots and by the theme
+  transitions' snapshots) does not draw visuals added with
+  `SetElementChildVisual` (the soft shadows) or Mica and acrylic. It does
+  draw an element's own composition properties (clips, translation, scale),
+  including running animations. Anything scaled past the edges makes the
+  whole picture larger, which is why `BackdropLayer` clips itself. The hard
+  shadow is plain XAML so it shows. Judge the transitions and the soft
+  shadows on a real PC.
 
 GitHub automation:
 - Releases and pull requests made with the default `GITHUB_TOKEN` do not
@@ -410,10 +432,16 @@ cannot be done right away, open an issue for it so nothing is forgotten.
 
 Keep it obvious what is what:
 
-- `src/Resonate.App/` the WinUI 3 app: windows, pages, controls, themes
-  (`Themes/Tokens.xaml` and `ThemePreset.cs`), the updater, demo mode.
+- `src/Resonate.App/` the WinUI 3 app: windows, pages, controls, the
+  updater, demo mode, and the theme engine (`Themes/Tokens.xaml` holds every
+  token, `ThemeService.cs` applies looks, `ThemeTransitions.cs` animates
+  switching, `Controls/ThemeStudio` is the Look section of Settings).
 - `src/Resonate.Spotify/` everything about Spotify that is not Windows:
   sign-in, the Web API client, the library, and the player logic. Any OS.
+- `src/Resonate.Themes/` the theme model, independent of WinUI: the six
+  presets, what a look can set, the palette worked out from it (readable
+  text guaranteed), saved looks, sharing a look as text, and picking colours
+  from a cover. Any OS, tested.
 - `src/Resonate.Windows/` the Windows side of the player: the media
   session, the mixer volume, starting Spotify, the Credential Manager.
 - `tests/` automated tests (`dotnet test`, run on Linux and Windows).
@@ -458,7 +486,7 @@ when the work first needs them, then tick them off here.
 
 ## Later ideas
 
-- More theme presets, saved looks, and copying a look as text.
+- Plugins (the owner's next step after themes).
 - Keyboard shortcuts for everything, and a command palette.
 - Lyrics, a mini player, and tray controls.
 - Queue editing and play history.
@@ -481,9 +509,18 @@ when the work first needs them, then tick them off here.
   tokens (7 October 2026). The choice was offered with the Developer Policy
   question spelled out; the logo question below is still open.
 - Open: the owner's monitor refresh rate, for the frame-time target.
-- Look: the first theme is "Midnight" (dark, soft violet accent), with
-  "Pure black" and "Daylight" as alternatives in Settings. Waiting for the
-  owner's opinion on the screenshots.
+- Themes (asked 7 October 2026, "akin to Spicetify"): six presets that
+  differ in shape and material, not just colour: Midnight (the default),
+  Daylight, Liquid Glass (the song's blurred cover behind see-through
+  panels), Pure Black, Synthwave and Paper. Under them, Customize edits
+  everything a look sets: colours, light, dark or black, backdrop
+  (colour, gradient, song cover, Mica, acrylic), corners, button shape,
+  outlines, spacing, shadows, fonts, and the player (docked or floating,
+  progress bar style, play button, cover). Editing a preset makes a custom
+  copy; looks can be saved, renamed, and copied or pasted as text. Switching
+  looks animates (morph, ripple from the click, split, blinds, wipe, a
+  random one, or none; the owner asked for animated switching). Plugins
+  come later.
 - History: this repository was reset to a single commit. The earlier
   librespot-based client is not kept here; it was a fork of
   https://github.com/crmne/spotifast, which can be read for ideas such as

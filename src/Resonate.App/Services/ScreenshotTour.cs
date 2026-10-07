@@ -1,8 +1,9 @@
 using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Resonate.App.Controls;
 using Resonate.App.Pages;
-using Resonate.App.Themes;
+using Resonate.Themes;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
 
@@ -28,6 +29,7 @@ internal sealed class ScreenshotTour
 
     public async Task RunAsync()
     {
+        var theme = App.Services.Theme;
         try
         {
             Directory.CreateDirectory(_folder);
@@ -43,20 +45,32 @@ internal sealed class ScreenshotTour
             await Task.Delay(2000);
             await CaptureAsync("3-search.png");
 
+            ThemeStudio.CustomizeOpen = true;
             _window.OpenSettings();
-            await Task.Delay(1200);
-            await CaptureAsync("4-settings.png");
-
-            App.Services.Theme.Apply(ThemePreset.Daylight);
-            _window.ApplyCaptionButtonColors();
-            _window.OpenPlaylist("focus");
             await Task.Delay(1500);
-            await CaptureAsync("5-daylight-theme.png");
+            await CaptureAsync("4-settings-look.png");
 
-            App.Services.Theme.Apply(ThemePreset.Midnight);
+            if (_window.CurrentPage is SettingsPage settings)
+            {
+                settings.ShowCustomize();
+                await Task.Delay(600);
+                await CaptureAsync("5-customize.png");
+            }
+
+            // Every preset, switched at run time, so the live switching of shapes and fonts is checked too.
+            var number = 6;
+            foreach (var preset in ThemePresets.All.Where(p => p != ThemePresets.Default))
+            {
+                theme.Select(preset.Id, transition: ThemeTransitionKind.None);
+                _window.OpenPlaylist("focus");
+                await Task.Delay(1500);
+                await CaptureAsync($"{number++}-theme-{preset.Id}.png");
+            }
+
+            theme.Select(ThemePresets.Default.Id, transition: ThemeTransitionKind.None);
             _window.ShowSignIn();
             await Task.Delay(1200);
-            await CaptureAsync("6-sign-in.png");
+            await CaptureAsync($"{number}-sign-in.png");
         }
         finally
         {

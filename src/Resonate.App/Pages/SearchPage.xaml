@@ -16,7 +16,7 @@
                     Width="160"
                     Height="160"
                     Background="{x:Bind PlaceholderBrush}"
-                    CornerRadius="{StaticResource ResonateCornerMedium}">
+                    CornerRadius="{ThemeResource ResonateCornerMedium}">
                     <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
                 </Grid>
                 <TextBlock
@@ -78,7 +78,7 @@
                                         Width="40"
                                         Height="40"
                                         Background="{x:Bind PlaceholderBrush}"
-                                        CornerRadius="{StaticResource ResonateCornerSmall}">
+                                        CornerRadius="{ThemeResource ResonateCornerSmall}">
                                         <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
                                     </Grid>
                                     <StackPanel

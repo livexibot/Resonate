@@ -1,6 +1,6 @@
-# Checks every pull request (and main): formatting, the Spotify logic's
-# tests on Linux, and the Windows app built with Native AOT, timed, and
-# photographed with demo data.
+# Checks every pull request (and main): formatting, the Spotify and theme
+# logic's tests on Linux, and the Windows app built with Native AOT, timed,
+# and photographed with demo data.
 name: CI
 
 on:
@@ -24,7 +24,7 @@ env:
 
 jobs:
   logic:
-    name: Spotify logic and formatting (Linux)
+    name: Spotify and theme logic, formatting (Linux)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -38,14 +38,18 @@ jobs:
         run: |
           dotnet format src/Resonate.Spotify/Resonate.Spotify.csproj --verify-no-changes
           dotnet format src/Resonate.Windows/Resonate.Windows.csproj --verify-no-changes
+          dotnet format src/Resonate.Themes/Resonate.Themes.csproj --verify-no-changes
           dotnet format tests/Resonate.Spotify.Tests/Resonate.Spotify.Tests.csproj --verify-no-changes
+          dotnet format tests/Resonate.Themes.Tests/Resonate.Themes.Tests.csproj --verify-no-changes
           dotnet format whitespace src/Resonate.App --folder --verify-no-changes
 
       - name: Build the Windows integration (compile check)
         run: dotnet build src/Resonate.Windows/Resonate.Windows.csproj -c Release
 
       - name: Test
-        run: dotnet test tests/Resonate.Spotify.Tests/Resonate.Spotify.Tests.csproj -c Release
+        run: |
+          dotnet test tests/Resonate.Spotify.Tests/Resonate.Spotify.Tests.csproj -c Release
+          dotnet test tests/Resonate.Themes.Tests/Resonate.Themes.Tests.csproj -c Release
 
   app:
     name: Windows app
@@ -61,8 +65,12 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Test on Windows
+      # One step each: PowerShell only reports the last command's failure.
+      - name: Test the Spotify logic on Windows
         run: dotnet test tests/Resonate.Spotify.Tests/Resonate.Spotify.Tests.csproj -c Release
+
+      - name: Test the theme logic on Windows
+        run: dotnet test tests/Resonate.Themes.Tests/Resonate.Themes.Tests.csproj -c Release
 
       - name: Publish (x64, Native AOT)
         run: dotnet publish src/Resonate.App/Resonate.App.csproj -c Release -r win-x64 -p:Platform=x64 -o artifacts/win-x64 -bl:artifacts/publish.binlog

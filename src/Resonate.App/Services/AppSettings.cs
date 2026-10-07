@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Resonate.Themes;
 
 namespace Resonate.App.Services;
 
@@ -9,7 +10,17 @@ public sealed class AppSettings
     /// <summary>The user's own Spotify developer app. Not a secret with PKCE sign-in.</summary>
     public string? ClientId { get; set; }
 
-    public string ThemeId { get; set; } = "midnight";
+    /// <summary>The look in use: a preset's ID, "custom", or a saved look's ID.</summary>
+    public string ThemeId { get; set; } = ThemePresets.Default.Id;
+
+    /// <summary>The look being customised (a copy of a preset with the user's changes), if any.</summary>
+    public ThemeDefinition? CustomLook { get; set; }
+
+    /// <summary>Looks the user saved under their own names.</summary>
+    public List<ThemeDefinition> SavedLooks { get; set; } = [];
+
+    /// <summary>How switching looks animates.</summary>
+    public ThemeTransitionKind ThemeTransition { get; set; } = ThemeTransitionKind.Morph;
 
     /// <summary>"local" (Windows' media controls first) or "webapi" (the Spotify Web API only).</summary>
     public string ControlChannel { get; set; } = "local";

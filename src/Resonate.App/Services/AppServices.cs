@@ -23,7 +23,8 @@ public sealed class AppServices : IDisposable
         LibraryService library,
         PlayerController player,
         ISpotifyAppLauncher launcher,
-        ISpotifyAppWindow spotifyWindow)
+        ISpotifyAppWindow spotifyWindow,
+        HttpClient http)
     {
         IsDemo = isDemo;
         SettingsStore = settingsStore;
@@ -34,6 +35,9 @@ public sealed class AppServices : IDisposable
         Player = player;
         Launcher = launcher;
         SpotifyWindow = spotifyWindow;
+        Theme = new ThemeService(settings, SaveSettings);
+        Artwork = new ArtworkSampler(player, Theme, http);
+        _owned.Add(Artwork);
 
         player.Channel = settings.ParsedControlChannel;
         spotifyWindow.KeepHidden = settings.KeepSpotifyHidden;
@@ -59,7 +63,11 @@ public sealed class AppServices : IDisposable
     /// <summary>The Spotify app's window: hidden in the background, shown on request.</summary>
     public ISpotifyAppWindow SpotifyWindow { get; }
 
-    public ThemeService Theme { get; } = new();
+    /// <summary>The look: presets, the user's own looks, and switching between them.</summary>
+    public ThemeService Theme { get; }
+
+    /// <summary>The playing song's cover, read for looks that use its colours.</summary>
+    public ArtworkSampler Artwork { get; }
 
     public UpdateService Updates { get; } = new();
 
@@ -94,7 +102,7 @@ public sealed class AppServices : IDisposable
             new LocalDeviceResolver(api, Environment.MachineName),
             launcher);
 
-        var services = new AppServices(false, settingsStore, settings, account, api, library, player, launcher, background);
+        var services = new AppServices(false, settingsStore, settings, account, api, library, player, launcher, background, http);
         services._owned.AddRange([player, smtc, launcher, background, account, http]);
 
         // At once, so a Spotify already on the taskbar (started with Windows) disappears from it.
@@ -114,7 +122,7 @@ public sealed class AppServices : IDisposable
         var library = new LibraryService(api, cache: null);
         var player = new PlayerController(demoPlayer, demoPlayer, api, new LocalDeviceResolver(api, Environment.MachineName), demoPlayer);
 
-        var services = new AppServices(true, settingsStore, settings, account, api, library, player, demoPlayer, demoPlayer);
+        var services = new AppServices(true, settingsStore, settings, account, api, library, player, demoPlayer, demoPlayer, http);
         services._owned.AddRange([player, account, http]);
         return services;
     }
