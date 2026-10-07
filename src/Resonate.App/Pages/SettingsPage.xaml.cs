@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
+using Resonate.App.Controls;
 using Resonate.App.Services;
 using Resonate.Spotify.Playback;
 
@@ -14,12 +15,17 @@ public sealed partial class SettingsPage : Page
     public SettingsPage()
     {
         InitializeComponent();
+        PluginsHost.Children.Add(new PluginsPanel(_services.Plugins));
     }
 
     private bool _loading;
 
     /// <summary>Scrolls to the theme customizer, opening it.</summary>
     internal void ShowCustomize() => Studio.ShowCustomize();
+
+    /// <summary>Scrolls to the plugins.</summary>
+    internal void ShowPlugins() =>
+        PluginsHost.StartBringIntoView(new BringIntoViewOptions { VerticalAlignmentRatio = 0, AnimationDesired = false });
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {

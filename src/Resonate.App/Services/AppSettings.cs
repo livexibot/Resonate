@@ -210,4 +210,16 @@ public static class AppPaths
     /// </summary>
     public static string CacheFolder { get; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Resonate", "data");
+
+    /// <summary>
+    /// Plugins that are on, and the helper that runs them. Next to the cache,
+    /// so it survives updates and goes on uninstall; emptied when the last
+    /// plugin is turned off.
+    /// </summary>
+    public static string PluginsFolder { get; } =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Resonate", "plugins");
+
+    /// <summary>Which plugins are on, their settings and what they keep (next to the settings).</summary>
+    public static string PluginsFile { get; } =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Resonate", "plugins.json");
 }

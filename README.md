@@ -5,9 +5,9 @@ animations, that keeps Spotify's own lossless playback.
 
 > **Status: early versions in testing.** Home with listening stats and
 > daily mixes, the library, playlists, search, Local Files, DJ, sorting,
-> truly random shuffle, repeat, the queue, the equalizer, themes and
-> automatic updates are built. It has not been tried with a real Spotify
-> account yet. The plan is in [CLAUDE.md](CLAUDE.md).
+> truly random shuffle, repeat, the queue, the equalizer, themes, optional
+> plugins and automatic updates are built. It has not been tried with a
+> real Spotify account yet. The plan is in [CLAUDE.md](CLAUDE.md).
 
 ## Why
 
@@ -23,6 +23,13 @@ Synthwave and Paper), and a customizer for everything: colours, light or
 dark, the backdrop (even the playing song's cover, blurred), corners,
 shadows, fonts, and how the player, its progress bar and buttons look. Save
 your own looks, share them as text, and pick how switching animates.
+
+## Plugins
+
+Optional extras that are downloaded only when you turn them on in Settings,
+and deleted when you turn them off: a sleep timer that fades out, and skip
+rules for artists, versions (live, remix, sped up) or lengths you never
+want to hear. See [docs/plugins.md](docs/plugins.md).
 
 ## How it works
 

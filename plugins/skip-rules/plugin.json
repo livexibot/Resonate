@@ -1,0 +1,56 @@
+{
+  "id": "skip-rules",
+  "name": "Skip rules",
+  "version": "1.0.0",
+  "description": "Skips songs you never want to hear: by artist, by version (live, remix, sped up), or by length. Add the playing song or artist from the plugin button in the player bar.",
+  "author": "Resonate",
+  "main": "main.js",
+  "permissions": ["player.read", "player.control"],
+  "settings": [
+    {
+      "key": "artists",
+      "type": "list",
+      "title": "Always skip these artists",
+      "description": "One name per line.",
+      "placeholder": "Artist name",
+      "default": []
+    },
+    {
+      "key": "versions",
+      "type": "list",
+      "title": "Skip these versions",
+      "description": "Words in brackets or after a dash in a song's title, one per line. For example: live, remix, sped up.",
+      "placeholder": "live",
+      "default": []
+    },
+    {
+      "key": "songs",
+      "type": "list",
+      "title": "Always skip these songs",
+      "description": "One per line, as title — artists. \"Always skip this song\" adds to this list.",
+      "default": []
+    },
+    {
+      "key": "longerThan",
+      "type": "number",
+      "title": "Skip songs longer than",
+      "description": "0 keeps songs of any length.",
+      "min": 0,
+      "max": 120,
+      "step": 1,
+      "unit": "minutes",
+      "default": 0
+    },
+    {
+      "key": "shorterThan",
+      "type": "number",
+      "title": "Skip songs shorter than",
+      "description": "For interludes and skits. 0 keeps songs of any length.",
+      "min": 0,
+      "max": 300,
+      "step": 5,
+      "unit": "seconds",
+      "default": 0
+    }
+  ]
+}
