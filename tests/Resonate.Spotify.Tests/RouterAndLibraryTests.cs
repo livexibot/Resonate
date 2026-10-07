@@ -468,6 +468,64 @@ public sealed class PlaylistEditingTests : IDisposable
         Assert.True(_web.PlaylistItemReads > reads);
     }
 
+    [Fact]
+    public void After_a_removal_the_songs_below_move_up_past_hidden_entries()
+    {
+        // Positions 0, 1, 3, 4: Spotify does not list the entry at 2.
+        var before = WithPositions(0, 1, 3, 4);
+
+        var after = LibraryService.AfterRemove(before, "spotify:track:1");
+
+        Assert.Equal(["s0", "s2", "s3"], after.Select(t => t.Title));
+        Assert.Equal([0, 2, 3], after.Select(t => t.Position!.Value));
+        Assert.Same(before[0], after[0]);
+    }
+
+    [Fact]
+    public void After_a_removal_every_copy_counts()
+    {
+        var before = WithPositions(0, 1, 2, 3, 4);
+        before[3] = before[3] with { Uri = before[1].Uri };
+
+        var after = LibraryService.AfterRemove(before, before[1].Uri!);
+
+        Assert.Equal(["s0", "s2", "s4"], after.Select(t => t.Title));
+        Assert.Equal([0, 1, 2], after.Select(t => t.Position!.Value));
+    }
+
+    [Fact]
+    public async Task Moves_after_a_removal_use_the_new_positions()
+    {
+        await _library.RefreshAsync(TestContext.Current.CancellationToken);
+        var shown = LibraryService.AfterRemove(WithPositions(0, 1, 2, 3, 4), "spotify:track:1");
+
+        // s3 to the top, then s0 to the end of the four songs left.
+        await _library.MovePlaylistTrackAsync("p", shown, 2, 0, TestContext.Current.CancellationToken);
+        shown = LibraryService.AfterMove(shown, 2, 0);
+        await _library.MovePlaylistTrackAsync("p", shown, 1, 3, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["reorder p 2->0 x1", "reorder p 1->4 x1"], _web.Commands);
+    }
+
+    [Fact]
+    public void After_a_move_down_the_songs_passed_move_up_and_hidden_entries_keep_their_place()
+    {
+        // Positions 0, 1, 3, 4: Spotify does not list the entry at 2.
+        var after = LibraryService.AfterMove(WithPositions(0, 1, 3, 4), 1, 3);
+
+        Assert.Equal(["s0", "s2", "s3", "s1"], after.Select(t => t.Title));
+        Assert.Equal([0, 2, 3, 4], after.Select(t => t.Position!.Value));
+    }
+
+    [Fact]
+    public void After_a_move_up_the_songs_passed_move_down()
+    {
+        var after = LibraryService.AfterMove(WithPositions(0, 1, 3, 4), 3, 0);
+
+        Assert.Equal(["s3", "s0", "s1", "s2"], after.Select(t => t.Title));
+        Assert.Equal([0, 1, 2, 4], after.Select(t => t.Position!.Value));
+    }
+
     private static PlaylistEntry Entry(int i) =>
         new() { Item = new PlayableItem { Name = $"s{i}", Uri = $"spotify:track:{i}", DurationMs = 1000 } };
 

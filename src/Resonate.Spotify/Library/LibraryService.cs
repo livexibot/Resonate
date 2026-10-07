@@ -280,6 +280,70 @@ public sealed class LibraryService : IDisposable
         Remember(playlistId, snapshot, countChange: -before.Count(t => t.Uri == uri));
     }
 
+    /// <summary>
+    /// The list after <see cref="MovePlaylistTrackAsync"/>, with each song's
+    /// new position in the playlist. Entries Spotify no longer lists move
+    /// too, so positions are shifted rather than counted again from zero.
+    /// </summary>
+    public static List<TrackInfo> AfterMove(IReadOnlyList<TrackInfo> before, int from, int to)
+    {
+        var after = before.ToList();
+        if (from == to || from < 0 || to < 0 || from >= before.Count || to >= before.Count)
+        {
+            return after;
+        }
+
+        var start = before[from].Position ?? from;
+        var target = before[to].Position ?? to;
+        var moved = after[from];
+        after.RemoveAt(from);
+        after.Insert(to, moved);
+        for (var i = 0; i < after.Count; i++)
+        {
+            var position = after[i].Position;
+            if (i == to)
+            {
+                position = target;
+            }
+            else if (position > start && position <= target)
+            {
+                // Moved down: the songs it passed move up one place.
+                position--;
+            }
+            else if (position >= target && position < start)
+            {
+                // Moved up: the songs it passed move down one place.
+                position++;
+            }
+
+            if (position != after[i].Position)
+            {
+                after[i] = after[i] with { Position = position };
+            }
+        }
+
+        return after;
+    }
+
+    /// <summary>The list after <see cref="RemoveFromPlaylistAsync"/>, with the songs that were after a removed copy moved up.</summary>
+    public static List<TrackInfo> AfterRemove(IReadOnlyList<TrackInfo> before, string uri)
+    {
+        var removed = before.Where(t => t.Uri == uri).Select(t => t.Position).OfType<int>().ToList();
+        var after = new List<TrackInfo>(before.Count);
+        foreach (var track in before)
+        {
+            if (track.Uri == uri)
+            {
+                continue;
+            }
+
+            var shift = removed.Count(position => position < track.Position);
+            after.Add(shift == 0 ? track : track with { Position = track.Position - shift });
+        }
+
+        return after;
+    }
+
     /// <summary>Adds songs to the end of a playlist (a hundred at a time).</summary>
     public async Task AddToPlaylistAsync(string playlistId, IReadOnlyList<string> uris, CancellationToken cancellationToken)
     {
