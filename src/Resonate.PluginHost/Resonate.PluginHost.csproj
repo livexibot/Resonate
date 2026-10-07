@@ -17,8 +17,14 @@
     <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <!-- The single "Jint produced trim warnings" notes; see ExpectJintTrimWarnings below. -->
-    <NoWarn>$(NoWarn);IL2104;IL3053</NoWarn>
+    <!--
+      Jint has four trim warnings, all in its .NET interop (reflection,
+      expression trees, loading namespaces), which the helper never turns
+      on. The native compiler reports them per method even when asked for
+      one note per assembly, so it only warns. Resonate's own code is still
+      held to the trim and AOT analyzers as errors when it compiles.
+    -->
+    <IlcTreatWarningsAsErrors>false</IlcTreatWarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,19 +42,5 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Resonate.Plugins.Tests" />
   </ItemGroup>
-
-  <!--
-    Jint's warnings come from its .NET interop (reflection, expression
-    trees, loading namespaces), which plugins are never given: the helper
-    does not enable it. They are folded into one note per assembly, so
-    warnings in Resonate's own code still fail the build.
-  -->
-  <Target Name="ExpectJintTrimWarnings" AfterTargets="PrepareForILLink">
-    <ItemGroup>
-      <ManagedAssemblyToLink Condition="'%(Filename)' == 'Jint'">
-        <TrimmerSingleWarn>true</TrimmerSingleWarn>
-      </ManagedAssemblyToLink>
-    </ItemGroup>
-  </Target>
 
 </Project>

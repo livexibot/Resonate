@@ -175,9 +175,11 @@ Plugins (checked 2026-10-07):
   JavaScript run by Jint (4.17.0, a JavaScript engine written in .NET) in a
   separate helper, `Resonate.PluginHost`, itself published with Native AOT
   (about 11 MB, 5 MB zipped, on Linux; CI prints the Windows size and
-  memory). Jint works under Native AOT; its trim warnings are expected and
-  folded into one per assembly (`TrimmerSingleWarn`, `NoWarn` IL2104 and
-  IL3053 in the helper's project). Checked on Linux, including regular
+  memory). Jint works under Native AOT. Its four trim warnings (IL2026, all
+  in .NET interop the helper never enables) are reported per method by the
+  native compiler even with `TrimmerSingleWarn`, so the helper sets
+  `IlcTreatWarningsAsErrors` to false; the analyzers still fail the build
+  on warnings in Resonate's own code. Checked on Linux, including regular
   expressions with Unicode properties and that no .NET type is reachable
   from scripts.
 - The app never references Jint: it talks to the helper over standard input
