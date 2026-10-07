@@ -163,7 +163,9 @@ public sealed class LibraryService : IDisposable
             var first = await GetLikedSongsAsync(0, cancellationToken).ConfigureAwait(false);
             if (cached is not null && TryExtend(cached.Tracks, first) is { } extended)
             {
-                if (extended.Count != cached.Tracks.Count)
+                // Saved again when songs were added or the first page told more
+                // (a song liked from the player bar is stored with less detail).
+                if (extended.Count != cached.Tracks.Count || !SameDetails(extended, cached.Tracks, first.Tracks.Count))
                 {
                     SaveList(LikedSongsKey, null, extended);
                 }
@@ -395,10 +397,27 @@ public sealed class LibraryService : IDisposable
             }
         }
 
+        // Where the two overlap, Spotify's answer wins: it has every detail
+        // (artists, album) of songs liked in Resonate, stored with fewer.
         var result = new List<TrackInfo>(first.Total);
-        result.AddRange(first.Tracks.Take(index));
-        result.AddRange(stored);
+        result.AddRange(first.Tracks);
+        result.AddRange(stored.Skip(first.Tracks.Count - index));
         return Renumber(result);
+    }
+
+    /// <summary>Whether the first <paramref name="count"/> songs of both lists say exactly the same.</summary>
+    private static bool SameDetails(List<TrackInfo> a, List<TrackInfo> b, int count)
+    {
+        for (var i = 0; i < count && i < a.Count && i < b.Count; i++)
+        {
+            // Records compare lists by reference, so the artists are compared one by one.
+            if (!a[i].ArtistRefs.SequenceEqual(b[i].ArtistRefs) || a[i] with { ArtistRefs = b[i].ArtistRefs } != b[i])
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Every song sits at its index (Spotify left no entry out), so positions can be renumbered after a change.</summary>
