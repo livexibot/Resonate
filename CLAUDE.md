@@ -11,8 +11,8 @@ visitors; keep it short and in step with this file.
 
 ## Status and handoff (read first)
 
-- The first milestone is built and waiting in a pull request (see "First
-  milestone" for what is done). The Spotify logic is tested on Linux; the
+- The first milestone is built and merged (pull request #1, 7 October
+  2026; see "First milestone"). The Spotify logic is tested on Linux; the
   WinUI 3 app is only compiled, timed and photographed on GitHub's Windows
   machines (CI), because cloud sessions run on Linux.
 - Nobody has run Resonate against a real Spotify account yet. The first run
@@ -21,6 +21,11 @@ visitors; keep it short and in step with this file.
   volume finds Spotify, and that `--minimized` keeps Spotify hidden.
 - The two oldest commits are authored "Claude". Fixing that needs a force
   push, which the permission system blocked. Ask the owner before trying.
+- Pull request #1 could not be squash-merged: GitHub answered every squash
+  (web and API) with an empty HTTP 500, so the owner merged it with a merge
+  commit. That merge commit carries the owner's account email
+  (`livexibot@gmail.com`), not the private no-reply address. If squash keeps
+  failing on later pull requests, find out why before merging another way.
 - The permission system has refused force pushes, deleting branches,
   rewriting history, making release signing optional, and a workflow that
   publishes releases on its own. When a step is refused, explain it to the
@@ -134,8 +139,15 @@ GitHub automation:
   `initial-version` 0.1.0, and the version in `version.txt` and
   `Directory.Build.props` (`x-release-please-version` marker).
 - The in-app updater reads GitHub releases without a token, which only
-  works once the repository is public. While it is private, installed
-  copies cannot see new versions (never embed a token in the app).
+  works once the repository is public. The owner chose to make it public
+  for this (7 October 2026). Never embed a token in the app instead.
+- CI packages the app with Velopack exactly like a release, installs it
+  silently, starts the installed copy, and checks that it downloads a newer
+  local version (`--update-check <feed folder> <result file>`), so a broken
+  installer or updater shows up in a pull request, not after a release.
+- release-please needs the repository setting "Allow GitHub Actions to
+  create and approve pull requests"; without it the Release workflow fails
+  with "GitHub Actions is not permitted to create or approve pull requests".
 - Branch protection that requires approvals blocks Claude merging its own
   pull requests. Require passing checks only. Squash-merge authorship is not
   documented: check the author after the first merge.
@@ -409,7 +421,9 @@ when the work first needs them, then tick them off here.
   on "Automatically delete head branches".
 - [ ] Settings, Actions, General, Workflow permissions: "Read and write
   permissions" and "Allow GitHub Actions to create and approve pull
-  requests" (release-please needs both).
+  requests" (release-please needs both). Asked on 7 October 2026.
+- [ ] GitHub account Settings, Emails: tick "Keep my email addresses
+  private", so commits made on the website use the no-reply address.
 - [ ] Settings, Rules: protect `main` so changes arrive only through pull
   requests with passing CI, and block force pushes. Do this once CI exists.
 - [ ] Create a Spotify developer app at developer.spotify.com (with the
@@ -419,8 +433,9 @@ when the work first needs them, then tick them off here.
   in, and let it start with Windows, minimised.
 - [ ] Choose a license before making the repository public (MIT is a
   common, simple choice).
-- [ ] Make the repository public when ready: until then installed copies
-  cannot see new releases (the updater reads public releases only).
+- [ ] Make the repository public (decided 7 October 2026, so installed
+  copies can see new releases): Settings, General, Danger Zone, Change
+  visibility. Do the email setting above first.
 - [ ] Optional, later: Windows code signing, so the installer does not show
   a SmartScreen warning. This costs money (for example Azure Trusted
   Signing).
@@ -446,6 +461,9 @@ when the work first needs them, then tick them off here.
 - Open: add Spotify's official logo as the credit next to Spotify content
   (the guidelines require it), or keep the text credit while Resonate stays
   personal. The original rule said never use the logo.
+- Decided: the repository becomes public so the updater works without
+  tokens (7 October 2026). The choice was offered with the Developer Policy
+  question spelled out; the logo question below is still open.
 - Open: the owner's monitor refresh rate, for the frame-time target.
 - Look: the first theme is "Midnight" (dark, soft violet accent), with
   "Pure black" and "Daylight" as alternatives in Settings. Waiting for the
