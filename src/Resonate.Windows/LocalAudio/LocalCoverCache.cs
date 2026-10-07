@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -11,8 +12,10 @@ namespace Resonate.Windows.LocalAudio;
 /// Small covers for the rows of Local Files: read from each music file (or
 /// the picture next to it) the first time a row shows, shrunk to a JPEG and
 /// kept in a folder, so scrolling never decodes a full-size cover twice.
-/// A file without a cover leaves a marker, so it is not looked at again
-/// until it changes.
+/// A cover made from the picture next to a file is kept under that
+/// picture's name, size and time, so a new picture shows. A file without a
+/// cover leaves a marker, so it is not looked at again until it or its
+/// folder changes (as when a cover.jpg is put next to it).
 /// </summary>
 public sealed class LocalCoverCache : IDisposable
 {
@@ -54,50 +57,59 @@ public sealed class LocalCoverCache : IDisposable
     public void Dispose() => _working.Dispose();
 
     /// <summary>A name that changes when the file does.</summary>
-    private static string KeyFor(LocalFile file)
-    {
-        var text = $"{file.Path.ToUpperInvariant()}|{file.Size}|{file.LastWriteTicks}";
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text)).AsSpan(0, 16));
-    }
+    private static string KeyFor(LocalFile file) => Hash($"{file.Path.ToUpperInvariant()}|{file.Size}|{file.LastWriteTicks}");
 
     private async Task<byte[]?> LoadAsync(LocalFile file, string key)
     {
         var thumbnail = Path.Combine(_folder, key + ".jpg");
-        var none = Path.Combine(_folder, key + ".none");
-        try
+        if (await ReadKeptAsync(thumbnail).ConfigureAwait(false) is { } kept)
         {
-            if (File.Exists(thumbnail))
-            {
-                return await File.ReadAllBytesAsync(thumbnail).ConfigureAwait(false);
-            }
-
-            if (File.Exists(none))
-            {
-                return null;
-            }
+            return kept;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+
+        // A file without a cover is looked at again once its folder changes,
+        // as when a cover.jpg is put next to it. The folder's time is taken
+        // before looking, so a picture put there meanwhile is not missed.
+        var none = Path.Combine(_folder, key + ".none");
+        var stamp = FolderStamp(file.Path);
+        if (await ReadKeptAsync(none).ConfigureAwait(false) is { } marker && Encoding.UTF8.GetString(marker) == stamp)
         {
-            // Make it again below.
+            return null;
+        }
+
+        // A cover from the picture next to the file is kept under that
+        // picture's name, size and time, so a new picture is read again.
+        var fromPicture = FolderPictureKey(key, file.Path) is { } pictureKey ? Path.Combine(_folder, pictureKey + ".jpg") : null;
+        if (fromPicture is not null && await ReadKeptAsync(fromPicture).ConfigureAwait(false) is { } keptPicture)
+        {
+            return keptPicture;
         }
 
         await _working.WaitAsync().ConfigureAwait(false);
         try
         {
-            var cover = LocalCovers.Read(file.Path);
+            // The cover inside the file first, as the player bar does (LocalCovers.Read).
+            var target = thumbnail;
+            var cover = LocalCovers.ReadEmbedded(file.Path);
+            if (cover is null && fromPicture is not null)
+            {
+                target = fromPicture;
+                cover = LocalCovers.ReadFolderImage(file.Path);
+            }
+
             var bytes = cover is null ? null : await ShrinkAsync(cover).ConfigureAwait(false);
             try
             {
                 Directory.CreateDirectory(_folder);
                 if (bytes is null)
                 {
-                    await File.WriteAllBytesAsync(none, []).ConfigureAwait(false);
+                    await File.WriteAllTextAsync(none, stamp).ConfigureAwait(false);
                 }
                 else
                 {
-                    var temporary = thumbnail + ".tmp";
+                    var temporary = target + ".tmp";
                     await File.WriteAllBytesAsync(temporary, bytes).ConfigureAwait(false);
-                    File.Move(temporary, thumbnail, overwrite: true);
+                    File.Move(temporary, target, overwrite: true);
                 }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -112,6 +124,55 @@ public sealed class LocalCoverCache : IDisposable
             _working.Release();
         }
     }
+
+    /// <summary>A file kept in the cache folder, or null when there is none (or it can not be read, so it is made again).</summary>
+    private static async Task<byte[]?> ReadKeptAsync(string path)
+    {
+        try
+        {
+            return File.Exists(path) ? await File.ReadAllBytesAsync(path).ConfigureAwait(false) : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>When the file's folder last changed (a file put in it, renamed or removed), as text for the "no cover" marker.</summary>
+    private static string FolderStamp(string audioPath)
+    {
+        try
+        {
+            return Path.GetDirectoryName(audioPath) is { Length: > 0 } folder
+                ? Directory.GetLastWriteTimeUtc(folder).Ticks.ToString(CultureInfo.InvariantCulture)
+                : string.Empty;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return string.Empty;
+        }
+    }
+
+    /// <summary>A name for the file's cover made from the picture next to it, which changes with that picture; null when there is none.</summary>
+    private static string? FolderPictureKey(string key, string audioPath)
+    {
+        if (LocalCovers.FindFolderImage(audioPath) is not { } picture)
+        {
+            return null;
+        }
+
+        try
+        {
+            var info = new FileInfo(picture);
+            return Hash($"{key}|{picture.ToUpperInvariant()}|{info.Length}|{info.LastWriteTimeUtc.Ticks}");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private static string Hash(string text) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text)).AsSpan(0, 16));
 
     /// <summary>The cover as a small JPEG, or null when Windows can not read the picture.</summary>
     private static async Task<byte[]?> ShrinkAsync(byte[] cover)
