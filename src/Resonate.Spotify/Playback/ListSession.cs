@@ -175,10 +175,11 @@ internal sealed class ListSession
             PlaybackOffset? offset = null;
             if (Current is { } song && (Picked || Index > 0))
             {
-                // Files from the computer can not be named by address; every
+                // Files from the computer can not be named by address, and an
+                // address listed twice would start at its first copy; every
                 // other song is named by address, which is exact even if the
                 // playlist changed since it was loaded.
-                offset = CanStartByUri(song)
+                offset = CanStartByUri(song) && !IsListedTwice(All, song.Uri)
                     ? new PlaybackOffset { Uri = song.Uri }
                     : new PlaybackOffset { Position = song.Position ?? Index };
             }
@@ -407,8 +408,18 @@ internal sealed class ListSession
     {
         WindowStart = Math.Clamp(Index, 0, Math.Max(0, Order.Count - WindowSize));
         WindowEnd = Math.Min(Order.Count, WindowStart + WindowSize);
+        if (Index > WindowStart && Current is { } song && IsListedTwice(Order.Skip(Index).Take(WindowEnd - Index), song.Uri))
+        {
+            // Spotify refuses (403) to start a list at a song that comes again
+            // later in it, so the window starts at this song (no offset) instead.
+            WithWindowFrom(Index);
+        }
+
         return this;
     }
+
+    private static bool IsListedTwice(IEnumerable<TrackInfo> songs, string? uri) =>
+        uri is not null && songs.Count(t => t.Uri == uri) > 1;
 
     /// <summary>"Repeat all" reached the end: another pass, in a fresh random order when shuffled.</summary>
     private void AddPass()

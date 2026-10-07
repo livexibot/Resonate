@@ -506,6 +506,36 @@ public sealed class ListPlaybackTests : IDisposable
     }
 
     [Fact]
+    public async Task A_song_listed_twice_is_not_started_by_an_offset_that_Spotify_refuses()
+    {
+        // Spotify answers 403 to an offset that points at the first copy of a song listed twice.
+        var songs = Songs(6);
+        songs[4] = songs[1] with { Position = 4 };
+        await StartAsync();
+
+        await _player.PlayAsync(new PlayRequest(songs, 1, null, "Mix") { Shuffle = false });
+
+        var body = Assert.Single(_web.PlayBodies)!;
+        Assert.Equal(Uris(songs.Skip(1)), body.Uris);
+        Assert.Null(body.Offset);
+    }
+
+    [Fact]
+    public async Task A_song_listed_twice_in_a_playlist_starts_by_its_position()
+    {
+        var songs = Songs(6);
+        songs[4] = songs[1] with { Position = 4 };
+        await StartAsync();
+
+        await _player.PlayAsync(new PlayRequest(songs, 4, Playlist, "Mix") { Shuffle = false });
+
+        var body = Assert.Single(_web.PlayBodies)!;
+        Assert.Equal(Playlist, body.ContextUri);
+        Assert.Null(body.Offset?.Uri);
+        Assert.Equal(4, body.Offset?.Position);
+    }
+
+    [Fact]
     public async Task After_Spotify_restarts_the_list_carries_on_from_the_same_song_and_spot()
     {
         var songs = Songs(30);

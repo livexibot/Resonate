@@ -259,16 +259,7 @@ public sealed partial class QueuePanel : UserControl
 
             var now = TrackInfo.From(queue.CurrentlyPlaying);
             _nowTrack = now is not null && now.Uri == _shown.TrackUri ? now : null;
-            var upcoming = new List<TrackInfo>(queue.Queue.Count);
-            foreach (var item in queue.Queue)
-            {
-                if (TrackInfo.From(item) is { } track)
-                {
-                    upcoming.Add(track);
-                }
-            }
-
-            ShowRows(upcoming, error: null);
+            ShowRows(QueuePreview.Upcoming(queue), error: null);
         }
         catch (OperationCanceledException) when (loading.IsCancellationRequested)
         {
