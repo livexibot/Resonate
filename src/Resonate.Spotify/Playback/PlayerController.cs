@@ -681,7 +681,8 @@ public sealed class PlayerController : IPlayer, IDisposable
     /// not, a song that was playing is started again through the Web API, in
     /// its playlist or album when it had one; a paused one is left for the
     /// user to pick again (<see cref="ResumeOutcome.NotResumed"/>), because
-    /// starting it would make a burst of sound.
+    /// starting it would make a burst of sound. So is DJ, which only the
+    /// Spotify app can start.
     /// </summary>
     public async Task<ResumeOutcome> ResumeAsync(PlayerState before, TimeSpan position, TimeSpan timeout, CancellationToken cancellationToken)
     {
@@ -706,6 +707,12 @@ public sealed class PlayerController : IPlayer, IDisposable
 
         if (!before.IsPlaying || before.TrackUri is not { } uri)
         {
+            return ResumeOutcome.NotResumed;
+        }
+
+        if (SpotifyDj.IsPlaying(before))
+        {
+            // Only the Spotify app can start DJ: the Web API declines it, and the music stops.
             return ResumeOutcome.NotResumed;
         }
 

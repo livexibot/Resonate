@@ -572,6 +572,29 @@ public sealed class ListPlaybackTests : IDisposable
         Assert.Equal(12_000, body.PositionMs);
     }
 
+    [Theory]
+    [InlineData(ControlChannel.Local)]
+    [InlineData(ControlChannel.WebApi)]
+    public async Task After_Spotify_restarts_DJ_is_never_started_through_the_Web_API(ControlChannel channel)
+    {
+        _web.Playback = OnTheWeb(Song(7), shuffle: false, context: SpotifyDj.ContextUri);
+        Playing(Song(7), seconds: 12);
+        await _player.StartAsync(TestContext.Current.CancellationToken);
+        _player.Channel = channel;
+        await _player.RefreshFromWebApiAsync(TestContext.Current.CancellationToken);
+        var before = _player.State;
+        Assert.True(SpotifyDj.IsPlaying(before));
+        Assert.True(before.IsPlaying);
+        Assert.NotNull(before.TrackUri);
+
+        // Spotify has not opened its media session (or reopened another song).
+        _local.Report(LocalMediaSnapshot.None);
+        var outcome = await _player.ResumeAsync(before, TimeSpan.FromSeconds(12), TimeSpan.Zero, TestContext.Current.CancellationToken);
+
+        Assert.Equal(ResumeOutcome.NotResumed, outcome);
+        Assert.Empty(_web.PlayBodies);
+    }
+
     private static TrackInfo Song(int i) =>
         new($"spotify:track:{i}", $"Song {i}", "Band", "Record", null, TimeSpan.FromSeconds(200), null, null, IsExplicit: false, IsPlayable: true)
         {
