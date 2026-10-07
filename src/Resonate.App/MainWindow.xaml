@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="Resonate.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Resonate.App.Controls"
+    xmlns:vm="using:Resonate.App.ViewModels"
+    Title="Resonate">
+
+    <Grid
+        x:Name="RootGrid"
+        Background="{StaticResource ResonateBackgroundBrush}"
+        PreviewKeyDown="OnRootPreviewKeyDown">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="44" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator
+                Key="F"
+                Invoked="OnSearchAccelerator"
+                Modifiers="Control" />
+            <KeyboardAccelerator
+                Key="L"
+                Invoked="OnSearchAccelerator"
+                Modifiers="Control" />
+            <KeyboardAccelerator
+                Key="Right"
+                Invoked="OnNextAccelerator"
+                Modifiers="Control" />
+            <KeyboardAccelerator
+                Key="Left"
+                Invoked="OnPreviousAccelerator"
+                Modifiers="Control" />
+        </Grid.KeyboardAccelerators>
+
+        <!-- Title bar (the whole strip drags the window) -->
+        <Grid x:Name="AppTitleBar" Background="{StaticResource ResonateTransparentBrush}">
+            <StackPanel
+                Margin="18,0,0,0"
+                VerticalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="10">
+                <Image
+                    Width="16"
+                    Height="16"
+                    Source="ms-appx:///Assets/Resonate-64.png" />
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Style="{StaticResource ResonateCaptionTextStyle}"
+                    Text="Resonate" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Library sidebar and pages -->
+        <Grid
+            x:Name="ShellGrid"
+            Grid.Row="1"
+            ColumnSpacing="8"
+            Padding="8,0,8,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="272" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Grid
+                x:Name="Sidebar"
+                Padding="6,10,6,8"
+                Background="{StaticResource ResonateSidebarBrush}"
+                CornerRadius="{StaticResource ResonateCornerLarge}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <ListView
+                    x:Name="NavList"
+                    ItemsSource="{x:Bind NavItems}"
+                    SelectionChanged="OnNavSelectionChanged"
+                    SelectionMode="Single">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:NavItem">
+                            <StackPanel
+                                Height="40"
+                                Orientation="Horizontal"
+                                Spacing="14">
+                                <FontIcon
+                                    VerticalAlignment="Center"
+                                    FontFamily="{StaticResource ResonateIconFont}"
+                                    FontSize="16"
+                                    Foreground="{StaticResource ResonateTextSecondaryBrush}"
+                                    Glyph="{x:Bind Glyph}" />
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    FontWeight="SemiBold"
+                                    Style="{StaticResource ResonateBodyTextStyle}"
+                                    Text="{x:Bind Label}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+
+                <TextBlock
+                    Grid.Row="1"
+                    Margin="16,18,16,6"
+                    CharacterSpacing="60"
+                    Style="{StaticResource ResonateCaptionTextStyle}"
+                    Text="PLAYLISTS" />
+
+                <ListView
+                    x:Name="PlaylistList"
+                    Grid.Row="2"
+                    ItemsSource="{x:Bind Playlists}"
+                    SelectionChanged="OnPlaylistSelectionChanged"
+                    SelectionMode="Single">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:PlaylistNavItem">
+                            <Grid Height="54" ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="40" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid
+                                    Width="40"
+                                    Height="40"
+                                    Background="{x:Bind PlaceholderBrush}"
+                                    CornerRadius="{StaticResource ResonateCornerSmall}">
+                                    <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
+                                </Grid>
+                                <StackPanel
+                                    Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    Spacing="1">
+                                    <TextBlock Style="{StaticResource ResonateBodyTextStyle}" Text="{x:Bind Name}" />
+                                    <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="{x:Bind Details}" />
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+
+                <Grid
+                    Grid.Row="3"
+                    Margin="10,8,6,0"
+                    ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Style="{StaticResource ResonateCaptionTextStyle}"
+                        Text="Music and covers from Spotify"
+                        TextWrapping="Wrap" />
+                    <Button
+                        x:Name="SettingsButton"
+                        Grid.Column="1"
+                        AutomationProperties.Name="Settings"
+                        Click="OnSettingsClick"
+                        Content="&#xE713;"
+                        Style="{StaticResource ResonateIconButtonStyle}"
+                        ToolTipService.ToolTip="Settings" />
+                </Grid>
+            </Grid>
+
+            <Grid
+                Grid.Column="1"
+                Background="{StaticResource ResonateSurfaceBrush}"
+                CornerRadius="{StaticResource ResonateCornerLarge}">
+                <Frame x:Name="ContentFrame" />
+                <InfoBar
+                    x:Name="MessageBar"
+                    MaxWidth="720"
+                    Margin="16"
+                    VerticalAlignment="Top"
+                    IsOpen="False" />
+            </Grid>
+        </Grid>
+
+        <!-- First run: connect to Spotify -->
+        <Frame
+            x:Name="SignInFrame"
+            Grid.Row="1"
+            Grid.RowSpan="2"
+            Visibility="Collapsed" />
+
+        <controls:PlayerBar x:Name="PlayerBar" Grid.Row="2" />
+    </Grid>
+</Window>

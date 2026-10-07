@@ -733,7 +733,7 @@ public sealed class PlayerController : IDisposable
         }
     }
 
-    internal static string DescribeError(Exception exception) => exception switch
+    public static string DescribeError(Exception exception) => exception switch
     {
         SpotifyApiException api => api.UserMessage,
         SpotifyAuthException { Error: "not_signed_in" } => "Sign in to Spotify to do that.",

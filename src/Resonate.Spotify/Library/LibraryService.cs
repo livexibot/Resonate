@@ -9,9 +9,10 @@ namespace Resonate.Spotify.Library;
 /// songs of playlists the user owns or collaborates on; others can still be
 /// played as a whole.
 /// </param>
-public sealed record TrackListPage(IReadOnlyList<TrackInfo> Tracks, int Total, bool HasMore, bool ItemsHidden)
+/// <param name="NextOffset">Where the next page starts (entries Resonate skips, such as removed songs, still count).</param>
+public sealed record TrackListPage(IReadOnlyList<TrackInfo> Tracks, int Total, bool HasMore, bool ItemsHidden, int NextOffset)
 {
-    public static readonly TrackListPage Hidden = new([], 0, false, true);
+    public static readonly TrackListPage Hidden = new([], 0, false, true, 0);
 }
 
 /// <summary>A playlist's header and its first page of songs.</summary>
@@ -25,7 +26,7 @@ public sealed record PlaylistDetails(
     TrackListPage FirstPage);
 
 /// <summary>Search results ready to show.</summary>
-public sealed record SearchPage(
+public sealed record SearchMatches(
     IReadOnlyList<TrackInfo> Tracks,
     IReadOnlyList<SimplifiedAlbum> Albums,
     IReadOnlyList<Artist> Artists,
@@ -86,14 +87,14 @@ public sealed class LibraryService
     {
         var page = await _api.GetSavedTracksAsync(offset, PageSize, cancellationToken).ConfigureAwait(false);
         var tracks = page.Items.Select(s => TrackInfo.From(s?.Track)).OfType<TrackInfo>().ToList();
-        return new TrackListPage(tracks, page.Total, page.HasMore, ItemsHidden: false);
+        return new TrackListPage(tracks, page.Total, page.HasMore, ItemsHidden: false, offset + page.Items.Count);
     }
 
     public async Task<PlaylistDetails> GetPlaylistAsync(string playlistId, CancellationToken cancellationToken)
     {
         var playlist = await _api.GetPlaylistAsync(playlistId, cancellationToken).ConfigureAwait(false);
         var entries = playlist.Entries;
-        var firstPage = entries is null ? TrackListPage.Hidden : ToPage(entries);
+        var firstPage = entries is null ? TrackListPage.Hidden : ToPage(entries, 0);
 
         return new PlaylistDetails(
             playlist.Id,
@@ -110,7 +111,7 @@ public sealed class LibraryService
         try
         {
             var page = await _api.GetPlaylistItemsAsync(playlistId, offset, PageSize, cancellationToken).ConfigureAwait(false);
-            return ToPage(page);
+            return ToPage(page, offset);
         }
         catch (SpotifyApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
         {
@@ -118,13 +119,13 @@ public sealed class LibraryService
         }
     }
 
-    public async Task<SearchPage> SearchAsync(string query, CancellationToken cancellationToken)
+    public async Task<SearchMatches> SearchAsync(string query, CancellationToken cancellationToken)
     {
         var results = await _api
             .SearchAsync(query, SearchTypes.All, 0, SpotifyWebApi.MaxSearchLimit, cancellationToken)
             .ConfigureAwait(false);
 
-        return new SearchPage(
+        return new SearchMatches(
             results.Tracks?.Items.Select(TrackInfo.From).OfType<TrackInfo>().ToList() ?? [],
             results.Albums?.Items.OfType<SimplifiedAlbum>().ToList() ?? [],
             results.Artists?.Items.OfType<Artist>().ToList() ?? [],
@@ -135,9 +136,9 @@ public sealed class LibraryService
     public bool CanListSongs(SimplifiedPlaylist playlist) =>
         playlist.Collaborative || (Snapshot?.User?.Id is { } me && playlist.Owner?.Id == me);
 
-    private static TrackListPage ToPage(Page<PlaylistEntry> page)
+    private static TrackListPage ToPage(Page<PlaylistEntry> page, int offset)
     {
         var tracks = page.Items.Select(e => TrackInfo.From(e?.Playable)).OfType<TrackInfo>().ToList();
-        return new TrackListPage(tracks, page.Total, page.HasMore, ItemsHidden: false);
+        return new TrackListPage(tracks, page.Total, page.HasMore, ItemsHidden: false, offset + page.Items.Count);
     }
 }

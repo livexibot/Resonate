@@ -1,0 +1,365 @@
+using Resonate.Spotify.Playback;
+using Resonate.Spotify.WebApi;
+
+namespace Resonate.App.Demo;
+
+/// <summary>
+/// Made-up music for "--demo": lets anyone try the interface (and lets CI take
+/// screenshots) without a Spotify account. Nothing here comes from Spotify.
+/// Playing a song only pretends to play it.
+/// </summary>
+public static class DemoCatalog
+{
+    private static readonly string[] Artists =
+    [
+        "Northern Lights", "The Paper Kites Club", "Mira Sol", "Velvet Static", "Juniper Lane",
+        "Echo Harbor", "Neon Orchard", "Lumen", "Saltwater Radio", "The Quiet Hours",
+    ];
+
+    private static readonly string[] Words =
+    [
+        "Midnight", "Golden", "Glass", "River", "Satellite", "Paper", "Summer", "Static", "Velvet", "Ocean",
+        "Echo", "Ember", "Silver", "Wild", "Neon", "Quiet", "Distant", "Electric", "Blue", "Hollow",
+    ];
+
+    private static readonly string[] Nouns =
+    [
+        "Hearts", "Lights", "Season", "Signals", "Afternoon", "Highway", "Dreams", "Skyline", "Waves", "Letters",
+        "Gardens", "Machines", "Weather", "Rooms", "Horizons", "Echoes", "Fireflies", "Mirrors", "Tides", "Stars",
+    ];
+
+    public static readonly IReadOnlyList<(string Id, string Name, string Description, int Size)> Playlists =
+    [
+        ("late-night", "Late Night Drive", "Slow synths for empty roads.", 48),
+        ("focus", "Deep Focus", "Instrumental music to keep you in the zone.", 64),
+        ("sunday", "Sunday Morning", "Coffee, sunlight, nowhere to be.", 36),
+        ("running", "Running Mix", "Steady tempo, no skipping needed.", 52),
+        ("indie", "Indie Finds", "Bands you will tell your friends about.", 40),
+        ("lofi", "Lo-fi Study", "Warm beats and soft noise.", 70),
+        ("jazz", "Jazz Evenings", "Brushed drums and late conversations.", 30),
+        ("throwback", "Throwback Hits", "The songs everyone knows the words to.", 55),
+    ];
+
+    public static PlayableItem Track(string playlistId, int index)
+    {
+        var stableSeed = StableHash(playlistId) + (index * 7919);
+        var title = $"{Words[stableSeed % Words.Length]} {Nouns[(stableSeed / 7) % Nouns.Length]}";
+        var artist = Artists[(stableSeed / 3) % Artists.Length];
+        var album = $"{Nouns[(stableSeed / 11) % Nouns.Length]} of {Words[(stableSeed / 13) % Words.Length]}";
+        return new PlayableItem
+        {
+            Id = $"{playlistId}-{index}",
+            Name = title,
+            Uri = $"demo:track:{playlistId}:{index}",
+            Type = "track",
+            DurationMs = 150_000 + (stableSeed % 120) * 1000,
+            Artists = [new SimplifiedArtist { Name = artist }],
+            Album = new SimplifiedAlbum { Name = album, Uri = $"demo:album:{album}" },
+        };
+    }
+
+    public static IEnumerable<PlayableItem> TracksOf(string playlistId, int count) =>
+        Enumerable.Range(0, count).Select(i => Track(playlistId, i));
+
+    public static PlayableItem? FindByUri(string? uri)
+    {
+        if (uri is null || !uri.StartsWith("demo:track:", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var parts = uri.Split(':');
+        return parts.Length == 4 && int.TryParse(parts[3], System.Globalization.CultureInfo.InvariantCulture, out var index)
+            ? Track(parts[2], index)
+            : null;
+    }
+
+    private static int StableHash(string text)
+    {
+        var hash = 17;
+        foreach (var c in text)
+        {
+            hash = unchecked((hash * 31) + c);
+        }
+
+        return Math.Abs(hash % 100_000);
+    }
+}
+
+/// <summary>A pretend Web API serving <see cref="DemoCatalog"/>.</summary>
+public sealed class DemoWebApi : ISpotifyWebApi
+{
+    private readonly DemoPlayer _player;
+
+    public DemoWebApi(DemoPlayer player) => _player = player;
+
+    public Task<SpotifyUser> GetCurrentUserAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(new SpotifyUser { Id = "demo", DisplayName = "Demo listener", Uri = "demo:user:demo" });
+
+    public Task<Page<SimplifiedPlaylist>> GetMyPlaylistsAsync(int offset, int limit, CancellationToken cancellationToken)
+    {
+        var all = DemoCatalog.Playlists.Select(p => new SimplifiedPlaylist
+        {
+            Id = p.Id,
+            Name = p.Name,
+            Description = p.Description,
+            Uri = $"demo:playlist:{p.Id}",
+            Owner = new PlaylistOwner { Id = "demo", DisplayName = "Demo listener" },
+            Items = new ItemsReference { Total = p.Size },
+        }).ToList();
+        var page = all.Skip(offset).Take(limit).ToList<SimplifiedPlaylist?>();
+        return Task.FromResult(new Page<SimplifiedPlaylist> { Items = page, Total = all.Count, Offset = offset, Limit = limit });
+    }
+
+    public Task<Page<SavedTrack>> GetSavedTracksAsync(int offset, int limit, CancellationToken cancellationToken)
+    {
+        const int Total = 120;
+        var items = Enumerable.Range(offset, Math.Max(0, Math.Min(limit, Total - offset)))
+            .Select(i => new SavedTrack { Track = DemoCatalog.Track("liked", i) })
+            .ToList<SavedTrack?>();
+        return Task.FromResult(new Page<SavedTrack>
+        {
+            Items = items,
+            Total = Total,
+            Offset = offset,
+            Limit = limit,
+            Next = offset + items.Count < Total ? "more" : null,
+        });
+    }
+
+    public Task<Playlist> GetPlaylistAsync(string playlistId, CancellationToken cancellationToken)
+    {
+        var (id, name, description, size) = DemoCatalog.Playlists.FirstOrDefault(p => p.Id == playlistId);
+        var first = DemoCatalog.TracksOf(playlistId, Math.Min(size, 50)).Select(t => new PlaylistEntry { Item = t }).ToList<PlaylistEntry?>();
+        return Task.FromResult(new Playlist
+        {
+            Id = id ?? playlistId,
+            Name = name ?? "Playlist",
+            Description = description,
+            Uri = $"demo:playlist:{playlistId}",
+            Owner = new PlaylistOwner { Id = "demo", DisplayName = "Demo listener" },
+            Items = new Page<PlaylistEntry> { Items = first, Total = size, Limit = 50, Next = size > 50 ? "more" : null },
+        });
+    }
+
+    public Task<Page<PlaylistEntry>> GetPlaylistItemsAsync(string playlistId, int offset, int limit, CancellationToken cancellationToken)
+    {
+        var size = DemoCatalog.Playlists.FirstOrDefault(p => p.Id == playlistId).Size;
+        var items = Enumerable.Range(offset, Math.Max(0, Math.Min(limit, size - offset)))
+            .Select(i => new PlaylistEntry { Item = DemoCatalog.Track(playlistId, i) })
+            .ToList<PlaylistEntry?>();
+        return Task.FromResult(new Page<PlaylistEntry>
+        {
+            Items = items,
+            Total = size,
+            Offset = offset,
+            Limit = limit,
+            Next = offset + items.Count < size ? "more" : null,
+        });
+    }
+
+    public Task<SearchResults> SearchAsync(string query, SearchTypes types, int offset, int limit, CancellationToken cancellationToken)
+    {
+        var tracks = DemoCatalog.Playlists
+            .SelectMany(p => DemoCatalog.TracksOf(p.Id, p.Size))
+            .Where(t => t.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || t.Artists![0].Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .DistinctBy(t => t.Name)
+            .Take(limit)
+            .ToList<PlayableItem?>();
+        var playlists = DemoCatalog.Playlists
+            .Where(p => p.Name.Contains(query, StringComparison.OrdinalIgnoreCase) || tracks.Count > 0)
+            .Take(limit)
+            .Select(p => new SimplifiedPlaylist
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Uri = $"demo:playlist:{p.Id}",
+                Owner = new PlaylistOwner { Id = "demo", DisplayName = "Demo listener" },
+            })
+            .ToList<SimplifiedPlaylist?>();
+        var albums = tracks
+            .Select(t => t!.Album!)
+            .DistinctBy(a => a.Name)
+            .Take(limit)
+            .Select(a => new SimplifiedAlbum { Name = a.Name, Uri = a.Uri, Artists = [new SimplifiedArtist { Name = "Various artists" }] })
+            .ToList<SimplifiedAlbum?>();
+
+        return Task.FromResult(new SearchResults
+        {
+            Tracks = new Page<PlayableItem> { Items = tracks, Total = tracks.Count },
+            Playlists = new Page<SimplifiedPlaylist> { Items = playlists, Total = playlists.Count },
+            Albums = new Page<SimplifiedAlbum> { Items = albums, Total = albums.Count },
+            Artists = new Page<Artist>(),
+        });
+    }
+
+    public Task<IReadOnlyList<Device>> GetDevicesAsync(CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<Device>>([new Device { Id = "demo-device", Name = Environment.MachineName, Type = "Computer", IsActive = true }]);
+
+    public Task<PlaybackState?> GetPlaybackStateAsync(CancellationToken cancellationToken) => Task.FromResult<PlaybackState?>(null);
+
+    public Task StartPlaybackAsync(StartPlaybackBody? body, string? deviceId, CancellationToken cancellationToken)
+    {
+        var uri = body?.Offset?.Uri ?? body?.Uris?.FirstOrDefault();
+        if (DemoCatalog.FindByUri(uri) is { } track)
+        {
+            _player.Start(track);
+        }
+        else if (body?.ContextUri?.StartsWith("demo:playlist:", StringComparison.Ordinal) == true)
+        {
+            _player.Start(DemoCatalog.Track(body.ContextUri["demo:playlist:".Length..], 0));
+        }
+        else
+        {
+            _player.SetPlaying(true);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task PauseAsync(string? deviceId, CancellationToken cancellationToken)
+    {
+        _player.SetPlaying(false);
+        return Task.CompletedTask;
+    }
+
+    public Task SkipToNextAsync(string? deviceId, CancellationToken cancellationToken) => _player.NextAsync(cancellationToken);
+
+    public Task SkipToPreviousAsync(string? deviceId, CancellationToken cancellationToken) => _player.PreviousAsync(cancellationToken);
+
+    public Task SeekAsync(TimeSpan position, string? deviceId, CancellationToken cancellationToken) => _player.SeekAsync(position, cancellationToken);
+
+    public Task SetVolumeAsync(int percent, string? deviceId, CancellationToken cancellationToken)
+    {
+        _player.TrySetVolume(percent / 100.0);
+        return Task.CompletedTask;
+    }
+
+    public Task TransferPlaybackAsync(string deviceId, bool play, CancellationToken cancellationToken) => Task.CompletedTask;
+}
+
+/// <summary>A pretend Spotify app: keeps a now-playing state and reports it like the media session would.</summary>
+public sealed class DemoPlayer : ILocalMediaChannel, IAppVolume, ISpotifyAppLauncher
+{
+    private readonly Lock _gate = new();
+    private LocalMediaSnapshot _current;
+    private string _playlistId = "late-night";
+    private int _index;
+    private double _volume = 0.7;
+
+    public DemoPlayer()
+    {
+        var first = DemoCatalog.Track(_playlistId, 3);
+        _index = 3;
+        _current = Snapshot(first, playing: true, TimeSpan.FromSeconds(42));
+    }
+
+    public event EventHandler<LocalMediaSnapshot>? Changed;
+
+    public LocalMediaSnapshot Current
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _current;
+            }
+        }
+    }
+
+    public bool IsRunning => true;
+
+    public Task<SpotifyAppStatus> EnsureRunningAsync(CancellationToken cancellationToken) => Task.FromResult(SpotifyAppStatus.Running);
+
+    public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public void Start(PlayableItem track)
+    {
+        var parts = track.Uri!.Split(':');
+        _playlistId = parts[2];
+        _index = int.Parse(parts[3], System.Globalization.CultureInfo.InvariantCulture);
+        Report(Snapshot(track, playing: true, TimeSpan.Zero));
+    }
+
+    public void SetPlaying(bool playing)
+    {
+        var now = Current;
+        Report(now with { IsPlaying = playing, Position = now.PositionAt(DateTimeOffset.UtcNow), PositionUpdatedAt = DateTimeOffset.UtcNow });
+    }
+
+    public Task<bool> PlayAsync(CancellationToken cancellationToken)
+    {
+        SetPlaying(true);
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> PauseAsync(CancellationToken cancellationToken)
+    {
+        SetPlaying(false);
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> NextAsync(CancellationToken cancellationToken)
+    {
+        _index++;
+        Report(Snapshot(DemoCatalog.Track(_playlistId, _index), playing: true, TimeSpan.Zero));
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> PreviousAsync(CancellationToken cancellationToken)
+    {
+        var now = Current;
+        if (now.PositionAt(DateTimeOffset.UtcNow) < TimeSpan.FromSeconds(3) && _index > 0)
+        {
+            _index--;
+        }
+
+        Report(Snapshot(DemoCatalog.Track(_playlistId, _index), playing: true, TimeSpan.Zero));
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> SeekAsync(TimeSpan position, CancellationToken cancellationToken)
+    {
+        Report(Current with { Position = position, PositionUpdatedAt = DateTimeOffset.UtcNow });
+        return Task.FromResult(true);
+    }
+
+    public double? TryGetVolume() => _volume;
+
+    public bool TrySetVolume(double volume)
+    {
+        _volume = volume;
+        return true;
+    }
+
+    public void Dispose()
+    {
+    }
+
+    private static LocalMediaSnapshot Snapshot(PlayableItem track, bool playing, TimeSpan position) => new()
+    {
+        HasSession = true,
+        Title = track.Name,
+        Artist = track.Artists?.FirstOrDefault()?.Name,
+        Album = track.Album?.Name,
+        IsPlaying = playing,
+        Position = position,
+        PositionUpdatedAt = DateTimeOffset.UtcNow,
+        Duration = TimeSpan.FromMilliseconds(track.DurationMs),
+        CanSeek = true,
+        CanSkipNext = true,
+        CanSkipPrevious = true,
+    };
+
+    private void Report(LocalMediaSnapshot snapshot)
+    {
+        lock (_gate)
+        {
+            _current = snapshot;
+        }
+
+        // Like the real media session, the report arrives a moment later.
+        _ = Task.Delay(120).ContinueWith(_ => Changed?.Invoke(this, snapshot), TaskScheduler.Default);
+    }
+}
