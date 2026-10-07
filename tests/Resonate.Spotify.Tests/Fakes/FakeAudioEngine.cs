@@ -26,6 +26,9 @@ internal sealed class FakeAudioEngine : ILocalAudioEngine
     /// <summary>When set, play, pause and open wait for it, so commands pile up behind them.</summary>
     public TaskCompletionSource? Hold { get; set; }
 
+    /// <summary>When set, changing the sink waits for it, so later wishes pile up behind.</summary>
+    public ManualResetEventSlim? SinkHold { get; set; }
+
     public TimeSpan Length { get; set; } = TimeSpan.FromMinutes(3);
 
     public string? Next { get; private set; }
@@ -35,6 +38,12 @@ internal sealed class FakeAudioEngine : ILocalAudioEngine
     public double? Volume { get; private set; }
 
     public EqualizerSettings? Equalizer { get; private set; }
+
+    /// <summary>The sink the visualiser handed over, or null.</summary>
+    public ILocalAudioSink? Sink { get; private set; }
+
+    /// <summary>How many times the sink was changed.</summary>
+    public int SinkChanges { get; private set; }
 
     public bool Disposed { get; private set; }
 
@@ -103,6 +112,16 @@ internal sealed class FakeAudioEngine : ILocalAudioEngine
         Record("equalizer");
         Equalizer = settings;
     }
+
+    public void SetSink(ILocalAudioSink? sink)
+    {
+        Sink = sink;
+        SinkChanges++;
+        SinkHold?.Wait(TimeSpan.FromSeconds(5));
+    }
+
+    /// <summary>One quantum of sound, as the audio thread would hand it to the sink (if there is one).</summary>
+    public void Play(float[] interleaved, int channels = 2, int sampleRate = 48_000) => Sink?.Write(interleaved, channels, sampleRate);
 
     public void End(string path, string? nextPath) => TrackEnded?.Invoke(this, new LocalTrackEnded(path, nextPath));
 

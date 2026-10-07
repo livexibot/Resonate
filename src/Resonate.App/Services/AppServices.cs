@@ -53,7 +53,10 @@ public sealed class AppServices : IDisposable
 
         // Demo mode (CI's screenshots) never touches the user's own skins.
         Skins = new SkinLibrary(settings, isDemo ? Path.Combine(Path.GetTempPath(), "Resonate demo skins") : AppPaths.SkinsFolder);
-        Visualiser = new VisualiserFeed();
+
+        // Real or demo, the local files engine feeds it: AudioGraph with the user's files, or DemoLocalAudio's made-up sound.
+        Visualiser = new VisualiserFeed(player);
+        _owned.Add(Visualiser);
 
         player.Spotify.Channel = settings.ParsedControlChannel;
         spotifyWindow.KeepHidden = settings.KeepSpotifyHidden;

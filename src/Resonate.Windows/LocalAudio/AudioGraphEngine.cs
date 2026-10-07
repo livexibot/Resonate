@@ -22,6 +22,10 @@ namespace Resonate.Windows.LocalAudio;
 /// does not keep an audio stream open. Shortly before a song ends the next
 /// one is opened and connected, stopped, and started the moment the first
 /// ends, so albums play without a gap.
+///
+/// While a visualiser shows local files, a tap (<see cref="AudioGraphTap"/>)
+/// hangs off the EQ bus and hands each quantum to the visualiser's sink; it
+/// is taken down when the visualiser goes, and a rebuilt graph gets a new one.
 /// </summary>
 public sealed partial class AudioGraphEngine : ILocalAudioEngine
 {
@@ -45,6 +49,7 @@ public sealed partial class AudioGraphEngine : ILocalAudioEngine
     private readonly Lock _gate = new();
     private readonly ITimer _idleTimer;
     private readonly ITimer _ticker;
+    private readonly LocalAudioTapSlot _tap = new();
 
     private AudioGraph? _graph;
     private AudioDeviceOutputNode? _output;
@@ -261,6 +266,17 @@ public sealed partial class AudioGraphEngine : ILocalAudioEngine
         }
     }
 
+    public void SetSink(ILocalAudioSink? sink)
+    {
+        lock (_gate)
+        {
+            if (!_disposed)
+            {
+                _tap.SetSink(sink);
+            }
+        }
+    }
+
     public void Dispose()
     {
         lock (_gate)
@@ -274,6 +290,7 @@ public sealed partial class AudioGraphEngine : ILocalAudioEngine
             _idleTimer.Dispose();
             _ticker.Dispose();
             TearDownGraph();
+            _tap.SetSink(null);
         }
     }
 
@@ -312,8 +329,9 @@ public sealed partial class AudioGraphEngine : ILocalAudioEngine
                 ObjectDisposedException.ThrowIf(_disposed, this);
                 _graph = graph;
                 _output = output.DeviceOutputNode;
-                _bus = graph.CreateSubmixNode();
-                _bus.AddOutgoingConnection(_output);
+                var bus = graph.CreateSubmixNode();
+                _bus = bus;
+                bus.AddOutgoingConnection(_output);
 
                 _lowBands = new EqualizerEffectDefinition(graph);
                 _highBands = new EqualizerEffectDefinition(graph);
@@ -325,7 +343,10 @@ public sealed partial class AudioGraphEngine : ILocalAudioEngine
                 graph.UnrecoverableErrorOccurred += OnGraphError;
                 ApplyVolume();
                 ApplyEqualizer();
-                return (graph, _bus);
+
+                // The visualiser's tap, when one is wanted; also after a rebuild.
+                _tap.GraphReady(sink => AttachTap(graph, bus, sink));
+                return (graph, bus);
             }
         }
         catch
@@ -850,6 +871,8 @@ public sealed partial class AudioGraphEngine : ILocalAudioEngine
     /// <summary>Call under the lock.</summary>
     private void TearDownGraph()
     {
+        // The tap goes first, so none outlives its graph.
+        _tap.GraphGone();
         Volatile.Write(ref _gaplessNext, null);
         _next?.Dispose();
         _next = null;
@@ -874,6 +897,20 @@ public sealed partial class AudioGraphEngine : ILocalAudioEngine
         _lowBands = null;
         _highBands = null;
         _limiter = null;
+    }
+
+    /// <summary>Hangs the visualiser's tap on <paramref name="bus"/>; null when it cannot (no visualiser, but the music plays on).</summary>
+    private static AudioGraphTap? AttachTap(AudioGraph graph, AudioSubmixNode bus, ILocalAudioSink sink)
+    {
+        try
+        {
+            return AudioGraphTap.Attach(graph, bus, sink);
+        }
+        catch (Exception)
+        {
+            // Whatever went wrong, it must not stop the song from playing.
+            return null;
+        }
     }
 
     // ---- Helpers ----
