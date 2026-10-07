@@ -83,7 +83,10 @@ public sealed class AppServices : IDisposable
 
         var account = new AccountService(http, new CredentialTokenStore(), settings.ClientId);
         var api = new SpotifyWebApi(http, account);
-        var library = new LibraryService(api, new LibraryCache(Path.Combine(AppPaths.CacheFolder, "library.json")));
+        var library = new LibraryService(
+            api,
+            new LibraryCache(Path.Combine(AppPaths.CacheFolder, "library.json")),
+            lists: new TrackListStore(Path.Combine(AppPaths.CacheFolder, "lists")));
         var smtc = new SmtcMediaChannel();
         var background = new SpotifyBackground();
         var launcher = new SpotifyAppLauncher(background);
@@ -95,7 +98,7 @@ public sealed class AppServices : IDisposable
             launcher);
 
         var services = new AppServices(false, settingsStore, settings, account, api, library, player, launcher, background);
-        services._owned.AddRange([player, smtc, launcher, background, account, http]);
+        services._owned.AddRange([player, library, smtc, launcher, background, account, http]);
 
         // At once, so a Spotify already on the taskbar (started with Windows) disappears from it.
         background.Start();
@@ -115,7 +118,7 @@ public sealed class AppServices : IDisposable
         var player = new PlayerController(demoPlayer, demoPlayer, api, new LocalDeviceResolver(api, Environment.MachineName), demoPlayer);
 
         var services = new AppServices(true, settingsStore, settings, account, api, library, player, demoPlayer, demoPlayer);
-        services._owned.AddRange([player, account, http]);
+        services._owned.AddRange([player, library, account, http]);
         return services;
     }
 

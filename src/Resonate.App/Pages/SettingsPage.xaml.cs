@@ -154,6 +154,7 @@ public sealed partial class SettingsPage : Page
     private void OnSignOutClick(object sender, RoutedEventArgs e)
     {
         _services.Account.SignOut();
+        _services.Library.ClearStoredLists();
         App.MainWindow?.ShowSignIn();
     }
 

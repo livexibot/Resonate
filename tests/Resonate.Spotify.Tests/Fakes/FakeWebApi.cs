@@ -45,16 +45,35 @@ internal sealed class FakeWebApi : ISpotifyWebApi
         });
     }
 
-    public Task<Page<SavedTrack>> GetSavedTracksAsync(int offset, int limit, CancellationToken cancellationToken) =>
-        Task.FromResult(new Page<SavedTrack>());
+    /// <summary>Liked Songs, newest first; served in pages of the requested size.</summary>
+    public List<SavedTrack> SavedTracks { get; } = [];
+
+    public int SavedTrackReads { get; private set; }
+
+    public Task<Page<SavedTrack>> GetSavedTracksAsync(int offset, int limit, CancellationToken cancellationToken)
+    {
+        SavedTrackReads++;
+        return Task.FromResult(Paged(SavedTracks.ToList<SavedTrack?>(), offset, limit));
+    }
 
     public Task<Playlist> GetPlaylistAsync(string playlistId, CancellationToken cancellationToken) =>
         Task.FromResult(PlaylistResult ?? new Playlist { Id = playlistId });
 
-    public Task<Page<PlaylistEntry>> GetPlaylistItemsAsync(string playlistId, int offset, int limit, CancellationToken cancellationToken) =>
-        PlaylistItemsFailure is { } failure
-            ? Task.FromException<Page<PlaylistEntry>>(failure)
-            : Task.FromResult(new Page<PlaylistEntry>());
+    /// <summary>Songs per playlist ID; served in pages of the requested size.</summary>
+    public Dictionary<string, List<PlaylistEntry>> PlaylistEntries { get; } = [];
+
+    public int PlaylistItemReads { get; private set; }
+
+    public Task<Page<PlaylistEntry>> GetPlaylistItemsAsync(string playlistId, int offset, int limit, CancellationToken cancellationToken)
+    {
+        PlaylistItemReads++;
+        if (PlaylistItemsFailure is { } failure)
+        {
+            return Task.FromException<Page<PlaylistEntry>>(failure);
+        }
+
+        return Task.FromResult(PlaylistEntries.TryGetValue(playlistId, out var entries) ? Paged(entries.ToList<PlaylistEntry?>(), offset, limit) : new Page<PlaylistEntry>());
+    }
 
     public Task<SearchResults> SearchAsync(string query, SearchTypes types, int offset, int limit, CancellationToken cancellationToken) =>
         Task.FromResult(new SearchResults());
@@ -97,6 +116,124 @@ internal sealed class FakeWebApi : ISpotifyWebApi
 
     public Task TransferPlaybackAsync(string deviceId, bool play, CancellationToken cancellationToken) =>
         Record($"transfer@{deviceId}");
+
+    public PlayerQueue QueueResult { get; set; } = new();
+
+    public List<PlayHistoryItem> RecentlyPlayed { get; } = [];
+
+    public List<Artist> TopArtists { get; } = [];
+
+    public List<PlayableItem> TopTracks { get; } = [];
+
+    /// <summary>URIs in the user's library (liked songs and so on).</summary>
+    public HashSet<string> Library { get; } = [];
+
+    public Dictionary<string, Album> Albums { get; } = [];
+
+    public Dictionary<string, Artist> Artists { get; } = [];
+
+    public List<SimplifiedAlbum> ArtistAlbums { get; } = [];
+
+    public Task SetShuffleAsync(bool shuffle, string? deviceId, CancellationToken cancellationToken) =>
+        Record($"shuffle {(shuffle ? "on" : "off")}@{deviceId}");
+
+    public Task SetRepeatAsync(RepeatMode mode, string? deviceId, CancellationToken cancellationToken) =>
+        Record($"repeat {RepeatModes.ToSpotify(mode)}@{deviceId}");
+
+    public Task AddToQueueAsync(string uri, string? deviceId, CancellationToken cancellationToken) =>
+        Record($"queue {uri}@{deviceId}");
+
+    public Task<PlayerQueue> GetQueueAsync(CancellationToken cancellationToken) => Task.FromResult(QueueResult);
+
+    public Task<CursorPage<PlayHistoryItem>> GetRecentlyPlayedAsync(int limit, DateTimeOffset? after, CancellationToken cancellationToken)
+    {
+        var items = RecentlyPlayed
+            .Where(p => after is null || TimeOf(p) > after)
+            .Take(limit)
+            .ToList<PlayHistoryItem?>();
+        return Task.FromResult(new CursorPage<PlayHistoryItem> { Items = items, Limit = limit });
+    }
+
+    public Task<Page<Artist>> GetTopArtistsAsync(TopRange range, int offset, int limit, CancellationToken cancellationToken) =>
+        Task.FromResult(Paged(TopArtists.ToList<Artist?>(), offset, limit));
+
+    public Task<Page<PlayableItem>> GetTopTracksAsync(TopRange range, int offset, int limit, CancellationToken cancellationToken) =>
+        Task.FromResult(Paged(TopTracks.ToList<PlayableItem?>(), offset, limit));
+
+    public Task<IReadOnlyList<bool>> CheckLibraryAsync(IReadOnlyList<string> uris, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<bool>>(uris.Select(Library.Contains).ToList());
+
+    public Task SaveToLibraryAsync(IReadOnlyList<string> uris, CancellationToken cancellationToken)
+    {
+        Library.UnionWith(uris);
+        return Record($"save {string.Join(',', uris)}");
+    }
+
+    public Task RemoveFromLibraryAsync(IReadOnlyList<string> uris, CancellationToken cancellationToken)
+    {
+        Library.ExceptWith(uris);
+        return Record($"unsave {string.Join(',', uris)}");
+    }
+
+    public async Task<string?> ReorderPlaylistItemsAsync(
+        string playlistId,
+        int rangeStart,
+        int insertBefore,
+        int rangeLength,
+        string? snapshotId,
+        CancellationToken cancellationToken)
+    {
+        await Record($"reorder {playlistId} {rangeStart}->{insertBefore} x{rangeLength}");
+        return "snapshot-after-reorder";
+    }
+
+    public async Task<string?> AddPlaylistItemsAsync(string playlistId, IReadOnlyList<string> uris, int? position, CancellationToken cancellationToken)
+    {
+        await Record($"add {playlistId} {string.Join(',', uris)}");
+        return "snapshot-after-add";
+    }
+
+    public async Task<string?> RemovePlaylistItemsAsync(string playlistId, IReadOnlyList<string> uris, string? snapshotId, CancellationToken cancellationToken)
+    {
+        await Record($"remove {playlistId} {string.Join(',', uris)}");
+        return "snapshot-after-remove";
+    }
+
+    public async Task<SimplifiedPlaylist> CreatePlaylistAsync(string name, string? description, bool isPublic, CancellationToken cancellationToken)
+    {
+        await Record($"create {name}");
+        return new SimplifiedPlaylist { Id = "new", Name = name, Uri = "spotify:playlist:new", Owner = new PlaylistOwner { Id = "me" } };
+    }
+
+    public Task<Album> GetAlbumAsync(string albumId, CancellationToken cancellationToken) =>
+        Task.FromResult(Albums.TryGetValue(albumId, out var album) ? album : new Album { Id = albumId, Name = "Album", Uri = "spotify:album:" + albumId });
+
+    public Task<Page<PlayableItem>> GetAlbumTracksAsync(string albumId, int offset, int limit, CancellationToken cancellationToken) =>
+        Task.FromResult(Albums.TryGetValue(albumId, out var album) && album.Tracks is { } tracks
+            ? Paged(tracks.Items, offset, limit)
+            : new Page<PlayableItem>());
+
+    public Task<Artist> GetArtistAsync(string artistId, CancellationToken cancellationToken) =>
+        Task.FromResult(Artists.TryGetValue(artistId, out var artist) ? artist : new Artist { Id = artistId, Name = "Artist", Uri = "spotify:artist:" + artistId });
+
+    public Task<Page<SimplifiedAlbum>> GetArtistAlbumsAsync(string artistId, int offset, int limit, CancellationToken cancellationToken) =>
+        Task.FromResult(Paged(ArtistAlbums.ToList<SimplifiedAlbum?>(), offset, limit));
+
+    private static DateTimeOffset TimeOf(PlayHistoryItem item) =>
+        DateTimeOffset.Parse(item.PlayedAt!, System.Globalization.CultureInfo.InvariantCulture);
+
+    private static Page<T> Paged<T>(List<T?> all, int offset, int limit)
+    {
+        var items = all.Skip(offset).Take(limit).ToList();
+        return new Page<T>
+        {
+            Items = items,
+            Total = all.Count,
+            Offset = offset,
+            Limit = limit,
+            Next = offset + items.Count < all.Count ? "next" : null,
+        };
+    }
 
     private Task Record(string command)
     {
