@@ -177,6 +177,11 @@ public sealed partial class MainWindow : Window
         SignInFrame.Visibility = Visibility.Visible;
         SignInFrame.Navigate(typeof(SignInPage), null, new SuppressNavigationTransitionInfo());
         _currentKey = null;
+
+        // Back leads nowhere from the sign-in page; signing in starts again at Home.
+        _history.Clear();
+        BackButton.Visibility = Visibility.Collapsed;
+        UpdateTitleBarPassthrough();
     }
 
     /// <summary>
@@ -199,7 +204,7 @@ public sealed partial class MainWindow : Window
     /// <summary>Goes back to the page before, like a browser's Back button.</summary>
     public void GoBack()
     {
-        if (_history.Count == 0)
+        if (_history.Count == 0 || ShellGrid.Visibility != Visibility.Visible)
         {
             return;
         }
