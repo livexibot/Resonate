@@ -1,0 +1,15 @@
+bin/
+obj/
+publish/
+Releases/
+artifacts/
+TestResults/
+*.user
+*.suo
+.vs/
+.vscode/
+*.binlog
+# Never commit keys or tokens
+*.pfx
+*.snk
+.env

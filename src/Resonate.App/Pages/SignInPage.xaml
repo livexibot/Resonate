@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Resonate.App.Pages.SignInPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="{StaticResource ResonateTransparentBrush}">
+
+    <ScrollViewer>
+        <StackPanel
+            MaxWidth="600"
+            Padding="32,40,32,48"
+            HorizontalAlignment="Center"
+            Spacing="22">
+            <Image
+                Width="64"
+                Height="64"
+                HorizontalAlignment="Left"
+                Source="ms-appx:///Assets/Resonate.png" />
+            <TextBlock
+                FontSize="32"
+                Style="{StaticResource ResonateDisplayTextStyle}"
+                Text="Connect Resonate to Spotify"
+                TextWrapping="Wrap" />
+            <TextBlock
+                Style="{StaticResource ResonateSecondaryTextStyle}"
+                Text="Resonate is a faster window for the Spotify app on this computer. Spotify still plays every song, in lossless. To show your library, Resonate needs your permission through a Spotify developer app of your own. It is a one-time setup of about two minutes."
+                TextWrapping="Wrap" />
+
+            <Border
+                Padding="20"
+                Background="{StaticResource ResonateSurfaceBrush}"
+                BorderBrush="{StaticResource ResonateBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="{StaticResource ResonateCornerLarge}">
+                <StackPanel Spacing="18">
+                    <StackPanel Spacing="6">
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Style="{StaticResource ResonateBodyTextStyle}"
+                            Text="1. Create an app in the Spotify developer dashboard" />
+                        <TextBlock
+                            Style="{StaticResource ResonateSecondaryTextStyle}"
+                            Text="Sign in with your Spotify account, choose Create app, and give it any name (for example &quot;My Resonate&quot;)."
+                            TextWrapping="Wrap" />
+                        <HyperlinkButton
+                            Padding="0"
+                            Content="Open developer.spotify.com/dashboard"
+                            NavigateUri="https://developer.spotify.com/dashboard" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Style="{StaticResource ResonateBodyTextStyle}"
+                            Text="2. Add this redirect URI, exactly as written" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox
+                                x:Name="RedirectUriBox"
+                                FontFamily="Cascadia Mono, Consolas"
+                                IsReadOnly="True" />
+                            <Button
+                                Grid.Column="1"
+                                Click="OnCopyRedirectClick"
+                                Content="Copy"
+                                Style="{StaticResource ResonateSubtleButtonStyle}" />
+                        </Grid>
+                        <TextBlock
+                            Style="{StaticResource ResonateSecondaryTextStyle}"
+                            Text="Under &quot;Which API/SDKs are you planning to use?&quot;, tick Web API. Save."
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Style="{StaticResource ResonateBodyTextStyle}"
+                            Text="3. Paste the app's Client ID" />
+                        <TextBox
+                            x:Name="ClientIdBox"
+                            FontFamily="Cascadia Mono, Consolas"
+                            MaxLength="64"
+                            PlaceholderText="32 letters and numbers, from the app's Settings page"
+                            TextChanged="OnClientIdChanged" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <StackPanel
+                Orientation="Horizontal"
+                Spacing="16">
+                <Button
+                    x:Name="SignInButton"
+                    Click="OnSignInClick"
+                    Content="Sign in with Spotify"
+                    IsEnabled="False"
+                    Style="{StaticResource ResonateAccentButtonStyle}" />
+                <StackPanel
+                    x:Name="WaitingPanel"
+                    VerticalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="12"
+                    Visibility="Collapsed">
+                    <ProgressRing
+                        Width="20"
+                        Height="20"
+                        IsActive="True" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Style="{StaticResource ResonateSecondaryTextStyle}"
+                        Text="Approve Resonate in your browser…" />
+                    <HyperlinkButton
+                        Padding="0"
+                        Click="OnCancelClick"
+                        Content="Cancel" />
+                </StackPanel>
+            </StackPanel>
+
+            <TextBlock
+                x:Name="ErrorText"
+                Foreground="{StaticResource ResonateAccentBrush}"
+                Style="{StaticResource ResonateBodyTextStyle}"
+                TextWrapping="Wrap"
+                Visibility="Collapsed" />
+
+            <TextBlock
+                Style="{StaticResource ResonateCaptionTextStyle}"
+                Text="Resonate never sees your Spotify password, and keeps the sign-in in Windows' Credential Manager. You need Spotify Premium and the Spotify app installed. Resonate is not affiliated with Spotify."
+                TextWrapping="Wrap" />
+        </StackPanel>
+    </ScrollViewer>
+</Page>

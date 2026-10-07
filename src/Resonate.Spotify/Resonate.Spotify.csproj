@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Everything about Spotify that does not need Windows: sign-in, the Web API
+    client, and the player logic that combines the local media channel with
+    the Web API. Cross-platform so it builds and is tested on Linux.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Resonate.Spotify</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Resonate.Spotify.Tests" />
+  </ItemGroup>
+
+</Project>

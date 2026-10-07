@@ -1,0 +1,17 @@
+<Project>
+  <PropertyGroup>
+    <!-- release-please raises this on every release; keep the marker on the same line. -->
+    <Version>0.0.0</Version><!-- x-release-please-version -->
+    <Product>Resonate</Product>
+    <Authors>livexibot</Authors>
+    <Copyright>Resonate contributors</Copyright>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Deterministic, reproducible builds in CI. -->
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+</Project>

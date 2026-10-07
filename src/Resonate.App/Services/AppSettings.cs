@@ -1,0 +1,80 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace Resonate.App.Services;
+
+/// <summary>Preferences kept between launches. Nothing secret lives here.</summary>
+public sealed class AppSettings
+{
+    /// <summary>The user's own Spotify developer app. Not a secret with PKCE sign-in.</summary>
+    public string? ClientId { get; set; }
+
+    public string ThemeId { get; set; } = "midnight";
+
+    /// <summary>The last measured time from starting the process to the first frame.</summary>
+    public double? LastStartupMilliseconds { get; set; }
+}
+
+[JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
+[JsonSerializable(typeof(AppSettings))]
+internal sealed partial class AppJsonContext : JsonSerializerContext;
+
+/// <summary>Reads and writes <see cref="AppSettings"/> as JSON in the user's app data folder.</summary>
+public sealed class SettingsStore
+{
+    private readonly string _path;
+
+    public SettingsStore(string path) => _path = path;
+
+    public AppSettings Load()
+    {
+        try
+        {
+            if (File.Exists(_path))
+            {
+                using var stream = File.OpenRead(_path);
+                return JsonSerializer.Deserialize(stream, AppJsonContext.Default.AppSettings) ?? new AppSettings();
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            // A damaged file falls back to the defaults.
+        }
+
+        return new AppSettings();
+    }
+
+    public void Save(AppSettings settings)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+            var temporary = _path + ".tmp";
+            using (var stream = File.Create(temporary))
+            {
+                JsonSerializer.Serialize(stream, settings, AppJsonContext.Default.AppSettings);
+            }
+
+            File.Move(temporary, _path, overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Not fatal: the settings are kept for this session.
+        }
+    }
+}
+
+public static class AppPaths
+{
+    /// <summary>Settings that should survive reinstalling (roaming app data).</summary>
+    public static string SettingsFile { get; } =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Resonate", "settings.json");
+
+    /// <summary>
+    /// Caches. Velopack installs to %LocalAppData%\Resonate and only replaces
+    /// its "current" folder on updates, so this survives updates and is
+    /// removed on uninstall.
+    /// </summary>
+    public static string CacheFolder { get; } =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Resonate", "data");
+}

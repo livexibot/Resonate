@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Resonate.App/Resonate.App.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="src/Resonate.Spotify/Resonate.Spotify.csproj" />
+    <Project Path="src/Resonate.Windows/Resonate.Windows.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Resonate.Spotify.Tests/Resonate.Spotify.Tests.csproj" />
+  </Folder>
+</Solution>
