@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The equalizer in Settings. One setting for everything that plays: for
+  Spotify's songs it is the Spotify app's own equalizer (Spotify applies it),
+  for local files the local files player applies it. The six band columns
+  are built in code from EqualizerSettings.Bands.
+-->
+<UserControl
+    x:Class="Resonate.App.Controls.EqualizerPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <StackPanel Spacing="12">
+        <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Equalizer" />
+        <TextBlock
+            Style="{StaticResource ResonateSecondaryTextStyle}"
+            Text="One equalizer for everything you play: the Spotify app's own for Spotify's songs, and the same setting for your own music files. Double-click a slider to set it back to 0 dB."
+            TextWrapping="Wrap" />
+
+        <InfoBar
+            x:Name="LosslessWarning"
+            Title="Spotify is not set to Lossless"
+            IsClosable="False"
+            IsOpen="False"
+            Message="Turn on Lossless in the Spotify app's settings, under Audio quality, so every song plays in full quality."
+            Severity="Warning">
+            <InfoBar.ActionButton>
+                <HyperlinkButton Click="OnOpenSpotifySettingsClick" Content="Open Spotify's settings" />
+            </InfoBar.ActionButton>
+        </InfoBar>
+
+        <StackPanel Orientation="Horizontal" Spacing="12">
+            <ToggleSwitch
+                x:Name="EnabledSwitch"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Equalizer"
+                OffContent="Off"
+                OnContent="On"
+                Toggled="OnEnabledToggled" />
+            <ComboBox
+                x:Name="PresetBox"
+                Width="200"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Preset"
+                SelectionChanged="OnPresetChanged" />
+            <Button
+                x:Name="ResetButton"
+                VerticalAlignment="Center"
+                Click="OnResetClick"
+                Content="Reset"
+                Style="{StaticResource ResonateSubtleButtonStyle}"
+                ToolTipService.ToolTip="Set every band back to 0 dB" />
+        </StackPanel>
+
+        <Border
+            Padding="12,16"
+            Background="{StaticResource ResonateSurfaceBrush}"
+            BorderBrush="{StaticResource ResonateBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="{ThemeResource ResonateCornerLarge}">
+            <Grid x:Name="BandsGrid" ColumnSpacing="8" />
+        </Border>
+
+        <TextBlock
+            x:Name="StatusText"
+            Style="{StaticResource ResonateCaptionTextStyle}"
+            TextWrapping="Wrap" />
+
+        <StackPanel Orientation="Horizontal" Spacing="12">
+            <Button
+                x:Name="RestartSpotifyButton"
+                Click="OnRestartSpotifyClick"
+                Content="Restart Spotify now"
+                Style="{StaticResource ResonateAccentButtonStyle}"
+                ToolTipService.ToolTip="Closes and reopens the Spotify app so it uses this equalizer now; your song carries on where it was."
+                Visibility="Collapsed" />
+            <Button
+                Click="OnOpenSpotifySettingsClick"
+                Content="Open Spotify's settings"
+                Style="{StaticResource ResonateSubtleButtonStyle}" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>
