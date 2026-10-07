@@ -41,6 +41,11 @@ internal sealed partial class PerformanceTour
     private const double PageHeldLimitMs = 250;
     private const double PageFirstFrameLimitMs = 500;
     private const double IdleCpuLimitPercent = 2;
+    private const double PlayingCpuLimitPercent = 4;
+
+    // Caches fill up over the first rounds; a page that is never freed adds
+    // tens of megabytes every round.
+    private const double LastRoundGrowthLimitMb = 10;
 
     private readonly MainWindow _window;
     private readonly FrameworkElement _root;
@@ -253,18 +258,36 @@ internal sealed partial class PerformanceTour
             }
         }
 
-        // Liquid Glass's cover holds still while nothing plays or nobody can see it.
-        foreach (var (name, cpu, _) in _idle.Where(i => i.Name is "Paused" or "Playing, minimised" or "Playing, Liquid Glass, minimised" or "Paused, Liquid Glass"))
+        // While a song plays only the time and the progress bar move (a pixel
+        // at a time), and Liquid Glass's cover holds still while nothing plays
+        // or nobody can see it. Its moving cover is measured, not limited.
+        foreach (var (name, cpu, _) in _idle)
         {
-            if (cpu > IdleCpuLimitPercent)
+            double? limit = name switch
             {
-                _errors.Add($"Doing nothing ({name}) used {cpu:N1} % of a processor core (limit {IdleCpuLimitPercent:N0} %).");
+                "Playing" => PlayingCpuLimitPercent,
+                "Playing, Liquid Glass (moving cover)" => null,
+                _ => IdleCpuLimitPercent,
+            };
+
+            if (cpu > limit)
+            {
+                _errors.Add($"Doing nothing ({name}) used {cpu:N1} % of a processor core (limit {limit:N0} %).");
             }
         }
 
         if (_leftAlive.Count > 0)
         {
             _errors.Add($"Pages stayed in memory after leaving them: {string.Join(", ", _leftAlive)}.");
+        }
+
+        if (_privateMbAfterRound.Count >= 2)
+        {
+            var growth = _privateMbAfterRound[^1] - _privateMbAfterRound[^2];
+            if (growth > LastRoundGrowthLimitMb)
+            {
+                _errors.Add($"Memory still grew by {growth:N0} MB in the last round of visiting every page (limit {LastRoundGrowthLimitMb:N0} MB).");
+            }
         }
     }
 
