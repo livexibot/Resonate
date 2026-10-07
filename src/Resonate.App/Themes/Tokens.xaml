@@ -22,7 +22,9 @@
             <CornerRadius x:Key="ResonateCornerSmall">4.8</CornerRadius>
             <CornerRadius x:Key="ResonateCornerMedium">7.9</CornerRadius>
             <CornerRadius x:Key="ResonateCornerLarge">12</CornerRadius>
-            <CornerRadius x:Key="ResonateCornerButton">999</CornerRadius>
+            <!-- Half the button heights below: a larger corner draws an oval, not a pill. -->
+            <CornerRadius x:Key="ResonateCornerButton">18</CornerRadius>
+            <CornerRadius x:Key="ResonatePlayButtonCorner">20</CornerRadius>
             <Thickness x:Key="ResonatePanelBorderThickness">0</Thickness>
             <Thickness x:Key="ResonatePlayButtonBorderThickness">0</Thickness>
 
@@ -309,8 +311,8 @@
         <Setter Property="FontFamily" Value="{ThemeResource ResonateTextFont}" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Padding" Value="22,10" />
-        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="Padding" Value="22,8" />
+        <Setter Property="MinHeight" Value="36" />
         <Setter Property="CornerRadius" Value="{ThemeResource ResonateCornerButton}" />
         <Setter Property="UseSystemFocusVisuals" Value="True" />
         <Setter Property="Template">
@@ -373,7 +375,7 @@
         <Setter Property="Width" Value="40" />
         <Setter Property="Height" Value="40" />
         <Setter Property="Padding" Value="0" />
-        <Setter Property="CornerRadius" Value="{ThemeResource ResonateCornerButton}" />
+        <Setter Property="CornerRadius" Value="{ThemeResource ResonatePlayButtonCorner}" />
         <Setter Property="UseSystemFocusVisuals" Value="True" />
         <Setter Property="Template">
             <Setter.Value>

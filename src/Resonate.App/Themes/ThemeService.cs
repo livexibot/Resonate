@@ -25,6 +25,11 @@ public sealed class ThemeService
     private static readonly TimeSpan QuickMorphDuration = TimeSpan.FromMilliseconds(220);
     private static readonly TimeSpan AccentMorphDuration = TimeSpan.FromMilliseconds(700);
 
+    // Heights of the themed buttons (Tokens.xaml); a round button's corner is
+    // half its height, since a larger corner draws an oval instead of a pill.
+    private const double ButtonHeight = 36;
+    private const double PlayButtonSize = 40;
+
     private readonly AppSettings _settings;
     private readonly Action _save;
     private readonly List<ColorSlot> _slots = [];
@@ -317,7 +322,8 @@ public sealed class ThemeService
                 dictionary["ResonateCornerSmall"] = new CornerRadius(palette.CornerSmall);
                 dictionary["ResonateCornerMedium"] = new CornerRadius(palette.CornerMedium);
                 dictionary["ResonateCornerLarge"] = new CornerRadius(palette.CornerLarge);
-                dictionary["ResonateCornerButton"] = new CornerRadius(palette.CornerButton);
+                dictionary["ResonateCornerButton"] = new CornerRadius(Math.Min(palette.CornerButton, ButtonHeight / 2));
+                dictionary["ResonatePlayButtonCorner"] = new CornerRadius(Math.Min(palette.CornerButton, PlayButtonSize / 2));
                 dictionary["ControlCornerRadius"] = new CornerRadius(Math.Min(palette.CornerSmall, 8));
                 dictionary["OverlayCornerRadius"] = new CornerRadius(Math.Min(palette.CornerMedium, 12));
                 dictionary["ResonatePanelBorderThickness"] = new Thickness(palette.BorderWidth);
