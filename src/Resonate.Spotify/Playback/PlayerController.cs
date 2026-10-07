@@ -466,6 +466,125 @@ public sealed class PlayerController : IPlayer, IDisposable
             () => RevertTo(generation, before));
     }
 
+    /// <summary>
+    /// Puts back what <paramref name="before"/> showed once the Spotify app has
+    /// restarted: the same song at <paramref name="position"/>, playing or
+    /// paused as it was. Spotify reopens its last song by itself, so when its
+    /// media session reports that song (within <paramref name="timeout"/>),
+    /// Resonate only moves to the position and plays if it was playing. If
+    /// not, a song that was playing is started again through the Web API, in
+    /// its playlist or album when it had one; a paused one is left for the
+    /// user to pick again (<see cref="ResumeOutcome.NotResumed"/>), because
+    /// starting it would make a burst of sound.
+    /// </summary>
+    public async Task<ResumeOutcome> ResumeAsync(PlayerState before, TimeSpan position, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        if (!before.HasTrack)
+        {
+            return ResumeOutcome.NothingToResume;
+        }
+
+        if (UseLocal
+            && await WaitForLocalSessionAsync(timeout, cancellationToken).ConfigureAwait(false) is { } reopened
+            && TitlesMatch(reopened.Title, before.Title))
+        {
+            await SeekAsync(position).ConfigureAwait(false);
+            if (!before.IsPlaying)
+            {
+                return ResumeOutcome.Paused;
+            }
+
+            await PlayAsync().ConfigureAwait(false);
+            return ResumeOutcome.Playing;
+        }
+
+        if (!before.IsPlaying || before.TrackUri is not { } uri)
+        {
+            return ResumeOutcome.NotResumed;
+        }
+
+        var positionMs = (int)Math.Clamp(position.TotalMilliseconds, 0, int.MaxValue);
+        var body = before.ContextUri is { } context
+            ? new StartPlaybackBody { ContextUri = context, Offset = new PlaybackOffset { Uri = uri }, PositionMs = positionMs }
+            : new StartPlaybackBody { Uris = [uri], PositionMs = positionMs };
+        var fallback = before.ContextUri is null ? null : new StartPlaybackBody { Uris = [uri], PositionMs = positionMs };
+
+        PlayerState shown;
+        long generation;
+        lock (_gate)
+        {
+            var now = _time.GetUtcNow();
+            shown = _state;
+            generation = ++_generation;
+            _trackHold = new Hold<string>(before.Title!, now + TrackHold);
+            _playingHold = new Hold<bool>(true, now + TrackHold);
+            _positionHold = new Hold<TimeSpan>(position, now + TrackHold);
+            SetState(_state with
+            {
+                IsConnected = true,
+                IsPlaying = true,
+                Title = before.Title,
+                Artists = before.Artists,
+                Album = before.Album,
+                TrackUri = uri,
+                ContextUri = before.ContextUri,
+                ArtworkUrl = before.ArtworkUrl,
+                ArtworkBytes = before.ArtworkBytes,
+                Duration = before.Duration,
+                Position = position,
+                PositionTimestamp = now,
+            });
+        }
+
+        RaiseStateChanged();
+        var started = false;
+        await RunTransportAsync(
+            async ct =>
+            {
+                try
+                {
+                    await WithLocalDeviceAsync((id, c) => _api.StartPlaybackAsync(body, id, c), ct).ConfigureAwait(false);
+                }
+                catch (SpotifyApiException ex) when (
+                    fallback is not null
+                    && !ex.IsPremiumRequired
+                    && ex.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Forbidden)
+                {
+                    await WithLocalDeviceAsync((id, c) => _api.StartPlaybackAsync(fallback, id, c), ct).ConfigureAwait(false);
+                }
+
+                started = true;
+            },
+            () => RevertTo(generation, shown)).ConfigureAwait(false);
+        return started ? ResumeOutcome.Playing : ResumeOutcome.NotResumed;
+    }
+
+    /// <summary>The media session's report once Spotify has one with a song, or null after <paramref name="timeout"/>.</summary>
+    private async Task<LocalMediaSnapshot?> WaitForLocalSessionAsync(TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        var deadline = _time.GetUtcNow() + timeout;
+        while (true)
+        {
+            LocalMediaSnapshot latest;
+            lock (_gate)
+            {
+                latest = _lastLocal;
+            }
+
+            if (latest.HasSession && latest.Title is not null)
+            {
+                return latest;
+            }
+
+            if (_time.GetUtcNow() >= deadline)
+            {
+                return null;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(250), _time, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
     /// <summary>Asks the Web API what is playing and fills in what the local channel can not tell.</summary>
     public async Task RefreshFromWebApiAsync(CancellationToken cancellationToken)
     {
