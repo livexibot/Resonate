@@ -27,8 +27,14 @@ public sealed class PlayerController : IPlayer, IDisposable
     internal static readonly TimeSpan WebOnlyPollWhilePaused = TimeSpan.FromSeconds(6);
     internal static readonly TimeSpan WebOnlyConfirmDelay = TimeSpan.FromMilliseconds(700);
     internal static readonly TimeSpan WebDetailsDelay = TimeSpan.FromMilliseconds(800);
+    internal static readonly TimeSpan ShuffleConfirmInterval = TimeSpan.FromMilliseconds(300);
+    internal const int ShuffleConfirmAttempts = 4;
 
-    /// <summary>The Web API takes at most this many track URIs in one request.</summary>
+    /// <summary>
+    /// Resonate sends at most this many song addresses in one play command.
+    /// Spotify documents no limit; other apps found that about 800 are
+    /// refused and long lists can stall, so lists play in windows this long.
+    /// </summary>
     internal const int MaxUrisPerRequest = 100;
 
     private readonly ILocalMediaChannel _local;
@@ -37,6 +43,7 @@ public sealed class PlayerController : IPlayer, IDisposable
     private readonly LocalDeviceResolver _devices;
     private readonly ISpotifyAppLauncher? _launcher;
     private readonly TimeProvider _time;
+    private readonly Func<int, int>? _nextInt;
     private readonly Lock _gate = new();
     private readonly SerialWorker _transport = new();
     private readonly SerialWorker _volumeLane = new();
@@ -66,13 +73,30 @@ public sealed class PlayerController : IPlayer, IDisposable
     private bool _started;
     private volatile ControlChannel _channel = ControlChannel.Local;
 
+    /// <summary>The list Resonate plays and knows the songs of; null when the music came from elsewhere.</summary>
+    private ListSession? _session;
+
+    /// <summary>Spotify's own shuffle setting, as last reported or set; null until known.</summary>
+    private bool? _spotifyShuffle;
+
+    /// <summary>Until then, a report of Spotify's own shuffle may still be from before Resonate changed it.</summary>
+    private DateTimeOffset _spotifyShuffleSetUntil;
+
+    /// <summary>The context a list without a plan was started in, for <see cref="PlayerState.SourceName"/>.</summary>
+    private string? _sourceContext;
+
+    /// <summary>Until then, Spotify may still describe what played before Resonate sent a list.</summary>
+    private DateTimeOffset _sessionSettledAt;
+
+    /// <param name="nextInt">Random numbers for shuffling, in [0, max); the system's cryptographic generator when null (tests pass their own).</param>
     public PlayerController(
         ILocalMediaChannel local,
         IAppVolume appVolume,
         ISpotifyWebApi api,
         LocalDeviceResolver devices,
         ISpotifyAppLauncher? launcher = null,
-        TimeProvider? time = null)
+        TimeProvider? time = null,
+        Func<int, int>? nextInt = null)
     {
         _local = local;
         _appVolume = appVolume;
@@ -80,6 +104,7 @@ public sealed class PlayerController : IPlayer, IDisposable
         _devices = devices;
         _launcher = launcher;
         _time = time ?? TimeProvider.System;
+        _nextInt = nextInt;
     }
 
     /// <summary>Raised on any thread after <see cref="State"/> changes. Read <see cref="State"/> for the newest value.</summary>
@@ -300,43 +325,122 @@ public sealed class PlayerController : IPlayer, IDisposable
         return _pendingVolumeTask;
     }
 
-    /// <summary>Adds a song to the end of Spotify's queue ("Add to queue").</summary>
+    /// <summary>
+    /// Adds a song to the end of Spotify's queue ("Add to queue"). Files from
+    /// the computer can not be queued: Spotify refuses their addresses.
+    /// </summary>
     public Task AddToQueueAsync(TrackInfo track)
     {
-        if (track.Uri is not { } uri || !track.IsPlayable)
+        if (!ListSession.CanStartByUri(track))
         {
             return Task.CompletedTask;
         }
 
+        var uri = track.Uri!;
         return RunTransportAsync(ct => WithLocalDeviceAsync((id, c) => _api.AddToQueueAsync(uri, id, c), ct), revert: null);
     }
 
-    /// <summary>Spotify's own shuffle, through the Web API. Optimistic like every command.</summary>
+    /// <summary>
+    /// Shuffle. While a list Resonate knows plays, this is Resonate's truly
+    /// random order: the rest of the list is planned again after the current
+    /// song (which keeps playing where it is). Otherwise (music started
+    /// elsewhere, or a list whose songs Spotify does not share) it is
+    /// Spotify's own shuffle. Optimistic like every command.
+    /// </summary>
     public Task SetShuffleAsync(bool shuffle)
     {
         PlayerState before;
         long generation;
+        ListSession? previous;
+        ListSession? next = null;
+        StartPlaybackBody? body = null;
         lock (_gate)
         {
+            if (SpotifyDj.IsPlaying(_state) || (_session is { } live && live.Shuffle == shuffle))
+            {
+                return Task.CompletedTask;
+            }
+
+            var now = _time.GetUtcNow();
             before = _state;
             generation = ++_generation;
-            _shuffleHold = new Hold<bool>(shuffle, _time.GetUtcNow() + PlayStateHold);
-            SetState(_state with { Shuffle = shuffle });
+            previous = _session;
+            _shuffleHold = new Hold<bool>(shuffle, now + PlayStateHold);
+            var state = _state with { Shuffle = shuffle };
+            if (previous is not null)
+            {
+                next = previous.WithShuffle(shuffle);
+                _session = next;
+                _sessionSettledAt = now + TrackHold;
+                if (!next.StartsWithNextSong)
+                {
+                    body = next.StartBody();
+                    _positionHold = new Hold<TimeSpan>(_state.PositionAt(now), now + PositionHold);
+                    state = state with { ContextUri = next.InContext ? next.ContextUri : null };
+                }
+            }
+
+            SetState(state);
         }
 
         RaiseStateChanged();
+        if (next is null)
+        {
+            return RunTransportAsync(
+                ct => WithLocalDeviceAsync(
+                    async (id, c) =>
+                    {
+                        await _api.SetShuffleAsync(shuffle, id, c).ConfigureAwait(false);
+                        NoteSpotifyShuffle(shuffle);
+                    },
+                    ct),
+                () => RevertSetting(generation, before));
+        }
+
+        if (body is null)
+        {
+            // The new order starts with the next song (see ListSession.StartsWithNextSong).
+            return Task.CompletedTask;
+        }
+
         return RunTransportAsync(
-            ct => WithLocalDeviceAsync((id, c) => _api.SetShuffleAsync(shuffle, id, c), ct),
-            () => RevertSetting(generation, before));
+            ct => WithLocalDeviceAsync(
+                async (id, c) =>
+                {
+                    await TrySetSpotifyShuffleAsync(false, id, c).ConfigureAwait(false);
+                    await RestartAsync(body, id, c).ConfigureAwait(false);
+                },
+                ct),
+            () =>
+            {
+                lock (_gate)
+                {
+                    if (_session == next)
+                    {
+                        _session = previous;
+                    }
+                }
+
+                RevertSetting(generation, before);
+            });
     }
 
-    /// <summary>Repeats nothing, the whole list, or the current song.</summary>
+    /// <summary>
+    /// Repeats nothing, the whole list, or the current song, with Spotify's
+    /// own repeat. A long or shuffled list Resonate plays is looped by
+    /// Resonate too: it starts another pass as the last song starts.
+    /// </summary>
     public Task SetRepeatAsync(RepeatMode mode)
     {
         PlayerState before;
         long generation;
         lock (_gate)
         {
+            if (SpotifyDj.IsPlaying(_state))
+            {
+                return Task.CompletedTask;
+            }
+
             before = _state;
             generation = ++_generation;
             _repeatHold = new Hold<RepeatMode>(mode, _time.GetUtcNow() + PlayStateHold);
@@ -344,9 +448,13 @@ public sealed class PlayerController : IPlayer, IDisposable
         }
 
         RaiseStateChanged();
-        return RunTransportAsync(
+        var sent = RunTransportAsync(
             ct => WithLocalDeviceAsync((id, c) => _api.SetRepeatAsync(mode, id, c), ct),
             () => RevertSetting(generation, before));
+
+        // "Repeat all" switched on during a list's last song: the next pass follows.
+        FollowSession();
+        return sent;
     }
 
     /// <summary>
@@ -369,102 +477,368 @@ public sealed class PlayerController : IPlayer, IDisposable
         var fallback = contextUri is not null && fallbackUris is { Count: > 0 }
             ? new StartPlaybackBody { Uris = WindowAround(fallbackUris, track.Uri), Offset = new PlaybackOffset { Uri = track.Uri } }
             : null;
-        return StartTrackAsync(track, contextUri, body, fallback);
-    }
-
-    /// <summary>
-    /// Plays a list the way a page shows it: inside its Spotify context when
-    /// it has one (so Spotify shows where it plays from), otherwise as a list
-    /// of songs in the order shown.
-    /// </summary>
-    public Task PlayAsync(PlayRequest request)
-    {
-        var playable = request.Tracks.Where(t => t.IsPlayable && t.Uri is not null && t.FilePath is null).ToList();
-        var start = request.StartTrack is { IsPlayable: true, Uri: not null } picked ? picked : playable.FirstOrDefault();
-        if (start is null)
-        {
-            return request.ContextUri is null ? Task.CompletedTask : PlayContextAsync(request.ContextUri);
-        }
-
-        var uris = playable.Select(t => t.Uri!).ToList();
-        if (request.ContextUri is not null)
-        {
-            return PlayTrackAsync(start, request.ContextUri, uris);
-        }
-
-        var body = new StartPlaybackBody { Uris = WindowAround(uris, start.Uri!), Offset = new PlaybackOffset { Uri = start.Uri } };
-        return StartTrackAsync(start, null, body, fallback: null);
-    }
-
-    private Task StartTrackAsync(TrackInfo track, string? contextUri, StartPlaybackBody body, StartPlaybackBody? fallback)
-    {
-        PlayerState before;
-        long generation;
-        lock (_gate)
-        {
-            var now = _time.GetUtcNow();
-            before = _state;
-            generation = ++_generation;
-            _trackHold = new Hold<string>(track.Title, now + TrackHold);
-            _playingHold = new Hold<bool>(true, now + TrackHold);
-            _positionHold = new Hold<TimeSpan>(TimeSpan.Zero, now + TrackHold);
-            SetState(_state with
-            {
-                IsConnected = true,
-                IsPlaying = true,
-                Title = track.Title,
-                Artists = track.Artists,
-                Album = track.Album,
-                TrackUri = track.Uri,
-                ContextUri = contextUri,
-                ArtworkUrl = track.LargeImageUrl,
-                ArtworkBytes = null,
-                Duration = track.Duration,
-                Position = TimeSpan.Zero,
-                PositionTimestamp = now,
-            });
-        }
-
-        RaiseStateChanged();
-        return RunTransportAsync(
-            async ct =>
+        return StartAsync(
+            track,
+            contextUri,
+            session: null,
+            sourceName: null,
+            shuffle: null,
+            async (id, c) =>
             {
                 try
                 {
-                    await WithLocalDeviceAsync((id, c) => _api.StartPlaybackAsync(body, id, c), ct).ConfigureAwait(false);
+                    await _api.StartPlaybackAsync(body, id, c).ConfigureAwait(false);
                 }
-                catch (SpotifyApiException ex) when (
-                    fallback is not null
-                    && !ex.IsPremiumRequired
-                    && ex.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Forbidden)
+                catch (SpotifyApiException ex) when (fallback is not null && IsRefusedContext(ex))
                 {
-                    await WithLocalDeviceAsync((id, c) => _api.StartPlaybackAsync(fallback, id, c), ct).ConfigureAwait(false);
+                    await _api.StartPlaybackAsync(fallback, id, c).ConfigureAwait(false);
                 }
-            },
-            () => RevertTo(generation, before));
+            });
+    }
+
+    /// <summary>
+    /// Plays a list the way a page shows it. When Resonate knows its songs it
+    /// keeps a plan (<see cref="ListSession"/>): in the list's own order
+    /// inside its Spotify context when it has one, otherwise as songs in the
+    /// order shown, or shuffled in a truly random order that starts with the
+    /// picked song. Spotify's own shuffle is switched off for these, so the
+    /// order is exactly Resonate's. When Resonate does not know the songs,
+    /// Spotify plays the context with its own shuffle.
+    /// </summary>
+    public Task PlayAsync(PlayRequest request)
+    {
+        var shuffle = request.Shuffle ?? State.Shuffle;
+        if (request.StartTrack is { IsLocal: true } && request.ContextUri is null)
+        {
+            ErrorOccurred?.Invoke(this, "Spotify plays files from your computer only inside their playlist, in the playlist's own order.");
+        }
+
+        var session = ListSession.Create(request, shuffle, _nextInt);
+        if (session is null)
+        {
+            return PlayInContextAsync(request);
+        }
+
+        var body = session.StartBody();
+        return StartAsync(
+            session.Current,
+            session.InContext ? session.ContextUri : null,
+            session,
+            request.SourceName,
+            shuffle: null,
+            async (id, c) =>
+            {
+                var shuffleOff = await TrySetSpotifyShuffleAsync(false, id, c).ConfigureAwait(false);
+                try
+                {
+                    await _api.StartPlaybackAsync(body, id, c).ConfigureAwait(false);
+                }
+                catch (SpotifyApiException ex) when (session.InContext && IsRefusedContext(ex))
+                {
+                    // Spotify will not start this context (it refuses some, such as
+                    // Liked Songs at times): play the same songs as a list instead.
+                    var songs = session.WithoutContext();
+                    lock (_gate)
+                    {
+                        if (_session == session)
+                        {
+                            _session = songs;
+                            SetState(_state with { ContextUri = null });
+                        }
+                    }
+
+                    await _api.StartPlaybackAsync(songs.StartBody(), id, c).ConfigureAwait(false);
+                }
+
+                if (!shuffleOff)
+                {
+                    // Spotify had nothing active to switch before; now it has.
+                    await TrySetSpotifyShuffleAsync(false, id, c).ConfigureAwait(false);
+                }
+            });
     }
 
     /// <summary>Plays a whole playlist or album from its start.</summary>
-    public Task PlayContextAsync(string contextUri)
+    public Task PlayContextAsync(string contextUri) =>
+        StartAsync(
+            track: null,
+            contextUri,
+            session: null,
+            sourceName: null,
+            shuffle: null,
+            (id, c) => _api.StartPlaybackAsync(new StartPlaybackBody { ContextUri = contextUri }, id, c));
+
+    /// <summary>
+    /// A list Resonate does not know the songs of (a playlist Spotify will not
+    /// list, a lone song standing for its album): Spotify plays the context
+    /// itself, with its own shuffle switched as the request asks.
+    /// </summary>
+    private Task PlayInContextAsync(PlayRequest request)
+    {
+        if (request.ContextUri is not { } contextUri)
+        {
+            // Nothing Spotify can start (only files from the computer, outside their playlist).
+            return Task.CompletedTask;
+        }
+
+        var picked = request.StartTrack;
+        PlaybackOffset? offset = picked switch
+        {
+            not null when ListSession.CanStartByUri(picked) => new PlaybackOffset { Uri = picked.Uri },
+            { IsLocal: true } => new PlaybackOffset { Position = picked.Position ?? request.StartIndex },
+            _ => null,
+        };
+        var body = new StartPlaybackBody { ContextUri = contextUri, Offset = offset };
+        var shuffle = request.Shuffle;
+        return StartAsync(
+            picked,
+            contextUri,
+            session: null,
+            request.SourceName,
+            shuffle,
+            async (id, c) =>
+            {
+                var set = shuffle is not { } value || await TrySetSpotifyShuffleAsync(value, id, c).ConfigureAwait(false);
+                await _api.StartPlaybackAsync(body, id, c).ConfigureAwait(false);
+                if (!set)
+                {
+                    await TrySetSpotifyShuffleAsync(shuffle!.Value, id, c).ConfigureAwait(false);
+                }
+            });
+    }
+
+    /// <summary>
+    /// Shows <paramref name="track"/> (or just "playing") at once, makes
+    /// <paramref name="session"/> the list that plays, and sends
+    /// <paramref name="send"/>; if it fails, what was playing comes back.
+    /// </summary>
+    /// <param name="shuffle">What the shuffle button shows from now on, when the start changes it.</param>
+    private Task StartAsync(
+        TrackInfo? track,
+        string? contextUri,
+        ListSession? session,
+        string? sourceName,
+        bool? shuffle,
+        Func<string?, CancellationToken, Task> send)
     {
         PlayerState before;
+        ListSession? previous;
         long generation;
         lock (_gate)
         {
             var now = _time.GetUtcNow();
             before = _state;
+            previous = _session;
             generation = ++_generation;
+            _session = session;
+            _sessionSettledAt = now + TrackHold;
+            _sourceContext = session is null ? contextUri : null;
             _playingHold = new Hold<bool>(true, now + TrackHold);
-            SetState(_state with { IsConnected = true, IsPlaying = true, ContextUri = contextUri });
+            var state = _state with { IsConnected = true, IsPlaying = true, ContextUri = contextUri, SourceName = sourceName };
+            if (session is not null)
+            {
+                state = state with { CanShuffle = true };
+                shuffle = session.Shuffle;
+            }
+
+            if (shuffle is { } shown)
+            {
+                _shuffleHold = new Hold<bool>(shown, now + TrackHold);
+                state = state with { Shuffle = shown };
+            }
+
+            if (track is not null)
+            {
+                _trackHold = new Hold<string>(track.Title, now + TrackHold);
+                _positionHold = new Hold<TimeSpan>(TimeSpan.Zero, now + TrackHold);
+                state = state with
+                {
+                    Title = track.Title,
+                    Artists = track.Artists,
+                    Album = track.Album,
+                    TrackUri = track.Uri,
+                    ArtworkUrl = track.LargeImageUrl,
+                    ArtworkBytes = null,
+                    Duration = track.Duration,
+                    Position = TimeSpan.Zero,
+                    PositionTimestamp = now,
+                };
+            }
+
+            SetState(state);
         }
 
         RaiseStateChanged();
-        return RunTransportAsync(
-            ct => WithLocalDeviceAsync(
-                (id, c) => _api.StartPlaybackAsync(new StartPlaybackBody { ContextUri = contextUri }, id, c),
-                ct),
-            () => RevertTo(generation, before));
+        return RunTransportAsync(ct => WithLocalDeviceAsync(send, ct), () => RevertTo(generation, before, previous));
     }
+
+    /// <summary>
+    /// Follows the list Resonate plays as Spotify moves through it: notes
+    /// which song plays, starts a waiting plan when the next song starts, and
+    /// sends the next window (or, with "repeat all", the next pass) as the
+    /// last song Spotify has starts, restarting it where it is.
+    /// </summary>
+    private void FollowSession()
+    {
+        StartPlaybackBody? body = null;
+        var shuffleOff = false;
+        lock (_gate)
+        {
+            if (_session is not { } session || !_state.HasTrack)
+            {
+                return;
+            }
+
+            var located = session.Locate(_state.TrackUri, _state.Title);
+            session.PlayingOther = located < 0;
+            if (located < 0)
+            {
+                return;
+            }
+
+            var now = _time.GetUtcNow();
+            var position = _state.PositionAt(now);
+            if (session.StartsWithNextSong)
+            {
+                if (located == session.WaitingFrom)
+                {
+                    session.Index = located;
+                    return;
+                }
+
+                var next = session.StartingAt(located);
+                _session = next;
+                if (next.StartsWithNextSong)
+                {
+                    return;
+                }
+
+                body = next.StartBody();
+                shuffleOff = true;
+            }
+            else
+            {
+                session.Index = located;
+                body = session.ContinueAfterWindow(_state.Repeat);
+            }
+
+            if (body is not null)
+            {
+                _positionHold = new Hold<TimeSpan>(position, now + PositionHold);
+                _sessionSettledAt = now + TrackHold;
+            }
+        }
+
+        if (body is not null)
+        {
+            _ = RunTransportAsync(
+                ct => WithLocalDeviceAsync(
+                    async (id, c) =>
+                    {
+                        if (shuffleOff)
+                        {
+                            await TrySetSpotifyShuffleAsync(false, id, c).ConfigureAwait(false);
+                        }
+
+                        await RestartAsync(body, id, c).ConfigureAwait(false);
+                    },
+                    ct),
+                revert: null);
+        }
+    }
+
+    /// <summary>
+    /// Sends a new plan for the music that already plays: the current song
+    /// restarts at the position it has reached, so the switch is barely
+    /// heard. Repeat is set again in case Spotify forgets it with a new list.
+    /// </summary>
+    private async Task RestartAsync(StartPlaybackBody body, string? deviceId, CancellationToken cancellationToken)
+    {
+        PlayerState state;
+        lock (_gate)
+        {
+            state = _state;
+        }
+
+        var position = state.PositionAt(_time.GetUtcNow());
+        body.PositionMs = position > TimeSpan.FromMilliseconds(500) ? (int)position.TotalMilliseconds : null;
+        await _api.StartPlaybackAsync(body, deviceId, cancellationToken).ConfigureAwait(false);
+        if (state.Repeat != RepeatMode.Off)
+        {
+            try
+            {
+                await _api.SetRepeatAsync(state.Repeat, deviceId, cancellationToken).ConfigureAwait(false);
+            }
+            catch (SpotifyApiException)
+            {
+                // The music plays; repeat stays as Spotify has it.
+            }
+        }
+    }
+
+    /// <summary>
+    /// Switches Spotify's own shuffle before a list starts (unless it is
+    /// known to be so already), and waits a moment until Spotify reports it:
+    /// Spotify does not promise to run player commands in the order sent, and
+    /// a list started while its own shuffle is on begins at a random song.
+    /// False when Spotify refused (for example with nothing active yet); the
+    /// caller tries again once the music plays.
+    /// </summary>
+    private async Task<bool> TrySetSpotifyShuffleAsync(bool shuffle, string? deviceId, CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            if (_spotifyShuffle == shuffle)
+            {
+                return true;
+            }
+        }
+
+        try
+        {
+            await _api.SetShuffleAsync(shuffle, deviceId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (SpotifyApiException)
+        {
+            return false;
+        }
+
+        NoteSpotifyShuffle(shuffle);
+        for (var attempt = 0; attempt < ShuffleConfirmAttempts; attempt++)
+        {
+            PlaybackState? playback;
+            try
+            {
+                playback = await _api.GetPlaybackStateAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
+
+            if (playback is null || playback.ShuffleState == shuffle)
+            {
+                break;
+            }
+
+            await Task.Delay(ShuffleConfirmInterval, _time, cancellationToken).ConfigureAwait(false);
+        }
+
+        return true;
+    }
+
+    private void NoteSpotifyShuffle(bool shuffle)
+    {
+        lock (_gate)
+        {
+            _spotifyShuffle = shuffle;
+            _spotifyShuffleSetUntil = _time.GetUtcNow() + TrackHold;
+        }
+    }
+
+    /// <summary>Spotify would not start the context itself (not a missing Premium).</summary>
+    private static bool IsRefusedContext(SpotifyApiException ex) =>
+        !ex.IsPremiumRequired && ex.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Forbidden;
 
     /// <summary>Asks the Web API what is playing and fills in what the local channel can not tell.</summary>
     public async Task RefreshFromWebApiAsync(CancellationToken cancellationToken)
@@ -611,6 +985,7 @@ public sealed class PlayerController : IPlayer, IDisposable
         }
 
         RaiseStateChanged();
+        FollowSession();
         if (fetchDetails)
         {
             _ = FetchWebDetailsSoonAsync();
@@ -652,7 +1027,49 @@ public sealed class PlayerController : IPlayer, IDisposable
         }
 
         RaiseStateChanged();
+        FollowSession();
     }
+
+    /// <summary>
+    /// Whether Spotify now plays something other than the list Resonate
+    /// started: another playlist or album (from the Spotify app, a phone), or
+    /// Spotify's own shuffle switched on there. Not shortly after Resonate
+    /// started the list, when Spotify may still describe what played before.
+    /// </summary>
+    private bool IsElsewhere(ListSession session, PlaybackState playback, TrackInfo? item, DateTimeOffset now)
+    {
+        if (now < _sessionSettledAt)
+        {
+            return false;
+        }
+
+        if (playback.ShuffleState && now >= _spotifyShuffleSetUntil)
+        {
+            return true;
+        }
+
+        var context = playback.Context?.Uri;
+        if (context is null || SameContext(context, session.InContext ? session.ContextUri : null))
+        {
+            return false;
+        }
+
+        // An unfamiliar context counts only when the song is not one of the list's.
+        return IsListContext(context) || item is null || session.Locate(item.Uri, item.Title) < 0;
+    }
+
+    /// <summary>The same context; Liked Songs has more than one name.</summary>
+    private static bool SameContext(string? a, string? b) =>
+        a == b || (a is not null && b is not null && IsLikedSongs(a) && IsLikedSongs(b));
+
+    private static bool IsLikedSongs(string uri) => uri.EndsWith(":collection", StringComparison.Ordinal) || uri.Contains(":collection:", StringComparison.Ordinal);
+
+    private static bool IsListContext(string uri) =>
+        IsLikedSongs(uri)
+        || uri.StartsWith("spotify:playlist:", StringComparison.Ordinal)
+        || uri.StartsWith("spotify:album:", StringComparison.Ordinal)
+        || uri.StartsWith("spotify:artist:", StringComparison.Ordinal)
+        || uri.StartsWith("spotify:show:", StringComparison.Ordinal);
 
     /// <summary>
     /// Whether an answer from the Web API may still be shown. An answer to a
@@ -712,7 +1129,24 @@ public sealed class PlayerController : IPlayer, IDisposable
             };
         }
 
-        if (!IsHeld(_shuffleHold, now))
+        _spotifyShuffle = playback.ShuffleState;
+        if (_session is { } session && IsElsewhere(session, playback, item, now))
+        {
+            // The music no longer comes from the list Resonate started.
+            _session = null;
+            next = next with { SourceName = null };
+        }
+        else if (_session is null && s.SourceName is not null && playback.Context?.Uri is { } context && !SameContext(context, _sourceContext))
+        {
+            next = next with { SourceName = null };
+        }
+
+        if (_session is { } live)
+        {
+            // Resonate's own shuffle: Spotify's is off on purpose and says so.
+            next = next with { Shuffle = live.Shuffle };
+        }
+        else if (!IsHeld(_shuffleHold, now))
         {
             next = next with { Shuffle = playback.ShuffleState };
         }
@@ -722,10 +1156,13 @@ public sealed class PlayerController : IPlayer, IDisposable
             next = next with { Repeat = playback.Repeat };
         }
 
+        // Spotify forbids shuffle and repeat during DJ. Resonate's own
+        // shuffle does not need Spotify's permission.
+        var dj = playback.Context?.Uri == SpotifyDj.ContextUri;
         next = next with
         {
-            CanShuffle = playback.Actions?.Disallowed("toggling_shuffle") != true,
-            CanRepeat = playback.Actions?.Disallowed("toggling_repeat_context") != true,
+            CanShuffle = !dj && (_session is not null || playback.Actions?.Disallowed("toggling_shuffle") != true),
+            CanRepeat = !dj && playback.Actions?.Disallowed("toggling_repeat_context") != true,
         };
 
         if (!mixerVolumeKnown
@@ -1022,7 +1459,7 @@ public sealed class PlayerController : IPlayer, IDisposable
         RaiseStateChanged();
     }
 
-    private void RevertTo(long generation, PlayerState before)
+    private void RevertTo(long generation, PlayerState before, ListSession? session)
     {
         lock (_gate)
         {
@@ -1031,6 +1468,7 @@ public sealed class PlayerController : IPlayer, IDisposable
                 return;
             }
 
+            _session = session;
             _trackHold = null;
             _playingHold = null;
             _positionHold = null;
