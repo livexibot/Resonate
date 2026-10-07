@@ -203,6 +203,29 @@ public sealed class LocalLibraryTests : IDisposable
     }
 
     [Fact]
+    public async Task A_folder_moved_in_or_away_is_noticed_even_with_dots_in_its_name()
+    {
+        WriteSong("a.mp3", "A");
+        var elsewhere = Path.Combine(_root.FullName, "Desktop", "R.E.M. - Automatic for the People");
+        Directory.CreateDirectory(elsewhere);
+        await File.WriteAllBytesAsync(Path.Combine(elsewhere, "b.mp3"), Song("B"), TestContext.Current.CancellationToken);
+        var library = Create();
+        await library.ScanAsync(TestContext.Current.CancellationToken);
+        library.StartWatching();
+
+        // A move reports only the folder, not the songs inside it.
+        var moved = Path.Combine(_music, "R.E.M. - Automatic for the People");
+        Directory.Move(elsewhere, moved);
+        await WhileWatching(() => library.Files.Count == 2);
+        Assert.Equal(["A", "B"], library.Files.Select(f => f.Title).Order(StringComparer.Ordinal));
+
+        // As the Recycle Bin does.
+        Directory.Move(moved, elsewhere);
+        await WhileWatching(() => library.Files.Count == 1);
+        Assert.Equal(["A"], library.Files.Select(f => f.Title));
+    }
+
+    [Fact]
     public async Task A_folder_that_answers_slowly_never_holds_up_the_list()
     {
         // A network folder that is asleep: watching it waits until the test says.
@@ -323,6 +346,16 @@ public sealed class LocalLibraryTests : IDisposable
         library.SetFolders([_music]);
         _libraries.Add(library);
         return library;
+    }
+
+    /// <summary>Lets the watchers' delay pass until <paramref name="done"/>, for up to about ten seconds.</summary>
+    private async Task WhileWatching(Func<bool> done)
+    {
+        for (var i = 0; i < 200 && !done(); i++)
+        {
+            await Task.Delay(50, TestContext.Current.CancellationToken);
+            _time.Advance(LocalLibrary.WatchDelay);
+        }
     }
 
     private string WriteSong(string relativePath, string title, int frames = 3)

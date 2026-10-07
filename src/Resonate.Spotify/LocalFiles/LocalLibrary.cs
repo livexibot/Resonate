@@ -588,7 +588,7 @@ public sealed class LocalLibrary : IDisposable
 
     private void OnFileEvent(object sender, FileSystemEventArgs e)
     {
-        if (IsRelevant(e.FullPath))
+        if (e.ChangeType == WatcherChangeTypes.Deleted ? WasRelevant(e.FullPath) : IsRelevant(e.FullPath))
         {
             ScheduleRescan();
         }
@@ -596,15 +596,36 @@ public sealed class LocalLibrary : IDisposable
 
     private void OnFileRenamed(object sender, RenamedEventArgs e)
     {
-        if (IsRelevant(e.FullPath) || IsRelevant(e.OldFullPath))
+        if (IsRelevant(e.FullPath) || WasRelevant(e.OldFullPath))
         {
             ScheduleRescan();
         }
     }
 
-    /// <summary>Music files, and folders (which have no extension, usually), outside Spotify's folders.</summary>
+    /// <summary>
+    /// Music files and folders, outside Spotify's folders. A folder moved in
+    /// reports only itself, not the songs inside, and its name can look like
+    /// a file's ("R.E.M. - Monster"), so the disk is asked.
+    /// </summary>
     private bool IsRelevant(string path) =>
-        (TagReader.IsSupported(path) || !Path.HasExtension(path)) && !IsExcluded(path);
+        (TagReader.IsSupported(path) || Directory.Exists(path)) && !IsExcluded(path);
+
+    /// <summary>For a path that is gone (deleted, or moved away): a music file, or a folder that held songs in the list.</summary>
+    private bool WasRelevant(string path) =>
+        (TagReader.IsSupported(path) || HeldListedFiles(path)) && !IsExcluded(path);
+
+    private bool HeldListedFiles(string folder)
+    {
+        foreach (var file in _files)
+        {
+            if (IsSameOrInside(file.Path, folder))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private void ScheduleRescan()
     {
