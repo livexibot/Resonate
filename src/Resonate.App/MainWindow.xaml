@@ -82,10 +82,12 @@
             x:Name="ShellGrid"
             Grid.Row="1"
             ColumnSpacing="8"
-            Padding="8,0,8,0">
+            Padding="8,0,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="272" />
                 <ColumnDefinition Width="*" />
+                <!-- The queue pane; while closed, the spacing before it is the right edge's margin -->
+                <ColumnDefinition x:Name="QueueColumn" Width="0" />
             </Grid.ColumnDefinitions>
 
             <Grid
@@ -251,6 +253,11 @@
                     VerticalAlignment="Top"
                     IsOpen="False" />
             </Grid>
+
+            <controls:QueuePanel
+                x:Name="QueuePane"
+                Grid.Column="2"
+                Visibility="Collapsed" />
         </Grid>
 
         <!-- First run: connect to Spotify -->

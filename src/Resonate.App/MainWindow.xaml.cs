@@ -63,6 +63,8 @@ public sealed partial class MainWindow : Window
         _messageTimer.Tick += (_, _) => MessageBar.IsOpen = false;
 
         PlayerBar.Attach(services.Player);
+        PlayerBar.QueueRequested += (_, _) => ToggleQueue();
+        QueuePane.CloseRequested += (_, _) => ShowQueue(false);
         services.Player.ErrorOccurred += (_, message) =>
             DispatcherQueue.TryEnqueue(() => ShowMessage(message, InfoBarSeverity.Warning));
         services.Library.PlaylistsChanged += (_, _) =>
@@ -120,8 +122,33 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>Opens the queue pane next to the pages, or closes it (the player bar's queue button).</summary>
+    public void ToggleQueue() => ShowQueue(!QueuePane.IsOpen);
+
+    private void ShowQueue(bool open)
+    {
+        if (open == QueuePane.IsOpen)
+        {
+            return;
+        }
+
+        // Closed, the column is empty and the spacing before it is the window's right margin.
+        QueueColumn.Width = new GridLength(open ? Controls.QueuePanel.PaneWidth : 0);
+        ShellGrid.Padding = new Thickness(8, 0, open ? 8 : 0, 0);
+        QueuePane.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        if (open)
+        {
+            QueuePane.Open(_services.Player);
+        }
+        else
+        {
+            QueuePane.Close();
+        }
+    }
+
     public void ShowSignIn()
     {
+        ShowQueue(false);
         ShellGrid.Visibility = Visibility.Collapsed;
         PlayerBar.Visibility = Visibility.Collapsed;
         SignInFrame.Visibility = Visibility.Visible;
