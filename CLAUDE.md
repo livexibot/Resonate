@@ -47,6 +47,17 @@ Building and testing:
   media session, and the app has a `--demo` mode with made-up music that CI
   uses for screenshots (`--screenshots <folder>`) and start-up timing
   (`--startup-benchmark <file>`).
+- Cloud sessions cannot download CI artifacts or logs (their storage host is
+  blocked). CI therefore also stores each pull request's screenshots as a
+  commit under the hidden ref `refs/screenshots/pr-<number>`. Fetch them
+  with `git fetch origin refs/screenshots/pr-<n>` and `git show
+  FETCH_HEAD:<file>`, look at them, and link them in the pull request as
+  `https://github.com/livexibot/Resonate/blob/<commit>/<file>?raw=true`.
+  The GitHub tools read job logs; `get_job_logs` works, raw downloads do not.
+- To catch C# mistakes in the app before CI, compile its code-behind on
+  Linux against the Windows App SDK with stand-ins for the XAML-generated
+  members (fields per `x:Name`, an empty `InitializeComponent`). The XAML
+  compiler itself only runs on Windows.
 - The .NET SDK download host is blocked in cloud sessions; install it with
   `apt-get install dotnet-sdk-10.0` (Ubuntu's package).
 - Give the owner a direct download link for anything to try (a release's
@@ -130,7 +141,9 @@ GitHub automation:
   documented: check the author after the first merge.
 
 Targets to measure from the first build: cold launch to a usable window
-under one second (CI prints it for demo data), page changes within one frame
+under one second (CI prints it for demo data; the first build measured
+748 ms cold and 289 to 435 ms warm on GitHub's Windows machine), page
+changes within one frame
 at the monitor's refresh rate (ask the owner what it is), and play or pause
 audible within about 100 ms.
 
