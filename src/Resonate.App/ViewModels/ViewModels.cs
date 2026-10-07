@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using Resonate.App.Helpers;
+using Resonate.Spotify.History;
 using Resonate.Spotify.Library;
 using Resonate.Spotify.WebApi;
 
@@ -218,4 +219,142 @@ public sealed partial class NavItem
     public string Glyph { get; }
 
     public string Label { get; }
+}
+
+/// <summary>Listening over one stretch of time (the past day or week), a card at the top of Home.</summary>
+public sealed partial class StatCard : ObservableObject
+{
+    private ImageSource? _artistImage;
+    private ImageSource? _songImage;
+
+    public StatCard(string heading, ListeningSummary summary, string emptyText)
+    {
+        Summary = summary;
+        Heading = heading;
+        var minutes = (int)Math.Round(summary.Listened.TotalMinutes);
+        Minutes = minutes.ToString("N0", System.Globalization.CultureInfo.CurrentCulture);
+        MinutesLabel = minutes == 1 ? "minute" : "minutes";
+        Songs = summary.Songs.ToString("N0", System.Globalization.CultureInfo.CurrentCulture);
+        SongsLabel = summary.Songs == 1 ? "song" : "songs";
+        ArtistName = summary.TopArtist?.Name ?? string.Empty;
+        ArtistDetail = "Top artist · " + Plays(summary.TopArtistPlays);
+        SongTitle = summary.TopSong?.Title ?? string.Empty;
+        SongDetail = "Top song · " + Plays(summary.TopSongPlays);
+        ArtistPlaceholder = Artwork.PlaceholderBrush(ArtistName);
+        SongPlaceholder = Artwork.PlaceholderBrush(summary.TopSong?.Album is { Length: > 0 } album ? album : SongTitle);
+        EmptyText = emptyText;
+        TopVisibility = summary.Songs > 0 ? Visibility.Visible : Visibility.Collapsed;
+        EmptyVisibility = summary.Songs > 0 ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    public ListeningSummary Summary { get; }
+
+    public string Heading { get; }
+
+    public string Minutes { get; }
+
+    public string MinutesLabel { get; }
+
+    /// <summary>Spotify reports which songs played, not for how long.</summary>
+    public string MinutesNote => "About: Spotify counts a song once it has played for 30 seconds, and Resonate adds up the songs' full lengths.";
+
+    public string Songs { get; }
+
+    public string SongsLabel { get; }
+
+    public string ArtistName { get; }
+
+    public string ArtistDetail { get; }
+
+    public string SongTitle { get; }
+
+    public string SongDetail { get; }
+
+    public Brush ArtistPlaceholder { get; }
+
+    public Brush SongPlaceholder { get; }
+
+    public string EmptyText { get; }
+
+    public Visibility TopVisibility { get; }
+
+    public Visibility EmptyVisibility { get; }
+
+    /// <summary>Arrives later than the card: the picture may need asking Spotify.</summary>
+    public ImageSource? ArtistImage
+    {
+        get => _artistImage;
+        private set => Set(ref _artistImage, value);
+    }
+
+    public ImageSource? SongImage => _songImage ??= Artwork.FromUrl(Summary.TopSong?.ImageUrl, 40);
+
+    public void ShowArtistImage(string? url) => ArtistImage = Artwork.FromUrl(url, 40);
+
+    private static string Plays(int count) => count == 1 ? "1 play" : $"{count:N0} plays";
+}
+
+/// <summary>A daily mix or "On repeat" on Home: a square of colour with the artist's picture.</summary>
+public sealed partial class MixCard
+{
+    private readonly string? _imageUrl;
+    private ImageSource? _image;
+
+    public MixCard(string key, string title, string subtitle, string? imageUrl, string glyph)
+    {
+        Key = key;
+        Title = title;
+        Subtitle = subtitle;
+        Glyph = glyph;
+        _imageUrl = imageUrl;
+        PlaceholderBrush = Artwork.PlaceholderBrush(title);
+    }
+
+    /// <summary>The song list it opens ("mix:1", "onrepeat").</summary>
+    public string Key { get; }
+
+    public string Title { get; }
+
+    public string Subtitle { get; }
+
+    public string Glyph { get; }
+
+    public Brush PlaceholderBrush { get; }
+
+    public ImageSource? Image => _image ??= Artwork.FromUrl(_imageUrl, 112);
+
+    public Visibility PortraitVisibility => _imageUrl is null ? Visibility.Collapsed : Visibility.Visible;
+
+    public Visibility GlyphVisibility => _imageUrl is null ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>What screen readers say for the card.</summary>
+    public override string ToString() => $"{Title}, {Subtitle}";
+}
+
+/// <summary>A song in Home's "Recently played" row.</summary>
+public sealed partial class RecentCard
+{
+    private ImageSource? _image;
+
+    public RecentCard(TrackInfo track, DateTimeOffset playedAt, DateTimeOffset now)
+    {
+        Track = track;
+        Tooltip = $"{track.Title} · {track.Artists}\nPlayed {Format.DateAdded(playedAt, now)}";
+        PlaceholderBrush = Artwork.PlaceholderBrush(track.Album.Length > 0 ? track.Album : track.Title);
+    }
+
+    public TrackInfo Track { get; }
+
+    public string Title => Track.Title;
+
+    public string Artists => Track.Artists;
+
+    public string Tooltip { get; }
+
+    public Brush PlaceholderBrush { get; }
+
+    public ImageSource? Image => _image ??= Artwork.FromUrl(Track.LargeImageUrl, 128);
+
+    /// <summary>What screen readers say for the card.</summary>
+    public override string ToString() => $"{Title}, {Artists}";
 }

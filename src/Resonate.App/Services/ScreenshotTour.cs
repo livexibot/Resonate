@@ -2,6 +2,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Resonate.App.Pages;
+using Resonate.App.Pages.Lists;
 using Resonate.App.Themes;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
@@ -31,7 +32,17 @@ internal sealed class ScreenshotTour
         try
         {
             Directory.CreateDirectory(_folder);
-            await Task.Delay(2000);
+
+            // Resonate opens on Home.
+            await Task.Delay(2500);
+            await CaptureAsync("0-home.png");
+
+            _window.Open(DailyMixSource.KeyFor(1));
+            await Task.Delay(1500);
+            await CaptureAsync("0-home-mix.png");
+
+            _window.Open(MainWindow.LikedSongsKey);
+            await Task.Delay(1500);
             await CaptureAsync("1-liked-songs.png");
 
             _window.OpenPlaylist("late-night");

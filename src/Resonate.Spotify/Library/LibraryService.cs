@@ -210,6 +210,18 @@ public sealed class LibraryService : IDisposable
         return new FullTrackList(all, ItemsHidden: false);
     }
 
+    /// <summary>
+    /// A playlist's songs from the stored copy, when it matches the
+    /// playlist's current version; null otherwise. Costs no request.
+    /// </summary>
+    public IReadOnlyList<TrackInfo>? GetStoredPlaylistTracks(string playlistId)
+    {
+        var snapshotId = Snapshot?.Playlists.FirstOrDefault(p => p.Id == playlistId)?.SnapshotId;
+        return snapshotId is not null && _lists.Load("playlist-" + playlistId) is { } cached && cached.Version == snapshotId
+            ? cached.Tracks
+            : null;
+    }
+
     /// <summary>An album's header and all of its songs.</summary>
     public async Task<(Album Album, IReadOnlyList<TrackInfo> Tracks)> GetAlbumAsync(string albumId, CancellationToken cancellationToken)
     {

@@ -3,14 +3,241 @@
     x:Class="Resonate.App.Pages.HomePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Resonate.App.ViewModels"
     Background="{StaticResource ResonateTransparentBrush}">
 
+    <Page.Resources>
+        <!-- Listening over the past day or week: minutes, songs, top artist and top song. -->
+        <DataTemplate x:Key="StatCardTemplate" x:DataType="vm:StatCard">
+            <Border
+                Padding="20,18,20,20"
+                Background="{StaticResource ResonateSurfaceHoverBrush}"
+                BorderBrush="{StaticResource ResonateBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="{ThemeResource ResonateCornerLarge}">
+                <StackPanel Spacing="14">
+                    <TextBlock
+                        CharacterSpacing="60"
+                        Style="{StaticResource ResonateCaptionTextStyle}"
+                        Text="{x:Bind Heading}" />
+                    <StackPanel Orientation="Horizontal" Spacing="36">
+                        <StackPanel ToolTipService.ToolTip="{x:Bind MinutesNote}">
+                            <TextBlock
+                                FontSize="30"
+                                Style="{StaticResource ResonateTitleTextStyle}"
+                                Text="{x:Bind Minutes}" />
+                            <TextBlock Style="{StaticResource ResonateSecondaryTextStyle}" Text="{x:Bind MinutesLabel}" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock
+                                FontSize="30"
+                                Style="{StaticResource ResonateTitleTextStyle}"
+                                Text="{x:Bind Songs}" />
+                            <TextBlock Style="{StaticResource ResonateSecondaryTextStyle}" Text="{x:Bind SongsLabel}" />
+                        </StackPanel>
+                    </StackPanel>
+                    <Grid ColumnSpacing="16" Visibility="{x:Bind TopVisibility}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid
+                                Width="40"
+                                Height="40"
+                                Background="{x:Bind ArtistPlaceholder}"
+                                CornerRadius="20">
+                                <Image Source="{x:Bind ArtistImage, Mode=OneWay}" Stretch="UniformToFill" />
+                            </Grid>
+                            <StackPanel
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="2">
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Style="{StaticResource ResonateBodyTextStyle}"
+                                    Text="{x:Bind ArtistName}" />
+                                <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="{x:Bind ArtistDetail}" />
+                            </StackPanel>
+                        </Grid>
+                        <Grid Grid.Column="1" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid
+                                Width="40"
+                                Height="40"
+                                Background="{x:Bind SongPlaceholder}"
+                                CornerRadius="{ThemeResource ResonateCornerSmall}">
+                                <Image Source="{x:Bind SongImage}" Stretch="UniformToFill" />
+                            </Grid>
+                            <StackPanel
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="2">
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Style="{StaticResource ResonateBodyTextStyle}"
+                                    Text="{x:Bind SongTitle}" />
+                                <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="{x:Bind SongDetail}" />
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                    <TextBlock
+                        Style="{StaticResource ResonateSecondaryTextStyle}"
+                        Text="{x:Bind EmptyText}"
+                        TextWrapping="Wrap"
+                        Visibility="{x:Bind EmptyVisibility}" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- A daily mix: the seed artist's picture on a square of colour. -->
+        <DataTemplate x:Key="MixCardTemplate" x:DataType="vm:MixCard">
+            <StackPanel
+                Width="168"
+                Padding="4,4,4,8"
+                Spacing="8">
+                <Grid
+                    Width="160"
+                    Height="160"
+                    Background="{x:Bind PlaceholderBrush}"
+                    CornerRadius="{ThemeResource ResonateCornerMedium}">
+                    <FontIcon
+                        FontFamily="{StaticResource ResonateIconFont}"
+                        FontSize="48"
+                        Foreground="#E6FFFFFF"
+                        Glyph="{x:Bind Glyph}"
+                        Visibility="{x:Bind GlyphVisibility}" />
+                    <Grid
+                        Width="112"
+                        Height="112"
+                        CornerRadius="56"
+                        Visibility="{x:Bind PortraitVisibility}">
+                        <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
+                    </Grid>
+                </Grid>
+                <TextBlock
+                    FontWeight="SemiBold"
+                    Style="{StaticResource ResonateBodyTextStyle}"
+                    Text="{x:Bind Title}" />
+                <TextBlock Style="{StaticResource ResonateSecondaryTextStyle}" Text="{x:Bind Subtitle}" />
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- A song played lately; a click plays it. -->
+        <DataTemplate x:Key="RecentCardTemplate" x:DataType="vm:RecentCard">
+            <StackPanel
+                Width="136"
+                Padding="4,4,4,8"
+                Spacing="6"
+                ToolTipService.ToolTip="{x:Bind Tooltip}">
+                <Grid
+                    Width="128"
+                    Height="128"
+                    Background="{x:Bind PlaceholderBrush}"
+                    CornerRadius="{ThemeResource ResonateCornerMedium}">
+                    <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
+                </Grid>
+                <TextBlock
+                    FontWeight="SemiBold"
+                    Style="{StaticResource ResonateBodyTextStyle}"
+                    Text="{x:Bind Title}" />
+                <TextBlock Style="{StaticResource ResonateSecondaryTextStyle}" Text="{x:Bind Artists}" />
+            </StackPanel>
+        </DataTemplate>
+    </Page.Resources>
+
     <ScrollViewer>
-        <StackPanel Padding="28,36,28,28" Spacing="24">
-            <TextBlock
-                x:Name="GreetingText"
-                Style="{StaticResource ResonateDisplayTextStyle}"
-                Text="Home" />
+        <StackPanel Padding="28,36,28,28" Spacing="32">
+            <StackPanel Spacing="16">
+                <TextBlock
+                    x:Name="GreetingText"
+                    Style="{StaticResource ResonateDisplayTextStyle}"
+                    Text="Home" />
+                <Border
+                    x:Name="PermissionNote"
+                    Padding="16,12"
+                    Background="{StaticResource ResonateSurfaceHoverBrush}"
+                    CornerRadius="{ThemeResource ResonateCornerMedium}"
+                    Visibility="Collapsed">
+                    <TextBlock
+                        Style="{StaticResource ResonateSecondaryTextStyle}"
+                        Text="Your listening stats and mixes need a permission your Spotify sign-in predates. In Settings, sign out, then sign in again."
+                        TextWrapping="Wrap" />
+                </Border>
+            </StackPanel>
+
+            <!-- Shown once the stored history is read (a moment after the page), so no empty numbers flash first. -->
+            <StackPanel
+                x:Name="Sections"
+                Spacing="32"
+                Visibility="Collapsed">
+                <!-- Stats for the past day and week -->
+                <StackPanel Spacing="10">
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ContentPresenter
+                            x:Name="DayStats"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"
+                            ContentTemplate="{StaticResource StatCardTemplate}" />
+                        <ContentPresenter
+                            x:Name="WeekStats"
+                            Grid.Column="1"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"
+                            ContentTemplate="{StaticResource StatCardTemplate}" />
+                    </Grid>
+                    <TextBlock
+                        x:Name="HistoryNote"
+                        Style="{StaticResource ResonateCaptionTextStyle}"
+                        Text="Spotify shares the last 50 songs you played. Resonate keeps them from now on, so your stats fill in as you listen."
+                        TextWrapping="Wrap"
+                        Visibility="Collapsed" />
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Daily mixes" />
+                    <TextBlock
+                        x:Name="MixesNote"
+                        Style="{StaticResource ResonateSecondaryTextStyle}"
+                        TextWrapping="Wrap"
+                        Visibility="Collapsed" />
+                    <GridView
+                        x:Name="MixGrid"
+                        IsItemClickEnabled="True"
+                        ItemClick="OnMixClick"
+                        ItemTemplate="{StaticResource MixCardTemplate}"
+                        ItemsSource="{x:Bind Mixes}"
+                        SelectionMode="None" />
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Recently played" />
+                    <TextBlock
+                        x:Name="RecentNote"
+                        Style="{StaticResource ResonateSecondaryTextStyle}"
+                        Text="Songs you play appear here."
+                        Visibility="Collapsed" />
+                    <GridView
+                        x:Name="RecentGrid"
+                        ContextRequested="OnRecentContextRequested"
+                        IsItemClickEnabled="True"
+                        ItemClick="OnRecentClick"
+                        ItemTemplate="{StaticResource RecentCardTemplate}"
+                        ItemsSource="{x:Bind Recent}"
+                        SelectionMode="None" />
+                </StackPanel>
+            </StackPanel>
         </StackPanel>
     </ScrollViewer>
 </Page>
