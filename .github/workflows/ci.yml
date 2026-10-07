@@ -194,7 +194,7 @@ jobs:
           Get-Content $report | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
           Get-Content (Join-Path $folder 'perf.json')
           $errors = Join-Path $folder 'perf-errors.txt'
-          if (Test-Path $errors) { Get-Content $errors; throw 'The speed test hit the errors above.' }
+          if (Test-Path $errors) { Get-Content $errors; throw 'The speed test found the problems above.' }
 
       # Last, so a broken tour still keeps its screenshots and runs the
       # install test above, yet fails the pull request.

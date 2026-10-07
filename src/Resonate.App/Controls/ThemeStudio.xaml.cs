@@ -128,7 +128,6 @@ public sealed partial class ThemeStudio : UserControl
         _looksTimer = DispatcherQueue.CreateTimer();
         _looksTimer.Interval = TimeSpan.FromMilliseconds(250);
         _looksTimer.IsRepeating = false;
-        _looksTimer.Tick += (_, _) => ShowYourLooks();
 
         CustomizeExpander.IsExpanded = CustomizeOpen;
         Loaded += OnLoaded;
@@ -148,6 +147,10 @@ public sealed partial class ThemeStudio : UserControl
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        // Only while shown: a handler left on the timer (which is outside the
+        // tree) would keep this panel alive after Settings closes.
+        _looksTimer.Tick -= OnLooksTick;
+        _looksTimer.Tick += OnLooksTick;
         _theme.Changed += OnThemeChanged;
         ShowYourLooks();
         Refresh();
@@ -157,7 +160,10 @@ public sealed partial class ThemeStudio : UserControl
     {
         _theme.Changed -= OnThemeChanged;
         _looksTimer.Stop();
+        _looksTimer.Tick -= OnLooksTick;
     }
+
+    private void OnLooksTick(DispatcherQueueTimer sender, object args) => ShowYourLooks();
 
     private void OnThemeChanged(object? sender, EventArgs e) => Refresh();
 

@@ -36,6 +36,12 @@ internal sealed partial class PerformanceTour
     private static readonly TimeSpan SettleLimit = TimeSpan.FromSeconds(8);
     private static readonly TimeSpan IdleSpan = TimeSpan.FromSeconds(5);
 
+    // Limits that fail CI. GitHub's machines draw without a graphics card, so
+    // these are several times what they measure there; a real PC is faster.
+    private const double PageHeldLimitMs = 250;
+    private const double PageFirstFrameLimitMs = 500;
+    private const double IdleCpuLimitPercent = 2;
+
     private readonly MainWindow _window;
     private readonly FrameworkElement _root;
     private readonly string _folder;
@@ -127,7 +133,11 @@ internal sealed partial class PerformanceTour
             Checkpoint("scrolling");
             _window.Open(MainWindow.LikedSongsKey);
             await SettleAsync();
-            if (FindDescendant<ListView>(_root) is { } songs)
+            // The page's longest list (the sidebar's lists come first in the window).
+            var songs = _window.CurrentPage is DependencyObject page
+                ? Descendants<ListView>(page).MaxBy(list => list.Items.Count)
+                : null;
+            if (songs is { Items.Count: > 1000 })
             {
                 _scrolls.Add(await ScrollAsync("Liked Songs, steady (2 rows a frame)", songs, rowsPerFrame: 2, frames: 300));
                 _scrolls.Add(await ScrollAsync("Liked Songs, fast (25 rows a frame)", songs, rowsPerFrame: 25, frames: 300));
@@ -157,6 +167,7 @@ internal sealed partial class PerformanceTour
             Checkpoint("visiting every page again");
             await FindLeaksAsync();
             _finished = true;
+            CheckLimits();
         }
         catch (Exception ex)
         {
@@ -213,6 +224,36 @@ internal sealed partial class PerformanceTour
             .Where(v => v.Page.Target is { } page && !ReferenceEquals(page, current))
             .GroupBy(v => v.Name)
             .Select(g => $"{g.Key} ×{g.Count()}"));
+    }
+
+    /// <summary>Anything over its limit is an error, so CI fails and shows it.</summary>
+    private void CheckLimits()
+    {
+        foreach (var page in _pages)
+        {
+            if (page.HeldMs > PageHeldLimitMs)
+            {
+                _errors.Add($"Opening {page.Name} held the interface for {page.HeldMs:N0} ms (limit {PageHeldLimitMs:N0} ms).");
+            }
+
+            if (page.FirstFrameMs > PageFirstFrameLimitMs)
+            {
+                _errors.Add($"{page.Name} took {page.FirstFrameMs:N0} ms to show (limit {PageFirstFrameLimitMs:N0} ms).");
+            }
+        }
+
+        foreach (var (name, cpu, _) in _idle.Where(i => i.Name is "Paused" or "Playing, minimised"))
+        {
+            if (cpu > IdleCpuLimitPercent)
+            {
+                _errors.Add($"Doing nothing ({name}) used {cpu:N1} % of a processor core (limit {IdleCpuLimitPercent:N0} %).");
+            }
+        }
+
+        if (_leftAlive.Count > 0)
+        {
+            _errors.Add($"Pages stayed in memory after leaving them: {string.Join(", ", _leftAlive)}.");
+        }
     }
 
     /// <summary>Waits for a command to the pretend player, but never for long.</summary>
@@ -343,19 +384,22 @@ internal sealed partial class PerformanceTour
             GetGuiResources(process.Handle, GuiObjectsUser));
     }
 
-    private static T? FindDescendant<T>(DependencyObject parent)
+    private static IEnumerable<T> Descendants<T>(DependencyObject parent)
         where T : DependencyObject
     {
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
         {
             var child = VisualTreeHelper.GetChild(parent, i);
-            if ((child as T ?? FindDescendant<T>(child)) is { } found)
+            if (child is T match)
             {
-                return found;
+                yield return match;
+            }
+
+            foreach (var found in Descendants<T>(child))
+            {
+                yield return found;
             }
         }
-
-        return null;
     }
 
     private void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)

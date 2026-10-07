@@ -64,7 +64,6 @@ public sealed partial class TracksPage : Page
         _filterTimer = DispatcherQueue.CreateTimer();
         _filterTimer.Interval = TimeSpan.FromMilliseconds(150);
         _filterTimer.IsRepeating = false;
-        _filterTimer.Tick += (_, _) => ApplyView();
     }
 
     /// <summary>The list shown is in its own order, unfiltered (so it can play inside its Spotify context and be rearranged).</summary>
@@ -86,6 +85,10 @@ public sealed partial class TracksPage : Page
         }
 
         BuildSortMenu();
+
+        // Subscribed only while shown: the timer is not part of the page's
+        // tree, so a handler left on it would keep the page alive for good.
+        _filterTimer.Tick += OnFilterTick;
         _services.Player.StateChanged += OnPlayerStateChanged;
         _services.Likes.Changed += OnLikesChanged;
         _source.Attach(OnSourceChanged);
@@ -98,8 +101,11 @@ public sealed partial class TracksPage : Page
         _services.Player.StateChanged -= OnPlayerStateChanged;
         _services.Likes.Changed -= OnLikesChanged;
         _filterTimer.Stop();
+        _filterTimer.Tick -= OnFilterTick;
         _leaving.Cancel();
     }
+
+    private void OnFilterTick(DispatcherQueueTimer sender, object args) => ApplyView();
 
     private async Task LoadAsync()
     {
