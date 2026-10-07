@@ -5,7 +5,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Resonate.App.Controls;
 using Resonate.App.Pages;
 using Resonate.App.Pages.Lists;
-using Resonate.App.Themes;
+using Resonate.Themes;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
 
@@ -34,6 +34,8 @@ internal sealed class ScreenshotTour
 
     public async Task RunAsync()
     {
+        var theme = App.Services.Theme;
+
         // An error in an event handler would otherwise end the app silently
         // and leave the later screenshots missing. Record it and carry on.
         Application.Current.UnhandledException += OnUnhandledException;
@@ -67,25 +69,37 @@ internal sealed class ScreenshotTour
             await Task.Delay(2000);
             await CaptureAsync("3-search.png");
 
+            ThemeStudio.CustomizeOpen = true;
             _window.OpenSettings();
-            await Task.Delay(1200);
-            await CaptureAsync("4-settings.png");
+            await Task.Delay(1500);
+            await CaptureAsync("4-settings-look.png");
 
             // Further down the same page (demo values; there are no Spotify settings to find in CI).
             FindDescendant<EqualizerPanel>(_root)?.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false, VerticalAlignmentRatio = 0.1 });
             await Task.Delay(800);
             await CaptureAsync("4b-equalizer.png");
 
-            App.Services.Theme.Apply(ThemePreset.Daylight);
-            _window.ApplyCaptionButtonColors();
-            _window.OpenPlaylist("focus");
-            await Task.Delay(1500);
-            await CaptureAsync("5-daylight-theme.png");
+            if (_window.CurrentPage is SettingsPage settings)
+            {
+                settings.ShowCustomize();
+                await Task.Delay(600);
+                await CaptureAsync("5-customize.png");
+            }
 
-            App.Services.Theme.Apply(ThemePreset.Midnight);
+            // Every preset, switched at run time, so the live switching of shapes and fonts is checked too.
+            var number = 6;
+            foreach (var preset in ThemePresets.All.Where(p => p != ThemePresets.Default))
+            {
+                theme.Select(preset.Id, transition: ThemeTransitionKind.None);
+                _window.OpenPlaylist("focus");
+                await Task.Delay(1500);
+                await CaptureAsync($"{number++}-theme-{preset.Id}.png");
+            }
+
+            theme.Select(ThemePresets.Default.Id, transition: ThemeTransitionKind.None);
             _window.ShowSignIn();
             await Task.Delay(1200);
-            await CaptureAsync("6-sign-in.png");
+            await CaptureAsync($"{number}-sign-in.png");
         }
         catch (Exception ex)
         {

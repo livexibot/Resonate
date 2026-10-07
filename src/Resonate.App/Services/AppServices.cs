@@ -25,7 +25,8 @@ public sealed class AppServices : IDisposable
         HomeFeed home,
         PlayerRouter player,
         ISpotifyAppLauncher launcher,
-        ISpotifyAppWindow spotifyWindow)
+        ISpotifyAppWindow spotifyWindow,
+        HttpClient http)
     {
         IsDemo = isDemo;
         SettingsStore = settingsStore;
@@ -38,6 +39,9 @@ public sealed class AppServices : IDisposable
         Player = player;
         Launcher = launcher;
         SpotifyWindow = spotifyWindow;
+        Theme = new ThemeService(settings, SaveSettings);
+        Artwork = new ArtworkSampler(player, Theme, http);
+        _owned.Add(Artwork);
 
         player.Spotify.Channel = settings.ParsedControlChannel;
         spotifyWindow.KeepHidden = settings.KeepSpotifyHidden;
@@ -77,7 +81,11 @@ public sealed class AppServices : IDisposable
     /// <summary>The equalizer: the Spotify app's own for Spotify's songs, and the same setting for local files.</summary>
     public EqualizerService Equalizer { get; }
 
-    public ThemeService Theme { get; } = new();
+    /// <summary>The look: presets, the user's own looks, and switching between them.</summary>
+    public ThemeService Theme { get; }
+
+    /// <summary>The playing song's cover, read for looks that use its colours.</summary>
+    public ArtworkSampler Artwork { get; }
 
     public UpdateService Updates { get; } = new();
 
@@ -121,7 +129,7 @@ public sealed class AppServices : IDisposable
             launcher);
         var player = new PlayerRouter(spotify);
 
-        var services = new AppServices(false, settingsStore, settings, account, api, library, home, player, launcher, background);
+        var services = new AppServices(false, settingsStore, settings, account, api, library, home, player, launcher, background, http);
         services._owned.AddRange([player, spotify, home, library, smtc, launcher, background, account, http]);
 
         // At once, so a Spotify already on the taskbar (started with Windows) disappears from it.
@@ -143,7 +151,7 @@ public sealed class AppServices : IDisposable
         var spotify = new PlayerController(demoPlayer, demoPlayer, api, new LocalDeviceResolver(api, Environment.MachineName), demoPlayer);
         var player = new PlayerRouter(spotify);
 
-        var services = new AppServices(true, settingsStore, settings, account, api, library, home, player, demoPlayer, demoPlayer);
+        var services = new AppServices(true, settingsStore, settings, account, api, library, home, player, demoPlayer, demoPlayer, http);
         services._owned.AddRange([player, spotify, home, library, account, http]);
         return services;
     }

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The look of Resonate as plain data: the theme presets, the colours every
+    control reads (derived from a few the user picks), saving and sharing looks
+    as text, and picking colours from album art. No Windows or WinUI here, so it
+    builds and is tested on Linux; the app turns a palette into XAML resources.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Resonate.Themes</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Resonate.Themes.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -31,7 +31,7 @@
                 Background="{StaticResource ResonateSurfaceBrush}"
                 BorderBrush="{StaticResource ResonateBorderBrush}"
                 BorderThickness="1"
-                CornerRadius="{StaticResource ResonateCornerLarge}">
+                CornerRadius="{ThemeResource ResonateCornerLarge}">
                 <StackPanel Spacing="18">
                     <StackPanel Spacing="6">
                         <TextBlock

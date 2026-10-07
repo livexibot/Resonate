@@ -9,9 +9,11 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
+using Resonate.App.Controls;
 using Resonate.App.Pages;
 using Resonate.App.Pages.Lists;
 using Resonate.App.Services;
+using Resonate.App.Themes;
 using Resonate.App.ViewModels;
 using Resonate.Spotify.Auth;
 using Resonate.Spotify.Library;
@@ -46,7 +48,8 @@ public sealed partial class MainWindow : Window
     private readonly CancellationTokenSource _lifetime = new();
     private readonly DispatcherQueueTimer _messageTimer;
     private readonly List<string> _history = [];
-    private string? _currentPage;
+    private readonly ColumnDefinition _queueColumn = new() { Width = new GridLength(Controls.QueuePanel.PaneWidth) };
+    private string? _currentKey;
     private bool _syncingSelection;
     private bool _backgroundStarted;
     private bool _firstFrameSeen;
@@ -64,7 +67,13 @@ public sealed partial class MainWindow : Window
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Resonate.ico"));
         PlaceWindow(1280, 820);
 
-        services.Theme.AttachRoot(RootGrid);
+        // The look's backdrop goes behind the content, and switching looks animates above it.
+        var content = RootGrid;
+        Content = null;
+        var themeHost = new ThemeHost(content, services);
+        Content = themeHost;
+        services.Theme.AttachWindow(this, themeHost, themeHost.Scene, themeHost.Overlay);
+        services.Theme.Changed += (_, _) => ApplyCaptionButtonColors();
         ApplyCaptionButtonColors();
 
         _messageTimer = DispatcherQueue.CreateTimer();
@@ -118,7 +127,7 @@ public sealed partial class MainWindow : Window
 
         ShowPlaylists(_services.Library.Snapshot);
         _history.Clear();
-        _currentPage = null;
+        _currentKey = null;
         Open(HomeKey);
 
         if (!_backgroundStarted)
@@ -142,16 +151,17 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        // Closed, the column is empty and the spacing before it is the window's right margin.
-        QueueColumn.Width = new GridLength(open ? Controls.QueuePanel.PaneWidth : 0);
-        ShellGrid.Padding = new Thickness(8, 0, open ? 8 : 0, 0);
+        // The pane's column exists only while it is open: the grid's spacing
+        // would otherwise leave a gap for an empty column at the right edge.
         QueuePane.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
         if (open)
         {
+            ShellGrid.ColumnDefinitions.Add(_queueColumn);
             QueuePane.Open(_services.Player);
         }
         else
         {
+            ShellGrid.ColumnDefinitions.Remove(_queueColumn);
             QueuePane.Close();
         }
     }
@@ -163,7 +173,7 @@ public sealed partial class MainWindow : Window
         PlayerBar.Visibility = Visibility.Collapsed;
         SignInFrame.Visibility = Visibility.Visible;
         SignInFrame.Navigate(typeof(SignInPage), null, new SuppressNavigationTransitionInfo());
-        _currentPage = null;
+        _currentKey = null;
     }
 
     /// <summary>
@@ -197,6 +207,9 @@ public sealed partial class MainWindow : Window
         Navigate(key, remember: false);
     }
 
+    /// <summary>The page on show, such as a <see cref="SettingsPage"/>.</summary>
+    internal object? CurrentPage => ContentFrame.Content;
+
     /// <summary>A list was played; remembered for the "Recently played" playlist order.</summary>
     public void NoteListPlayed(string key)
     {
@@ -227,21 +240,21 @@ public sealed partial class MainWindow : Window
 
     private void Navigate(string key, bool remember)
     {
-        if (_currentPage == key)
+        if (_currentKey == key)
         {
             return;
         }
 
-        if (remember && _currentPage is not null)
+        if (remember && _currentKey is not null)
         {
-            _history.Add(_currentPage);
+            _history.Add(_currentKey);
             if (_history.Count > HistoryLimit)
             {
                 _history.RemoveAt(0);
             }
         }
 
-        _currentPage = key;
+        _currentKey = key;
         BackButton.Visibility = _history.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         UpdateTitleBarPassthrough();
 
@@ -330,7 +343,7 @@ public sealed partial class MainWindow : Window
 
         var settings = _services.Settings;
         var sorted = PlaylistSorter.Apply(snapshot.Playlists.ToList(), settings.ParsedPlaylistSort, settings.PlaylistOrder, settings.PlaylistLastPlayed);
-        var selected = _currentPage;
+        var selected = _currentKey;
         _syncingSelection = true;
         try
         {
@@ -399,7 +412,7 @@ public sealed partial class MainWindow : Window
         _syncingSelection = true;
         try
         {
-            PlaylistList.SelectedItem = Playlists.FirstOrDefault(p => p.Id == _currentPage);
+            PlaylistList.SelectedItem = Playlists.FirstOrDefault(p => p.Id == _currentKey);
         }
         finally
         {
@@ -634,7 +647,7 @@ public sealed partial class MainWindow : Window
         }
         else if (options.ScreenshotFolder is { } folder)
         {
-            _ = new ScreenshotTour(this, RootGrid, folder).RunAsync();
+            _ = new ScreenshotTour(this, (FrameworkElement)Content, folder).RunAsync();
         }
         else if (options is { UpdateCheckFeed: { } feed, UpdateCheckResultFile: { } result })
         {
@@ -667,18 +680,18 @@ public sealed partial class MainWindow : Window
         _services.Dispose();
     }
 
-    internal void ApplyCaptionButtonColors()
+    private void ApplyCaptionButtonColors()
     {
-        var theme = _services.Theme.Current;
+        var palette = _services.Theme.Palette;
         var titleBar = AppWindow.TitleBar;
         titleBar.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
         titleBar.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
-        titleBar.ButtonForegroundColor = theme.TextSecondary;
-        titleBar.ButtonInactiveForegroundColor = theme.TextTertiary;
-        titleBar.ButtonHoverBackgroundColor = theme.SurfaceHover;
-        titleBar.ButtonHoverForegroundColor = theme.TextPrimary;
-        titleBar.ButtonPressedBackgroundColor = theme.SurfacePressed;
-        titleBar.ButtonPressedForegroundColor = theme.TextPrimary;
+        titleBar.ButtonForegroundColor = palette.TextSecondary.ToColor();
+        titleBar.ButtonInactiveForegroundColor = palette.TextTertiary.ToColor();
+        titleBar.ButtonHoverBackgroundColor = palette.Hover.ToColor();
+        titleBar.ButtonHoverForegroundColor = palette.TextPrimary.ToColor();
+        titleBar.ButtonPressedBackgroundColor = palette.Pressed.ToColor();
+        titleBar.ButtonPressedForegroundColor = palette.TextPrimary.ToColor();
     }
 
     /// <summary>

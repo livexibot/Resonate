@@ -9,7 +9,7 @@
 
     <Grid
         x:Name="RootGrid"
-        Background="{StaticResource ResonateBackgroundBrush}"
+        Background="{StaticResource ResonateTransparentBrush}"
         PreviewKeyDown="OnRootPreviewKeyDown">
         <Grid.RowDefinitions>
             <RowDefinition Height="44" />
@@ -92,20 +92,25 @@
         <Grid
             x:Name="ShellGrid"
             Grid.Row="1"
-            ColumnSpacing="8"
-            Padding="8,0,0,0">
+            Padding="{ThemeResource ResonateShellPadding}"
+            ColumnSpacing="{ThemeResource ResonatePanelGap}">
+            <!-- A third column for the queue pane is added while it is open (see ShowQueue). -->
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="272" />
                 <ColumnDefinition Width="*" />
-                <!-- The queue pane; while closed, the spacing before it is the right edge's margin -->
-                <ColumnDefinition x:Name="QueueColumn" Width="0" />
             </Grid.ColumnDefinitions>
+
+            <!-- The panels' shadows, behind them -->
+            <controls:Elevation CornerRadius="{ThemeResource ResonateCornerLarge}" />
+            <controls:Elevation Grid.Column="1" CornerRadius="{ThemeResource ResonateCornerLarge}" />
 
             <Grid
                 x:Name="Sidebar"
                 Padding="6,10,6,8"
                 Background="{StaticResource ResonateSidebarBrush}"
-                CornerRadius="{StaticResource ResonateCornerLarge}">
+                BorderBrush="{StaticResource ResonateBorderBrush}"
+                BorderThickness="{ThemeResource ResonatePanelBorderThickness}"
+                CornerRadius="{ThemeResource ResonateCornerLarge}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -201,7 +206,7 @@
                                     Width="40"
                                     Height="40"
                                     Background="{x:Bind PlaceholderBrush}"
-                                    CornerRadius="{StaticResource ResonateCornerSmall}">
+                                    CornerRadius="{ThemeResource ResonateCornerSmall}">
                                     <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
                                 </Grid>
                                 <StackPanel
@@ -243,7 +248,9 @@
             <Grid
                 Grid.Column="1"
                 Background="{StaticResource ResonateSurfaceBrush}"
-                CornerRadius="{StaticResource ResonateCornerLarge}">
+                BorderBrush="{StaticResource ResonateBorderBrush}"
+                BorderThickness="{ThemeResource ResonatePanelBorderThickness}"
+                CornerRadius="{ThemeResource ResonateCornerLarge}">
                 <Frame x:Name="ContentFrame" />
                 <InfoBar
                     x:Name="MessageBar"
@@ -266,6 +273,12 @@
             Grid.RowSpan="2"
             Visibility="Collapsed" />
 
+        <controls:Elevation
+            Grid.Row="2"
+            Margin="{ThemeResource ResonatePlayerMargin}"
+            CornerRadius="{ThemeResource ResonatePlayerCorner}"
+            Level="Player"
+            Visibility="{x:Bind PlayerBar.Visibility, Mode=OneWay}" />
         <controls:PlayerBar x:Name="PlayerBar" Grid.Row="2" />
     </Grid>
 </Window>

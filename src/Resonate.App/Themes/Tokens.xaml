@@ -1,38 +1,90 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The design tokens every control reads. Colours live in the brushes below;
-  ThemeService changes their Color at run time, so a new preset restyles the
-  whole app at once without reloading anything. The starting values are the
-  Midnight preset. Never put a colour straight on a control: add a token.
+  The design tokens every control reads. Never put a colour, corner or font
+  straight on a control: use a token, or add one here.
+
+  Colours are shared brushes: ThemeService changes their Color in place, so a
+  new look (or a colour sliding from one look to the next) reaches every
+  control at once. Use them with StaticResource.
+
+  Shapes and fonts live in the theme dictionary below and are used with
+  ThemeResource: ThemeService replaces their values and asks the window to
+  re-read its theme resources, so corners, outlines, spacing and fonts also
+  change live. The starting values are the Midnight preset.
 -->
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Colour tokens -->
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Default">
+            <!-- Shape tokens -->
+            <CornerRadius x:Key="ResonateCornerSmall">4.8</CornerRadius>
+            <CornerRadius x:Key="ResonateCornerMedium">7.9</CornerRadius>
+            <CornerRadius x:Key="ResonateCornerLarge">12</CornerRadius>
+            <!-- Half the button heights below: a larger corner draws an oval, not a pill. -->
+            <CornerRadius x:Key="ResonateCornerButton">18</CornerRadius>
+            <CornerRadius x:Key="ResonatePlayButtonCorner">20</CornerRadius>
+            <Thickness x:Key="ResonatePanelBorderThickness">0</Thickness>
+            <Thickness x:Key="ResonatePlayButtonBorderThickness">0</Thickness>
+
+            <!-- Layout tokens -->
+            <x:Double x:Key="ResonatePanelGap">8</x:Double>
+            <Thickness x:Key="ResonateShellPadding">8,0,8,8</Thickness>
+            <Thickness x:Key="ResonatePlayerMargin">0</Thickness>
+            <Thickness x:Key="ResonatePlayerBorderThickness">0</Thickness>
+            <CornerRadius x:Key="ResonatePlayerCorner">0</CornerRadius>
+
+            <!-- Type tokens -->
+            <FontFamily x:Key="ResonateDisplayFont">Segoe UI Variable Display</FontFamily>
+            <FontFamily x:Key="ResonateTextFont">Segoe UI Variable Text</FontFamily>
+
+            <!-- Built-in controls (text boxes, menus, list rows) follow the theme's corners. -->
+            <CornerRadius x:Key="ControlCornerRadius">4.8</CornerRadius>
+            <CornerRadius x:Key="OverlayCornerRadius">7.9</CornerRadius>
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+
+    <!-- Colour tokens: surfaces -->
     <SolidColorBrush x:Key="ResonateBackgroundBrush" Color="#0F1014" />
+    <SolidColorBrush x:Key="ResonateBackdropTintBrush" Color="#990F1014" />
+    <LinearGradientBrush x:Key="ResonateBackgroundGradientBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Offset="0" Color="#0F1014" />
+        <GradientStop Offset="1" Color="#1C1730" />
+    </LinearGradientBrush>
     <SolidColorBrush x:Key="ResonateSidebarBrush" Color="#14151A" />
     <SolidColorBrush x:Key="ResonateSurfaceBrush" Color="#1A1C22" />
-    <SolidColorBrush x:Key="ResonateSurfaceHoverBrush" Color="#23252D" />
-    <SolidColorBrush x:Key="ResonateSurfacePressedBrush" Color="#2B2E37" />
-    <SolidColorBrush x:Key="ResonateBorderBrush" Color="#262830" />
-    <SolidColorBrush x:Key="ResonateTextPrimaryBrush" Color="#F2F3F5" />
-    <SolidColorBrush x:Key="ResonateTextSecondaryBrush" Color="#A9ADB8" />
-    <SolidColorBrush x:Key="ResonateTextTertiaryBrush" Color="#6F7480" />
-    <SolidColorBrush x:Key="ResonateAccentBrush" Color="#8B7CFF" />
-    <SolidColorBrush x:Key="ResonateAccentHoverBrush" Color="#9D90FF" />
-    <SolidColorBrush x:Key="ResonateAccentPressedBrush" Color="#7868F2" />
-    <SolidColorBrush x:Key="ResonateOnAccentBrush" Color="#0F1014" />
+    <SolidColorBrush x:Key="ResonatePlayerBrush" Color="#0F1014" />
+    <SolidColorBrush x:Key="ResonateSurfaceHoverBrush" Color="#14F2F3F5" />
+    <SolidColorBrush x:Key="ResonateSurfacePressedBrush" Color="#1FF2F3F5" />
+    <SolidColorBrush x:Key="ResonateControlBrush" Color="#0FF2F3F5" />
+    <SolidColorBrush x:Key="ResonateBorderBrush" Color="#1AF2F3F5" />
+    <SolidColorBrush x:Key="ResonateShadowBrush" Color="#F2F3F5" />
     <SolidColorBrush x:Key="ResonateTransparentBrush" Color="#00000000" />
 
-    <!-- Shape tokens -->
-    <CornerRadius x:Key="ResonateCornerSmall">4</CornerRadius>
-    <CornerRadius x:Key="ResonateCornerMedium">8</CornerRadius>
-    <CornerRadius x:Key="ResonateCornerLarge">12</CornerRadius>
+    <!-- Colour tokens: text -->
+    <SolidColorBrush x:Key="ResonateTextPrimaryBrush" Color="#F2F3F5" />
+    <SolidColorBrush x:Key="ResonateTextSecondaryBrush" Color="#ABACAF" />
+    <SolidColorBrush x:Key="ResonateTextTertiaryBrush" Color="#7B7D81" />
 
-    <!-- Type tokens -->
-    <FontFamily x:Key="ResonateDisplayFont">Segoe UI Variable Display</FontFamily>
-    <FontFamily x:Key="ResonateTextFont">Segoe UI Variable Text</FontFamily>
+    <!-- Colour tokens: accent -->
+    <SolidColorBrush x:Key="ResonateAccentBrush" Color="#8B7CFF" />
+    <SolidColorBrush x:Key="ResonateAccentHoverBrush" Color="#9B8EFF" />
+    <SolidColorBrush x:Key="ResonateAccentPressedBrush" Color="#7A6DE0" />
+    <SolidColorBrush x:Key="ResonateOnAccentBrush" Color="#0B0B10" />
+    <SolidColorBrush x:Key="ResonateAccent2Brush" Color="#5CC8FF" />
+    <LinearGradientBrush x:Key="ResonateAccentGradientBrush" StartPoint="0,0.5" EndPoint="1,0.5">
+        <GradientStop Offset="0" Color="#8B7CFF" />
+        <GradientStop Offset="1" Color="#5CC8FF" />
+    </LinearGradientBrush>
+
+    <!-- Colour tokens: the player -->
+    <SolidColorBrush x:Key="ResonateTrackBrush" Color="#2EF2F3F5" />
+    <SolidColorBrush x:Key="ResonatePlayButtonBackgroundBrush" Color="#8B7CFF" />
+    <SolidColorBrush x:Key="ResonatePlayButtonHoverBrush" Color="#9B8EFF" />
+    <SolidColorBrush x:Key="ResonatePlayButtonForegroundBrush" Color="#0B0B10" />
+    <SolidColorBrush x:Key="ResonatePlayButtonBorderBrush" Color="#00000000" />
+
     <FontFamily x:Key="ResonateIconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
 
     <!-- Built-in controls take their accent and hover colours from the tokens (lightweight styling). -->
@@ -44,12 +96,19 @@
     <StaticResource x:Key="ListViewItemSelectionIndicatorBrush" ResourceKey="ResonateAccentBrush" />
     <StaticResource x:Key="ListViewItemSelectionIndicatorPointerOverBrush" ResourceKey="ResonateAccentBrush" />
     <StaticResource x:Key="ListViewItemSelectionIndicatorPressedBrush" ResourceKey="ResonateAccentBrush" />
+    <StaticResource x:Key="GridViewItemBackgroundPointerOver" ResourceKey="ResonateSurfaceHoverBrush" />
+    <StaticResource x:Key="GridViewItemBackgroundPressed" ResourceKey="ResonateSurfacePressedBrush" />
+    <StaticResource x:Key="GridViewItemBackgroundSelected" ResourceKey="ResonateSurfaceHoverBrush" />
+    <StaticResource x:Key="GridViewItemBackgroundSelectedPointerOver" ResourceKey="ResonateSurfacePressedBrush" />
+    <StaticResource x:Key="GridViewItemSelectedBorderBrush" ResourceKey="ResonateAccentBrush" />
+    <StaticResource x:Key="GridViewItemSelectedPointerOverBorderBrush" ResourceKey="ResonateAccentHoverBrush" />
+    <StaticResource x:Key="GridViewItemSelectedPressedBorderBrush" ResourceKey="ResonateAccentPressedBrush" />
     <StaticResource x:Key="SliderTrackValueFill" ResourceKey="ResonateAccentBrush" />
     <StaticResource x:Key="SliderTrackValueFillPointerOver" ResourceKey="ResonateAccentHoverBrush" />
     <StaticResource x:Key="SliderTrackValueFillPressed" ResourceKey="ResonateAccentPressedBrush" />
-    <StaticResource x:Key="SliderTrackFill" ResourceKey="ResonateSurfacePressedBrush" />
-    <StaticResource x:Key="SliderTrackFillPointerOver" ResourceKey="ResonateSurfacePressedBrush" />
-    <StaticResource x:Key="SliderTrackFillPressed" ResourceKey="ResonateSurfacePressedBrush" />
+    <StaticResource x:Key="SliderTrackFill" ResourceKey="ResonateTrackBrush" />
+    <StaticResource x:Key="SliderTrackFillPointerOver" ResourceKey="ResonateTrackBrush" />
+    <StaticResource x:Key="SliderTrackFillPressed" ResourceKey="ResonateTrackBrush" />
     <StaticResource x:Key="SliderThumbBackground" ResourceKey="ResonateAccentBrush" />
     <StaticResource x:Key="SliderThumbBackgroundPointerOver" ResourceKey="ResonateAccentHoverBrush" />
     <StaticResource x:Key="SliderThumbBackgroundPressed" ResourceKey="ResonateAccentPressedBrush" />
@@ -60,7 +119,7 @@
 
     <!-- Text styles -->
     <Style x:Key="ResonateDisplayTextStyle" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource ResonateDisplayFont}" />
+        <Setter Property="FontFamily" Value="{ThemeResource ResonateDisplayFont}" />
         <Setter Property="FontSize" Value="40" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{StaticResource ResonateTextPrimaryBrush}" />
@@ -69,7 +128,7 @@
     </Style>
 
     <Style x:Key="ResonateTitleTextStyle" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource ResonateDisplayFont}" />
+        <Setter Property="FontFamily" Value="{ThemeResource ResonateDisplayFont}" />
         <Setter Property="FontSize" Value="20" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{StaticResource ResonateTextPrimaryBrush}" />
@@ -77,27 +136,27 @@
     </Style>
 
     <Style x:Key="ResonateBodyTextStyle" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource ResonateTextFont}" />
+        <Setter Property="FontFamily" Value="{ThemeResource ResonateTextFont}" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="Foreground" Value="{StaticResource ResonateTextPrimaryBrush}" />
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
 
     <Style x:Key="ResonateSecondaryTextStyle" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource ResonateTextFont}" />
+        <Setter Property="FontFamily" Value="{ThemeResource ResonateTextFont}" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Foreground" Value="{StaticResource ResonateTextSecondaryBrush}" />
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
 
     <Style x:Key="ResonateCaptionTextStyle" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource ResonateTextFont}" />
+        <Setter Property="FontFamily" Value="{ThemeResource ResonateTextFont}" />
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Foreground" Value="{StaticResource ResonateTextTertiaryBrush}" />
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
 
-    <!-- A round, quiet button for icons (player controls, toolbar). -->
+    <!-- A quiet button for icons (player controls, toolbar). Its shape follows the theme's buttons. -->
     <Style x:Key="ResonateIconButtonStyle" TargetType="Button">
         <Setter Property="Background" Value="{StaticResource ResonateTransparentBrush}" />
         <Setter Property="Foreground" Value="{StaticResource ResonateTextSecondaryBrush}" />
@@ -106,7 +165,7 @@
         <Setter Property="Width" Value="36" />
         <Setter Property="Height" Value="36" />
         <Setter Property="Padding" Value="0" />
-        <Setter Property="CornerRadius" Value="18" />
+        <Setter Property="CornerRadius" Value="{ThemeResource ResonateCornerButton}" />
         <Setter Property="UseSystemFocusVisuals" Value="True" />
         <Setter Property="Template">
             <Setter.Value>
@@ -154,16 +213,107 @@
         </Setter>
     </Style>
 
-    <!-- The main call to action: a pill in the accent colour. -->
+    <!-- An icon that switches on and off (shuffle, repeat): the accent colour and a dot when on. -->
+    <Style x:Key="ResonateToggleIconButtonStyle" TargetType="ToggleButton">
+        <Setter Property="Background" Value="{StaticResource ResonateTransparentBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource ResonateTextSecondaryBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource ResonateIconFont}" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="Width" Value="36" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="{ThemeResource ResonateCornerButton}" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Grid
+                        x:Name="Root"
+                        Background="{TemplateBinding Background}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                        <Grid.BackgroundTransition>
+                            <BrushTransition Duration="0:0:0.12" />
+                        </Grid.BackgroundTransition>
+                        <ContentPresenter
+                            x:Name="ContentPresenter"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Content="{TemplateBinding Content}"
+                            FontFamily="{TemplateBinding FontFamily}"
+                            FontSize="{TemplateBinding FontSize}"
+                            Foreground="{TemplateBinding Foreground}" />
+                        <Ellipse
+                            x:Name="OnDot"
+                            Width="4"
+                            Height="4"
+                            Margin="0,0,0,3"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Bottom"
+                            Fill="{StaticResource ResonateAccentBrush}"
+                            Opacity="0" />
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Background" Value="{StaticResource ResonateSurfaceHoverBrush}" />
+                                        <Setter Target="ContentPresenter.Foreground" Value="{StaticResource ResonateTextPrimaryBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Background" Value="{StaticResource ResonateSurfacePressedBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Checked">
+                                    <VisualState.Setters>
+                                        <Setter Target="ContentPresenter.Foreground" Value="{StaticResource ResonateAccentBrush}" />
+                                        <Setter Target="OnDot.Opacity" Value="1" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="CheckedPointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Background" Value="{StaticResource ResonateSurfaceHoverBrush}" />
+                                        <Setter Target="ContentPresenter.Foreground" Value="{StaticResource ResonateAccentHoverBrush}" />
+                                        <Setter Target="OnDot.Opacity" Value="1" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="CheckedPressed">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Background" Value="{StaticResource ResonateSurfacePressedBrush}" />
+                                        <Setter Target="ContentPresenter.Foreground" Value="{StaticResource ResonateAccentPressedBrush}" />
+                                        <Setter Target="OnDot.Opacity" Value="1" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters>
+                                        <Setter Target="ContentPresenter.Opacity" Value="0.35" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="CheckedDisabled">
+                                    <VisualState.Setters>
+                                        <Setter Target="ContentPresenter.Opacity" Value="0.35" />
+                                        <Setter Target="OnDot.Opacity" Value="0.35" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The main call to action, in the accent colour. -->
     <Style x:Key="ResonateAccentButtonStyle" TargetType="Button">
         <Setter Property="Background" Value="{StaticResource ResonateAccentBrush}" />
         <Setter Property="Foreground" Value="{StaticResource ResonateOnAccentBrush}" />
-        <Setter Property="FontFamily" Value="{StaticResource ResonateTextFont}" />
+        <Setter Property="FontFamily" Value="{ThemeResource ResonateTextFont}" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Padding" Value="22,10" />
-        <Setter Property="MinHeight" Value="40" />
-        <Setter Property="CornerRadius" Value="20" />
+        <Setter Property="Padding" Value="22,8" />
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="CornerRadius" Value="{ThemeResource ResonateCornerButton}" />
         <Setter Property="UseSystemFocusVisuals" Value="True" />
         <Setter Property="Template">
             <Setter.Value>
@@ -211,30 +361,80 @@
         </Setter>
     </Style>
 
-    <!-- The round play and pause button in the player bar. -->
-    <Style
-        x:Key="ResonatePlayButtonStyle"
-        BasedOn="{StaticResource ResonateAccentButtonStyle}"
-        TargetType="Button">
-        <Setter Property="Width" Value="40" />
-        <Setter Property="Height" Value="40" />
-        <Setter Property="MinHeight" Value="40" />
-        <Setter Property="Padding" Value="0" />
+    <!--
+      The play and pause button in the player bar. The theme decides whether
+      it is filled, an outline or a plain icon, and its shape.
+    -->
+    <Style x:Key="ResonatePlayButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource ResonatePlayButtonBackgroundBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource ResonatePlayButtonForegroundBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource ResonatePlayButtonBorderBrush}" />
+        <Setter Property="BorderThickness" Value="{ThemeResource ResonatePlayButtonBorderThickness}" />
         <Setter Property="FontFamily" Value="{StaticResource ResonateIconFont}" />
         <Setter Property="FontSize" Value="16" />
+        <Setter Property="Width" Value="40" />
+        <Setter Property="Height" Value="40" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="{ThemeResource ResonatePlayButtonCorner}" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid
+                        x:Name="Root"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                        <Grid.BackgroundTransition>
+                            <BrushTransition Duration="0:0:0.12" />
+                        </Grid.BackgroundTransition>
+                        <ContentPresenter
+                            x:Name="ContentPresenter"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Content="{TemplateBinding Content}"
+                            FontFamily="{TemplateBinding FontFamily}"
+                            FontSize="{TemplateBinding FontSize}"
+                            Foreground="{TemplateBinding Foreground}" />
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Background" Value="{StaticResource ResonatePlayButtonHoverBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Background" Value="{StaticResource ResonatePlayButtonHoverBrush}" />
+                                        <Setter Target="ContentPresenter.Opacity" Value="0.8" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Opacity" Value="0.45" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
-    <!-- A quiet, rounded secondary button. -->
+    <!-- A quiet secondary button. -->
     <Style x:Key="ResonateSubtleButtonStyle" TargetType="Button">
-        <Setter Property="Background" Value="{StaticResource ResonateSurfaceBrush}" />
+        <Setter Property="Background" Value="{StaticResource ResonateControlBrush}" />
         <Setter Property="Foreground" Value="{StaticResource ResonateTextPrimaryBrush}" />
         <Setter Property="BorderBrush" Value="{StaticResource ResonateBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="FontFamily" Value="{StaticResource ResonateTextFont}" />
+        <Setter Property="FontFamily" Value="{ThemeResource ResonateTextFont}" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="Padding" Value="16,8" />
         <Setter Property="MinHeight" Value="36" />
-        <Setter Property="CornerRadius" Value="18" />
+        <Setter Property="CornerRadius" Value="{ThemeResource ResonateCornerButton}" />
         <Setter Property="UseSystemFocusVisuals" Value="True" />
         <Setter Property="Template">
             <Setter.Value>

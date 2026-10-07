@@ -4,6 +4,8 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Resonate.App.Themes;
+using Resonate.Themes;
 using Windows.Foundation;
 
 namespace Resonate.App.Helpers;
@@ -72,28 +74,42 @@ public static class Artwork
     /// <summary>The same name always gets the same gradient. Call on the interface thread.</summary>
     public static Brush PlaceholderBrush(string name)
     {
+        var index = PaletteIndex(name);
+        if (PlaceholderBrushes[index] is { } cached)
+        {
+            return cached;
+        }
+
+        var (from, to) = ColorsAt(index);
+        var brush = new LinearGradientBrush
+        {
+            StartPoint = new Point(0, 0),
+            EndPoint = new Point(1, 1),
+        };
+        brush.GradientStops.Add(new GradientStop { Color = from.ToColor(), Offset = 0 });
+        brush.GradientStops.Add(new GradientStop { Color = to.ToColor(), Offset = 1 });
+        PlaceholderBrushes[index] = brush;
+        return brush;
+    }
+
+    /// <summary>The two colours of <see cref="PlaceholderBrush"/>.</summary>
+    public static (ThemeColor From, ThemeColor To) PlaceholderColors(string name) => ColorsAt(PaletteIndex(name));
+
+    private static int PaletteIndex(string name)
+    {
         var hash = 0u;
         foreach (var c in name)
         {
             hash = (hash * 31) + c;
         }
 
-        var index = (int)(hash % (uint)Palettes.Length);
-        if (PlaceholderBrushes[index] is { } cached)
-        {
-            return cached;
-        }
+        return (int)(hash % (uint)Palettes.Length);
+    }
 
+    private static (ThemeColor From, ThemeColor To) ColorsAt(int index)
+    {
         var (from, to) = Palettes[index];
-        var brush = new LinearGradientBrush
-        {
-            StartPoint = new Point(0, 0),
-            EndPoint = new Point(1, 1),
-        };
-        brush.GradientStops.Add(new GradientStop { Color = Themes.ThemePreset.Hex(from), Offset = 0 });
-        brush.GradientStops.Add(new GradientStop { Color = Themes.ThemePreset.Hex(to), Offset = 1 });
-        PlaceholderBrushes[index] = brush;
-        return brush;
+        return (ThemeColor.FromRgb(from), ThemeColor.FromRgb(to));
     }
 }
 

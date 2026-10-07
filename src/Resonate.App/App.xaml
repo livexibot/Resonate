@@ -10,6 +10,7 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <!-- After the built-in resources, so the tokens win. -->
                 <ResourceDictionary Source="ms-appx:///Themes/Tokens.xaml" />
+                <ResourceDictionary Source="ms-appx:///Themes/Controls.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>
