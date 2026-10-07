@@ -258,7 +258,17 @@ public sealed partial class PlayerBar : UserControl
         }
 
         // The bar knows the song by its address; that is all liking needs.
-        var track = new Resonate.Spotify.Library.TrackInfo(uri, _shown.Title ?? string.Empty, _shown.Artists ?? string.Empty, _shown.Album ?? string.Empty, null, _shown.Duration, null, _shown.ArtworkUrl, false, true);
+        var track = new Resonate.Spotify.Library.TrackInfo(
+            uri,
+            _shown.Title ?? string.Empty,
+            _shown.Artists ?? string.Empty,
+            _shown.Album ?? string.Empty,
+            null,
+            _shown.Duration,
+            _shown.ArtworkUrl,
+            _shown.ArtworkUrl,
+            false,
+            true);
         _ = Pages.Lists.TrackActions.SetLikedAsync(track, !App.Services.Likes.IsLiked(uri));
     }
 
