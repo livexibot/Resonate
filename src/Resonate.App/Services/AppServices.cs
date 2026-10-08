@@ -4,6 +4,7 @@ using Resonate.App.Demo;
 using Resonate.App.Themes;
 using Resonate.Plugins;
 using Resonate.Plugins.Installing;
+using Resonate.Spotify.Audio;
 using Resonate.Spotify.Auth;
 using Resonate.Spotify.History;
 using Resonate.Spotify.Library;
@@ -36,7 +37,8 @@ public sealed class AppServices : IDisposable
         CoverStore? covers,
         LocalFilesService localFiles,
         PluginManager plugins,
-        OwnPlayer? ownPlayer = null)
+        OwnPlayer? ownPlayer = null,
+        IAppSoundCapture? soundCapture = null)
     {
         IsDemo = isDemo;
         SettingsStore = settingsStore;
@@ -67,7 +69,8 @@ public sealed class AppServices : IDisposable
         Skins = new SkinLibrary(settings, isDemo ? Path.Combine(Path.GetTempPath(), "Resonate demo skins") : AppPaths.SkinsFolder);
 
         // Real or demo, the local files engine feeds it: AudioGraph with the user's files, or DemoLocalAudio's made-up sound.
-        Visualiser = new VisualiserFeed(player);
+        // Only a real run hears Spotify's sound for the Home stage; demo mode (CI) never captures anything.
+        Visualiser = new VisualiserFeed(player, soundCapture, FindSpotifySound) { ListensToSpotify = settings.HomeStageListens };
         _owned.Add(Visualiser);
 
         player.Spotify.Channel = settings.ParsedControlChannel;
@@ -88,6 +91,9 @@ public sealed class AppServices : IDisposable
 
             // Its song or play state changed: the interface asks Spotify at once.
             ownPlayer.PlaybackChanged += (_, _) => player.Spotify.RefreshSoon();
+
+            // Started or stopped: the Home stage's visualizer hears its page, or the Spotify app again.
+            ownPlayer.StatusChanged += (_, _) => Visualiser.LookAgain();
         }
 
         // Demo mode has no Spotify settings to find, and nothing to restart.
@@ -247,8 +253,9 @@ public sealed class AppServices : IDisposable
             pluginPlayer);
 
         var covers = new CoverStore(http, Path.Combine(AppPaths.CacheFolder, "covers"));
-        var services = new AppServices(false, settingsStore, settings, account, api, library, home, player, launcher, background, http, covers, localFiles, plugins, ownPlayer);
-        services._owned.AddRange([pluginPlayer, player, spotify, local, localFiles, home, library, smtc, launcher, background, account, http]);
+        var soundCapture = new AppSoundCapture();
+        var services = new AppServices(false, settingsStore, settings, account, api, library, home, player, launcher, background, http, covers, localFiles, plugins, ownPlayer, soundCapture);
+        services._owned.AddRange([pluginPlayer, player, spotify, local, localFiles, home, library, smtc, launcher, background, account, http, soundCapture]);
 
         // At once, so a Spotify already on the taskbar (started with Windows) disappears from it.
         background.Start();
@@ -338,6 +345,7 @@ public sealed class AppServices : IDisposable
         Player.Spotify.Channel = channel;
         Equalizer.OnChannelChanged();
         FollowOwnPlayer();
+        Visualiser.LookAgain();
         ControlChannelChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -369,6 +377,30 @@ public sealed class AppServices : IDisposable
             && Settings.WebApiPlayHere
             && Account.IsSignedIn;
         _ = run ? own.StartAsync() : own.StopAsync();
+    }
+
+    /// <summary>
+    /// The process that plays Spotify's sound on this PC, for the Home stage's
+    /// visualizer: the Spotify app, or with "Spotify Web API only" Resonate's
+    /// own player (its hidden WebView2) unless Spotify says another device
+    /// plays, then a Spotify app the user opened again. Null when neither
+    /// runs. Called off the interface thread.
+    /// </summary>
+    private int? FindSpotifySound()
+    {
+        var page = WebPlayerPage.BrowserProcessId;
+        if (UsesSpotifyApp || page <= 0)
+        {
+            return AppSoundCapture.FindSpotify();
+        }
+
+        var device = Player.Spotify.State.DeviceName;
+        if (device is null || string.Equals(device, OwnPlayer?.Name ?? OwnPlayer.DefaultName, StringComparison.Ordinal))
+        {
+            return page;
+        }
+
+        return AppSoundCapture.FindSpotify() ?? page;
     }
 
     /// <summary>"Play on this PC" with "Spotify Web API only": Resonate's own player on or off.</summary>

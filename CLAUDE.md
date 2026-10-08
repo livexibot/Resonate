@@ -90,6 +90,13 @@ visitors; keep it short and in step with this file.
   song with it yet. On the owner's PC: sign in again (new permissions),
   check that songs play, skip and seek, that it still plays after a long
   pause, what media keys do, and its power use against the Spotify app's.
+- The Home stage's visualizer hears Spotify (8 October 2026, the owner's
+  choice): its bars follow the sound of the program that plays Spotify on
+  this PC, through Windows' process loopback (see "Home stage" under
+  built-in plugins). CI never captures anything (demo mode). On the
+  owner's PC, check that the bars follow Spotify songs with the Spotify
+  app and with Resonate's own player, at a low volume too, that Windows
+  shows no microphone icon, and the processor cost while it listens.
 - App size and Text size (8 October 2026) are described under "Size". On
   the owner's PC, check sharpness at 125 to 200 %, 150 % text with Paper
   and the wider fonts, Ctrl+Plus on their keyboard, and the window growing
@@ -390,7 +397,7 @@ only the owner's PC can tell):
   `%APPDATA%\Spotify\prefs` (it holds sign-in data) and never log either
   file. `audio.play_bitrate_enumeration=5` means Lossless (4 is Very high);
   Spotify leaves the key out while at its default. Measure all of these.
-- Windows has no per-app equalizer, and processing Spotify's audio is
+- Windows has no per-app equalizer, and changing Spotify's audio is
   forbidden here, so the Spotify app's own equalizer is the only one for
   Spotify songs.
 - `/me/player/recently-played` returns at most the last 50 plays, so the
@@ -533,11 +540,37 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   visualizer (its own switch, on at first; `Controls/StageVisualizer`,
   maths in `Resonate.Themes/StageBars`) draws slim bars in the cover's
   colours (`StageColours.ForBars`, 3:1 against the page) along the bottom,
-  only in the room under the cover and the words. For local files they
-  follow the local player's spectrum (`VisualiserFeed.Stage`, a second,
-  smooth 75-band analyser); for Spotify songs, which Resonate never hears,
-  they sway on their own from compositor expressions on one clock that
-  repeats every 20 minutes without a jump. With animations off they are
+  only in the room under the cover and the words. They follow a second,
+  smooth 75-band analyser (`VisualiserFeed.Stage`): for local files the
+  local player's spectrum, for Spotify songs the sound Windows mixes for
+  the program that plays them (below). When nothing is heard (the music
+  plays on a phone, or "Listen to Spotify" is off) they sway on their own
+  from compositor expressions on one clock that repeats every 20 minutes
+  without a jump. Listening to Spotify (the owner chose it on 8 October
+  2026; its own switch, "Listen to Spotify", on at first): only while the
+  bars move (a Spotify song plays, the stage is seen, the switch is on),
+  `SpotifySoundListener` (`Resonate.Spotify/Audio`) asks
+  `AppSoundCapture` (`Resonate.Windows`) for Windows' process loopback
+  (`ActivateAudioInterfaceAsync` on `VAD\Process_Loopback`, include the
+  process tree, Windows 10 build 20348 or later; older Windows keeps the
+  sway) of the Spotify app's main process (the one without `--type`), or
+  with Web API only of the own player's WebView2 browser process
+  (`WebPlayerPage.BrowserProcessId`), unless Spotify reports another
+  device playing, when a Spotify app the user opened again is heard
+  instead (`AppServices.FindSpotifySound`). No other app and no microphone is
+  heard; Windows copies the sound as it mixes it, so playback and
+  Lossless are untouched. It is read as 16-bit stereo at 48 kHz on a
+  thread of its own when Windows signals a packet, levelled for the bars
+  only (`SoundLeveller`: gain 1 to 8 towards 0.8 of full scale, 3 s
+  release, since the copy may come after the mixer volume), and dropped
+  once the analyser has its bands. No sound for 2 s means not heard (the
+  bars sway); while nothing is heard it looks for the program again
+  every 3 s (Spotify restarted, the own player started), and a capture
+  that Windows refused or that stopped is tried again 10 s later (a
+  timer, since a paused song brings no other news). The classic player's visualiser does not use
+  it. Measure: that the bars follow the music with the Spotify app and
+  the own player, that the copy comes after the mixer volume or not, no
+  microphone icon, and the cost while listening. With animations off they are
   hidden. Clouds and bars rest (every animation stopped) while paused,
   hidden, scrolled away, covered, with animations off, or when a
   full-screen app, the lock screen or a dark display is detected. CI's tour
@@ -624,8 +657,8 @@ Classic player and cover art (checked 2026-10-08):
   the AudioGraph's EQ bus (`AudioGraphTap`), read when each quantum starts,
   feeds a 512-point FFT (`SpectrumAnalyser`) and the oscilloscope. Its
   `IMemoryBufferByteAccess` is called through the raw COM vtable, which
-  works under Native AOT. For Spotify songs it stays still: Resonate cannot
-  see Spotify's audio and must not capture it (see the hard rules).
+  works under Native AOT. For Spotify songs it stays still: only the Home
+  stage's visualizer hears Spotify (see "Home stage" above).
 - Cover art switches (Settings, Themes, Effects) are global, not part of a
   look. Spinning cover (off until the user turns it on): the playing
   cover is drawn round and turns once every 7 s while a song plays and the
@@ -951,7 +984,8 @@ default) closes the Spotify app instead. Then Spotify's official web
 player, the Web Playback SDK, plays on this PC, hidden inside Resonate
 (see "Resonate's own player" under verified facts). Spotify's own code
 still does the playback, at the web player's quality rather than Lossless,
-and Resonate never sees the audio.
+and Resonate never reads its stream; only the Home stage's visualizer
+hears what Windows mixes, as for the Spotify app.
 
 ## Requirements and limits
 
@@ -969,8 +1003,9 @@ and Resonate never sees the audio.
 - Starting a new song or playlist may go through Spotify's servers (always
   on Windows). That is about as fast as the official app, which also has to
   fetch the song first.
-- Resonate cannot see Spotify's audio, so the classic player's visualiser
-  moves only while a local file plays and stays still for Spotify songs.
+- The classic player's visualiser moves only while a local file plays and
+  stays still for Spotify songs; only the Home stage's visualizer hears
+  Spotify (through Windows, from the program that plays it here).
   The equaliser in Settings is Spotify's own: Resonate writes it into
   Spotify's settings file while Spotify is closed, so a change reaches
   Spotify songs when Spotify next starts (Resonate starts it, or the user
@@ -983,13 +1018,18 @@ and Resonate never sees the audio.
   Resonate, and do not use librespot. Spotify's own software does all
   playback: its desktop app, or with "Spotify Web API only" its official
   Web Playback SDK, which Resonate hosts in a hidden WebView2 and never
-  reads the audio of.
+  reads the audio of (the Home stage only hears what Windows mixes, below).
 - Never bypass or work around Spotify's DRM or copy protection.
 - The local files player plays only files from folders the user chose,
   never anything from Spotify's own folders.
-- Never capture Spotify's or the system's audio (loopback recording or
-  the like), not even for the visualiser. It hears only the local files
-  player.
+- Never capture the system's sound, another app's or a microphone. The
+  one exception, the owner's choice of 8 October 2026: the Home stage's
+  visualizer hears the program that plays Spotify on this PC (the Spotify
+  app or Resonate's own player) through Windows' process loopback, only
+  while its bars move and "Listen to Spotify" is on. That sound becomes
+  bar heights at once and is never kept, recorded, sent or played. Until
+  that day this rule said "not even for the visualiser"; Claude had set it
+  as a precaution, not the owner.
 - Never bundle third-party skins. The classic player ships only
   Resonate's own skin; users add the skins they choose.
 - No ad blocking, no unlocking Premium features for free accounts.
@@ -1219,7 +1259,8 @@ Keep it obvious what is what:
   sign-in, the Web API client, the library, the player logic (with
   Resonate's own player, `Playback/OwnPlayer.cs`), listening
   history and daily mixes (`History/`), the equalizer and Spotify's
-  settings file (`Audio/`), and Local Files' tag reader and index
+  settings file (`Audio/`, which also decides when the Home stage hears
+  Spotify: `SpotifySoundListener`), and Local Files' tag reader and index
   (`LocalFiles/`). Any OS.
 - `src/Resonate.Themes/` the theme model, independent of WinUI: the six
   presets, what a look can set, the palette worked out from it (readable
@@ -1233,7 +1274,8 @@ Keep it obvious what is what:
   (`ClassicStack.cs`), and the visualiser's analyser. Any OS, tested.
 - `src/Resonate.Windows/` the Windows side of the player: the media
   session, the mixer volume, starting and restarting Spotify, the local
-  files player (`LocalAudio/`), the Credential Manager.
+  files player (`LocalAudio/`), hearing Spotify for the Home stage
+  (`AppSoundCapture.cs`, process loopback), the Credential Manager.
 - Built-in plugins (Lyrics, Home stage and the rest) live in the app as
   `Services/BuiltInPlugins.cs` plus their own files (see "Built-in
   plugins" under verified facts); their logic sits in `Resonate.Spotify`
@@ -1344,6 +1386,12 @@ when the work first needs them, then tick them off here.
   Summon bar and Signal path, and Lyrics, are built-in plugins (compiled
   in, off until turned on) "at the moment"; the owner may later make some
   ordinary features.
+- Decided (8 October 2026, the owner's request "make sure visualizer in
+  home reacts to the audio", then their answer on a card): the Home
+  stage's visualizer listens to Spotify's sound through Windows, with a
+  switch to turn it off ("Listen to Spotify", on at first). The classic
+  player's visualiser was not part of the request and still hears only
+  local files.
 - Decided (7 October 2026): spinning covers and the blurred cover behind
   the window are allowed as options (the spinning cover off at first).
   Spotify's design guidelines ask apps not to alter cover art; the owner
