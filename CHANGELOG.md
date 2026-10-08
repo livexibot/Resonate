@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.0](https://github.com/livexibot/Resonate/compare/v0.5.0...v0.6.0) (2026-10-08)
+
+
+### New features
+
+* a hovering player, a sidebar that reaches the bottom, smoother look switching, a bolder look and a livelier Home ([#24](https://github.com/livexibot/Resonate/issues/24)) ([22ac550](https://github.com/livexibot/Resonate/commit/22ac550052239bd40cea4da5605b76306007cdec))
+* a Winamp-style classic player, a spinning cover, and a vivid blurred cover behind Liquid Glass ([#18](https://github.com/livexibot/Resonate/issues/18)) ([e0cef8a](https://github.com/livexibot/Resonate/commit/e0cef8aa54c9593450281b8a1570fc966f8f1329))
+* Settings in a resizable side pane, more fonts, update progress and tidier settings ([#19](https://github.com/livexibot/Resonate/issues/19)) ([194ad0f](https://github.com/livexibot/Resonate/commit/194ad0fabea12b8e1e0096b3e2bc005f52e2b7c6))
+
 ## [0.5.0](https://github.com/livexibot/Resonate/compare/v0.4.0...v0.5.0) (2026-10-08)
 
 
