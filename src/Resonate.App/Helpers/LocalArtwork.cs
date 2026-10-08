@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Resonate.Spotify.Library;
+using Resonate.Windows;
 
 namespace Resonate.App.Helpers;
 
@@ -35,8 +36,8 @@ public static class LocalArtwork
 
         try
         {
-            using var stream = new MemoryStream(bytes, writable: false);
-            await bitmap.SetSourceAsync(stream.AsRandomAccessStream());
+            using var stream = await ImageStreams.FromBytesAsync(bytes);
+            await bitmap.SetSourceAsync(stream);
         }
         catch (Exception)
         {

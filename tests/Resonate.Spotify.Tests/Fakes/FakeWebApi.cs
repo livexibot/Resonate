@@ -139,8 +139,14 @@ internal sealed class FakeWebApi : ISpotifyWebApi
     public Task SetVolumeAsync(int percent, string? deviceId, CancellationToken cancellationToken) =>
         Record($"volume {percent}@{deviceId}");
 
-    public Task TransferPlaybackAsync(string deviceId, bool play, CancellationToken cancellationToken) =>
-        Record($"transfer@{deviceId}");
+    /// <summary>Whether the last transfer asked the device to play.</summary>
+    public bool? LastTransferPlay { get; private set; }
+
+    public Task TransferPlaybackAsync(string deviceId, bool play, CancellationToken cancellationToken)
+    {
+        LastTransferPlay = play;
+        return Record($"transfer@{deviceId}");
+    }
 
     public PlayerQueue QueueResult { get; set; } = new();
 

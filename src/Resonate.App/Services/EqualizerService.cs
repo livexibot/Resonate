@@ -32,6 +32,9 @@ public sealed class EqualizerService : IDisposable
     private IDisposable? _watch;
     private int _watchGeneration;
 
+    /// <summary>The equalizer is on screen, so changes made in the Spotify app are watched for.</summary>
+    private bool _watchWanted;
+
     /// <summary>Counts the user's changes, so a slow background answer never undoes a newer one.</summary>
     private int _version;
 
@@ -58,7 +61,9 @@ public sealed class EqualizerService : IDisposable
             services.Player.Spotify,
             services.Settings.EqualizerPendingForSpotify ? Current : null,
             // Once the user's own music files play, Spotify's song is not put back after a restart.
-            resumeAllowed: () => services.Player.ActiveSource == PlaybackSource.Spotify);
+            resumeAllowed: () => services.Player.ActiveSource == PlaybackSource.Spotify,
+            // "Spotify Web API only" leaves the Spotify app and its settings file alone.
+            mayUseSpotifyApp: () => services.Player.Spotify.Channel == ControlChannel.Local);
         _sync.PendingChanged += OnPendingChanged;
         if (restarter is not null)
         {
@@ -121,6 +126,7 @@ public sealed class EqualizerService : IDisposable
     public async Task StartWatchingAsync()
     {
         StopWatching();
+        _watchWanted = true;
         var generation = _watchGeneration;
         var watch = await Task.Run(() => _sync.Watch(() => _dispatcher.TryEnqueue(RestartReadTimer)));
         if (generation != _watchGeneration)
@@ -135,6 +141,7 @@ public sealed class EqualizerService : IDisposable
 
     public void StopWatching()
     {
+        _watchWanted = false;
         _watchGeneration++;
         _watch?.Dispose();
         _watch = null;
@@ -147,7 +154,7 @@ public sealed class EqualizerService : IDisposable
     /// </summary>
     public async Task RestartSpotifyAsync()
     {
-        if (IsRestarting)
+        if (IsRestarting || !_sync.CanRestart)
         {
             return;
         }
@@ -181,6 +188,21 @@ public sealed class EqualizerService : IDisposable
 
         SaveSettings();
         Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// The way Resonate talks to Spotify changed: with "Spotify Web API only"
+    /// the Spotify app and its settings file are left alone; back with
+    /// Windows' media controls, a waiting change is handed to Spotify.
+    /// </summary>
+    public void OnChannelChanged()
+    {
+        if (_watchWanted)
+        {
+            _ = StartWatchingAsync();
+        }
+
+        _ = RefreshAsync();
     }
 
     public void Dispose()
@@ -251,7 +273,8 @@ public sealed class EqualizerService : IDisposable
         CanRestartSpotify = _sync.CanRestart && status.Spotify is not null && status.Pending is not null && status.SpotifyRunning;
         if (!fromWatcher || adopted)
         {
-            Status = status.Spotify is null ? SpotifyEqualizerSync.NotFoundText
+            Status = status.SpotifyAppLeftAlone ? SpotifyEqualizerSync.LeftAloneText
+                : status.Spotify is null ? SpotifyEqualizerSync.NotFoundText
                 : status.Pending is not null ? SpotifyEqualizerSync.Describe(EqualizerApplyResult.Pending)
                 : fromWatcher ? "Updated from the Spotify app's own equalizer."
                 : "The same as the Spotify app's own equalizer.";

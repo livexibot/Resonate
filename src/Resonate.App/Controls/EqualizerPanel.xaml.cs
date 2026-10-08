@@ -141,7 +141,11 @@ public sealed partial class EqualizerPanel : UserControl
             StatusText.Visibility = _equalizer.Status.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
             RestartSpotifyButton.Visibility = _equalizer.CanRestartSpotify ? Visibility.Visible : Visibility.Collapsed;
             RestartSpotifyButton.IsEnabled = !_equalizer.IsRestarting;
-            LosslessWarning.IsOpen = _equalizer.SpotifyLossless == false;
+
+            // With "Spotify Web API only" Resonate leaves the Spotify app alone, so it offers nothing that opens it.
+            var usesApp = App.Services.UsesSpotifyApp;
+            OpenSpotifySettingsButton.Visibility = usesApp ? Visibility.Visible : Visibility.Collapsed;
+            LosslessWarning.IsOpen = usesApp && _equalizer.SpotifyLossless == false;
         }
         finally
         {
@@ -232,6 +236,11 @@ public sealed partial class EqualizerPanel : UserControl
     private async void OnOpenSpotifySettingsClick(object sender, RoutedEventArgs e)
     {
         var services = App.Services;
+        if (!services.UsesSpotifyApp)
+        {
+            return;
+        }
+
         if (services.IsDemo)
         {
             App.MainWindow?.ShowMessage("Demo mode: there is no Spotify app to open.", InfoBarSeverity.Informational);

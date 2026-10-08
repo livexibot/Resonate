@@ -148,12 +148,11 @@ public sealed partial class LocalMediaControls : ILocalSystemControls
             display.MusicProperties.Title = state.Title ?? string.Empty;
             display.MusicProperties.Artist = state.Artists ?? string.Empty;
             display.MusicProperties.AlbumTitle = state.Album ?? string.Empty;
+            display.Update();
             if (state.ArtworkBytes is { Length: > 0 } artwork)
             {
-                display.Thumbnail = RandomAccessStreamReference.CreateFromStream(new MemoryStream(artwork, writable: false).AsRandomAccessStream());
+                _ = ShowCoverAsync(controls, artwork);
             }
-
-            display.Update();
         }
 
         var duration = state.Duration > TimeSpan.Zero ? state.Duration : TimeSpan.Zero;
@@ -166,6 +165,31 @@ public sealed partial class LocalMediaControls : ILocalSystemControls
             MaxSeekTime = duration,
             Position = duration > TimeSpan.Zero && position > duration ? duration : position,
         });
+    }
+
+    /// <summary>Adds the cover once it is in a Windows stream (still on the window's thread), unless the song changed meanwhile.</summary>
+    private async Task ShowCoverAsync(SystemMediaTransportControls controls, byte[] artwork)
+    {
+        try
+        {
+            var stream = await ImageStreams.FromBytesAsync(artwork);
+            lock (_gate)
+            {
+                if (_disposed || !ReferenceEquals(_shownArtwork, artwork))
+                {
+                    stream.Dispose();
+                    return;
+                }
+            }
+
+            var display = controls.DisplayUpdater;
+            display.Thumbnail = RandomAccessStreamReference.CreateFromStream(stream);
+            display.Update();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The song shows without its cover.
+        }
     }
 
     public void Dispose()

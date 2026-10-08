@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Resonate.App.Helpers;
 using Resonate.App.Themes;
+using Resonate.Spotify.Library;
 using Resonate.Spotify.Playback;
 using Resonate.Themes;
 using Resonate.Windows;
@@ -24,17 +25,20 @@ public sealed class ArtworkSampler : IDisposable
     private readonly PlayerRouter _player;
     private readonly ThemeService _theme;
     private readonly HttpClient _http;
+    private readonly CoverStore? _covers;
     private readonly DispatcherQueue _queue;
     private CancellationTokenSource? _sampling;
     private object? _key;
     private int _updateQueued;
 
     /// <summary>Call on the interface thread.</summary>
-    public ArtworkSampler(PlayerRouter player, ThemeService theme, HttpClient http)
+    /// <param name="covers">Where covers are kept; the player bar has usually fetched the playing one already.</param>
+    public ArtworkSampler(PlayerRouter player, ThemeService theme, HttpClient http, CoverStore? covers)
     {
         _player = player;
         _theme = theme;
         _http = http;
+        _covers = covers;
         _queue = DispatcherQueue.GetForCurrentThread();
         player.StateChanged += OnStateChanged;
         theme.Changed += (_, _) => Update();
@@ -97,7 +101,9 @@ public sealed class ArtworkSampler : IDisposable
         {
             if (url is not null)
             {
-                image = await _http.GetByteArrayAsync(url, cancellationToken);
+                image = _covers is not null && CoverStore.Handles(url)
+                    ? await _covers.GetAsync(url).WaitAsync(cancellationToken)
+                    : await _http.GetByteArrayAsync(url, cancellationToken);
             }
 
             if (image is not null)

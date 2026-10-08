@@ -5,7 +5,24 @@ namespace Resonate.Spotify.Tests.Fakes;
 /// <summary>Stands in for the Spotify app's process: running or not, and restarting on request.</summary>
 internal sealed class FakeSpotifyApp : ISpotifyAppLauncher, ISpotifyAppRestarter
 {
-    public bool IsRunning { get; set; }
+    private bool _running;
+
+    public bool IsRunning
+    {
+        get
+        {
+            IsRunningReads++;
+            return _running;
+        }
+
+        set => _running = value;
+    }
+
+    /// <summary>How often Resonate asked whether Spotify runs.</summary>
+    public int IsRunningReads { get; private set; }
+
+    /// <summary>How often Resonate asked for Spotify to be started if needed.</summary>
+    public int EnsureRunningCalls { get; private set; }
 
     public Action? BeforeStart { get; set; }
 
@@ -19,7 +36,8 @@ internal sealed class FakeSpotifyApp : ISpotifyAppLauncher, ISpotifyAppRestarter
 
     public Task<SpotifyAppStatus> EnsureRunningAsync(CancellationToken cancellationToken)
     {
-        if (IsRunning)
+        EnsureRunningCalls++;
+        if (_running)
         {
             return Task.FromResult(SpotifyAppStatus.Running);
         }
@@ -36,7 +54,7 @@ internal sealed class FakeSpotifyApp : ISpotifyAppLauncher, ISpotifyAppRestarter
             return Task.FromResult(SpotifyRestartStatus.CouldNotClose);
         }
 
-        IsRunning = false;
+        _running = false;
         Events.Add("closed");
         whileClosed();
         Start();
@@ -46,7 +64,7 @@ internal sealed class FakeSpotifyApp : ISpotifyAppLauncher, ISpotifyAppRestarter
     private void Start()
     {
         BeforeStart?.Invoke();
-        IsRunning = true;
+        _running = true;
         Events.Add("started");
         Started?.Invoke();
     }

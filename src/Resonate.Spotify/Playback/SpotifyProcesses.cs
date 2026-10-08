@@ -75,6 +75,13 @@ public static partial class SpotifyProcesses
 /// <summary>Keeps the Spotify app's window out of the way, and light while it is.</summary>
 public interface ISpotifyAppWindow
 {
+    /// <summary>
+    /// Whether Resonate looks after Spotify's window and processes at all.
+    /// Off with "Spotify Web API only": then Resonate leaves the Spotify app
+    /// alone, and gives back anything it had hidden or slowed down.
+    /// </summary>
+    bool Enabled { get; set; }
+
     /// <summary>Hide Spotify's window (and taskbar button) unless the user is looking at it.</summary>
     bool KeepHidden { get; set; }
 

@@ -454,6 +454,8 @@ public sealed class DemoPlayer : ILocalMediaChannel, IAppVolume, ISpotifyAppLaun
 
     public bool IsRunning => true;
 
+    public bool Enabled { get; set; } = true;
+
     public bool KeepHidden { get; set; } = true;
 
     public bool SaveResources { get; set; } = true;
@@ -463,6 +465,10 @@ public sealed class DemoPlayer : ILocalMediaChannel, IAppVolume, ISpotifyAppLaun
     public Task<SpotifyAppStatus> EnsureRunningAsync(CancellationToken cancellationToken) => Task.FromResult(SpotifyAppStatus.Running);
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public void Stop()
+    {
+    }
 
     public void Start(PlayableItem track)
     {

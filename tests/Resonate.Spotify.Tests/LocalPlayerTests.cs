@@ -132,6 +132,98 @@ public sealed class LocalPlayerTests : IDisposable
     }
 
     [Fact]
+    public async Task Songs_play_through_one_after_another_by_themselves()
+    {
+        await Play(SongA);
+
+        _engine.PlayToEnd(SongA.FilePath!);
+        await _player.WhenIdleAsync();
+        Assert.Equal("b", _player.State.Title);
+
+        _engine.PlayToEnd(SongB.FilePath!);
+        await _player.WhenIdleAsync();
+        Assert.Equal("c", _player.State.Title);
+        Assert.True(_player.State.IsPlaying);
+
+        _engine.PlayToEnd(SongC.FilePath!);
+        await _player.WhenIdleAsync();
+        Assert.Equal("a", _player.State.Title);
+        Assert.False(_player.State.IsPlaying);
+
+        // Without a gap: only the first song was opened, then the list's start, paused.
+        Assert.Equal([SongA.FilePath!, SongA.FilePath!], _engine.Opened);
+    }
+
+    [Fact]
+    public async Task A_song_that_stops_at_its_end_moves_on_even_when_the_engine_does_not_say_so()
+    {
+        _engine.LoseEnds = true;
+        await Play(SongA);
+
+        _engine.PlayToEnd(SongA.FilePath!);
+        for (var i = 0; i <= LocalPlayer.EndStuckTicks; i++)
+        {
+            _time.Advance(LocalPlayer.ClockInterval);
+            await _player.WhenIdleAsync();
+        }
+
+        Assert.Equal("b", _player.State.Title);
+        Assert.True(_player.State.IsPlaying);
+        Assert.Equal([SongA.FilePath!, SongB.FilePath!], _engine.Opened);
+
+        // A late report of the first song's end changes nothing.
+        _engine.End(SongA.FilePath!, null);
+        await _player.WhenIdleAsync();
+        Assert.Equal("b", _player.State.Title);
+    }
+
+    [Fact]
+    public async Task A_song_still_playing_past_its_length_is_not_cut_short()
+    {
+        await Play(SongA);
+
+        for (var i = 0; i < 6; i++)
+        {
+            _engine.Position = _engine.Length + TimeSpan.FromSeconds(i);
+            _time.Advance(LocalPlayer.ClockInterval);
+            await _player.WhenIdleAsync();
+        }
+
+        Assert.Equal("a", _player.State.Title);
+        Assert.Single(_engine.Opened);
+    }
+
+    [Fact]
+    public async Task A_paused_song_at_its_end_stays_where_it_is()
+    {
+        await Play(SongA);
+        await _player.PauseAsync();
+        _engine.Position = _engine.Length;
+
+        for (var i = 0; i < 6; i++)
+        {
+            _time.Advance(LocalPlayer.ClockInterval);
+            await _player.WhenIdleAsync();
+        }
+
+        Assert.Equal("a", _player.State.Title);
+        Assert.Single(_engine.Opened);
+    }
+
+    [Fact]
+    public async Task A_song_started_without_a_gap_shows_its_own_length()
+    {
+        await Play(SongA);
+        _engine.Length = TimeSpan.FromMinutes(4);
+
+        _engine.PlayToEnd(SongA.FilePath!);
+        await _player.WhenIdleAsync();
+
+        Assert.Equal("b", _player.State.Title);
+        Assert.Equal(TimeSpan.FromMinutes(4), _player.State.Duration);
+    }
+
+    [Fact]
     public async Task An_end_reported_after_the_user_moved_on_is_ignored()
     {
         await Play(SongA);
