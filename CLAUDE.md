@@ -41,7 +41,19 @@ visitors; keep it short and in step with this file.
   %LocalAppData%\Resonate-local`, which keeps its settings, caches,
   plugins and its own Credential Manager sign-in apart from the installed
   copy. Never run CI's install, update or plugin checks there: they would
-  install over the owner's copy.
+  install over the owner's copy. For quick edits the owner watches live,
+  `live.ps1` there (also kept out of the repository) builds Debug without
+  Native AOT and swaps the open window (about 20 s; hot reload does not
+  work without Visual Studio).
+- The owner's choices from live editing (8 October 2026): no explanatory
+  captions or blurbs anywhere in the interface (names and controls only);
+  presets in three groups (Dark, Light, OLED; Midnight, Daylight and Black
+  are the defaults), every preset with the player at the bottom; switching
+  looks always ripples from the click (no setting); the player is placed
+  by Placement (top, bottom, left, right) and Type (docked, inset,
+  floating) with an Advanced size and offset, folded by default; Home's
+  stage and lyrics are part of the app (always on, settings under Layout,
+  Home); the sidebar snaps to covers only when dragged narrow.
 - The feature update (pull request #9, 7 October 2026) adds Home with
   listening stats and daily mixes, Local Files, DJ, sorting and filtering
   of every list, likes, album and artist pages, truly random shuffle,
