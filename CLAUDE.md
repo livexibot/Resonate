@@ -273,7 +273,13 @@ Windows:
   starts after the first frame (never in demo, timing or update runs),
   stops on sign-out, after failures tries again after 5 s, 15 s and then
   every minute, and says once when it needs a new sign-in, Premium or the
-  WebView2 runtime. Its song changes make the player ask `/me/player` at
+  WebView2 runtime. A WebView2 that has not started after 45 s counts as
+  failed, a page that stops answering is kept for 30 s (WebView2 says so
+  also when the PC is only busy), and closing Resonate (`MainWindow.Quit`,
+  also from its own close buttons) waits up to 3 s for its goodbye.
+  Every copy names its device "Resonate", so another one is never taken
+  for the Spotify app on this PC. Demo runs, which CI's checks use, never
+  look for updates. Its song changes make the player ask `/me/player` at
   once (`PlayerController.RefreshSoon`). Tokens go only to the page,
   never to a log. CI's `--web-player-check` opens it in the installed copy
   and needs protected audio to work and the SDK to answer a made-up token
