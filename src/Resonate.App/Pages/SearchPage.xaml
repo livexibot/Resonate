@@ -69,7 +69,7 @@
                 Padding="18,9,18,9"
                 AutomationProperties.Name="Search"
                 CornerRadius="{ThemeResource ResonateCornerInput}"
-                FontSize="15"
+                FontSize="{ThemeResource ResonateFontSize15}"
                 PlaceholderText="What do you want to listen to?"
                 TextChanged="OnQueryChanged" />
         </Grid>

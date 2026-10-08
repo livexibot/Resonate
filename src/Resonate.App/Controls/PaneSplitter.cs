@@ -95,10 +95,16 @@ public sealed partial class PaneSplitter : ContentControl
         ShowLine();
     }
 
+    /// <summary>
+    /// The grid the grip sits in: its units are the panels' widths at any App
+    /// size, where the window's are not (see ScaleBox).
+    /// </summary>
+    private UIElement? Reference => Parent as UIElement;
+
     protected override void OnPointerPressed(PointerRoutedEventArgs e)
     {
         base.OnPointerPressed(e);
-        var point = e.GetCurrentPoint(null);
+        var point = e.GetCurrentPoint(Reference);
         if (_pointer is not null || !point.Properties.IsLeftButtonPressed || !CapturePointer(e.Pointer))
         {
             return;
@@ -106,7 +112,7 @@ public sealed partial class PaneSplitter : ContentControl
 
         e.Handled = true;
 
-        // Measured against the window, which does not move while the grip does.
+        // Measured against the panels around the grip, which do not move while it does.
         _pointer = e.Pointer.PointerId;
         _startX = point.Position.X;
         ShowLine();
@@ -122,7 +128,7 @@ public sealed partial class PaneSplitter : ContentControl
         }
 
         e.Handled = true;
-        Dragged?.Invoke(this, e.GetCurrentPoint(null).Position.X - _startX);
+        Dragged?.Invoke(this, e.GetCurrentPoint(Reference).Position.X - _startX);
     }
 
     protected override void OnPointerReleased(PointerRoutedEventArgs e)

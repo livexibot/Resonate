@@ -41,6 +41,35 @@
             <FontFamily x:Key="ResonateDisplayFont">Segoe UI Variable Display</FontFamily>
             <FontFamily x:Key="ResonateTextFont">Segoe UI Variable Text</FontFamily>
 
+            <!--
+              Text sizes, at the usual Text size (Settings, Look, Size).
+              ThemeService multiplies them by the user's Text size; the list is
+              AppScale.FontSizes. Use these for text, never a plain number;
+              icons keep their own sizes.
+            -->
+            <x:Double x:Key="ResonateFontSize10">10</x:Double>
+            <x:Double x:Key="ResonateFontSize12">12</x:Double>
+            <x:Double x:Key="ResonateFontSize13">13</x:Double>
+            <x:Double x:Key="ResonateFontSize14">14</x:Double>
+            <x:Double x:Key="ResonateFontSize15">15</x:Double>
+            <x:Double x:Key="ResonateFontSize18">18</x:Double>
+            <x:Double x:Key="ResonateFontSize20">20</x:Double>
+            <x:Double x:Key="ResonateFontSize24">24</x:Double>
+            <x:Double x:Key="ResonateFontSize26">26</x:Double>
+            <x:Double x:Key="ResonateFontSize32">32</x:Double>
+            <x:Double x:Key="ResonateFontSize44">44</x:Double>
+            <x:Double x:Key="ResonateFontSize46">46</x:Double>
+            <x:Double x:Key="ResonateFontSize48">48</x:Double>
+            <x:Double x:Key="ResonateFontSize60">60</x:Double>
+            <!-- Windows' own controls in the window (text boxes, lists to pick from, switches). -->
+            <x:Double x:Key="ControlContentThemeFontSize">14</x:Double>
+            <!--
+              Menus and tooltips open outside the window's content, so App size
+              does not reach them: their text follows both sizes instead.
+            -->
+            <x:Double x:Key="ResonateMenuFontSize">14</x:Double>
+            <x:Double x:Key="ToolTipContentThemeFontSize">12</x:Double>
+
             <!-- Built-in controls (text boxes, menus, list rows) follow the theme's corners. -->
             <CornerRadius x:Key="ControlCornerRadius">4.8</CornerRadius>
             <CornerRadius x:Key="OverlayCornerRadius">7.9</CornerRadius>
@@ -160,7 +189,7 @@
     <!-- Text styles: a bold display title, section titles, card titles, body, secondary, captions and small labels. -->
     <Style x:Key="ResonateDisplayTextStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{ThemeResource ResonateDisplayFont}" />
-        <Setter Property="FontSize" Value="48" />
+        <Setter Property="FontSize" Value="{ThemeResource ResonateFontSize48}" />
         <Setter Property="FontWeight" Value="Bold" />
         <!-- Large bold type reads better set a touch tighter. -->
         <Setter Property="CharacterSpacing" Value="-10" />
@@ -169,10 +198,18 @@
         <Setter Property="TextWrapping" Value="NoWrap" />
     </Style>
 
+    <!-- The display title on a narrow page, so a long name still fits on its two lines. -->
+    <Style
+        x:Key="ResonateCompactDisplayTextStyle"
+        BasedOn="{StaticResource ResonateDisplayTextStyle}"
+        TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{ThemeResource ResonateFontSize32}" />
+    </Style>
+
     <!-- The title of a section of a page (Albums, Songs, Daily mixes). -->
     <Style x:Key="ResonateSectionTextStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{ThemeResource ResonateDisplayFont}" />
-        <Setter Property="FontSize" Value="24" />
+        <Setter Property="FontSize" Value="{ThemeResource ResonateFontSize24}" />
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="Foreground" Value="{StaticResource ResonateTextPrimaryBrush}" />
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
@@ -185,7 +222,7 @@
     -->
     <Style x:Key="ResonateEyebrowTextStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{ThemeResource ResonateTextFont}" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="{ThemeResource ResonateFontSize12}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="CharacterSpacing" Value="80" />
         <Setter Property="Foreground" Value="{StaticResource ResonateTextSecondaryBrush}" />
@@ -195,7 +232,7 @@
 
     <Style x:Key="ResonateTitleTextStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{ThemeResource ResonateDisplayFont}" />
-        <Setter Property="FontSize" Value="20" />
+        <Setter Property="FontSize" Value="{ThemeResource ResonateFontSize20}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{StaticResource ResonateTextPrimaryBrush}" />
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
@@ -203,21 +240,21 @@
 
     <Style x:Key="ResonateBodyTextStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{ThemeResource ResonateTextFont}" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="{ThemeResource ResonateFontSize14}" />
         <Setter Property="Foreground" Value="{StaticResource ResonateTextPrimaryBrush}" />
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
 
     <Style x:Key="ResonateSecondaryTextStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{ThemeResource ResonateTextFont}" />
-        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontSize" Value="{ThemeResource ResonateFontSize13}" />
         <Setter Property="Foreground" Value="{StaticResource ResonateTextSecondaryBrush}" />
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
 
     <Style x:Key="ResonateCaptionTextStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{ThemeResource ResonateTextFont}" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="{ThemeResource ResonateFontSize12}" />
         <Setter Property="Foreground" Value="{StaticResource ResonateTextTertiaryBrush}" />
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
@@ -375,7 +412,7 @@
         <Setter Property="Background" Value="{StaticResource ResonateAccentBrush}" />
         <Setter Property="Foreground" Value="{StaticResource ResonateOnAccentBrush}" />
         <Setter Property="FontFamily" Value="{ThemeResource ResonateTextFont}" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="{ThemeResource ResonateFontSize14}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Padding" Value="22,8" />
         <Setter Property="MinHeight" Value="36" />
@@ -497,7 +534,7 @@
         <Setter Property="BorderBrush" Value="{StaticResource ResonateBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="FontFamily" Value="{ThemeResource ResonateTextFont}" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="{ThemeResource ResonateFontSize14}" />
         <Setter Property="Padding" Value="16,8" />
         <Setter Property="MinHeight" Value="36" />
         <Setter Property="CornerRadius" Value="{ThemeResource ResonateCornerButton}" />

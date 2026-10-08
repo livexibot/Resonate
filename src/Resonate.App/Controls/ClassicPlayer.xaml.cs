@@ -169,6 +169,7 @@ public sealed partial class ClassicPlayer : UserControl
         _root = XamlRoot;
         _root.Changed += OnXamlRootChanged;
         _services.Theme.Changed += OnThemeChanged;
+        _services.Theme.SizeChanged += OnAppSizeChanged;
         _skins.Changed += OnSkinsChanged;
         _skins.OptionsChanged += OnOptionsChanged;
         _player.StateChanged += OnStateChanged;
@@ -211,6 +212,7 @@ public sealed partial class ClassicPlayer : UserControl
         }
 
         _services.Theme.Changed -= OnThemeChanged;
+        _services.Theme.SizeChanged -= OnAppSizeChanged;
         _skins.Changed -= OnSkinsChanged;
         _skins.OptionsChanged -= OnOptionsChanged;
         _player.StateChanged -= OnStateChanged;
@@ -335,7 +337,7 @@ public sealed partial class ClassicPlayer : UserControl
             return;
         }
 
-        _raster = _root.RasterizationScale > 0 ? _root.RasterizationScale : 1;
+        _raster = PixelsPerUnit(_root);
         var shaded = _skins.Shaded;
         _scale = FittingScale();
 
@@ -896,10 +898,23 @@ public sealed partial class ClassicPlayer : UserControl
         Invalidate();
     }
 
-    private void OnXamlRootChanged(XamlRoot sender, XamlRootChangedEventArgs args)
+    /// <summary>Screen pixels per unit of layout: the display's scale times the user's App size (see ScaleBox).</summary>
+    private double PixelsPerUnit(XamlRoot root) => (root.RasterizationScale > 0 ? root.RasterizationScale : 1) * _services.Theme.Scale;
+
+    private void OnXamlRootChanged(XamlRoot sender, XamlRootChangedEventArgs args) => RedrawForPixels(sender);
+
+    private void OnAppSizeChanged(object? sender, EventArgs e)
     {
-        // Moved to a display with another scale: the skin is drawn again for its pixels.
-        if (Math.Abs(sender.RasterizationScale - _raster) > 0.001)
+        if (_root is not null)
+        {
+            RedrawForPixels(_root);
+        }
+    }
+
+    private void RedrawForPixels(XamlRoot root)
+    {
+        // Moved to a display with another scale, or a new App size: the skin is drawn again for its pixels.
+        if (Math.Abs(PixelsPerUnit(root) - _raster) > 0.001)
         {
             RebuildSurface();
             ShowCover(_shown);

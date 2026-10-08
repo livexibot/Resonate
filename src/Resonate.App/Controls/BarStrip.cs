@@ -157,7 +157,7 @@ public sealed partial class BarStrip : Grid
                 var text = new TextBlock
                 {
                     Text = label,
-                    FontSize = 11,
+                    FontSize = theme.FontSize(11),
                     HorizontalAlignment = series.LabelSpan == 1 ? HorizontalAlignment.Center : ending ? HorizontalAlignment.Right : HorizontalAlignment.Left,
                     TextTrimming = TextTrimming.None,
                 };

@@ -93,7 +93,7 @@ public sealed partial class SeekBar : RangeBase
     {
         get
         {
-            var pixels = TrackWidth * (XamlRoot?.RasterizationScale ?? 1);
+            var pixels = TrackWidth * (XamlRoot?.RasterizationScale ?? 1) * App.Services.Theme.Scale;
             return pixels > 0 ? (Maximum - Minimum) / pixels : 0;
         }
     }

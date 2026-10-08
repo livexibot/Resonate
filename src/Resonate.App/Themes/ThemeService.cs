@@ -163,6 +163,59 @@ public sealed class ThemeService
         }
     }
 
+    /// <summary>Raised after App size or Text size change.</summary>
+    public event EventHandler? SizeChanged;
+
+    /// <summary>
+    /// How large everything under the title bar is drawn, in percent: one of
+    /// <see cref="AppScale.AppSizes"/>. The user's own, kept whatever look is
+    /// in use; the window applies it (MainWindow.ApplyAppSize).
+    /// </summary>
+    public int AppSize
+    {
+        get => AppScale.Nearest(_settings.AppSize, AppScale.AppSizes);
+        set
+        {
+            var size = AppScale.Nearest(value, AppScale.AppSizes);
+            if (size != AppSize)
+            {
+                _settings.AppSize = size;
+                SaveSoon();
+
+                // Menus and tooltips take App size in their text (see ApplyTextSize).
+                ApplyTextSize();
+                SizeChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
+
+    /// <summary><see cref="AppSize"/> as a factor (1 at the usual size).</summary>
+    public double Scale => AppSize / 100.0;
+
+    /// <summary>
+    /// How large text is drawn, in percent: one of <see cref="AppScale.TextSizes"/>.
+    /// The user's own, kept whatever look is in use.
+    /// </summary>
+    public int TextSize
+    {
+        get => AppScale.Nearest(_settings.TextSize, AppScale.TextSizes);
+        set
+        {
+            var size = AppScale.Nearest(value, AppScale.TextSizes);
+            if (size != TextSize)
+            {
+                _settings.TextSize = size;
+                SaveSoon();
+                ApplyTextSize();
+                RereadThemeResources();
+                SizeChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
+
+    /// <summary>Text of <paramref name="size"/> at the user's Text size, for text built in code.</summary>
+    public double FontSize(double size) => AppScale.Font(size, TextSize);
+
     /// <summary>
     /// Whether the now-playing cover is drawn as a record (round, with a
     /// centre): in looks with the vinyl cover style, and in every look while
@@ -193,6 +246,7 @@ public sealed class ThemeService
             CreateColorSlots(_tokens);
         }
 
+        ApplyTextSize();
         ApplyNow(Current, Palette);
     }
 
@@ -498,17 +552,56 @@ public sealed class ThemeService
             };
         }
 
-        if (_root is not null && (!sameStructure || !sameMode))
+        if (!sameStructure || !sameMode)
         {
-            // Theme resources are read again when the theme changes, so switch
-            // away and back: corners, fonts and built-in controls all update.
-            var target = palette.IsLight ? ElementTheme.Light : ElementTheme.Dark;
-            _root.RequestedTheme = target == ElementTheme.Light ? ElementTheme.Dark : ElementTheme.Light;
-            _root.RequestedTheme = target;
+            RereadThemeResources();
         }
 
         _applied = look;
         _shownIsLight = palette.IsLight;
+    }
+
+    /// <summary>
+    /// Theme resources are read again when the theme changes, so switch away
+    /// and back: corners, fonts, text sizes and built-in controls all update.
+    /// </summary>
+    private void RereadThemeResources()
+    {
+        if (_root is null)
+        {
+            return;
+        }
+
+        var target = Palette.IsLight ? ElementTheme.Light : ElementTheme.Dark;
+        _root.RequestedTheme = target == ElementTheme.Light ? ElementTheme.Dark : ElementTheme.Light;
+        _root.RequestedTheme = target;
+    }
+
+    /// <summary>
+    /// Every text size at the user's Text size (Tokens.xaml lists them).
+    /// Menus and tooltips open outside the window's content, where App size
+    /// does not reach, so theirs take both sizes. Shown once theme resources
+    /// are read again; new menus and tooltips read them as they open.
+    /// </summary>
+    private void ApplyTextSize()
+    {
+        if (_tokens is null)
+        {
+            return;
+        }
+
+        var text = TextSize;
+        foreach (var dictionary in _tokens.ThemeDictionaries.Values.OfType<ResourceDictionary>())
+        {
+            foreach (var size in AppScale.FontSizes)
+            {
+                dictionary[AppScale.FontKey(size)] = AppScale.Font(size, text);
+            }
+
+            dictionary["ControlContentThemeFontSize"] = AppScale.Font(14, text);
+            dictionary["ResonateMenuFontSize"] = AppScale.Font(14, text) * Scale;
+            dictionary["ToolTipContentThemeFontSize"] = AppScale.Font(12, text) * Scale;
+        }
     }
 
     /// <summary>The accent colours Windows' own controls read when they are created or re-themed.</summary>

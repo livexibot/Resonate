@@ -26,7 +26,6 @@ public sealed partial class TracksPage : Page
 {
     /// <summary>Below this list width the page uses its compact layout.</summary>
     private const double CompactWidth = 600;
-    private const double CompactTitleSize = 32;
     private const int CoverSize = 232;
     private const int CompactCoverSize = 128;
 
@@ -717,15 +716,8 @@ public sealed partial class TracksPage : Page
         CoverShadow.Width = cover;
         CoverShadow.Height = cover;
 
-        // A smaller title, so a long name still fits on its two lines.
-        if (compact)
-        {
-            TitleText.FontSize = CompactTitleSize;
-        }
-        else
-        {
-            TitleText.ClearValue(TextBlock.FontSizeProperty);
-        }
+        // A smaller title, so a long name still fits on its two lines (a style, so it follows the Text size).
+        TitleText.Style = (Style)Application.Current.Resources[compact ? "ResonateCompactDisplayTextStyle" : "ResonateDisplayTextStyle"];
 
         Grid.SetRow(FilterBox, compact ? 1 : 0);
         Grid.SetColumn(FilterBox, compact ? 0 : 4);

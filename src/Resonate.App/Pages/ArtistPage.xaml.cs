@@ -23,7 +23,6 @@ public sealed partial class ArtistPage : Page
     // A narrow page (a small window, or Settings or the queue open beside it), as on a playlist.
     private const double CompactWidth = 600;
     private const int CompactPortraitSize = 128;
-    private const double CompactNameSize = 32;
     private const string OpenInSpotifyLabel = "Open in Spotify";
 
     private readonly AppServices _services = App.Services;
@@ -84,14 +83,8 @@ public sealed partial class ArtistPage : Page
         PortraitFrame.Width = PortraitFrame.Height = size;
         PortraitShadow.Width = PortraitShadow.Height = size;
         PortraitFrame.CornerRadius = PortraitShadow.CornerRadius = new CornerRadius(size / 2.0);
-        if (compact)
-        {
-            NameText.FontSize = CompactNameSize;
-        }
-        else
-        {
-            NameText.ClearValue(TextBlock.FontSizeProperty);
-        }
+        // A smaller name, so a long one still fits on its two lines (a style, so it follows the Text size).
+        NameText.Style = (Style)Application.Current.Resources[compact ? "ResonateCompactDisplayTextStyle" : "ResonateDisplayTextStyle"];
 
         LikedSongsButton.Content = compact ? "Liked songs" : "Liked songs by this artist";
         OpenInSpotifyText.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;

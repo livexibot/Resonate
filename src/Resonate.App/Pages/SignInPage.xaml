@@ -17,7 +17,7 @@
                 HorizontalAlignment="Left"
                 Source="ms-appx:///Assets/Resonate.png" />
             <TextBlock
-                FontSize="32"
+                FontSize="{ThemeResource ResonateFontSize32}"
                 Style="{StaticResource ResonateDisplayTextStyle}"
                 Text="Connect Resonate to Spotify"
                 TextWrapping="Wrap" />

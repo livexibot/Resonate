@@ -483,6 +483,34 @@ Ripple, and a more interesting Home):
   (`Controls/HoverLift`, 160 ms, still when animations are off). Nothing
   on Home moves by itself once it has settled.
 
+Size (checked 2026-10-08; the owner asked for a setting to scale the whole
+app and make text bigger):
+- Settings, Look, Size has App size (80 to 200 %, also Ctrl+Plus, Ctrl+Minus
+  and Ctrl+0) and Text size (90 to 150 %). Both belong to the user, not to
+  a look; the steps live in `Resonate.Themes/AppScale.cs` and are tested.
+- App size: `Controls/ScaleBox` lays out everything under the title bar at
+  1/size and draws it that much larger with a `ScaleTransform`
+  (`MainWindow.AppSize.cs`). The title bar keeps Windows' size, like the
+  caption buttons beside it. Pages see a narrower window, so their compact
+  layouts and the Compact and Mini player take over sooner, and the
+  window's minimum size grows with App size (within its screen). Code that
+  compares positions must use the content's units (a panel's coordinates),
+  never the window's (`GetCurrentPoint(null)`, `TransformToVisual(null)`);
+  covers decode at `CoverImages.DecodeWidth`, and pixel-exact drawing
+  (the classic skin) multiplies `RasterizationScale` by
+  `ThemeService.Scale`. Menus, tooltips and dialogs open outside the
+  content: menus' and tooltips' text takes both sizes
+  (`ResonateMenuFontSize`, `ToolTipContentThemeFontSize`), while dialogs,
+  drop-down lists and the colour picker keep Windows' size.
+- Text size: XAML never gives text a plain `FontSize`; it uses a
+  `ResonateFontSize{n}` token from `Tokens.xaml` (the list is
+  `AppScale.FontSizes`, and a test fails on a plain size or an unknown
+  token). `ThemeService.ApplyTextSize` writes n x Text size into the theme
+  dictionary and re-reads theme resources. Icons keep their sizes. Text
+  built in code uses `ThemeService.FontSize(n)`.
+- Measure on the owner's PC: that text and icons stay sharp at 125 to
+  200 % on the 5K display, and that text at 150 % fits rows and cards.
+
 GitHub automation:
 - Releases and pull requests made with the default `GITHUB_TOKEN` do not
   start other workflows, so `release-please.yml` calls `release.yml`
