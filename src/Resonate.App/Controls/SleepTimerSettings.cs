@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Resonate.App.Services;
+using Windows.Foundation;
 
 namespace Resonate.App.Controls;
 
@@ -37,9 +38,11 @@ internal static class SleepTimerSettings
         row.Children.Add(left);
         row.Children.Add(choice);
 
+        // Counts down once a second only while a pause is set and the row shows;
+        // its handler is attached only while shown, so it never keeps Settings in memory.
         var tick = DispatcherQueue.GetForCurrentThread().CreateTimer();
         tick.Interval = TimeSpan.FromSeconds(1);
-        tick.Tick += (_, _) => ShowLeft();
+        TypedEventHandler<DispatcherQueueTimer, object> onTick = (_, _) => ShowLeft();
         void ShowLeft()
         {
             var remaining = _timer?.IsRunning == true ? _ends - DateTimeOffset.Now : TimeSpan.Zero;
@@ -47,6 +50,18 @@ internal static class SleepTimerSettings
             if (remaining <= TimeSpan.Zero && choice.SelectedIndex > 0)
             {
                 choice.SelectedIndex = 0;
+            }
+
+            if (remaining > TimeSpan.Zero && row.IsLoaded)
+            {
+                if (!tick.IsRunning)
+                {
+                    tick.Start();
+                }
+            }
+            else
+            {
+                tick.Stop();
             }
         }
 
@@ -63,10 +78,15 @@ internal static class SleepTimerSettings
         };
         row.Loaded += (_, _) =>
         {
-            tick.Start();
+            tick.Tick -= onTick;
+            tick.Tick += onTick;
             ShowLeft();
         };
-        row.Unloaded += (_, _) => tick.Stop();
+        row.Unloaded += (_, _) =>
+        {
+            tick.Stop();
+            tick.Tick -= onTick;
+        };
 
         return new SettingRow { Header = "Pause after", Content = row };
     }

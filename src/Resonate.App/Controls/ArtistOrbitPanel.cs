@@ -78,7 +78,12 @@ internal sealed partial class ArtistOrbitPanel : Grid
                 LayOut(e.NewSize.Width);
             }
         };
-        Loaded += (_, _) => _services.Theme.Changed += OnThemeChanged;
+        Loaded += (_, _) =>
+        {
+            // Loaded can come twice in a row; the handler is held once.
+            _services.Theme.Changed -= OnThemeChanged;
+            _services.Theme.Changed += OnThemeChanged;
+        };
         Unloaded += (_, _) => _services.Theme.Changed -= OnThemeChanged;
     }
 

@@ -201,10 +201,13 @@ public sealed partial class SettingsPage : Page
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        // Loaded can come twice in a row; each handler is held once.
+        _services.Updates.ProgressChanged -= OnUpdateProgressChanged;
         _services.Updates.ProgressChanged += OnUpdateProgressChanged;
         ShowUpdateProgress();
         if (_services.OwnPlayer is { } own)
         {
+            own.StatusChanged -= OnOwnPlayerStatusChanged;
             own.StatusChanged += OnOwnPlayerStatusChanged;
         }
 

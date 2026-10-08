@@ -93,11 +93,9 @@ internal sealed partial class ClassicPlaylist : Grid
         _refreshTimer = DispatcherQueue.CreateTimer();
         _refreshTimer.Interval = RefreshDelay;
         _refreshTimer.IsRepeating = false;
-        _refreshTimer.Tick += (_, _) => _ = RefreshAsync();
         _clock = DispatcherQueue.CreateTimer();
         _clock.Interval = TimeSpan.FromSeconds(1);
         _clock.IsRepeating = true;
-        _clock.Tick += (_, _) => Invalidate();
 
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
@@ -159,6 +157,10 @@ internal sealed partial class ClassicPlaylist : Grid
         }
 
         _loaded = true;
+
+        // Only while loaded: a timer's handler that holds this window would keep it (and the whole mini player) for good.
+        _refreshTimer.Tick += OnRefreshTick;
+        _clock.Tick += OnClockTick;
         _skins.Changed += OnSkinsChanged;
         _skins.MiniOptionsChanged += OnMiniOptionsChanged;
         _player.StateChanged += OnStateChanged;
@@ -182,12 +184,18 @@ internal sealed partial class ClassicPlaylist : Grid
         _player.QueueChanged -= OnQueueChanged;
         _refreshTimer.Stop();
         _clock.Stop();
+        _refreshTimer.Tick -= OnRefreshTick;
+        _clock.Tick -= OnClockTick;
         CancelLoading();
         _version++;
         _pressed = PlaylistControl.None;
         _moving = false;
         _liveHeight = null;
     }
+
+    private void OnRefreshTick(DispatcherQueueTimer sender, object args) => _ = RefreshAsync();
+
+    private void OnClockTick(DispatcherQueueTimer sender, object args) => Invalidate();
 
     private void OnSkinsChanged(object? sender, EventArgs e)
     {

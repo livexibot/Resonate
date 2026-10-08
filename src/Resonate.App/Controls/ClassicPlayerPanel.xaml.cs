@@ -33,6 +33,8 @@ public sealed partial class ClassicPlayerPanel : UserControl
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        // Loaded can come twice in a row; each handler is held once.
+        OnUnloaded(sender, e);
         _skins.Changed += OnSkinsChanged;
         _skins.OptionsChanged += OnOptionsChanged;
         _skins.MiniOptionsChanged += OnOptionsChanged;

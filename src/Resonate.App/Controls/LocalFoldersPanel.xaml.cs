@@ -32,6 +32,9 @@ public sealed partial class LocalFoldersPanel : UserControl
         ShowFolders();
         AddFolderButton.IsEnabled = !IsDemo;
         ShowStatus();
+
+        // Loaded can come twice in a row; the handler is held once.
+        _localFiles.Library.Changed -= OnLibraryChanged;
         _localFiles.Library.Changed += OnLibraryChanged;
     }
 

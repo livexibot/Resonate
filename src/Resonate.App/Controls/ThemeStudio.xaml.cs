@@ -167,6 +167,8 @@ public sealed partial class ThemeStudio : UserControl
         // tree) would keep this panel alive after Settings closes.
         _looksTimer.Tick -= OnLooksTick;
         _looksTimer.Tick += OnLooksTick;
+        _theme.Changed -= OnThemeChanged;
+        _theme.SizeChanged -= OnThemeChanged;
         _theme.Changed += OnThemeChanged;
         _theme.SizeChanged += OnThemeChanged;
         ShowYourLooks();

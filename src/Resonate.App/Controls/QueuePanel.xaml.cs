@@ -48,10 +48,12 @@ public sealed partial class QueuePanel : UserControl
     private int _updateQueued;
     private int _version;
 
+    // The songs the rows showed when the pane closed: the rows themselves are let go while it is closed.
+    private TrackInfo[] _closedRows = [];
+
     public QueuePanel()
     {
         InitializeComponent();
-        UpcomingList.ItemsSource = _rows;
 
         // Closed, the pane waits faded out and a little to the right, so
         // opening slides it in (on the compositor, never delaying a click).
@@ -87,6 +89,9 @@ public sealed partial class QueuePanel : UserControl
         player.QueueChanged += OnQueueChanged;
 
         _queueKey = null;
+        UpcomingList.ItemsSource = _rows;
+        UpdateRows(_closedRows, _closedRows.Length);
+        _closedRows = [];
         Show(player.State, player.ActiveSource);
         _ = RefreshAsync();
 
@@ -116,6 +121,16 @@ public sealed partial class QueuePanel : UserControl
         LoadingRing.IsActive = false;
         Opacity = 0;
         Translation = ClosedOffset;
+
+        // Nothing of the list is kept while the pane is closed (its rows, their
+        // containers and covers); opening it again shows the same songs at once.
+        _dragged = null;
+        ReleaseHold();
+        _closedRows = [.. _rows.Select(r => r.Track)];
+        UpcomingList.ItemsSource = null;
+        _rows.Clear();
+        _artworkKey = null;
+        NowImage.Source = null;
     }
 
     private void OnStateChanged(object? sender, EventArgs e)

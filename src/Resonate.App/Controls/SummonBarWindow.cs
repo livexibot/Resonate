@@ -587,7 +587,14 @@ internal sealed partial class SummonBarWindow : Window
         var timer = DispatcherQueue.CreateTimer();
         timer.Interval = TimeSpan.FromSeconds(1.6);
         timer.IsRepeating = false;
-        timer.Tick += (_, _) => chip.Opacity = 0;
+        global::Windows.Foundation.TypedEventHandler<Microsoft.UI.Dispatching.DispatcherQueueTimer, object>? hide = null;
+        hide = (_, _) =>
+        {
+            // Let go of the handler, or the timer would keep the chip for good.
+            timer.Tick -= hide;
+            chip.Opacity = 0;
+        };
+        timer.Tick += hide;
         timer.Start();
     }
 
