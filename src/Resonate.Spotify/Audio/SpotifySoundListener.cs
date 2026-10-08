@@ -333,6 +333,13 @@ public sealed class SpotifySoundListener : ISoundSink, IDisposable
         if (program is not { } found || found <= 0)
         {
             StopListening();
+
+            // Not running yet (Spotify starting, the own player connecting): look again shortly.
+            if (!_disposed)
+            {
+                _retry.Change(LookAgainAfter, Timeout.InfiniteTimeSpan);
+            }
+
             return;
         }
 

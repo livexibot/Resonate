@@ -64,8 +64,8 @@ public sealed class SmartPlaylistSync
     {
         var years = SmartPlaylistEvaluator.NeedsReleaseYears(playlist);
         var source = playlist.SourcePlaylistId is { } sourceId
-            ? (await _library.GetAllPlaylistTracksAsync(sourceId, null, years, cancellationToken).ConfigureAwait(false)).Tracks
-            : await _library.GetAllLikedSongsAsync(years, cancellationToken).ConfigureAwait(false);
+            ? await _library.GetAllPlaylistTracksAsync(sourceId, null, years, cancellationToken).ConfigureAwait(false)
+            : new FullTrackList(await _library.GetAllLikedSongsAsync(years, cancellationToken).ConfigureAwait(false), ItemsHidden: false);
 
         var others = new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal);
         foreach (var id in playlist.Rules.Where(r => r.Kind == SmartRuleKind.NotInPlaylist).Select(r => r.Text).OfType<string>().Distinct())
@@ -81,7 +81,7 @@ public sealed class SmartPlaylistSync
             }
         }
 
-        return new SmartInputs(source, others);
+        return new SmartInputs(source.Tracks, others, source.ItemsHidden);
     }
 
     public List<TrackInfo> Evaluate(SmartPlaylist playlist, SmartInputs inputs) =>
@@ -120,7 +120,23 @@ public sealed class SmartPlaylistSync
         var name = playlist.SyncedName;
         try
         {
-            var inputs = await LoadInputsAsync(playlist, cancellationToken).ConfigureAwait(false);
+            SmartInputs inputs;
+            try
+            {
+                inputs = await LoadInputsAsync(playlist, cancellationToken).ConfigureAwait(false);
+            }
+            catch (SpotifyApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+            {
+                // The source playlist is gone, not this one: the link stays and its songs are left alone.
+                return new SmartSyncResult(SmartSyncOutcome.Failed, id, linkedAt, Name: name, Error: ex);
+            }
+
+            if (inputs.SourceHidden)
+            {
+                // Spotify no longer lists the source's songs; replacing would empty the playlist.
+                return new SmartSyncResult(SmartSyncOutcome.Failed, id, linkedAt, Name: name, Error: new InvalidOperationException("The source playlist's songs can not be read."));
+            }
+
             var uris = Evaluate(playlist, inputs).Select(t => t.Uri!).ToList();
             var signature = Signature(uris);
             if (id is null)

@@ -98,6 +98,9 @@ public sealed class SmartPlaylistTests : IDisposable
         longest.Limit = 2;
         Assert.Equal(["old", "mid"], Ids(Evaluate(longest, songs)));
 
+        // Places follow the smart order, so a list in "Smart order" keeps it.
+        Assert.Equal([0, 1], Evaluate(longest, songs).Select(t => t.Position));
+
         var random = Liked();
         random.Order = SmartOrder.Random;
         random.Seed = 7;
