@@ -14,7 +14,7 @@ namespace Resonate.Spotify.LocalFiles;
 /// changes <see cref="State"/> at once, and the engine catches up in the
 /// background, in order, so a late answer can not undo what the user did.
 /// </summary>
-public sealed class LocalPlayer : ILocalPlayer
+public sealed partial class LocalPlayer : ILocalPlayer
 {
     /// <summary>"Previous" further into a song than this starts it again.</summary>
     internal static readonly TimeSpan RestartThreshold = TimeSpan.FromSeconds(3);
