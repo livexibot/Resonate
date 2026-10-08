@@ -71,7 +71,9 @@ public sealed partial class MainWindow : Window
     private string? _currentKey;
     private bool _syncingSelection;
     private bool _backgroundStarted;
+    private OwnPlayerStatus _ownPlayerStatusShown;
     private bool _firstFrameSeen;
+    private bool _quitting;
     private double _dragStartWidth;
     private bool _dragMoved;
     private bool _updateBarDismissed;
@@ -122,6 +124,11 @@ public sealed partial class MainWindow : Window
         RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnRootPointerPressed), handledEventsToo: true);
         BuildPlaylistSortMenu();
         services.Account.SignedOut += (_, _) => DispatcherQueue.TryEnqueue(ShowSignIn);
+        if (services.OwnPlayer is { } ownPlayer)
+        {
+            ownPlayer.StatusChanged += OnOwnPlayerStatusChanged;
+        }
+
         services.Updates.UpdateReady += (_, _) => DispatcherQueue.TryEnqueue(ShowUpdateReady);
         services.Updates.ProgressChanged += OnUpdateProgressChanged;
         SetUpSettingsPane();
@@ -130,6 +137,7 @@ public sealed partial class MainWindow : Window
         PlayerBar.AttachPlugins(services.Plugins);
         SetUpPlayerPlacement();
         AppWindow.Changed += OnAppWindowChanged;
+        AppWindow.Closing += (_, args) => args.Cancel = !ReadyToClose();
         Closed += OnClosed;
 
         if (services.Account.IsSignedIn)
@@ -185,9 +193,10 @@ public sealed partial class MainWindow : Window
         }
         else
         {
-            // Signed in again, perhaps as someone else: their playlists and hearts.
+            // Signed in again, perhaps as someone else: their playlists and hearts, and the player on this PC.
             _ = RefreshLibraryAsync();
             _ = LoadLikesAsync(_lifetime.Token);
+            _services.FollowOwnPlayer();
         }
     }
 
@@ -460,6 +469,9 @@ public sealed partial class MainWindow : Window
         SignInFrame.Visibility = Visibility.Visible;
         SignInFrame.Navigate(typeof(SignInPage), null, new SuppressNavigationTransitionInfo());
         _currentKey = null;
+
+        // Signed out: Spotify's player on this PC goes too.
+        _services.FollowOwnPlayer();
 
         // Back leads nowhere from the sign-in page; signing in starts again at Home.
         _history.Clear();
@@ -743,6 +755,12 @@ public sealed partial class MainWindow : Window
         // Follows Spotify; with "Spotify Web API only" it never listens to the Spotify app.
         await Task.Run(() => _services.Player.Spotify.StartAsync(token), token);
 
+        // With "Spotify Web API only", Spotify's player on this PC (never in a timing or update run).
+        if (StartupOptions.Current is { StartupBenchmarkFile: null, UpdateCheckFeed: null })
+        {
+            _services.AllowOwnPlayer();
+        }
+
         // Starts the Spotify app hidden, or with "Spotify Web API only" closes
         // it, which can take a few seconds, so nothing waits for that.
         var spotifyApp = FollowSpotifyAppAsync(token);
@@ -760,7 +778,14 @@ public sealed partial class MainWindow : Window
         _ = KeepListeningHistoryAsync(token);
 
         // Updates last, quietly; an installed copy downloads them in the
-        // background, then keeps looking while Resonate stays open.
+        // background, then keeps looking while Resonate stays open. Never in
+        // demo mode, which CI's checks use: an installed copy that downloaded a
+        // real release would install it at its next start.
+        if (_services.IsDemo)
+        {
+            return;
+        }
+
         await Task.Delay(TimeSpan.FromSeconds(8), token);
         while (await Task.Run(() => _services.Updates.CheckAndDownloadAsync(token), token) != UpdateStatus.ReadyToRestart
             && _services.Updates.IsInstalled)
@@ -781,7 +806,7 @@ public sealed partial class MainWindow : Window
             if (outcome == SpotifyAppOutcome.NotInstalled)
             {
                 ShowMessage(
-                    "The Spotify app is not installed. Resonate plays music through it: install it from spotify.com/download or the Microsoft Store, sign in, then come back. (Or pick Spotify Web API only in Settings to play on your other devices.)",
+                    "The Spotify app is not installed. Resonate plays music through it: install it from spotify.com/download or the Microsoft Store, sign in, then come back. (Or pick Spotify Web API only in Settings to play without it.)",
                     InfoBarSeverity.Error);
             }
             else if (outcome == SpotifyAppOutcome.CouldNotClose)
@@ -1052,6 +1077,10 @@ public sealed partial class MainWindow : Window
         {
             _ = CheckPluginsAndQuitAsync(pluginFeed, pluginResult);
         }
+        else if (options.WebPlayerCheckResultFile is { } webPlayerResult)
+        {
+            _ = CheckWebPlayerAndQuitAsync(webPlayerResult);
+        }
 
         // Covers nobody has looked at for a while make room, once the window is up.
         if (_services.Covers.Store is { } covers)
@@ -1083,6 +1112,85 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>CI's check that Spotify's web player can run in the installed copy (see <see cref="WebPlayerPage.CheckAsync"/>).</summary>
+    /// <remarks>
+    /// Writes each step as a line as it happens (from any thread, so a stuck
+    /// interface thread still shows), and the outcome as the last line.
+    /// </remarks>
+    private async Task CheckWebPlayerAndQuitAsync(string resultFile)
+    {
+        var clock = Stopwatch.StartNew();
+        var gate = new Lock();
+        var dispatcher = DispatcherQueue;
+        File.Delete(resultFile);
+        void Write(string line)
+        {
+            lock (gate)
+            {
+                try
+                {
+                    File.AppendAllText(resultFile, $"{clock.Elapsed.TotalSeconds:0.0} s: {line}{Environment.NewLine}");
+                }
+                catch (IOException)
+                {
+                    // A step less in the log.
+                }
+            }
+        }
+
+        string outcome;
+        try
+        {
+            // Finishes off the interface thread, so the outcome is written even if that thread hangs.
+            var work = Path.Combine(Path.GetTempPath(), "resonate-web-player-check");
+            outcome = await WebPlayerPage.CheckAsync(dispatcher, work, TimeSpan.FromMinutes(2), Write).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            outcome = $"Error {ex.GetType().Name}: {ex.Message}";
+        }
+
+        Write("closing Resonate");
+        lock (gate)
+        {
+            try
+            {
+                File.AppendAllText(resultFile, outcome + Environment.NewLine);
+            }
+            catch (IOException)
+            {
+                // CI says the check wrote no outcome.
+            }
+        }
+
+        dispatcher.TryEnqueue(() => Application.Current.Exit());
+        await Task.Delay(TimeSpan.FromSeconds(15)).ConfigureAwait(false);
+        Write("Resonate did not end by itself; ending it");
+        Environment.Exit(0);
+    }
+
+    /// <summary>Says once when Resonate's own player cannot play until the user does something.</summary>
+    private void OnOwnPlayerStatusChanged(object? sender, EventArgs e) => DispatcherQueue.TryEnqueue(() =>
+    {
+        if (_services.OwnPlayer is not { } own || own.Status == _ownPlayerStatusShown)
+        {
+            return;
+        }
+
+        _ownPlayerStatusShown = own.Status;
+        var text = own.Status switch
+        {
+            OwnPlayerStatus.NeedsSignIn => "To play music on this PC, sign in again: Settings, Sign out, then sign in.",
+            OwnPlayerStatus.NeedsPremium => "Spotify only plays on this PC with Premium.",
+            OwnPlayerStatus.Unsupported => "This PC cannot run Spotify's web player. It needs Microsoft's WebView2 Runtime (and on Windows N the Media Feature Pack). Or switch to Windows media controls in Settings.",
+            _ => null,
+        };
+        if (text is not null)
+        {
+            ShowMessage(text, InfoBarSeverity.Warning);
+        }
+    });
+
     private static async Task CheckForUpdateAndQuitAsync(string feed, string resultFile)
     {
         try
@@ -1099,6 +1207,39 @@ public sealed partial class MainWindow : Window
         {
             Application.Current.Exit();
         }
+    }
+
+    /// <summary>Closes Resonate from one of its own buttons (see <see cref="ReadyToClose"/>).</summary>
+    public void Quit()
+    {
+        if (ReadyToClose())
+        {
+            Close();
+        }
+    }
+
+    /// <summary>
+    /// Before Resonate closes, Spotify's player on this PC says goodbye, so
+    /// Spotify drops "Resonate" from its devices at once; the window hides
+    /// meanwhile, and it waits 3 s at most.
+    /// </summary>
+    /// <returns>True when the window may close now; else it closes itself shortly.</returns>
+    private bool ReadyToClose()
+    {
+        if (_quitting || _services.OwnPlayer is not { Status: OwnPlayerStatus.Ready or OwnPlayerStatus.Starting } own)
+        {
+            return true;
+        }
+
+        _quitting = true;
+        AppWindow.Hide();
+        var dispatcher = DispatcherQueue;
+        _ = own.StopAsync().WaitAsync(TimeSpan.FromSeconds(3)).ContinueWith(
+            _ => dispatcher.TryEnqueue(Close),
+            CancellationToken.None,
+            TaskContinuationOptions.None,
+            TaskScheduler.Default);
+        return false;
     }
 
     private void OnClosed(object sender, WindowEventArgs args)

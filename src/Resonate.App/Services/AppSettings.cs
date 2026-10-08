@@ -88,6 +88,9 @@ public sealed class AppSettings
     /// <summary>The Spotify Connect device picked last with "Spotify Web API only" (by name), for when nothing plays.</summary>
     public string? WebApiDeviceName { get; set; }
 
+    /// <summary>With "Spotify Web API only", Resonate's own player plays on this PC (Spotify's web player, hidden).</summary>
+    public bool WebApiPlayHere { get; set; } = true;
+
     /// <summary>Keep the Spotify app's window hidden and off the taskbar.</summary>
     public bool KeepSpotifyHidden { get; set; } = true;
 
@@ -371,6 +374,13 @@ public static class AppPaths
     /// <summary>Which plugins are on, their settings and what they keep (next to the settings).</summary>
     public static string PluginsFile { get; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Resonate", "plugins.json");
+
+    /// <summary>
+    /// WebView2's own folder for Resonate's own player ("Spotify Web API
+    /// only"). It runs InPrivate, so no cookies, cache or history stay here.
+    /// </summary>
+    public static string WebPlayerFolder { get; } =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Resonate", "webplayer");
 
     /// <summary>Classic player skins the user added (copies), next to <see cref="CacheFolder"/>.</summary>
     public static string SkinsFolder { get; } =

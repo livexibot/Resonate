@@ -68,6 +68,13 @@ public sealed record StartupOptions
 
     public string? PluginCheckResultFile { get; init; }
 
+    /// <summary>
+    /// Open Resonate's own player (Spotify's web player, hidden), check that
+    /// protected audio works and that Spotify's player starts, write the
+    /// outcome to this file, then quit. CI runs it on the installed copy.
+    /// </summary>
+    public string? WebPlayerCheckResultFile { get; init; }
+
     public static StartupOptions Parse(IReadOnlyList<string> args)
     {
         var options = new StartupOptions();
@@ -98,6 +105,10 @@ public sealed record StartupOptions
                 case "--plugin-check" when next is not null && i + 2 < args.Count:
                     options = options with { PluginCheckFeed = next, PluginCheckResultFile = args[i + 2], Demo = true };
                     i += 2;
+                    break;
+                case "--web-player-check" when next is not null:
+                    options = options with { WebPlayerCheckResultFile = next, Demo = true };
+                    i++;
                     break;
             }
         }

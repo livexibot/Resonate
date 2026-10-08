@@ -54,9 +54,9 @@ want to hear. See [docs/plugins.md](docs/plugins.md).
 
 ## How it works
 
-Resonate never plays Spotify's music itself. The official Spotify app runs
-hidden in the background and does all the playback, so every song plays in
-Spotify Lossless. Resonate is the window you use: it controls Spotify
+By default Resonate never plays Spotify's music itself. The official
+Spotify app runs hidden in the background and does all the playback, so
+every song plays in Spotify Lossless. Resonate is the window you use: it controls Spotify
 through Windows' own media controls (instant play, pause and skip) and
 through Spotify's official Web API (library, search, playlists). The
 equalizer in Settings is Spotify's own.
@@ -65,17 +65,18 @@ The only music Resonate plays itself is your own files in Local Files,
 which Spotify does not let other apps start.
 
 Want the Spotify app closed? Pick "Spotify Web API only" in Settings:
-Resonate then closes the desktop app, controls Spotify only through the Web
-API and plays on any Spotify Connect device you choose (your phone, a
-speaker, the web player). Nothing on this PC plays Spotify's songs in that
-mode; switch back to Windows media controls for sound here.
+Resonate then closes the desktop app and plays through Spotify's official
+web player (the Web Playback SDK), hidden inside Resonate, at the web
+player's 256 kbps rather than Lossless. You can also send the music to any
+Spotify Connect device (your phone, a speaker). Switch back to Windows
+media controls for Lossless.
 
 ## Requirements
 
 - Windows 10 or 11
 - Spotify Premium
-- The Spotify desktop app, installed and signed in (or, with "Spotify Web
-  API only", any Spotify app or speaker that is online)
+- The Spotify desktop app, installed and signed in (not needed with
+  "Spotify Web API only")
 - A free Spotify developer app of your own (Resonate's first screen walks
   you through it in about two minutes)
 

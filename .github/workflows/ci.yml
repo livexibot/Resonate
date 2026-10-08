@@ -208,6 +208,32 @@ jobs:
           "### Plugins`n`n$line" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
           if (-not $outcome.StartsWith('OK ')) { throw "The plugin check failed: $outcome" }
 
+      # Resonate's own player for "Spotify Web API only" (Spotify's Web
+      # Playback SDK in a hidden WebView2) opens in the installed copy:
+      # protected audio works, and Spotify's player starts and turns down a
+      # made-up token. CI has no Spotify account, so nothing plays.
+      - name: Web player check (installed copy)
+        shell: pwsh
+        run: |
+          $installed = Join-Path $env:LOCALAPPDATA 'Resonate/current/Resonate.exe'
+          $result = Join-Path $env:RUNNER_TEMP 'web-player-result.txt'
+          $process = Start-Process $installed -ArgumentList '--web-player-check', $result -PassThru
+          $finished = $process.WaitForExit(180000)
+          # Each step it took (timed), and the outcome (OK, FAIL or Error).
+          if (Test-Path $result) { Get-Content $result | ForEach-Object { Write-Output "  $_" } }
+          if (-not $finished) {
+            Get-Process Resonate, msedgewebview2 -ErrorAction SilentlyContinue | Format-Table Id, ProcessName, CPU, WorkingSet64 | Out-String | Write-Output
+            $process.Kill()
+            throw 'The web player check did not finish.'
+          }
+          if (-not (Test-Path $result)) { throw "The web player check wrote no result (exit code $($process.ExitCode))." }
+          $outcome = (Get-Content $result | Where-Object { $_ -match '^(OK|FAIL|Error) ' } | Select-Object -Last 1)
+          if (-not $outcome) { throw 'The web player check wrote no outcome.' }
+          $outcome = $outcome.Trim()
+          Write-Output "Web player: $outcome"
+          "### Web player`n`n$outcome" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+          if (-not $outcome.StartsWith('OK ')) { throw "The web player check failed: $outcome" }
+
       # The installed copy finds the newer version packed above and downloads
       # it, so a broken updater shows up here rather than after a release.
       - name: Update test

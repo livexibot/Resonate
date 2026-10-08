@@ -32,6 +32,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     internal static readonly TimeSpan WebOnlyPollWhilePaused = TimeSpan.FromSeconds(6);
     internal static readonly TimeSpan WebOnlyConfirmDelay = TimeSpan.FromMilliseconds(700);
     internal static readonly TimeSpan WebDetailsDelay = TimeSpan.FromMilliseconds(800);
+    internal static readonly TimeSpan OwnPlayerRefreshDelay = TimeSpan.FromMilliseconds(250);
     internal static readonly TimeSpan ShuffleConfirmInterval = TimeSpan.FromMilliseconds(300);
     internal const int ShuffleConfirmAttempts = 4;
 
@@ -80,6 +81,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     private bool _needsWebDetails = true;
     private DateTimeOffset _webPausedUntil;
     private bool _started;
+    private int _ownPlayerRefreshQueued;
     private volatile ControlChannel _channel = ControlChannel.Local;
 
     /// <summary>The list Resonate plays and knows the songs of; null when the music came from elsewhere.</summary>
@@ -172,6 +174,21 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     {
         get => _webDevices.PreferredName;
         set => _webDevices.PreferredName = value;
+    }
+
+    /// <summary>
+    /// Asks Spotify what plays shortly, instead of at the next poll, with
+    /// "Spotify Web API only": Resonate's own player calls it when its song
+    /// or play state changed. Several calls close together ask once.
+    /// </summary>
+    public void RefreshSoon()
+    {
+        if (!_started || UseLocal || Interlocked.Exchange(ref _ownPlayerRefreshQueued, 1) == 1)
+        {
+            return;
+        }
+
+        _ = RefreshAfterOwnPlayerAsync();
     }
 
     /// <summary>
@@ -1927,6 +1944,24 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     }
 
     private Task FetchWebDetailsSoonAsync() => RefreshSoonAsync(WebDetailsDelay);
+
+    private async Task RefreshAfterOwnPlayerAsync()
+    {
+        try
+        {
+            await Task.Delay(OwnPlayerRefreshDelay, _time, _stopping.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _ownPlayerRefreshQueued, 0);
+        }
+
+        await RefreshSoonAsync(TimeSpan.Zero).ConfigureAwait(false);
+    }
 
     private async Task RefreshSoonAsync(TimeSpan delay)
     {

@@ -66,6 +66,13 @@ visitors; keep it short and in step with this file.
   soft shadows and the play button's glow, the smoothness of Spread from
   the middle and Ripple at 5K and 165 Hz, and the header glows with real
   covers.
+- "Spotify Web API only" plays on this PC through Resonate's own player
+  (8 October 2026): Spotify's official Web Playback SDK in a hidden
+  WebView2, with the Spotify app closed (see "Resonate's own player" under
+  verified facts). CI opens it in the installed copy; nobody has played a
+  song with it yet. On the owner's PC: sign in again (new permissions),
+  check that songs play, skip and seek, that it still plays after a long
+  pause, what media keys do, and its power use against the Spotify app's.
 - App size and Text size (8 October 2026) are described under "Size". On
   the owner's PC, check sharpness at 125 to 200 %, 150 % text with Paper
   and the wider fonts, Ctrl+Plus on their keyboard, and the window growing
@@ -221,23 +228,71 @@ Windows:
   mixer volume or write its settings file (the equalizer waits and reaches
   local files only), and "Open in Spotify" opens open.spotify.com. A
   Spotify the user opens again is not closed. Music plays on whatever
-  Spotify Connect device Spotify lists: the one already playing, else the
-  one picked last with the player bar's devices button, else this PC's
-  Spotify if the user opened it again, else the only device; with several
-  unknown devices it does not guess (`WebDeviceResolver`). A skip or seek
-  with nothing active wakes that device first. Switching modes takes
-  effect at once, without a restart. So nothing on this PC plays Spotify's
-  songs in this mode: the Web API only sends commands, something must
-  play the music, Lossless depends on that device, DJ only starts in a
-  Spotify app, and media keys come from Spotify's own media session. This
-  is why the owner heard nothing in Web API only (since v0.5.0 it never
-  started Spotify). Spotifast has sound there because it bundles
-  librespot, signed in with Spotify's own desktop client ID
+  Spotify Connect device Spotify lists: the one already playing, else
+  Resonate's own player on this PC (below; a play command waits up to
+  12 s while it connects), else the one picked last with the player bar's
+  devices button, else this PC's Spotify if the user opened it again,
+  else the only device; with several unknown devices it does not guess
+  (`WebDeviceResolver`). A skip or seek with nothing active wakes that
+  device first. Switching modes takes effect at once, without a restart.
+  The Web API only sends commands, so something must play the music: the
+  own player (Settings, "Play on this PC", on at first) or another
+  device. Before 8 October 2026 there was none, which is why the owner
+  heard nothing in this mode. Lossless depends on the device (the own
+  player is not Lossless), DJ only starts in a Spotify app, and the
+  Spotify app's media session is gone. Spotifast has sound there because
+  it bundles librespot, signed in with Spotify's own desktop client ID
   (`65b708073fc0480ea92a077233ca87bd`), at most 320 kbps; that works
-  around Spotify's copy protection and stays out (hard rules). Spotify's
-  Web Playback SDK needs Widevine, which fails in embedded browsers
-  (Electron reports), so it is no way out either. Measure: switching
-  modes while music plays, and that Spotify closes.
+  around Spotify's copy protection and stays out (hard rules). Measure:
+  switching modes while music plays, and that Spotify closes.
+- Resonate's own player (`OwnPlayer` in `Resonate.Spotify/Playback`,
+  `Services/WebPlayerPage.cs` and `Assets/WebPlayer/player.html` in the
+  app; the owner asked on 8 October 2026 for Web API only to play without
+  the Spotify app "consuming power"): Spotify's official Web Playback SDK
+  (`https://sdk.scdn.co/spotify-player.js`) in a WebView2 that nobody sees.
+  Spotify lists it as a Connect device called "Resonate", and Resonate
+  plays on it through the Web API like on any device. Facts checked on
+  GitHub's Windows machine (a probe, 8 October 2026): the WebView2 runtime
+  (153) ships Widevine, protected AAC, FLAC and Vorbis work, PlayReady
+  does not, and the SDK starts and turns down a made-up token (so the
+  Electron reports above do not apply to WebView2). It needs Premium and
+  the scopes `streaming`, `user-read-email` and `user-read-private`;
+  older sign-ins lack them, so it asks to sign in again (it checks the
+  saved scopes before starting). The sign-in page also asks to tick "Web
+  Playback SDK" in the developer app, in case Spotify checks it. Quality
+  is the web player's (AAC, 256 kbps with Premium), not Lossless. The
+  WebView2 is a controller on a message-only window (`HWND_MESSAGE`,
+  "an invisible WebView"), `IsVisible` false, InPrivate (nothing kept in
+  `%LocalAppData%\Resonate\webplayer`), with the page served from
+  `https://player.resonate.example` (a secure origin, which protected
+  audio needs). It allows only autoplay, no other permission, pop-up,
+  download, navigation, developer tools or host objects. Browser
+  arguments: autoplay without a click, and no background timer
+  throttling, so Spotify keeps hearing from the device while paused. It
+  runs only with Web API only, "Play on this PC" and someone signed in,
+  starts after the first frame (never in demo, timing or update runs),
+  stops on sign-out, after failures tries again after 5 s, 15 s and then
+  every minute, and says once when it needs a new sign-in, Premium or the
+  WebView2 runtime. A WebView2 that has not started after 45 s counts as
+  failed, a page that stops answering is kept for 30 s (WebView2 says so
+  also when the PC is only busy), and closing Resonate (`MainWindow.Quit`,
+  also from its own close buttons) waits up to 3 s for its goodbye.
+  Every copy names its device "Resonate", so another one is never taken
+  for the Spotify app on this PC. Demo runs, which CI's checks use, never
+  look for updates. SmartScreen look-ups are off
+  (`IsReputationCheckingRequired`), and WebView2's crash reports stay on
+  the PC (`IsCustomCrashReportingEnabled`) and are deleted when the page
+  opens and closes, since they may hold the access token. The WebView2
+  runtime itself still sends Microsoft its required diagnostic data (and
+  optional data under Windows' Diagnostics & feedback setting) while the
+  own player runs; no API turns that off (Microsoft's WebView2 privacy
+  page). Its song changes make the player ask `/me/player` at
+  once (`PlayerController.RefreshSoon`). Tokens go only to the page,
+  never to a log. CI's `--web-player-check` opens it in the installed copy
+  and needs protected audio to work and the SDK to answer a made-up token
+  with `authentication_error`. Measure: playback while hidden, after a
+  long pause, media keys (WebView2 may show its own media session),
+  memory and power against the Spotify app.
 - The system media controls (SMTC) can play, pause, skip, seek (when the app
   allows it) and report the song, cover and timeline. They have no volume.
   Resonate uses Spotify's per-app volume in the Windows mixer (Core Audio),
@@ -808,12 +863,20 @@ same six-band equalizer. Starting one player pauses the other
 (`PlayerRouter`). This never touches Spotify's audio, so lossless Spotify
 playback is unchanged.
 
+"Spotify Web API only" (an option; Windows media controls stay the
+default) closes the Spotify app instead. Then Spotify's official web
+player, the Web Playback SDK, plays on this PC, hidden inside Resonate
+(see "Resonate's own player" under verified facts). Spotify's own code
+still does the playback, at the web player's quality rather than Lossless,
+and Resonate never sees the audio.
+
 ## Requirements and limits
 
 - Spotify Premium (needed for lossless and for controlling playback).
 - The official Spotify desktop app installed and signed in to the same
   account. Resonate should start it hidden if it is not running, and say
-  clearly when it cannot be found.
+  clearly when it cannot be found. Not needed with "Spotify Web API
+  only", which plays through Spotify's web player (WebView2 runtime).
 - A Spotify developer app (client ID) for the Web API, owned by a Premium
   account. In development mode Spotify allows at most five users, which is
   fine for personal use.
@@ -834,7 +897,10 @@ playback is unchanged.
 ## Hard rules
 
 - Never play, decode, record, download or save Spotify audio inside
-  Resonate, and do not use librespot. Spotify's app does all playback.
+  Resonate, and do not use librespot. Spotify's own software does all
+  playback: its desktop app, or with "Spotify Web API only" its official
+  Web Playback SDK, which Resonate hosts in a hidden WebView2 and never
+  reads the audio of.
 - Never bypass or work around Spotify's DRM or copy protection.
 - The local files player plays only files from folders the user chose,
   never anything from Spotify's own folders.
@@ -845,10 +911,15 @@ playback is unchanged.
   Resonate's own skin; users add the skins they choose.
 - No ad blocking, no unlocking Premium features for free accounts.
 - No embedded browser engine (no Electron, no webview for the interface).
+  The one webview is the hidden page that runs Spotify's Web Playback SDK
+  for "Spotify Web API only" (the owner's request, 8 October 2026); it
+  shows nothing and opens nothing else.
 - No telemetry and no hosted backend. Everything runs on the owner's
   computer, talking only to Spotify and to GitHub for updates, and to
   LRCLIB for lyrics while the Lyrics plugin's pane is open (the owner
-  asked for it, 8 October 2026).
+  asked for it, 8 October 2026). The one exception Resonate cannot turn
+  off: while its own player runs, the WebView2 runtime sends Microsoft
+  Windows' diagnostic data, as Microsoft Edge does (told to the owner).
 - Never log access tokens, refresh tokens or authorisation responses. Keep
   tokens in the operating system's credential store, not in plain files.
 - The interface is optimistic: a control shows its result the moment it is
@@ -1050,9 +1121,12 @@ Keep it obvious what is what:
   `Controls/ClassicPlayerPanel`, and `Services/SkinLibrary.cs`) and the
   mini player (`MiniPlayerWindow.cs`, `MainWindow.MiniPlayer.cs`, with
   `Controls/ClassicEqualizer.cs` and `Controls/ClassicPlaylist.cs`). Both
-  players share the plugin button (`Controls/PluginMenu.cs`).
+  players share the plugin button (`Controls/PluginMenu.cs`). The hidden
+  page of Resonate's own player is `Services/WebPlayerPage.cs` and
+  `Assets/WebPlayer/player.html`.
 - `src/Resonate.Spotify/` everything about Spotify that is not Windows:
-  sign-in, the Web API client, the library, the player logic, listening
+  sign-in, the Web API client, the library, the player logic (with
+  Resonate's own player, `Playback/OwnPlayer.cs`), listening
   history and daily mixes (`History/`), the equalizer and Spotify's
   settings file (`Audio/`), and Local Files' tag reader and index
   (`LocalFiles/`). Any OS.
@@ -1092,7 +1166,8 @@ Keep it obvious what is what:
 - `docs/` user-facing guides (`plugins.md`).
 - `.github/workflows/` `ci.yml` (every pull request: format, tests, the
   Windows build with start-up time, screenshots, the install test, the
-  plugin check, the update test, and the speed and memory test),
+  plugin check, the web player check, the update test, and the speed and
+  memory test),
   `release-please.yml` (release pull request, then calls `release.yml`),
   `release.yml` (builds the x64 and arm64 installers with Velopack, packs
   the plugins and helpers, and attaches them).
@@ -1222,13 +1297,22 @@ when the work first needs them, then tick them off here.
   access for downloaded plugins yet; adding any is a decision for the
   owner. Built-in plugins (above) are reviewed app code, not scripts.
 - Decided (8 October 2026): "Spotify Web API only" closes the Spotify
-  app and plays on the user's other Spotify devices; Windows media
-  controls is the mode with Lossless sound on this PC. The owner then
+  app (at first it then played only on the user's other Spotify
+  devices); Windows media controls is the mode with Lossless sound on
+  this PC. The owner then
   asked for Resonate's own Spotify player in that mode, like Spotifast's;
   Claude declined (it means librespot with Spotify's own client ID, which
   works around Spotify's copy protection, see the hard rules) and offered
   a "hidden engine" instead: Spotify running invisibly only while
-  Resonate is open. Open: the owner's answer to that offer.
+  Resonate is open. The owner answered that librespot did not matter to
+  them: Web API only should play without the Spotify app running in the
+  background and costing power. Decided then: Resonate's own player,
+  Spotify's official Web Playback SDK hidden in a WebView2 (see verified
+  facts), on at first in that mode ("Play on this PC"). Trade-offs told
+  to the owner: the web player's 256 kbps instead of Lossless, a new
+  sign-in for its permissions, and a hidden WebView2 (a few browser
+  processes) in place of the Spotify app. Windows media controls stays
+  the default and the Lossless mode.
 - Decided (8 October 2026, the owner's requests): Settings opens in a
   pane on the right of the window beside the page, not in place of it.
   It shares the queue's column and grip (`MainWindow.LayOutPanes`; its
