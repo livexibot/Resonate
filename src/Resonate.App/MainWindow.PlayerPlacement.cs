@@ -64,10 +64,10 @@ public sealed partial class MainWindow
     private void OnPlayerSlotSizeChanged(object sender, SizeChangedEventArgs e) => UpdatePlayerInset();
 
     /// <summary>
-    /// Tells the page on show how much room to leave under its last row: as
-    /// much as a hovering player covers, none otherwise. A new page always
-    /// hears it; others only when it changes (the slot's size changes with
-    /// every resize of the window).
+    /// Tells the page on show how much room to leave under its last row, and
+    /// lifts the update bar by as much: as much as a hovering player covers,
+    /// none otherwise. A new page always hears it; others only when it changes
+    /// (the slot's size changes with every resize of the window).
     /// </summary>
     private void UpdatePlayerInset(bool newPage = false)
     {
@@ -78,6 +78,9 @@ public sealed partial class MainWindow
         }
 
         _playerInset = inset;
+
+        // The update bar in the page's corner stays above a hovering player too.
+        UpdateBarHost.Margin = new Thickness(16, 16, 16, 16 + inset);
         if (ContentFrame.Content is IPlayerInset page)
         {
             page.SetPlayerInset(inset);

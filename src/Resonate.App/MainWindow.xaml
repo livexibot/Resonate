@@ -313,9 +313,11 @@
                 <!--
                     A new version downloading, then ready to install (see ShowUpdateProgress); its
                     width follows the page. The InfoBar's own fill is see-through, so it sits on the
-                    panel colour to stay readable over the page.
+                    panel colour to stay readable over the page. A hovering player lifts it (see
+                    UpdatePlayerInset).
                 -->
                 <Border
+                    x:Name="UpdateBarHost"
                     Margin="16"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Bottom"
