@@ -229,6 +229,7 @@ public sealed partial class MainWindow : Window
         if (open)
         {
             ShowSettings(false);
+            ShowLyrics(false);
         }
 
         QueuePane.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
@@ -254,6 +255,7 @@ public sealed partial class MainWindow : Window
         if (open)
         {
             ShowQueue(false);
+            ShowLyrics(false);
         }
 
         SettingsPane.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
@@ -276,9 +278,9 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void PlaceRightPane()
     {
-        var open = QueuePane.IsOpen || SettingsPane.IsOpen;
+        var open = QueuePane.IsOpen || SettingsPane.IsOpen || LyricsPane.IsOpen;
         RightSplitter.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
-        RightSplitter.Label = SettingsPane.IsOpen ? "Resize Settings" : "Resize the queue";
+        RightSplitter.Label = SettingsPane.IsOpen ? "Resize Settings" : LyricsPane.IsOpen ? "Resize the lyrics" : "Resize the queue";
         var shown = ShellGrid.ColumnDefinitions.Contains(_paneColumn);
         if (open && !shown)
         {
@@ -397,7 +399,7 @@ public sealed partial class MainWindow : Window
         var room = ShellGrid.ActualWidth > 0
             ? ShellGrid.ActualWidth - ShellGrid.Padding.Left - ShellGrid.Padding.Right
             : double.PositiveInfinity;
-        var paneOpen = QueuePane.IsOpen || SettingsPane.IsOpen;
+        var paneOpen = QueuePane.IsOpen || SettingsPane.IsOpen || LyricsPane.IsOpen;
         var (paneMin, paneMax, paneWanted) = SettingsPane.IsOpen
             ? (SettingsPane.MinimumWidth, SettingsMaxWidth, settings.SettingsPaneWidth ?? SettingsPane.DefaultWidth)
             : (QueueMinWidth, QueueMaxWidth, settings.QueueWidth ?? QueuePanel.PaneWidth);
@@ -441,7 +443,7 @@ public sealed partial class MainWindow : Window
         {
             settings.SettingsPaneWidth = paneWidth == SettingsPane.DefaultWidth ? null : paneWidth;
         }
-        else if (QueuePane.IsOpen)
+        else if (QueuePane.IsOpen || LyricsPane.IsOpen)
         {
             settings.QueueWidth = paneWidth == QueuePanel.PaneWidth ? null : paneWidth;
         }
@@ -453,6 +455,7 @@ public sealed partial class MainWindow : Window
     {
         ShowQueue(false);
         ShowSettings(false);
+        ShowLyrics(false);
         ShellGrid.Visibility = Visibility.Collapsed;
         ApplyPlayerStyle();
         SignInFrame.Visibility = Visibility.Visible;

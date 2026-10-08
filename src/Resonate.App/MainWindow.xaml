@@ -353,6 +353,12 @@
                 Grid.Column="2"
                 Visibility="Collapsed" />
 
+            <!-- Lyrics, a built-in plugin, in the same place (see MainWindow.Lyrics.cs). -->
+            <controls:LyricsPane
+                x:Name="LyricsPane"
+                Grid.Column="2"
+                Visibility="Collapsed" />
+
             <!--
               The player, or the classic player in its place (added in code,
               see MainWindow.ClassicPlayer.cs). It stays in this slot whatever
