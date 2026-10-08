@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media;
+using Resonate.App.Helpers;
 using Resonate.App.Themes;
 using Resonate.Themes;
 using Resonate.Windows;
@@ -13,8 +14,9 @@ namespace Resonate.App.Controls;
 
 /// <summary>
 /// The now-playing stage's background: five soft clouds in the cover's
-/// colours that drift slowly, drawn and moved by the compositor (sprites,
-/// nothing per frame on the interface thread). Each cloud is its colour
+/// colours that drift slowly, drawn by the compositor (sprites) and moved
+/// <see cref="SlowDrift.FramesPerSecond"/> times a second
+/// (<see cref="SlowClock"/>), not at the display's refresh rate. Each cloud is its colour
 /// shown through one shared, dithered mask (<see cref="CloudMask"/>), not a
 /// radial gradient: on large dark areas a gradient shows rings, because the
 /// screen has too few shades between two dark colours. New colours flow in
@@ -27,7 +29,6 @@ internal sealed partial class CloudField : Grid
     private static readonly TimeSpan ColourChange = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan Settle = TimeSpan.FromMilliseconds(600);
     private static readonly TimeSpan Appear = TimeSpan.FromMilliseconds(400);
-    private static readonly string[] Animated = ["Offset", "Scale"];
 
     // How much of the clouds' colour stays while they stand still.
     private const float RestingOpacity = 0.8f;
@@ -53,9 +54,11 @@ internal sealed partial class CloudField : Grid
     private readonly CompositionSurfaceBrush _mask;
     private readonly SpriteVisual[] _sprites = new SpriteVisual[Clouds.Length];
     private readonly CompositionColorBrush[] _tints = new CompositionColorBrush[Clouds.Length];
-    private readonly List<AnimationController> _drift = [];
+    private readonly Vector3[] _homes = new Vector3[Clouds.Length];
+    private readonly SlowClock _drift;
     private readonly DispatcherQueueTimer _resize;
     private Vector2 _size;
+    private Vector2 _reach;
     private Vector2 _builtFor;
     private bool _running;
     private bool _animate;
@@ -89,6 +92,7 @@ internal sealed partial class CloudField : Grid
 
         ElementCompositionPreview.SetElementChildVisual(this, _root);
         _ = UseMaskAsync();
+        _drift = new SlowClock(DispatcherQueue.GetForCurrentThread(), ShowDrift);
 
         // A window being dragged larger resizes the field every frame; the drift is laid out again once it settles.
         _resize = DispatcherQueue.GetForCurrentThread().CreateTimer();
@@ -101,7 +105,7 @@ internal sealed partial class CloudField : Grid
         {
             _resize.Stop();
             _resize.Tick -= OnResizeTick;
-            StopDrift();
+            _drift.Pause();
             _builtFor = default;
         };
         Loaded += (_, _) =>
@@ -162,21 +166,18 @@ internal sealed partial class CloudField : Grid
         }
 
         _running = running;
-        if (running && _drift.Count == 0)
+        if (!running)
         {
+            _drift.Pause();
+        }
+        else if (_builtFor == default)
+        {
+            // Laid out for the field's size first; that starts the drift.
             Build();
         }
-
-        foreach (var controller in _drift)
+        else
         {
-            if (running)
-            {
-                controller.Resume();
-            }
-            else
-            {
-                controller.Pause();
-            }
+            _drift.Start();
         }
 
         Fade(Settle);
@@ -250,7 +251,7 @@ internal sealed partial class CloudField : Grid
     {
         _size = new Vector2((float)e.NewSize.Width, (float)e.NewSize.Height);
         _shape.Size = _size;
-        if (_drift.Count == 0 || _builtFor == default)
+        if (!_drift.IsRunning || _builtFor == default)
         {
             Build();
         }
@@ -269,65 +270,39 @@ internal sealed partial class CloudField : Grid
             return;
         }
 
-        StopDrift();
         _builtFor = _size;
         var side = Math.Max(_size.X, _size.Y);
-        var linear = _compositor.CreateLinearEasingFunction();
-        var ease = _compositor.CreateCubicBezierEasingFunction(new Vector2(0.45f, 0), new Vector2(0.55f, 1));
         for (var i = 0; i < Clouds.Length; i++)
         {
-            var (x, y, size, drift, breath) = Clouds[i];
+            var (x, y, size, _, _) = Clouds[i];
             var sprite = _sprites[i];
             var diameter = side * size;
             sprite.Size = new Vector2(diameter, diameter);
             sprite.CenterPoint = new Vector3(diameter / 2, diameter / 2, 0);
-            var home = new Vector3((_size.X * x) - (diameter / 2), (_size.Y * y) - (diameter / 2), 0);
-            sprite.Offset = home;
-            sprite.Scale = Vector3.One;
-            if (!_running)
-            {
-                // Still: the drift starts from here when the music does.
-                continue;
-            }
+            _homes[i] = new Vector3((_size.X * x) - (diameter / 2), (_size.Y * y) - (diameter / 2), 0);
+        }
 
-            // A slow loop around the cloud's place, a tenth of the field each way.
-            var reachX = _size.X * 0.1f;
-            var reachY = _size.Y * 0.1f;
-            var path = _compositor.CreateVector3KeyFrameAnimation();
-            path.InsertKeyFrame(0, home, linear);
-            path.InsertKeyFrame(0.25f, home + new Vector3(reachX, -reachY * 0.6f, 0), ease);
-            path.InsertKeyFrame(0.5f, home + new Vector3(reachX * 0.3f, reachY, 0), ease);
-            path.InsertKeyFrame(0.75f, home + new Vector3(-reachX, reachY * 0.4f, 0), ease);
-            path.InsertKeyFrame(1, home, ease);
-            path.Duration = TimeSpan.FromSeconds(drift);
-            path.IterationBehavior = AnimationIterationBehavior.Forever;
-            sprite.StartAnimation("Offset", path);
-
-            var grow = _compositor.CreateVector3KeyFrameAnimation();
-            grow.InsertKeyFrame(0, Vector3.One, linear);
-            grow.InsertKeyFrame(0.5f, new Vector3(1.18f, 1.18f, 1), ease);
-            grow.InsertKeyFrame(1, Vector3.One, ease);
-            grow.Duration = TimeSpan.FromSeconds(breath);
-            grow.IterationBehavior = AnimationIterationBehavior.Forever;
-            sprite.StartAnimation("Scale", grow);
-
-            foreach (var property in Animated)
-            {
-                if (sprite.TryGetAnimationController(property) is { } controller)
-                {
-                    _drift.Add(controller);
-                }
-            }
+        // A slow loop around each cloud's place, a tenth of the field each way, from its start.
+        _reach = _size * 0.1f;
+        _drift.Reset();
+        ShowDrift(0);
+        if (_running)
+        {
+            _drift.Start();
         }
     }
 
-    private void StopDrift()
+    /// <summary>Puts every cloud where its drift is after <paramref name="seconds"/>.</summary>
+    private void ShowDrift(double seconds)
     {
-        _drift.Clear();
-        foreach (var sprite in _sprites)
+        for (var i = 0; i < Clouds.Length; i++)
         {
-            sprite.StopAnimation("Offset");
-            sprite.StopAnimation("Scale");
+            var (_, _, _, drift, breath) = Clouds[i];
+            var offset = SlowDrift.CloudOffset(seconds, drift) * _reach;
+            var scale = SlowDrift.CloudScale(seconds, breath);
+            var sprite = _sprites[i];
+            sprite.Offset = _homes[i] + new Vector3(offset, 0);
+            sprite.Scale = new Vector3(scale, scale, 1);
         }
     }
 
