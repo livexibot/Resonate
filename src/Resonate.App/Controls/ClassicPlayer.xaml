@@ -3,7 +3,8 @@
   The classic player: the cover, a Winamp 2 style main window drawn from a
   skin pixel for pixel, the song in the app's own text, the plugin button
   and the heart. It sits where the player bar would, docked, floating or
-  hovering like it, with the look's shadow behind it. See ClassicPlayer.xaml.cs.
+  hovering like it, with the look's shadow behind it. In the mini player it
+  is just the cover and the skin (see ApplyMiniLook). See ClassicPlayer.xaml.cs.
 -->
 <UserControl
     x:Class="Resonate.App.Controls.ClassicPlayer"
@@ -95,6 +96,7 @@
 
             <!-- The song, always readable whatever the skin -->
             <StackPanel
+                x:Name="SongPanel"
                 Grid.Column="2"
                 VerticalAlignment="Center"
                 Spacing="2">
@@ -111,6 +113,7 @@
             </StackPanel>
 
             <StackPanel
+                x:Name="ButtonsPanel"
                 Grid.Column="3"
                 VerticalAlignment="Center"
                 Orientation="Horizontal"

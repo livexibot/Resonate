@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Settings, Classic player: whether to use it, its skin, its size and its visualiser. See ClassicPlayerPanel.xaml.cs. -->
+<!-- Settings, Classic player: whether to use it, its skin, its size, the mini player and the visualiser. See ClassicPlayerPanel.xaml.cs. -->
 <UserControl
     x:Class="Resonate.App.Controls.ClassicPlayerPanel"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -38,6 +38,33 @@
                     OffContent=""
                     OnContent=""
                     Toggled="OnDoubleSizeToggled" />
+            </controls:SettingRow>
+            <controls:SettingRow Description="Its own small window, with the equalizer and playlist. Ctrl+M." Header="Mini player">
+                <Button
+                    x:Name="OpenMiniButton"
+                    Click="OnMiniPlayerClick"
+                    Content="Open" />
+            </controls:SettingRow>
+            <controls:SettingRow Header="Mini player size">
+                <ComboBox
+                    x:Name="MiniSizeChoice"
+                    MinWidth="190"
+                    AutomationProperties.Name="Mini player size"
+                    SelectionChanged="OnMiniSizeChanged">
+                    <ComboBoxItem Content="1x" />
+                    <ComboBoxItem Content="2x" />
+                    <ComboBoxItem Content="3x" />
+                    <ComboBoxItem Content="4x" />
+                </ComboBox>
+            </controls:SettingRow>
+            <controls:SettingRow Description="Above other windows." Header="Mini player on top">
+                <ToggleSwitch
+                    x:Name="MiniOnTopSwitch"
+                    MinWidth="0"
+                    AutomationProperties.Name="Mini player on top"
+                    OffContent=""
+                    OnContent=""
+                    Toggled="OnMiniOnTopToggled" />
             </controls:SettingRow>
             <controls:SettingRow Description="Moves for your own music files only." Header="Visualiser">
                 <ComboBox

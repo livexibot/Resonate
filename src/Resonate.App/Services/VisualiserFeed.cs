@@ -15,6 +15,7 @@ public sealed class VisualiserFeed : ILocalAudioSink, IDisposable
     private readonly PlayerRouter _player;
     private readonly LocalAudioListener _listener;
     private readonly DispatcherQueue _queue;
+    private readonly HashSet<object> _viewers = [];
     private int _updateQueued;
 
     /// <summary>Call on the interface thread.</summary>
@@ -31,13 +32,28 @@ public sealed class VisualiserFeed : ILocalAudioSink, IDisposable
     public SpectrumAnalyser Analyser { get; } = new() { Bars = VisualiserBars.Classic, Motion = VisualiserMotion.Stepped };
 
     /// <summary>
-    /// A visualiser is showing and wants data. While false, the local files
+    /// Some visualiser is showing and wants data. While false, the local files
     /// engine detaches its tap and nothing is analysed.
     /// </summary>
-    public bool Wanted
+    public bool Wanted => _listener.Wanted;
+
+    /// <summary>
+    /// Says whether <paramref name="viewer"/> (a classic player in the window
+    /// or the mini player; both can exist at once) shows a visualiser. The
+    /// feed is wanted while any viewer wants it. Call on the interface thread.
+    /// </summary>
+    public void SetWanted(object viewer, bool wanted)
     {
-        get => _listener.Wanted;
-        set => _listener.Wanted = value;
+        if (wanted)
+        {
+            _viewers.Add(viewer);
+        }
+        else
+        {
+            _viewers.Remove(viewer);
+        }
+
+        _listener.Wanted = _viewers.Count > 0;
     }
 
     /// <summary>A local file is playing, so the analyser has sound to show; false for Spotify songs.</summary>

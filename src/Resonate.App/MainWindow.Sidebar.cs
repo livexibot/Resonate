@@ -124,6 +124,10 @@ public sealed partial class MainWindow
         {
             _windowTitle = title;
             AppWindow.Title = title;
+            if (_miniPlayer is { } mini)
+            {
+                mini.AppWindow.Title = title;
+            }
         }
 
         var now = (PlayingPlaylistId(state), state.IsPlaying);

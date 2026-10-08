@@ -56,6 +56,10 @@
                 Key="N"
                 Invoked="OnNewPlaylistAccelerator"
                 Modifiers="Control" />
+            <KeyboardAccelerator
+                Key="M"
+                Invoked="OnMiniPlayerAccelerator"
+                Modifiers="Control" />
         </Grid.KeyboardAccelerators>
 
         <!-- Title bar (the whole strip drags the window, except the back button) -->
@@ -85,6 +89,21 @@
                     Style="{StaticResource ResonateCaptionTextStyle}"
                     Text="Resonate" />
             </StackPanel>
+            <!-- Beside the window's own buttons (its margin keeps it clear of them; see UpdateTitleBarPassthrough). -->
+            <Button
+                x:Name="MiniPlayerButton"
+                Width="40"
+                Height="32"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Mini player"
+                Click="OnMiniPlayerClick"
+                Content="&#xE8A7;"
+                CornerRadius="{ThemeResource ResonateCornerSmall}"
+                FontSize="13"
+                Style="{StaticResource ResonateIconButtonStyle}"
+                ToolTipService.ToolTip="Mini player (Ctrl+M)"
+                Visibility="Collapsed" />
         </Grid>
 
         <!-- Library sidebar and pages -->

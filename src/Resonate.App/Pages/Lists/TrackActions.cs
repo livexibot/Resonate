@@ -191,6 +191,8 @@ public static class TrackActions
     /// <summary>Asks for a name and creates a private playlist; null when the user cancelled or it failed.</summary>
     public static async Task<SimplifiedPlaylist?> CreatePlaylistAsync()
     {
+        // The dialog shows in the full window, so from the mini player it comes back first.
+        App.MainWindow?.LeaveMiniPlayer();
         if (App.MainWindow?.Content?.XamlRoot is not { } root)
         {
             return null;

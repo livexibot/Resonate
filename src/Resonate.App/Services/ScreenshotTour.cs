@@ -425,8 +425,63 @@ internal sealed class ScreenshotTour
         await CaptureAsync($"{number++}-settings-classic.png");
         _window.CloseSettings();
 
+        number = await MiniPlayerAsync(number);
+
         skins.UsesClassicPlayer = false;
         await services.Player.PlayContextAsync("demo:playlist:late-night");
+        return number;
+    }
+
+    /// <summary>
+    /// The mini player in its own window, with the equalizer and the playlist
+    /// under the main window (a local song plays, so the visualiser moves),
+    /// sized to the skin pixel; then everything rolled up, then double size,
+    /// then back to the full window.
+    /// </summary>
+    private async Task<int> MiniPlayerAsync(int number)
+    {
+        var skins = App.Services.Skins;
+        skins.MiniEqualizer = true;
+        skins.MiniPlaylist = true;
+        _window.ShowMiniPlayer();
+        await Task.Delay(1500);
+        if (_window.MiniPlayerRoot is not { } root)
+        {
+            Record("The mini player did not open.");
+            return number;
+        }
+
+        await CaptureAsync($"{number++}-mini-player.png", root);
+        var scale = ClassicPlayer.PixelScale(1, root.XamlRoot.RasterizationScale);
+        var expected = (Width: (116 + 275) * scale, Height: (116 + 116 + skins.MiniPlaylistHeight) * scale);
+        if (_window.MiniPlayerClientSize is { } size && (size.Width, size.Height) != expected)
+        {
+            Record($"The mini player is {size.Width} x {size.Height} pixels, not {expected.Width} x {expected.Height}.");
+        }
+
+        skins.MiniShaded = true;
+        skins.MiniEqualizerShaded = true;
+        skins.MiniPlaylistShaded = true;
+        await Task.Delay(1000);
+        await CaptureAsync($"{number++}-mini-shade.png", root);
+        skins.MiniShaded = false;
+        skins.MiniEqualizerShaded = false;
+        skins.MiniPlaylistShaded = false;
+
+        skins.MiniSize = 2;
+        await Task.Delay(1000);
+        await CaptureAsync($"{number++}-mini-double.png", root);
+        skins.MiniSize = 1;
+
+        _window.LeaveMiniPlayer();
+        await Task.Delay(1000);
+        if (_window.IsMiniPlayerShown || !_window.AppWindow.IsVisible)
+        {
+            Record("Leaving the mini player did not bring the full window back.");
+        }
+
+        skins.MiniEqualizer = false;
+        skins.MiniPlaylist = false;
         return number;
     }
 
@@ -592,15 +647,17 @@ internal sealed class ScreenshotTour
         File.AppendAllText(Path.Combine(_folder, ErrorFile), error + Environment.NewLine + Environment.NewLine);
     }
 
-    private async Task CaptureAsync(string name)
+    private Task CaptureAsync(string name) => CaptureAsync(name, _root);
+
+    private async Task CaptureAsync(string name, FrameworkElement element)
     {
         var bitmap = new RenderTargetBitmap();
-        await bitmap.RenderAsync(_root);
+        await bitmap.RenderAsync(element);
         var pixels = await bitmap.GetPixelsAsync();
 
         using var stream = new InMemoryRandomAccessStream();
         var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream);
-        var dpi = 96 * _root.XamlRoot.RasterizationScale;
+        var dpi = 96 * element.XamlRoot.RasterizationScale;
         encoder.SetPixelData(
             BitmapPixelFormat.Bgra8,
             BitmapAlphaMode.Ignore,
