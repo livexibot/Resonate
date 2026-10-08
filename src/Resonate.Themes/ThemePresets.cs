@@ -65,7 +65,7 @@ public static class ThemePresets
         Accent2 = ThemeColor.FromRgb(0xD3A6FF),
         Border = ThemeColor.White.WithAlpha(0.16),
         Backdrop = WindowBackdrop.Artwork,
-        BackdropTint = 0.5,
+        BackdropTint = 0.32,
         PanelOpacity = 0.08,
         AdaptiveAccent = true,
         CornerRadius = 24,

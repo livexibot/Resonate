@@ -26,6 +26,12 @@ public static class ArtworkColors
     private const double PoolSpread = 0.3;
     private const double DepthWeight = 0.22;
 
+    // The band of shades a vivid cover keeps (HSL lightness), and how bright
+    // any colour in it may be (relative luminance) for white text.
+    private const double VividDarkest = 0.3;
+    private const double VividLightest = 0.66;
+    private const double VividBrightest = 0.3;
+
     /// <summary>
     /// The cover's most prominent lively colour, made vivid enough for an
     /// accent; null for a black-and-white or nearly empty cover.
@@ -176,6 +182,40 @@ public static class ArtworkColors
         }
 
         return pixels;
+    }
+
+    /// <summary>
+    /// Makes a blurred cover glow, in place: its colours stronger and its
+    /// shades lifted into a band that is never near black and never too
+    /// bright (by luminance, so a yellow is darkened more than a blue) for
+    /// white text under a look's tint. Blurring averages a cover's
+    /// colours into muddy, dark ones, and a dark cover under a dark tint
+    /// would otherwise look black. Greys stay grey.
+    /// </summary>
+    public static void Vivid(Span<byte> bgra, int width, int height)
+    {
+        CheckSize(bgra, width, height);
+        for (var i = 0; i < width * height * 4; i += 4)
+        {
+            var (hue, saturation, lightness) = new ThemeColor(0xFF, bgra[i + 2], bgra[i + 1], bgra[i]).ToHsl();
+
+            // Faint colour is kept faint, so a black-and-white cover never turns a hue.
+            var stronger = saturation < 0.06 ? saturation : Math.Min(1, (saturation * 1.6) + 0.12);
+            var lifted = VividLightest - ((VividLightest - VividDarkest) * Math.Pow(1 - lightness, 1.3));
+            var colour = ThemeColor.FromHsl(hue, stronger, lifted);
+
+            // Bright hues (yellow, cyan) are darkened until white text still reads over them.
+            while (colour.Luminance > VividBrightest && lifted > VividDarkest)
+            {
+                lifted -= 0.02;
+                colour = ThemeColor.FromHsl(hue, stronger, lifted);
+            }
+
+            bgra[i] = colour.B;
+            bgra[i + 1] = colour.G;
+            bgra[i + 2] = colour.R;
+            bgra[i + 3] = 0xFF;
+        }
     }
 
     /// <summary>

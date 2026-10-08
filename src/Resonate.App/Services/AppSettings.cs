@@ -26,7 +26,7 @@ public sealed class AppSettings
     public bool SpinningCover { get; set; }
 
     /// <summary>Looks with the song cover backdrop show the cover itself, blurred (off: only its colours).</summary>
-    public bool BlurredCoverBackground { get; set; }
+    public bool BlurredCoverBackground { get; set; } = true;
 
     /// <summary>"modern" (Resonate's player bar) or "classic" (the skinnable player in the style of Winamp 2).</summary>
     public string PlayerStyle { get; set; } = "modern";

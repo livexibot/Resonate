@@ -1,8 +1,9 @@
 namespace Resonate.Themes.Tests;
 
 /// <summary>
-/// The colour wash that the song cover backdrop shows until the user
-/// allows the blurred cover: only the cover's colours, never its picture.
+/// What the song cover backdrop shows: the blurred cover made vivid, so it
+/// never looks black, or, when the user turns that off, a colour wash of
+/// only the cover's colours, never its picture.
 /// </summary>
 public sealed class CoverEffectsTests
 {
@@ -171,6 +172,84 @@ public sealed class CoverEffectsTests
         Assert.NotNull(accent);
         Assert.InRange(accent.Value.ToHsl().Hue, 30, 45);
     }
+
+    [Theory]
+    [InlineData(25, 10, 40)]
+    [InlineData(5, 30, 20)]
+    [InlineData(60, 20, 10)]
+    public void A_dark_cover_glows_instead_of_looking_black(int r, int g, int b)
+    {
+        var cover = Image((_, _) => (r, g, b));
+        var before = Pixel(cover, 0, 0).ToHsl();
+        ArtworkColors.Vivid(cover, Size, Size);
+        var after = Pixel(cover, 20, 20).ToHsl();
+
+        Assert.InRange(after.Lightness, 0.29, 0.67);
+        Assert.True(after.Saturation > before.Saturation);
+        var hueShift = Math.Abs(after.Hue - before.Hue);
+        Assert.InRange(Math.Min(hueShift, 360 - hueShift), 0, 4);
+    }
+
+    [Theory]
+    [InlineData(0, 0, 0)]
+    [InlineData(128, 128, 128)]
+    [InlineData(255, 255, 255)]
+    public void A_black_and_white_cover_stays_grey(int r, int g, int b)
+    {
+        var cover = Image((_, _) => (r, g, b));
+        ArtworkColors.Vivid(cover, Size, Size);
+        var after = Pixel(cover, 3, 7);
+
+        Assert.InRange(after.R - after.G, -2, 2);
+        Assert.InRange(after.G - after.B, -2, 2);
+        Assert.InRange(after.ToHsl().Lightness, 0.29, 0.67);
+    }
+
+    [Theory]
+    [InlineData(255, 255, 255)]
+    [InlineData(255, 240, 60)]
+    [InlineData(60, 240, 255)]
+    [InlineData(120, 255, 120)]
+    [InlineData(255, 120, 200)]
+    public void A_bright_cover_stays_dark_enough_for_white_text(int r, int g, int b)
+    {
+        var cover = Image((_, _) => (r, g, b));
+        ArtworkColors.Vivid(cover, Size, Size);
+        var after = Pixel(cover, 39, 39);
+
+        Assert.True(after.Luminance <= 0.31, $"{after} is too bright");
+        Assert.True(ThemeColor.ContrastRatio(ThemeColor.White, after) >= 3, $"White text over {after} would not read");
+    }
+
+    [Fact]
+    public void Lighter_parts_of_a_cover_stay_lighter()
+    {
+        var cover = Image((x, _) => x < 20 ? (40, 20, 20) : (150, 75, 75));
+        ArtworkColors.Vivid(cover, Size, Size);
+
+        Assert.True(Pixel(cover, 30, 0).ToHsl().Lightness > Pixel(cover, 5, 0).ToHsl().Lightness);
+    }
+
+    [Fact]
+    public void A_vivid_cover_is_opaque_even_when_the_decoder_left_alpha_out()
+    {
+        var cover = Sunset();
+        for (var i = 3; i < cover.Length; i += 4)
+        {
+            cover[i] = 0;
+        }
+
+        ArtworkColors.Vivid(cover, Size, Size);
+
+        for (var i = 3; i < cover.Length; i += 4)
+        {
+            Assert.Equal(0xFF, cover[i]);
+        }
+    }
+
+    [Fact]
+    public void Vivid_refuses_a_short_buffer() =>
+        Assert.Throws<ArgumentException>(() => ArtworkColors.Vivid(new byte[8], 4, 4));
 
     private static byte[] Wash(byte[] cover) => ArtworkColors.ColourWash(cover, Size, Size, Size, Size);
 

@@ -147,9 +147,10 @@ internal sealed class ScreenshotTour
     }
 
     /// <summary>
-    /// The two cover switches (off unless the user turns them on): a spinning
-    /// cover, the blurred cover behind Liquid Glass, and the colour wash
-    /// Liquid Glass shows without it. Both are off again afterwards.
+    /// The two cover switches: a spinning cover (off unless the user turns it
+    /// on), the blurred cover behind Liquid Glass (on unless they turn it
+    /// off), and the colour wash Liquid Glass shows without it. Both are as
+    /// they were afterwards.
     /// </summary>
     private async Task<int> CoverEffectsAsync(int number)
     {
@@ -169,6 +170,7 @@ internal sealed class ScreenshotTour
         theme.BlurredCoverBackground = false;
         await Task.Delay(1300);
         await CaptureAsync($"{number++}-cover-wash.png");
+        theme.BlurredCoverBackground = true;
         return number;
     }
 

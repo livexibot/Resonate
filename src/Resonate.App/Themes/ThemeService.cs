@@ -99,9 +99,9 @@ public sealed class ThemeService
     }
 
     /// <summary>
-    /// The user allows looks with the song cover backdrop to show the cover
-    /// itself, blurred. Off until they switch it on; such looks then show a
-    /// soft wash of the cover's colours instead.
+    /// Looks with the song cover backdrop show the cover itself, blurred (on
+    /// unless the user switches it off; such looks then show a soft wash of
+    /// the cover's colours instead).
     /// </summary>
     public bool BlurredCoverBackground
     {

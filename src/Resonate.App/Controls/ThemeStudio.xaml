@@ -103,7 +103,7 @@
                     OnContent=""
                     Toggled="OnSpinningCoverToggled" />
             </controls:SettingRow>
-            <controls:SettingRow Description="Looks with the song cover as their background show the cover itself, blurred. When off, they use its colours." Header="Blurred cover background">
+            <controls:SettingRow Description="Looks with the song cover as their background, like Liquid Glass, show the cover itself, blurred. When off, they use only its colours." Header="Blurred cover background">
                 <ToggleSwitch
                     x:Name="BlurredCoverSwitch"
                     AutomationProperties.Name="Blurred cover background"

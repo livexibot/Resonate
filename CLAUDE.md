@@ -33,9 +33,9 @@ visitors; keep it short and in step with this file.
   (see "Plugins" under verified facts and decisions). CI installs and runs
   them in the installed app; on the owner's PC, check that Windows security
   software lets the downloaded helper run.
-- The classic player (a Winamp-style player chosen in Settings) and the
-  opt-in spinning cover and blurred-cover background are described under
-  "Classic player and cover art". On the owner's PC, check that the skin
+- The classic player (a Winamp-style player chosen in Settings), the
+  opt-in spinning cover and Liquid Glass's blurred-cover background are
+  described under "Classic player and cover art". On the owner's PC, check that the skin
   stays sharp at their display scaling, that a downloaded `.wsz` skin
   imports, that the visualiser moves for Local Files, and the cost of the
   spinning cover and Liquid Glass's drift on their 165 Hz display.
@@ -335,13 +335,19 @@ Classic player and cover art (checked 2026-10-08):
   works under Native AOT. For Spotify songs it stays still: Resonate cannot
   see Spotify's audio and must not capture it (see the hard rules).
 - Cover art switches (Settings, Look, Cover art) are global, not part of a
-  look, and off until the user turns them on. Spinning cover: the playing
+  look. Spinning cover (off until the user turns it on): the playing
   cover is drawn round and turns once every 7 s while a song plays and the
   window shows (composition rotation, paused otherwise; still when Windows
-  animations are off). Blurred cover background: looks whose backdrop is
-  the song cover (Liquid Glass) show the cover blurred; while it is off
-  they show a soft wash of the cover's colours instead. Both are one tiny
-  bitmap stretched by the GPU, so nothing is blurred per frame.
+  animations are off). Blurred cover background (on unless the user turns
+  it off): looks whose backdrop is the song cover (Liquid Glass) show the
+  cover blurred and made vivid (`ArtworkColors.Vivid`: stronger colour,
+  shades lifted out of black but kept dark enough for white text), under
+  a light tint (0.32); while it is off they show a soft wash of the
+  cover's colours instead. With nothing playing they glow with the look's
+  two accents, never plain black. Both are one tiny bitmap stretched by
+  the GPU, so nothing is blurred per frame. Real covers are never decoded
+  in CI (demo covers are made-up gradients), so check Liquid Glass with
+  real, dark covers on the owner's PC.
 
 GitHub automation:
 - Releases and pull requests made with the default `GITHUB_TOKEN` do not
@@ -770,9 +776,11 @@ when the work first needs them, then tick them off here.
   frame is about 6 ms.
 - Decided (7 October 2026): no lyrics; Resonate does not fetch them.
 - Decided (7 October 2026): spinning covers and the blurred cover behind
-  the window are allowed as options the user switches on (both off at
-  first). Spotify's design guidelines ask apps not to alter cover art; the
-  owner chose to offer these anyway. Cover, song and artist always stay
+  the window are allowed as options (the spinning cover off at first).
+  Spotify's design guidelines ask apps not to alter cover art; the owner
+  chose to offer these anyway. On 8 October 2026 the owner reported Liquid
+  Glass looking black and asked for its background to be the blurred song
+  cover, so that switch is now on at first. Cover, song and artist always stay
   visible, also in the classic player.
 - Decided (7 October 2026): a Winamp-style classic player, chosen in
   Settings (Classic player, "Use the classic player"), with Resonate's own
@@ -787,8 +795,9 @@ when the work first needs them, then tick them off here.
   Spotify or the user restarts it from Settings.
 - Themes (asked 7 October 2026, "akin to Spicetify"): six presets that
   differ in shape and material, not just colour: Midnight (the default),
-  Daylight, Liquid Glass (the song's cover, as a wash of its colours or,
-  once switched on, blurred, behind see-through panels), Pure Black, Synthwave and Paper. Under them, Customize edits
+  Daylight, Liquid Glass (the song's cover, blurred, or as a wash of its
+  colours once that is switched off, behind see-through panels), Pure
+  Black, Synthwave and Paper. Under them, Customize edits
   everything a look sets: colours, light, dark or black, backdrop
   (colour, gradient, song cover, Mica, acrylic), corners, button shape,
   outlines, spacing, shadows, fonts, and the player (docked or floating,
