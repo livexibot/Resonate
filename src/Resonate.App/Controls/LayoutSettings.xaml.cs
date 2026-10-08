@@ -23,6 +23,9 @@ public sealed partial class LayoutSettings : UserControl
     {
         InitializeComponent();
 
+        // Home's stage (part of Home itself): its visualizer, cover and colours, after the player.
+        Sections.Children.Insert(1, new SettingsGroup { Header = "Home", Content = StageSettings.HomeStage(_services) });
+
         foreach (var size in AppScale.AppSizes)
         {
             AppSizeChoice.Items.Add(AppScale.Label(size));

@@ -186,7 +186,7 @@ public static class ThemePresets
         Cover = CoverStyle.Square,
     };
 
-    /// <summary>Windows 11's own material: Mica behind calm, slightly see-through panels.</summary>
+    /// <summary>Windows 11's own colours: calm greys, gentle corners and its blue accent.</summary>
     public static ThemeDefinition Fluent { get; } = new()
     {
         Id = "fluent",
@@ -200,9 +200,7 @@ public static class ThemePresets
         Accent = ThemeColor.FromRgb(0x4CC2FF),
         Accent2 = ThemeColor.FromRgb(0x99EBFF),
         Border = ThemeColor.White.WithAlpha(0.08),
-        Backdrop = WindowBackdrop.Mica,
-        BackdropTint = 0.5,
-        PanelOpacity = 0.7,
+
         CornerRadius = 8,
         Buttons = ButtonShape.Rounded,
         BorderWidth = 1,
