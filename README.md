@@ -40,6 +40,11 @@ its own original skin built in. Add any classic `.wsz` skin you have, show
 it at double size, or roll it up to one line. Its visualiser moves for
 your own music files; Spotify's sound can't be analysed.
 
+Ctrl+M (or the button beside the window's own buttons) turns Resonate into
+a mini player, as Spotifast does: a small window that stays on top, with
+Winamp's equalizer and playlist windows docked under the player, at 1x to
+4x. Drop a `.wsz` skin on it to use it; Ctrl+M brings the full window back.
+
 ## Plugins
 
 Optional extras that are downloaded only when you turn them on in Settings,

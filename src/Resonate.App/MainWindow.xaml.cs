@@ -86,6 +86,7 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         BackButton.SizeChanged += (_, _) => UpdateTitleBarPassthrough();
+        MiniPlayerButton.SizeChanged += (_, _) => UpdateTitleBarPassthrough();
         AppTitleBar.SizeChanged += (_, _) => UpdateTitleBarPassthrough();
         AppWindow.Title = AppName;
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Resonate.ico"));
@@ -168,6 +169,7 @@ public sealed partial class MainWindow : Window
         SignInFrame.Visibility = Visibility.Collapsed;
         SignInFrame.Content = null;
         ShellGrid.Visibility = Visibility.Visible;
+        MiniPlayerButton.Visibility = Visibility.Visible;
         ApplyPlayerStyle();
 
         ShowPlaylists(_services.Library.Snapshot);
@@ -445,6 +447,8 @@ public sealed partial class MainWindow : Window
 
     public void ShowSignIn()
     {
+        LeaveMiniPlayer();
+        MiniPlayerButton.Visibility = Visibility.Collapsed;
         ShowQueue(false);
         ShowSettings(false);
         ShellGrid.Visibility = Visibility.Collapsed;
@@ -466,6 +470,8 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public void Open(string key)
     {
+        // A page needs this window: from the mini player (a song's album, say) it comes back.
+        LeaveMiniPlayer();
         if (key == SettingsKey)
         {
             // Settings is a pane next to the page, not a page.
@@ -479,7 +485,11 @@ public sealed partial class MainWindow : Window
 
     public void OpenPlaylist(string playlistId) => Open(playlistId);
 
-    public void OpenSettings() => ShowSettings(true);
+    public void OpenSettings()
+    {
+        LeaveMiniPlayer();
+        ShowSettings(true);
+    }
 
     public void OpenSearch() => Open(SearchKey);
 
@@ -1082,6 +1092,13 @@ public sealed partial class MainWindow : Window
 
     private void OnClosed(object sender, WindowEventArgs args)
     {
+        // Quitting from the mini player: it goes first, while the services it uses are still there.
+        if (_miniPlayer is { } mini)
+        {
+            _miniPlayer = null;
+            mini.CloseForGood();
+        }
+
         _lifetime.Cancel();
         _services.SaveSettings();
         _services.Dispose();
@@ -1102,23 +1119,45 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// The title bar drags the window, so clicks only reach the back button
-    /// through a "passthrough" area, kept in step with where the button is.
+    /// The title bar drags the window, so clicks only reach the back and mini
+    /// player buttons through "passthrough" areas, kept in step with where the
+    /// buttons are. The mini player button keeps clear of the window's own buttons.
     /// </summary>
     private void UpdateTitleBarPassthrough()
     {
+        if (AppTitleBar.XamlRoot is { RasterizationScale: > 0 } titleRoot)
+        {
+            var margin = new Thickness(0, 0, (AppWindow.TitleBar.RightInset / titleRoot.RasterizationScale) + 4, 0);
+            if (!MiniPlayerButton.Margin.Equals(margin))
+            {
+                MiniPlayerButton.Margin = margin;
+            }
+        }
+
+        var rects = new List<RectInt32>(2);
+        AddPassthrough(BackButton, rects);
+        AddPassthrough(MiniPlayerButton, rects);
         var input = InputNonClientPointerSource.GetForWindowId(AppWindow.Id);
-        if (BackButton.Visibility != Visibility.Visible || BackButton.ActualWidth == 0 || BackButton.XamlRoot is not { } root)
+        if (rects.Count == 0)
         {
             input.ClearRegionRects(NonClientRegionKind.Passthrough);
+        }
+        else
+        {
+            input.SetRegionRects(NonClientRegionKind.Passthrough, [.. rects]);
+        }
+    }
+
+    private static void AddPassthrough(FrameworkElement button, List<RectInt32> rects)
+    {
+        if (button.Visibility != Visibility.Visible || button.ActualWidth == 0 || button.XamlRoot is not { } root)
+        {
             return;
         }
 
         var scale = root.RasterizationScale;
-        var box = BackButton.TransformToVisual(null).TransformBounds(new global::Windows.Foundation.Rect(0, 0, BackButton.ActualWidth, BackButton.ActualHeight));
-        input.SetRegionRects(
-            NonClientRegionKind.Passthrough,
-            [new RectInt32((int)Math.Round(box.X * scale), (int)Math.Round(box.Y * scale), (int)Math.Round(box.Width * scale), (int)Math.Round(box.Height * scale))]);
+        var box = button.TransformToVisual(null).TransformBounds(new global::Windows.Foundation.Rect(0, 0, button.ActualWidth, button.ActualHeight));
+        rects.Add(new RectInt32((int)Math.Round(box.X * scale), (int)Math.Round(box.Y * scale), (int)Math.Round(box.Width * scale), (int)Math.Round(box.Height * scale)));
     }
 
     /// <summary>Sizes the window in device-independent pixels and centres it on its screen.</summary>

@@ -124,6 +124,9 @@ public sealed record ClassicView
     /// <summary>The clutter bar's D is lit (double size).</summary>
     public bool DoubleSize { get; init; }
 
+    /// <summary>The clutter bar's A is lit (the mini player stays on top of other windows).</summary>
+    public bool AlwaysOnTop { get; init; }
+
     /// <summary>The control under a pressed pointer, drawn pressed.</summary>
     public ClassicControl Pressed { get; init; }
 

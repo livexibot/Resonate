@@ -54,7 +54,7 @@ internal static class CodedSkin
         {
             0xFF000000 => "black",
             _ when (pixel & 0x00FFFF00) == 0x00F00000 => $"viscolor {pixel & 0xFF}",
-            _ when tag is >= 1 and <= 12 => $"{(SkinSheet)(tag - 1)} ({(pixel >> 9) & 0x1FF}, {pixel & 0x1FF})",
+            _ when tag >= 1 && tag <= SkinSheets.All.Count => $"{(SkinSheet)(tag - 1)} ({(pixel >> 9) & 0x1FF}, {pixel & 0x1FF})",
             _ => $"0x{pixel:X8}",
         };
     }

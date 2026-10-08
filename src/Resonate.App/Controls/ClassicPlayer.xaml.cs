@@ -26,7 +26,10 @@ namespace Resonate.App.Controls;
 /// any display scale. Like the player bar, every control acts on the player
 /// at once (the player is optimistic). It works only while it is in the
 /// window: MainWindow adds it when the classic player is chosen and removes
-/// it again, and while it is out nothing of it runs.
+/// it again, and while it is out nothing of it runs. The mini player has one
+/// of its own (<see cref="ClassicPlayer(MiniPlayerWindow)"/>): just the cover
+/// and the skin, with the mini player's own size and shade mode, its EQ and
+/// PL buttons opening the windows under it, and its title bar moving it.
 /// </summary>
 public sealed partial class ClassicPlayer : UserControl
 {
@@ -65,6 +68,9 @@ public sealed partial class ClassicPlayer : UserControl
     private readonly SkinLibrary _skins;
     private readonly PlayerRouter _player;
     private readonly CoverSpin _coverSpin;
+
+    /// <summary>The mini player this one belongs to; null in the main window.</summary>
+    private readonly MiniPlayerWindow? _mini;
 
     // While it is in the window
     private bool _loaded;
@@ -110,6 +116,7 @@ public sealed partial class ClassicPlayer : UserControl
     private double? _dragValue;
     private int _sentVolume = -1;
     private ClassicControl _hovered;
+    private bool _moving;
 
     public ClassicPlayer()
     {
@@ -121,10 +128,67 @@ public sealed partial class ClassicPlayer : UserControl
         // Fade covers in instead of popping them (runs on the compositor).
         CoverImage.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(180) };
 
+        // A .wsz dropped on the skin is added and used, as in Winamp.
+        SkinHost.AllowDrop = true;
+        SkinHost.DragOver += SkinDrop.OnDragOver;
+        SkinHost.Drop += SkinDrop.OnDrop;
+
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
         SizeChanged += OnSizeChanged;
         ApplyPlacement();
+    }
+
+    /// <summary>The mini player's main window: the cover and the skin, nothing around them.</summary>
+    internal ClassicPlayer(MiniPlayerWindow mini)
+        : this()
+    {
+        _mini = mini;
+        ApplyMiniLook();
+    }
+
+    /// <summary>Screen pixels per skin pixel for a size (1 normal, 2 double...) on a display scale: a whole number, at least 1.</summary>
+    internal static int PixelScale(int factor, double raster) =>
+        Math.Clamp((int)Math.Round(factor * (raster > 0 ? raster : 1), MidpointRounding.AwayFromZero), 1, MaxScale);
+
+    private bool Shaded => _mini is null ? _skins.Shaded : _skins.MiniShaded;
+
+    private bool DoubleSized => _mini is null ? _skins.DoubleSize : _skins.MiniSize > 1;
+
+    private void ToggleShade()
+    {
+        if (_mini is null)
+        {
+            _skins.Shaded = !_skins.Shaded;
+        }
+        else
+        {
+            _skins.MiniShaded = !_skins.MiniShaded;
+        }
+    }
+
+    /// <summary>No frame, padding, shadow or text: the cover and the skin fill the mini player's top row edge to edge.</summary>
+    private void ApplyMiniLook()
+    {
+        PlayerShell.Margin = new Thickness(0);
+        PlayerShell.CornerRadius = new CornerRadius(0);
+        PlayerShell.Level = ElevationLevel.Flat;
+        PlayerShell.HorizontalAlignment = HorizontalAlignment.Left;
+        PlayerFrame.Padding = new Thickness(0);
+        PlayerFrame.ColumnSpacing = 0;
+        PlayerFrame.BorderThickness = new Thickness(0);
+        PlayerFrame.CornerRadius = new CornerRadius(0);
+        PlayerFrame.Background = null;
+        CoverFrame.VerticalAlignment = VerticalAlignment.Top;
+        SkinHost.VerticalAlignment = VerticalAlignment.Top;
+        SongPanel.Visibility = Visibility.Collapsed;
+        ButtonsPanel.Visibility = Visibility.Collapsed;
+
+        // The cover moves the window too.
+        CoverFrame.PointerPressed += OnCoverPointerPressed;
+        CoverFrame.PointerMoved += OnCoverPointerMoved;
+        CoverFrame.PointerReleased += OnCoverPointerReleased;
+        CoverFrame.PointerCaptureLost += OnCoverPointerReleased;
     }
 
     /// <summary>
@@ -172,6 +236,7 @@ public sealed partial class ClassicPlayer : UserControl
         _services.Theme.SizeChanged += OnAppSizeChanged;
         _skins.Changed += OnSkinsChanged;
         _skins.OptionsChanged += OnOptionsChanged;
+        _skins.MiniOptionsChanged += OnMiniOptionsChanged;
         _player.StateChanged += OnStateChanged;
         _services.Visualiser.LiveChanged += OnLiveChanged;
         _services.Likes.Changed += OnLikesChanged;
@@ -215,6 +280,7 @@ public sealed partial class ClassicPlayer : UserControl
         _services.Theme.SizeChanged -= OnAppSizeChanged;
         _skins.Changed -= OnSkinsChanged;
         _skins.OptionsChanged -= OnOptionsChanged;
+        _skins.MiniOptionsChanged -= OnMiniOptionsChanged;
         _player.StateChanged -= OnStateChanged;
         _services.Visualiser.LiveChanged -= OnLiveChanged;
         _services.Likes.Changed -= OnLikesChanged;
@@ -241,6 +307,7 @@ public sealed partial class ClassicPlayer : UserControl
 
         _pressed = ClassicControl.None;
         _dragValue = null;
+        _moving = false;
         UpdateVisualiser();
         ApplyCoverLook();
     }
@@ -338,7 +405,7 @@ public sealed partial class ClassicPlayer : UserControl
         }
 
         _raster = PixelsPerUnit(_root);
-        var shaded = _skins.Shaded;
+        var shaded = Shaded;
         _scale = FittingScale();
 
         var height = shaded ? ClassicRenderer.ShadeHeight : ClassicRenderer.Height;
@@ -364,8 +431,8 @@ public sealed partial class ClassicPlayer : UserControl
         VisualiserView.Height = _visBitmap.PixelHeight / _raster;
         VisualiserView.Margin = new Thickness(area.X * _scale / _raster, area.Y * _scale / _raster, 0, 0);
 
-        // The cover is a square as tall as the skin (never tiny in shade mode).
-        var cover = Math.Max(MinCoverSize, SkinView.Height);
+        // The cover is a square as tall as the skin (never tiny in shade mode, apart from in the mini player's top row).
+        var cover = _mini is null ? Math.Max(MinCoverSize, SkinView.Height) : SkinView.Height;
         CoverFrame.Width = cover;
         CoverFrame.Height = cover;
         CoverHole.Width = CoverHole.Height = Math.Max(8, Math.Round(cover * 0.1));
@@ -378,6 +445,11 @@ public sealed partial class ClassicPlayer : UserControl
     /// <summary>Screen pixels per skin pixel: a whole number, twice as many at double size while the window has room for it.</summary>
     private int FittingScale()
     {
+        if (_mini is not null)
+        {
+            return ScaleFor(_skins.MiniSize);
+        }
+
         var single = ScaleFor(1);
         if (!_skins.DoubleSize)
         {
@@ -386,7 +458,7 @@ public sealed partial class ClassicPlayer : UserControl
 
         var doubled = ScaleFor(2);
         var available = ActualWidth - PlayerShell.Margin.Left - PlayerShell.Margin.Right;
-        var height = (_skins.Shaded ? ClassicRenderer.ShadeHeight : ClassicRenderer.Height) * doubled / _raster;
+        var height = (Shaded ? ClassicRenderer.ShadeHeight : ClassicRenderer.Height) * doubled / _raster;
         var needed = (ClassicRenderer.Width * doubled / _raster) + Math.Max(MinCoverSize, height) + RestOfRowWidth;
 
         // Before the first layout there is no width yet; SizeChanged follows.
@@ -394,7 +466,7 @@ public sealed partial class ClassicPlayer : UserControl
     }
 
     /// <summary>Whether the skin shows at double size now (it may not, in a narrow window).</summary>
-    public bool ShowsDoubleSize => _loaded && _scale > ScaleFor(1);
+    public bool ShowsDoubleSize => _loaded && _mini is null && _scale > ScaleFor(1);
 
     /// <summary>
     /// The narrowest the player gets without cutting anything off: the skin
@@ -405,17 +477,17 @@ public sealed partial class ClassicPlayer : UserControl
     {
         get
         {
-            var height = (_skins.Shaded ? ClassicRenderer.ShadeHeight : ClassicRenderer.Height) * ScaleFor(1) / _raster;
+            var height = (Shaded ? ClassicRenderer.ShadeHeight : ClassicRenderer.Height) * ScaleFor(1) / _raster;
             return (ClassicRenderer.Width * ScaleFor(1) / _raster) + Math.Max(MinCoverSize, height) + RestOfRowWidth - TitleStartWidth;
         }
     }
 
-    private int ScaleFor(int factor) => Math.Clamp((int)Math.Round(factor * _raster, MidpointRounding.AwayFromZero), 1, MaxScale);
+    private int ScaleFor(int factor) => PixelScale(factor, _raster);
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
         // Only double size depends on the width, and only a different scale needs new bitmaps.
-        if (_loaded && _skins.DoubleSize && FittingScale() != _scale)
+        if (_loaded && _mini is null && _skins.DoubleSize && FittingScale() != _scale)
         {
             RebuildSurface();
             ShowCover(_shown);
@@ -491,7 +563,7 @@ public sealed partial class ClassicPlayer : UserControl
     {
         var state = _shown;
         var play = _play;
-        var shaded = _skins.Shaded;
+        var shaded = Shaded;
         var duration = state.Duration > TimeSpan.Zero ? state.Duration : TimeSpan.Zero;
 
         // The display shows whole seconds; the thumb goes where the song is, so it stays where a drag let go.
@@ -535,9 +607,11 @@ public sealed partial class ClassicPlayer : UserControl
             Seek = seek,
             Shuffle = state.Shuffle,
             Repeat = state.Repeat != RepeatMode.Off,
-            EqualizerOn = _services.Equalizer.Current.Enabled,
-            PlaylistOn = App.MainWindow?.IsQueueOpen == true,
-            DoubleSize = _skins.DoubleSize,
+            // In the mini player EQ and PL say whether its windows are open, as in Winamp.
+            EqualizerOn = _mini is null ? _services.Equalizer.Current.Enabled : _skins.MiniEqualizer,
+            PlaylistOn = _mini is null ? App.MainWindow?.IsQueueOpen == true : _skins.MiniPlaylist,
+            DoubleSize = DoubleSized,
+            AlwaysOnTop = _mini is not null && _skins.MiniOnTop,
             Pressed = PressedToDraw(),
             WindowActive = _windowActive,
             Shaded = shaded,
@@ -565,7 +639,9 @@ public sealed partial class ClassicPlayer : UserControl
             case ClassicControl.Seek when _dragValue is { } seek && _shown.Duration > TimeSpan.Zero:
                 return ($"Seek to: {Format.Duration(seek * _shown.Duration)}/{Format.Duration(_shown.Duration)} ({(int)(seek * 100)}%)", 0);
             case ClassicControl.ClutterDoubleSize:
-                return (_skins.DoubleSize ? "Disable doublesize mode" : "Enable doublesize mode", 0);
+                return (DoubleSized ? "Disable doublesize mode" : "Enable doublesize mode", 0);
+            case ClassicControl.ClutterAlwaysOnTop when _mini is not null:
+                return (_skins.MiniOnTop ? "Disable always on top" : "Enable always on top", 0);
             default:
                 return (_songLine, _marqueeStep);
         }
@@ -573,8 +649,8 @@ public sealed partial class ClassicPlayer : UserControl
 
     private ClassicControl PressedToDraw() => _pressed switch
     {
-        // Sliders and the D stay pressed wherever the pointer goes; buttons only while it is over them.
-        ClassicControl.Volume or ClassicControl.Balance or ClassicControl.Seek or ClassicControl.ClutterDoubleSize => _pressed,
+        // Sliders and the A and D stay pressed wherever the pointer goes; buttons only while it is over them.
+        ClassicControl.Volume or ClassicControl.Balance or ClassicControl.Seek or ClassicControl.ClutterDoubleSize or ClassicControl.ClutterAlwaysOnTop => _pressed,
         _ => _pressedOver ? _pressed : ClassicControl.None,
     };
 
@@ -594,7 +670,7 @@ public sealed partial class ClassicPlayer : UserControl
         if (wanted != _wanted)
         {
             _wanted = wanted;
-            feed.Wanted = wanted;
+            feed.SetWanted(this, wanted);
         }
 
         // Keyed on the song, not on whether sound flows: a paused local file keeps its last picture.
@@ -650,7 +726,7 @@ public sealed partial class ClassicPlayer : UserControl
         var skin = _skins.Current;
         try
         {
-            ClassicRenderer.RenderVisualiser(skin, _skins.Visualiser, atRest ? null : frame, _skins.Shaded, _visFrame);
+            ClassicRenderer.RenderVisualiser(skin, _skins.Visualiser, atRest ? null : frame, Shaded, _visFrame);
         }
         catch (Exception ex) when (!skin.IsBuiltIn)
         {
@@ -804,6 +880,11 @@ public sealed partial class ClassicPlayer : UserControl
     /// </summary>
     private void ApplyPlacement()
     {
+        if (_mini is not null)
+        {
+            return;
+        }
+
         // Over a page too narrow for it (the queue open in a small window),
         // it starts at the page's edge like the docked player, rather than
         // being cut off on both sides.
@@ -898,8 +979,24 @@ public sealed partial class ClassicPlayer : UserControl
         Invalidate();
     }
 
-    /// <summary>Screen pixels per unit of layout: the display's scale times the user's App size (see ScaleBox).</summary>
-    private double PixelsPerUnit(XamlRoot root) => (root.RasterizationScale > 0 ? root.RasterizationScale : 1) * _services.Theme.Scale;
+    private void OnMiniOptionsChanged(object? sender, EventArgs e)
+    {
+        if (_mini is null)
+        {
+            return;
+        }
+
+        // Size or shade mode may have changed; always on top and the EQ and PL lamps only need drawing.
+        OnOptionsChanged(sender, e);
+    }
+
+    /// <summary>
+    /// Screen pixels per unit of layout: the display's scale, times the
+    /// user's App size in the main window (see ScaleBox). The mini player's
+    /// window is not scaled.
+    /// </summary>
+    private double PixelsPerUnit(XamlRoot root) =>
+        (root.RasterizationScale > 0 ? root.RasterizationScale : 1) * (_mini is null ? _services.Theme.Scale : 1);
 
     private void OnXamlRootChanged(XamlRoot sender, XamlRootChangedEventArgs args) => RedrawForPixels(sender);
 
@@ -934,13 +1031,13 @@ public sealed partial class ClassicPlayer : UserControl
 
     private ClassicControl HitTest(double x, double y)
     {
-        var height = _skins.Shaded ? ClassicRenderer.ShadeHeight : ClassicRenderer.Height;
+        var height = Shaded ? ClassicRenderer.ShadeHeight : ClassicRenderer.Height;
         if (!_skins.IsReady || x < 0 || y < 0 || x >= ClassicRenderer.Width || y >= height)
         {
             return ClassicControl.None;
         }
 
-        return ClassicLayout.HitTest((int)Math.Floor(x), (int)Math.Floor(y), _skins.Shaded);
+        return ClassicLayout.HitTest((int)Math.Floor(x), (int)Math.Floor(y), Shaded);
     }
 
     private static bool IsSlider(ClassicControl control) =>
@@ -962,9 +1059,25 @@ public sealed partial class ClassicPlayer : UserControl
             return;
         }
 
-        if (!point.Properties.IsLeftButtonPressed
-            || _pressed != ClassicControl.None
-            || control is ClassicControl.None or ClassicControl.TitleBar or ClassicControl.Marquee or ClassicControl.About
+        if (!point.Properties.IsLeftButtonPressed || _pressed != ClassicControl.None || _moving)
+        {
+            return;
+        }
+
+        if (_mini is not null && control is ClassicControl.None or ClassicControl.TitleBar or ClassicControl.Marquee)
+        {
+            // In the mini player the title bar, and whatever is not a control, moves the window, as in Winamp.
+            e.Handled = true;
+            _moving = true;
+            _pointerId = e.Pointer.PointerId;
+            SkinHost.CapturePointer(e.Pointer);
+            _mini.BeginMove();
+            return;
+        }
+
+        // The logo is a button only in the mini player (back to the full window).
+        if (control is ClassicControl.None or ClassicControl.TitleBar or ClassicControl.Marquee
+            || (control == ClassicControl.About && _mini is null)
             || (control == ClassicControl.Seek && !CanSeek(_shown, _play)))
         {
             return;
@@ -993,7 +1106,7 @@ public sealed partial class ClassicPlayer : UserControl
             return;
         }
 
-        var shaded = _skins.Shaded;
+        var shaded = Shaded;
         var current = slider == ClassicControl.Volume
             ? _shown.Volume
             : _shown.Duration > TimeSpan.Zero ? Math.Clamp(_shown.PositionAt(DateTimeOffset.UtcNow) / _shown.Duration, 0, 1) : 0;
@@ -1009,7 +1122,7 @@ public sealed partial class ClassicPlayer : UserControl
             return;
         }
 
-        var value = ClassicLayout.SliderValue(_pressed, x - _grabOffset, _skins.Shaded);
+        var value = ClassicLayout.SliderValue(_pressed, x - _grabOffset, Shaded);
         _dragValue = value;
         if (_pressed == ClassicControl.Volume)
         {
@@ -1025,6 +1138,13 @@ public sealed partial class ClassicPlayer : UserControl
 
     private void OnSkinPointerMoved(object sender, PointerRoutedEventArgs e)
     {
+        if (_moving && e.Pointer.PointerId == _pointerId)
+        {
+            e.Handled = true;
+            _mini?.Move();
+            return;
+        }
+
         var (x, y) = SkinPoint(e.GetCurrentPoint(SkinView).Position);
         if (_pressed != ClassicControl.None && e.Pointer.PointerId == _pointerId)
         {
@@ -1052,6 +1172,15 @@ public sealed partial class ClassicPlayer : UserControl
 
     private void OnSkinPointerReleased(object sender, PointerRoutedEventArgs e)
     {
+        if (_moving && e.Pointer.PointerId == _pointerId)
+        {
+            e.Handled = true;
+            _moving = false;
+            SkinHost.ReleasePointerCapture(e.Pointer);
+            _mini?.EndMove();
+            return;
+        }
+
         if (_pressed == ClassicControl.None || e.Pointer.PointerId != _pointerId)
         {
             return;
@@ -1085,6 +1214,12 @@ public sealed partial class ClassicPlayer : UserControl
 
     private void OnSkinPointerCanceled(object sender, PointerRoutedEventArgs e)
     {
+        if (_moving && e.Pointer.PointerId == _pointerId)
+        {
+            _moving = false;
+            _mini?.EndMove();
+        }
+
         if (_pressed != ClassicControl.None && e.Pointer.PointerId == _pointerId)
         {
             _pressed = ClassicControl.None;
@@ -1110,7 +1245,42 @@ public sealed partial class ClassicPlayer : UserControl
         if (HitTest(x, y) == ClassicControl.TitleBar)
         {
             e.Handled = true;
-            _skins.Shaded = !_skins.Shaded;
+            ToggleShade();
+        }
+    }
+
+    // The mini player's cover moves its window, like its title bar.
+
+    private void OnCoverPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (_mini is null || _moving || _pressed != ClassicControl.None || !e.GetCurrentPoint(CoverFrame).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        _moving = true;
+        _pointerId = e.Pointer.PointerId;
+        CoverFrame.CapturePointer(e.Pointer);
+        _mini.BeginMove();
+    }
+
+    private void OnCoverPointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (_moving && e.Pointer.PointerId == _pointerId)
+        {
+            e.Handled = true;
+            _mini?.Move();
+        }
+    }
+
+    private void OnCoverPointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (_moving && e.Pointer.PointerId == _pointerId)
+        {
+            _moving = false;
+            CoverFrame.ReleasePointerCapture(e.Pointer);
+            _mini?.EndMove();
         }
     }
 
@@ -1159,10 +1329,18 @@ public sealed partial class ClassicPlayer : UserControl
                 _ = _player.SetRepeatAsync(MainWindow.NextRepeat(_shown.Repeat));
                 break;
             case ClassicControl.Eject:
+                // Winamp opened files here; Resonate finds songs in Search (in the full window).
+                _mini?.Leave();
                 App.MainWindow?.FocusSearch();
+                return;
+            case ClassicControl.Equalizer when _mini is not null:
+                _skins.MiniEqualizer = !_skins.MiniEqualizer;
                 return;
             case ClassicControl.Equalizer:
                 App.MainWindow?.OpenSettings(SettingsSection.Equalizer);
+                return;
+            case ClassicControl.Playlist when _mini is not null:
+                _skins.MiniPlaylist = !_skins.MiniPlaylist;
                 return;
             case ClassicControl.Playlist:
                 App.MainWindow?.ToggleQueue();
@@ -1179,14 +1357,27 @@ public sealed partial class ClassicPlayer : UserControl
             case ClassicControl.ClutterVisualiser:
                 ShowVisualiserMenu(at);
                 return;
+            case ClassicControl.ClutterDoubleSize when _mini is not null:
+                _skins.MiniSize = _skins.MiniSize > 1 ? 1 : 2;
+                return;
             case ClassicControl.ClutterDoubleSize:
                 _skins.DoubleSize = !_skins.DoubleSize;
+                return;
+            case ClassicControl.ClutterAlwaysOnTop when _mini is not null:
+                _skins.MiniOnTop = !_skins.MiniOnTop;
+                return;
+            case ClassicControl.Minimize when _mini is not null:
+                _mini.Minimize();
                 return;
             case ClassicControl.Minimize:
                 App.MainWindow?.Minimize();
                 return;
             case ClassicControl.Shade:
-                _skins.Shaded = !_skins.Shaded;
+                ToggleShade();
+                return;
+            case ClassicControl.Close or ClassicControl.About when _mini is not null:
+                // The mini player's close button and logo go back to the full window (Resonate keeps playing).
+                _mini.Leave();
                 return;
             case ClassicControl.Close:
                 _skins.UsesClassicPlayer = false;
@@ -1211,9 +1402,11 @@ public sealed partial class ClassicPlayer : UserControl
     {
         ClassicControl.Options or ClassicControl.ClutterOptions => "Skins and options",
         ClassicControl.Minimize => "Minimise",
-        ClassicControl.Shade => _skins.Shaded ? "Full size" : "Shade: just the title strip",
+        ClassicControl.Shade => Shaded ? "Full size" : "Shade: just the title strip",
+        ClassicControl.Close or ClassicControl.About when _mini is not null => "Back to the full window (Ctrl+M)",
         ClassicControl.Close => "Back to the modern player",
-        ClassicControl.ClutterDoubleSize => _skins.DoubleSize ? "Normal size" : "Double size",
+        ClassicControl.ClutterAlwaysOnTop when _mini is not null => _skins.MiniOnTop ? "Stop staying on top" : "Stay on top of other windows",
+        ClassicControl.ClutterDoubleSize => DoubleSized ? "Normal size" : "Double size",
         ClassicControl.ClutterVisualiser => "Visualiser",
         ClassicControl.Time => "Time played or time left",
         ClassicControl.Visualiser => "Spectrum, oscilloscope or off. It moves for your own music files.",
@@ -1222,11 +1415,11 @@ public sealed partial class ClassicPlayer : UserControl
         ClassicControl.Pause => "Pause",
         ClassicControl.Stop => "Stop",
         ClassicControl.Next => "Next",
-        ClassicControl.Eject => "Search",
+        ClassicControl.Eject => _mini is null ? "Search" : "Find songs in the full window",
         ClassicControl.Shuffle => "Shuffle",
         ClassicControl.Repeat => "Repeat",
         ClassicControl.Equalizer => "Equalizer",
-        ClassicControl.Playlist => "Queue",
+        ClassicControl.Playlist => _mini is null ? "Queue" : "Playlist (the queue)",
         ClassicControl.Volume => "Volume",
         ClassicControl.Balance => "Balance (always in the middle)",
         ClassicControl.Seek => "Position",
@@ -1247,13 +1440,33 @@ public sealed partial class ClassicPlayer : UserControl
         }
 
         var add = new MenuFlyoutItem { Text = "Add a skin…", IsEnabled = !_services.IsDemo };
-        add.Click += (_, _) => _ = _skins.PickAndImportAsync();
+        add.Click += (_, _) => _ = _skins.PickAndImportAsync(_mini?.AppWindow.Id);
         menu.Items.Add(add);
         menu.Items.Add(new MenuFlyoutSeparator());
 
-        var doubled = new ToggleMenuFlyoutItem { Text = "Double size", IsChecked = _skins.DoubleSize };
-        doubled.Click += (_, _) => _skins.DoubleSize = !_skins.DoubleSize;
-        menu.Items.Add(doubled);
+        if (_mini is null)
+        {
+            var doubled = new ToggleMenuFlyoutItem { Text = "Double size", IsChecked = _skins.DoubleSize };
+            doubled.Click += (_, _) => _skins.DoubleSize = !_skins.DoubleSize;
+            menu.Items.Add(doubled);
+        }
+        else
+        {
+            var size = new MenuFlyoutSubItem { Text = "Size" };
+            for (var factor = 1; factor <= SkinLibrary.MaxMiniSize; factor++)
+            {
+                var chosen = factor;
+                var item = new RadioMenuFlyoutItem { Text = $"{factor}x", GroupName = "classic-mini-size", IsChecked = factor == _skins.MiniSize };
+                item.Click += (_, _) => _skins.MiniSize = chosen;
+                size.Items.Add(item);
+            }
+
+            menu.Items.Add(size);
+            var onTop = new ToggleMenuFlyoutItem { Text = "Always on top", IsChecked = _skins.MiniOnTop };
+            onTop.Click += (_, _) => _skins.MiniOnTop = !_skins.MiniOnTop;
+            menu.Items.Add(onTop);
+        }
+
         var remaining = new ToggleMenuFlyoutItem { Text = "Show time left", IsChecked = _skins.ShowRemaining };
         remaining.Click += (_, _) => _skins.ShowRemaining = !_skins.ShowRemaining;
         menu.Items.Add(remaining);
@@ -1262,9 +1475,24 @@ public sealed partial class ClassicPlayer : UserControl
         menu.Items.Add(visualiser);
         menu.Items.Add(new MenuFlyoutSeparator());
 
-        var modern = new MenuFlyoutItem { Text = "Modern player" };
-        modern.Click += (_, _) => _skins.UsesClassicPlayer = false;
-        menu.Items.Add(modern);
+        if (_mini is { } mini)
+        {
+            var back = new MenuFlyoutItem { Text = "Back to the full window", KeyboardAcceleratorTextOverride = "Ctrl+M" };
+            back.Click += (_, _) => mini.Leave();
+            menu.Items.Add(back);
+            var exit = new MenuFlyoutItem { Text = "Exit Resonate" };
+            exit.Click += (_, _) => App.MainWindow?.Close();
+            menu.Items.Add(exit);
+        }
+        else
+        {
+            var compact = new MenuFlyoutItem { Text = "Mini player", KeyboardAcceleratorTextOverride = "Ctrl+M" };
+            compact.Click += (_, _) => App.MainWindow?.ShowMiniPlayer();
+            menu.Items.Add(compact);
+            var modern = new MenuFlyoutItem { Text = "Modern player" };
+            modern.Click += (_, _) => _skins.UsesClassicPlayer = false;
+            menu.Items.Add(modern);
+        }
         menu.ShowAt(SkinHost, new FlyoutShowOptions { Position = at });
     }
 

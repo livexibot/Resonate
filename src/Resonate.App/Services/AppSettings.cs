@@ -55,6 +55,33 @@ public sealed class AppSettings
     /// <summary>The classic player's time display counts down.</summary>
     public bool ClassicShowRemaining { get; set; }
 
+    /// <summary>The mini player's size: each skin pixel 1 to 4 times as large (on top of the display's scaling).</summary>
+    public int MiniPlayerSize { get; set; } = 1;
+
+    /// <summary>The mini player stays above other windows.</summary>
+    public bool MiniPlayerOnTop { get; set; } = true;
+
+    /// <summary>The mini player's main window in shade mode.</summary>
+    public bool MiniPlayerShaded { get; set; }
+
+    /// <summary>The mini player shows its equalizer window.</summary>
+    public bool MiniPlayerEqualizer { get; set; }
+
+    /// <summary>The mini player's equalizer rolled up.</summary>
+    public bool MiniPlayerEqualizerShaded { get; set; }
+
+    /// <summary>The mini player shows its playlist window (the queue).</summary>
+    public bool MiniPlayerPlaylist { get; set; }
+
+    /// <summary>The mini player's playlist rolled up.</summary>
+    public bool MiniPlayerPlaylistShaded { get; set; }
+
+    /// <summary>The mini player's playlist height in skin pixels (116, then steps of 29).</summary>
+    public int MiniPlayerPlaylistHeight { get; set; } = 232;
+
+    /// <summary>Where the mini player was left, in screen pixels; null to place it in the corner of the screen.</summary>
+    public WindowPlacement? MiniPlayerPlace { get; set; }
+
     /// <summary>"local" (Windows' media controls first) or "webapi" (the Spotify Web API only).</summary>
     public string ControlChannel { get; set; } = "local";
 
