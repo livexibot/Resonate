@@ -263,9 +263,16 @@ internal sealed partial class PerformanceTour
             _window.CloseSettings();
 
             // Memory that keeps climbing round after round is a leak; caches level off.
+            // The first sample after a round can still hold memory that one more
+            // collection gives back: the sample taken straight after round 4 was
+            // 11.6 to 12 MB lower in every run, and that slack alone failed main
+            // once with the same code that had passed (CI, 8 October 2026). The
+            // lower of two samples keeps what a leak keeps and drops the slack.
             _window.Open(MainWindow.SearchKey);
             await SettleAsync(TimeSpan.FromSeconds(3));
-            _privateMbAfterRound.Add((await SampleMemoryAsync()).PrivateMb);
+            var first = await SampleMemoryAsync();
+            var second = await SampleMemoryAsync();
+            _privateMbAfterRound.Add(Math.Min(first.PrivateMb, second.PrivateMb));
         }
 
         var current = _window.CurrentPage;

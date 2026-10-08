@@ -112,8 +112,10 @@ Building and testing:
   or first frame over 500 ms, idle over 2 % of a core (4 % while
   playing), a page still alive after leaving it, memory growing over
   10 MB in the last round (read on Search, which shows no pictures; read
-  on Home it also counted memory given back once another page opened), a
-  warm start over 1 s, or a build warning.
+  on Home it also counted memory given back once another page opened;
+  the lower of two samples, because the first one after a round held 10
+  to 16 MB that one more collection gave back, which once failed main by
+  itself on 8 October 2026), a warm start over 1 s, or a build warning.
   GitHub's machines draw without a graphics card, so judge drawing cost
   on a real PC. WinUI lets go of a closed page only on a later frame, and
   an idle window draws none, so the test asks for frames between
