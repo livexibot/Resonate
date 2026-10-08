@@ -85,7 +85,7 @@ public static class ThemePresets
     public static ThemeDefinition Oled { get; } = new()
     {
         Id = "oled",
-        Name = "OLED",
+        Name = "Black",
         Background = ThemeColor.Black,
         Background2 = ThemeColor.Black,
         Sidebar = ThemeColor.Black,
@@ -212,7 +212,7 @@ public static class ThemePresets
         Progress = ProgressStyle.Line,
     };
 
-    /// <summary>A mixing desk: graphite panels, orange like a console's lights, the player along the top.</summary>
+    /// <summary>A mixing desk: graphite panels, orange like a console's lights.</summary>
     public static ThemeDefinition Studio { get; } = new()
     {
         Id = "studio",
@@ -233,7 +233,7 @@ public static class ThemePresets
         Shadow = ShadowStyle.Strong,
         DisplayFont = "Space Grotesk",
         TextFont = "Inter",
-        PlayerLayout = PlayerLayout.FloatingTop,
+        PlayerLayout = PlayerLayout.Floating,
         Progress = ProgressStyle.Bold,
         Cover = CoverStyle.Square,
     };
@@ -263,7 +263,7 @@ public static class ThemePresets
         Cover = CoverStyle.Vinyl,
     };
 
-    /// <summary>A phosphor screen on true black: glowing green type and outlines, amber highlights, monospace and the player across the top.</summary>
+    /// <summary>A phosphor screen on true black: glowing green type and outlines, amber highlights, monospace and the player along the bottom.</summary>
     public static ThemeDefinition Terminal { get; } = new()
     {
         Id = "terminal",
@@ -284,20 +284,93 @@ public static class ThemePresets
         Shadow = ShadowStyle.Glow,
         DisplayFont = "Geist Mono",
         TextFont = "Geist Mono",
-        PlayerLayout = PlayerLayout.Top,
+        PlayerLayout = PlayerLayout.Docked,
         Progress = ProgressStyle.Bold,
         PlayButton = PlayButtonStyle.Outline,
         Cover = CoverStyle.Square,
     };
 
+    /// <summary>Warm charcoal lit by coral and amber, rounded and soft.</summary>
+    public static ThemeDefinition Ember { get; } = new()
+    {
+        Id = "ember",
+        Name = "Ember",
+        Background = ThemeColor.FromRgb(0x15110F),
+        Background2 = ThemeColor.FromRgb(0x2E1810),
+        Sidebar = ThemeColor.FromRgb(0x1B1512),
+        Surface = ThemeColor.FromRgb(0x211A16),
+        Player = ThemeColor.FromRgb(0x1B1512),
+        Text = ThemeColor.FromRgb(0xF7EDE6),
+        Accent = ThemeColor.FromRgb(0xFF7849),
+        Accent2 = ThemeColor.FromRgb(0xFFC15E),
+        Backdrop = WindowBackdrop.Gradient,
+        GradientAngle = 200,
+        PanelOpacity = 0.9,
+        CornerRadius = 16,
+        PanelGap = 10,
+        Shadow = ShadowStyle.Soft,
+        DisplayFont = "Manrope",
+        TextFont = "Manrope",
+        PlayerLayout = PlayerLayout.Floating,
+        Progress = ProgressStyle.Gradient,
+    };
+
+    /// <summary>Calm green-grey paper tones with a deep green accent.</summary>
+    public static ThemeDefinition Sage { get; } = new()
+    {
+        Id = "sage",
+        Name = "Sage",
+        Background = ThemeColor.FromRgb(0xE6ECE4),
+        Background2 = ThemeColor.FromRgb(0xD9E3D4),
+        Sidebar = ThemeColor.FromRgb(0xF1F5EF),
+        Surface = ThemeColor.FromRgb(0xFBFCFA),
+        Player = ThemeColor.FromRgb(0xFFFFFF),
+        Text = ThemeColor.FromRgb(0x1C2420),
+        Accent = ThemeColor.FromRgb(0x2F7D5B),
+        Accent2 = ThemeColor.FromRgb(0xC98A2E),
+        CornerRadius = 14,
+        Buttons = ButtonShape.Rounded,
+        PanelGap = 10,
+        Shadow = ShadowStyle.Soft,
+        DisplayFont = "Figtree",
+        TextFont = "Figtree",
+        PlayerLayout = PlayerLayout.Docked,
+        Progress = ProgressStyle.Bold,
+    };
+
+    /// <summary>True black with northern-lights accents: teal and violet glows and a hovering pill.</summary>
+    public static ThemeDefinition Aurora { get; } = new()
+    {
+        Id = "aurora",
+        Name = "Aurora",
+        Background = ThemeColor.Black,
+        Background2 = ThemeColor.FromRgb(0x001018),
+        Sidebar = ThemeColor.Black,
+        Surface = ThemeColor.Black,
+        Player = ThemeColor.Black,
+        Text = ThemeColor.FromRgb(0xEAFBFF),
+        Accent = ThemeColor.FromRgb(0x00E5C7),
+        Accent2 = ThemeColor.FromRgb(0x8A5CFF),
+        Border = ThemeColor.FromRgb(0x00E5C7).WithAlpha(0.22),
+        CornerRadius = 18,
+        BorderWidth = 1,
+        PanelGap = 8,
+        Shadow = ShadowStyle.Glow,
+        DisplayFont = "Sora",
+        TextFont = "Sora",
+        PlayerLayout = PlayerLayout.Hovering,
+        Progress = ProgressStyle.Gradient,
+        Cover = CoverStyle.Vinyl,
+    };
+
     /// <summary>Dark looks, the default first.</summary>
-    public static IReadOnlyList<ThemeDefinition> Dark { get; } = [Midnight, Glass, Fluent, Studio, Synthwave];
+    public static IReadOnlyList<ThemeDefinition> Dark { get; } = [Midnight, Glass, Ember, Fluent, Studio, Synthwave];
 
     /// <summary>Light looks, the default first.</summary>
-    public static IReadOnlyList<ThemeDefinition> Light { get; } = [Daylight, Paper, Bubblegum];
+    public static IReadOnlyList<ThemeDefinition> Light { get; } = [Daylight, Paper, Sage, Bubblegum];
 
     /// <summary>True-black looks for OLED screens, the default first.</summary>
-    public static IReadOnlyList<ThemeDefinition> Black { get; } = [Oled, PureBlack, Terminal];
+    public static IReadOnlyList<ThemeDefinition> Black { get; } = [Oled, Aurora, PureBlack, Terminal];
     public static IReadOnlyList<ThemeDefinition> All { get; } = [.. Dark, .. Light, .. Black];
 
     public static ThemeDefinition Default => Midnight;

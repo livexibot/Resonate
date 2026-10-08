@@ -86,16 +86,8 @@ public sealed class ThemeService
     /// <summary>The colours and sizes of the look in use (with the cover's accent when it follows the cover).</summary>
     public ThemePalette Palette { get; private set; }
 
-    /// <summary>How switching looks animates.</summary>
-    public ThemeTransitionKind Transition
-    {
-        get => _settings.ThemeTransition;
-        set
-        {
-            _settings.ThemeTransition = value;
-            SaveSoon();
-        }
-    }
+    /// <summary>How switching looks animates: always a ripple from the click (the owner's choice; not a setting).</summary>
+    public ThemeTransitionKind Transition => ThemeTransitionKind.Ripple;
 
     /// <summary>The latest switch of looks: finishes when its animation has (for the speed test and the screenshot tour).</summary>
     internal Task TransitionTask { get; private set; } = Task.CompletedTask;

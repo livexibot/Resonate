@@ -57,23 +57,6 @@
         <!-- Effects: the user's own choices, kept whatever look is in use (not part of a look) -->
         <controls:SettingsGroup Header="Effects">
             <StackPanel Spacing="6">
-                <controls:SettingRow Header="Switching animation">
-                    <ComboBox
-                        x:Name="TransitionChoice"
-                        MinWidth="170"
-                        AutomationProperties.Name="Switching animation"
-                        SelectionChanged="OnTransitionChanged">
-                        <ComboBoxItem Content="Morph" Tag="Morph" />
-                        <ComboBoxItem Content="Cross-fade" Tag="Fade" />
-                        <ComboBoxItem Content="Spread from the middle" Tag="Grow" />
-                        <ComboBoxItem Content="Ripple from the click" Tag="Ripple" />
-                        <ComboBoxItem Content="Split apart" Tag="Split" />
-                        <ComboBoxItem Content="Blinds" Tag="Blinds" />
-                        <ComboBoxItem Content="Wipe" Tag="Wipe" />
-                        <ComboBoxItem Content="Surprise me" Tag="Random" />
-                        <ComboBoxItem Content="None" Tag="None" />
-                    </ComboBox>
-                </controls:SettingRow>
                 <controls:SettingRow Description="Turns like a record while a song plays." Header="Spinning cover">
                     <ToggleSwitch
                         x:Name="SpinningCoverSwitch"

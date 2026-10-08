@@ -58,19 +58,19 @@ public sealed class ThemeColorTests
 public sealed class PresetTests
 {
     [Fact]
-    public void There_are_eleven_presets_in_three_groups_with_unique_ids_and_names()
+    public void There_are_fourteen_presets_in_three_groups_with_unique_ids_and_names()
     {
-        Assert.Equal(11, ThemePresets.All.Count);
+        Assert.Equal(14, ThemePresets.All.Count);
         Assert.Equal(ThemePresets.Dark.Count + ThemePresets.Light.Count + ThemePresets.Black.Count, ThemePresets.All.Count);
         Assert.Equal(ThemePresets.All.Count, ThemePresets.All.Select(p => p.Id).Distinct().Count());
         Assert.Equal(ThemePresets.All.Count, ThemePresets.All.Select(p => p.Name).Distinct().Count());
     }
 
     [Fact]
-    public void Every_player_position_along_the_top_or_bottom_is_shown_by_a_preset() =>
-        Assert.All(
-            Enum.GetValues<PlayerLayout>().Where(l => !PlayerPlacement.IsSide(l) && l is not (PlayerLayout.HoveringTop or PlayerLayout.CornerLeft)),
-            layout => Assert.Contains(ThemePresets.All, p => p.PlayerLayout == layout));
+    public void Every_preset_has_the_player_at_the_bottom() =>
+        Assert.All(ThemePresets.All, p => Assert.True(
+            p.PlayerLayout is PlayerLayout.Docked or PlayerLayout.Floating or PlayerLayout.Hovering or PlayerLayout.Corner or PlayerLayout.CornerLeft,
+            $"{p.Name} has the player at {p.PlayerLayout}"));
 
     [Fact]
     public void The_presets_use_only_fonts_that_come_with_Resonate_or_Windows() =>

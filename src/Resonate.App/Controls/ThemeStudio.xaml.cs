@@ -191,7 +191,6 @@ public sealed partial class ThemeStudio : UserControl
         {
             // Room for the colours' names at the user's Text size.
             SwatchGrid.ItemWidth = SwatchWidth * _theme.TextScale;
-            Select(TransitionChoice, _theme.Transition.ToString());
             Select(BackdropChoice, look.Backdrop.ToString());
             Select(ButtonsChoice, look.Buttons.ToString());
             Select(ShadowChoice, look.Shadow.ToString());
@@ -557,13 +556,6 @@ public sealed partial class ThemeStudio : UserControl
         _theme.Edit(look => swatch.Set(look, color));
     }
 
-    private void OnTransitionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (!_loading && TransitionChoice.SelectedItem is ComboBoxItem { Tag: string tag })
-        {
-            _theme.Transition = ThemeTransitionKindConverter.Parse(tag);
-        }
-    }
 
     private void OnLookClick(object sender, ItemClickEventArgs e)
     {
