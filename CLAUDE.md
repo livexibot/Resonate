@@ -35,10 +35,11 @@ visitors; keep it short and in step with this file.
   software lets the downloaded helper run.
 - The classic player (a Winamp-style player chosen in Settings), the
   opt-in spinning cover and Liquid Glass's blurred-cover background are
-  described under "Classic player and cover art". On the owner's PC, check that the skin
-  stays sharp at their display scaling, that a downloaded `.wsz` skin
-  imports, that the visualiser moves for Local Files, and the cost of the
-  spinning cover and Liquid Glass's drift on their 165 Hz display.
+  described under "Classic player and cover art". On the owner's PC,
+  check that the skin stays sharp at their display scaling, that a
+  downloaded `.wsz` skin imports, that the visualiser moves for Local
+  Files, and the cost of the spinning cover and Liquid Glass's drift on
+  their 165 Hz display.
 - The two oldest commits are authored "Claude". Fixing that needs a force
   push, which the permission system blocked. Ask the owner before trying.
 - Pull request #1 could not be squash-merged (GitHub answered with an empty
@@ -163,7 +164,21 @@ Windows:
 - Settings offer "Spotify Web API only": every control goes through the
   Web API and the player polls `/me/player` (every 2 s while playing, 6 s
   paused, and 0.7 s after each command) instead of using the media session
-  and the mixer. Mind the development-mode quota.
+  and the mixer. Mind the development-mode quota. The owner asked
+  (8 October 2026) that this mode never touch the Spotify app: Resonate
+  then does not start, hide, slow down or restart it, does not listen to
+  its media session, read its mixer volume or write its settings file
+  (the equalizer waits and reaches local files only), and "Open in
+  Spotify" opens open.spotify.com. Music plays on whatever Spotify Connect
+  device Spotify lists: the one already playing, else the one picked last
+  with the player bar's devices button, else this PC's Spotify if it is
+  online, else the only device; with several unknown devices it does not
+  guess (`WebDeviceResolver`). A skip or seek with nothing active wakes
+  that device first. Switching modes takes effect at once, without a
+  restart. Still needs a Spotify device: something must play the music,
+  Lossless depends on that device, DJ only starts in a Spotify app, and
+  media keys come from Spotify's own media session. Measure: switching
+  modes while music plays, and playing with the desktop app closed.
 - The system media controls (SMTC) can play, pause, skip, seek (when the app
   allows it) and report the song, cover and timeline. They have no volume.
   Resonate uses Spotify's per-app volume in the Windows mixer (Core Audio),
@@ -280,6 +295,28 @@ only the owner's PC can tell):
   Extensions. Local playback goes through the Windows mixer: lossless
   decoding, resampled to the device rate, not bit-perfect. Measure: formats,
   gaps between songs, clicks, and device changes.
+- Windows does not always report that a local song ended (the owner saw
+  the music stop after one song). The engine checks once a second: a song
+  standing still at its end for two seconds has ended; one standing still
+  elsewhere is started again, and if it still has not moved after five
+  seconds (and had played) it has ended too, because Windows only
+  estimates the length of some MP3s. The local player also moves on by its
+  own clock if the engine never says anything.
+- Local covers (`LocalCoverCache`, shrunk JPEGs in `local-covers\`): a
+  cover read from bytes must reach Windows through `ImageStreams`
+  (Windows' own `InMemoryRandomAccessStream`), never .NET's
+  `AsRandomAccessStream`, which the Native AOT build does not support
+  reliably; that is why local covers never showed before 8 October 2026.
+  A file with no cover gets a marker so it is not read again until it or
+  its folder changes; a failure that may pass leaves none. Pictures are
+  recognised by their first bytes (JPEG, PNG, GIF, BMP, WebP, TIFF, AVIF,
+  HEIF). CI's screenshot tour checks a cover embedded in an MP3.
+- Spotify covers go through `CoverStore` (`covers\` in the cache folder,
+  200 MB on disk, 24 MB in memory, one HTTP/2 connection, at most 24
+  downloads at once). Covers on screen go first; covers fetched ahead
+  (while the pointer rests on a playlist in the sidebar) use at most six
+  downloads. `CoverImages` makes one picture per cover and size, shared by
+  every row. Signing out clears the folder.
 
 Plugins (checked 2026-10-07):
 - A Native AOT app cannot load .NET code at run time, so plugins are
@@ -584,6 +621,18 @@ After the second milestone, Home gained "Your top on Spotify" (the owner
 asked whether stats could come from Spotify, 7 October 2026): Spotify's
 top artists and songs over 4 weeks, 6 months or a year, top 5 opening to
 top 10, kept in `home.json` with the mixes.
+
+On 8 October 2026 the owner asked for a resizable sidebar, faster covers,
+local songs that show their covers and move on, a Web API only mode that
+never touches the Spotify app, and "any more basic features like this".
+Built then: the sidebar and the queue can be dragged wider (double-click
+the gap for the usual width; widths are remembered), covers are kept on
+disk and fetched ahead, the window opens where it was left (size, place,
+maximised), double-clicking a playlist in the sidebar plays it and
+right-clicking it offers Play, Shuffle play, Open in Spotify and Copy
+link, the playlist that plays shows a speaker, the window's name is the
+song that plays (taskbar and Alt+Tab), and clicking the song's title in
+the player bar opens what it plays from.
 
 ## How work gets done
 

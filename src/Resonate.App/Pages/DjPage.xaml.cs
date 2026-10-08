@@ -17,6 +17,9 @@ public sealed partial class DjPage : Page
     private const string IdleText =
         "Start DJ opens it in the Spotify app. Press play there once, and Resonate takes over the controls. DJ needs Spotify Premium in a country where Spotify offers it; talking to the DJ is only in Spotify's phone app.";
 
+    private const string WebApiOnlyText =
+        "With Spotify Web API only, Resonate does not open the Spotify app, and Spotify does not let other apps start DJ. Start DJ in a Spotify app (search for “DJ”); Resonate shows and controls it once it plays. Or switch back to Windows' media controls in Settings.";
+
     private static readonly TimeSpan WaitForStart = TimeSpan.FromSeconds(20);
 
     private readonly AppServices _services = App.Services;
@@ -69,10 +72,10 @@ public sealed partial class DjPage : Page
         }
 
         StartText.Text = "Start DJ";
-        StartButton.IsEnabled = true;
+        StartButton.IsEnabled = _services.UsesSpotifyApp;
         if (!WaitingRing.IsActive)
         {
-            StatusText.Text = IdleText;
+            StatusText.Text = _services.UsesSpotifyApp ? IdleText : WebApiOnlyText;
         }
     }
 
@@ -85,6 +88,13 @@ public sealed partial class DjPage : Page
         {
             // DJ is already the music on this account: just carry on.
             await player.PlayAsync();
+            return;
+        }
+
+        if (!_services.UsesSpotifyApp)
+        {
+            // "Spotify Web API only" leaves the Spotify app alone.
+            StatusText.Text = WebApiOnlyText;
             return;
         }
 

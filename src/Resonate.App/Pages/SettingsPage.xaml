@@ -28,35 +28,43 @@
                 <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Playback" />
                 <TextBlock
                     Style="{StaticResource ResonateSecondaryTextStyle}"
-                    Text="How Resonate controls the Spotify app on this computer."
+                    Text="How Resonate talks to Spotify."
                     TextWrapping="Wrap" />
                 <RadioButtons x:Name="ChannelChoice" SelectionChanged="OnChannelChanged">
-                    <RadioButton Content="Windows' media controls, with the Web API as backup (fastest)" />
-                    <RadioButton Content="Spotify Web API only (every control goes through Spotify's servers)" />
+                    <RadioButton Content="Windows' media controls, with the Web API as backup (fastest; plays in the Spotify app on this computer)" />
+                    <RadioButton Content="Spotify Web API only (every control goes through Spotify's servers; Resonate leaves the Spotify app alone)" />
                 </RadioButtons>
+                <TextBlock
+                    x:Name="WebApiOnlyNote"
+                    Style="{StaticResource ResonateCaptionTextStyle}"
+                    Text="Resonate never starts, hides or reads the Spotify app in this mode. Music plays on a Spotify device you have open (this computer's Spotify app, your phone, a speaker or open.spotify.com): pick it with the devices button next to the volume. Lossless depends on that device. The media keys, the equalizer for Spotify's songs and starting DJ need the Spotify app, so they work only with Windows' media controls."
+                    TextWrapping="Wrap"
+                    Visibility="Collapsed" />
 
-                <ToggleSwitch
-                    x:Name="KeepHiddenSwitch"
-                    Header="Keep the Spotify app hidden"
-                    OffContent="Off: Spotify stays on the taskbar, minimised"
-                    OnContent="On: no taskbar button; it shows only while you use it"
-                    Toggled="OnKeepHiddenToggled" />
-                <ToggleSwitch
-                    x:Name="SaveResourcesSwitch"
-                    Header="Let the hidden Spotify app use less power and memory"
-                    OffContent="Off"
-                    OnContent="On: only the parts that draw its window slow down; playback is untouched"
-                    Toggled="OnSaveResourcesToggled" />
-                <StackPanel Orientation="Horizontal" Spacing="12">
-                    <Button
-                        Click="OnShowSpotifyClick"
-                        Content="Show the Spotify app"
-                        Style="{StaticResource ResonateSubtleButtonStyle}" />
-                    <TextBlock
-                        VerticalAlignment="Center"
-                        Style="{StaticResource ResonateCaptionTextStyle}"
-                        Text="For example to sign in to it or set Lossless. It hides again when you switch away."
-                        TextWrapping="Wrap" />
+                <StackPanel x:Name="SpotifyAppOptions" Spacing="12">
+                    <ToggleSwitch
+                        x:Name="KeepHiddenSwitch"
+                        Header="Keep the Spotify app hidden"
+                        OffContent="Off: Spotify stays on the taskbar, minimised"
+                        OnContent="On: no taskbar button; it shows only while you use it"
+                        Toggled="OnKeepHiddenToggled" />
+                    <ToggleSwitch
+                        x:Name="SaveResourcesSwitch"
+                        Header="Let the hidden Spotify app use less power and memory"
+                        OffContent="Off"
+                        OnContent="On: only the parts that draw its window slow down; playback is untouched"
+                        Toggled="OnSaveResourcesToggled" />
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button
+                            Click="OnShowSpotifyClick"
+                            Content="Show the Spotify app"
+                            Style="{StaticResource ResonateSubtleButtonStyle}" />
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            Style="{StaticResource ResonateCaptionTextStyle}"
+                            Text="For example to sign in to it or set Lossless. It hides again when you switch away."
+                            TextWrapping="Wrap" />
+                    </StackPanel>
                 </StackPanel>
             </StackPanel>
 

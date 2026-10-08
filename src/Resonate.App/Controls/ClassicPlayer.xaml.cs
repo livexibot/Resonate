@@ -718,11 +718,11 @@ public sealed partial class ClassicPlayer : UserControl
 
         if (state.ArtworkUrl is { } url)
         {
-            CoverImage.Source = Artwork.FromUrl(url, size);
+            _ = ShowCoverAsync(key, _services.Covers.GetReadyAsync(url, size));
         }
         else if (state.ArtworkBytes is { } bytes)
         {
-            _ = LoadCoverBytesAsync(bytes, size);
+            _ = ShowCoverAsync(key, CoverImages.FromBytesAsync(bytes, size));
         }
         else
         {
@@ -730,22 +730,20 @@ public sealed partial class ClassicPlayer : UserControl
         }
     }
 
-    private async Task LoadCoverBytesAsync(byte[] bytes, int size)
+    private async Task ShowCoverAsync(object key, Task<(ImageSource? Image, bool Loaded)> loading)
     {
-        var bitmap = new BitmapImage { DecodePixelWidth = size, DecodePixelType = DecodePixelType.Logical };
-        try
-        {
-            using var stream = new MemoryStream(bytes, writable: false);
-            await bitmap.SetSourceAsync(stream.AsRandomAccessStream());
-        }
-        catch (Exception)
+        var (image, loaded) = await loading;
+        if (!ReferenceEquals(_coverKey, key))
         {
             return;
         }
 
-        if (ReferenceEquals(_coverKey, bytes))
+        CoverImage.Source = image;
+
+        // A picture that already has its pixels may not raise ImageOpened, so it is shown here.
+        if (loaded)
         {
-            CoverImage.Source = bitmap;
+            OnCoverOpened(CoverImage, new RoutedEventArgs());
         }
     }
 

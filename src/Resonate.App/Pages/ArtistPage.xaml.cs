@@ -9,7 +9,6 @@ using Resonate.App.ViewModels;
 using Resonate.Spotify.Library;
 using Resonate.Spotify.Playback;
 using Resonate.Spotify.WebApi;
-using Launcher = Windows.System.Launcher;
 
 namespace Resonate.App.Pages;
 
@@ -129,11 +128,5 @@ public sealed partial class ArtistPage : Page
         }
     }
 
-    private void OnOpenInSpotifyClick(object sender, RoutedEventArgs e)
-    {
-        if (Uri.TryCreate(ContextUri, UriKind.Absolute, out var uri))
-        {
-            _ = Launcher.LaunchUriAsync(uri);
-        }
-    }
+    private void OnOpenInSpotifyClick(object sender, RoutedEventArgs e) => TrackActions.OpenInSpotify(ContextUri);
 }

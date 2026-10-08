@@ -3,7 +3,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Imaging;
 using Resonate.App.Themes;
 using Resonate.Themes;
 using Windows.Foundation;
@@ -57,16 +56,12 @@ public static class Artwork
         (0xA78BFA, 0xEC4899),
     ];
 
-    /// <summary>A cover image at the given display width (decoded at that size, not full size).</summary>
-    public static ImageSource? FromUrl(string? url, int displayWidth)
-    {
-        if (string.IsNullOrEmpty(url) || !Uri.TryCreate(url, UriKind.Absolute, out var uri))
-        {
-            return null;
-        }
-
-        return new BitmapImage(uri) { DecodePixelWidth = displayWidth, DecodePixelType = DecodePixelType.Logical };
-    }
+    /// <summary>
+    /// A cover image at the given display width (decoded at that size, not
+    /// full size), shared with every other place showing it and kept on disk
+    /// (see <see cref="Services.CoverImages"/>). Call on the interface thread.
+    /// </summary>
+    public static ImageSource? FromUrl(string? url, int displayWidth) => App.Services.Covers.Get(url, displayWidth);
 
     // One brush per gradient, shared by every tile (lists can have thousands of rows).
     private static readonly Brush?[] PlaceholderBrushes = new Brush?[Palettes.Length];

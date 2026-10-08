@@ -34,13 +34,23 @@ public enum EqualizerApplyResult
 
     /// <summary>Spotify's settings could not be written; the change is kept for the next start.</summary>
     Failed,
+
+    /// <summary>
+    /// "Spotify Web API only": Resonate leaves the Spotify app and its files
+    /// alone, so the change is kept for when Windows' media controls are used again.
+    /// </summary>
+    SpotifyAppLeftAlone,
 }
 
 /// <summary>What Resonate knows about the Spotify app's equalizer right now.</summary>
 /// <param name="Spotify">Spotify's settings as its file has them, or null when the file was not found or read.</param>
 /// <param name="Pending">A change Spotify has not been given yet, if any.</param>
 /// <param name="SpotifyRunning">Whether the Spotify app is running.</param>
-public sealed record SpotifyEqualizerStatus(SpotifyAudioPrefs? Spotify, EqualizerSettings? Pending, bool SpotifyRunning);
+public sealed record SpotifyEqualizerStatus(SpotifyAudioPrefs? Spotify, EqualizerSettings? Pending, bool SpotifyRunning)
+{
+    /// <summary>"Spotify Web API only": nothing about the Spotify app was looked at.</summary>
+    public bool SpotifyAppLeftAlone { get; init; }
+}
 
 /// <summary>How "Restart Spotify now" went.</summary>
 /// <param name="Restart">Whether Spotify closed and started again.</param>
@@ -66,6 +76,10 @@ public sealed record SpotifyRestartOutcome(
 /// </summary>
 public sealed class SpotifyEqualizerSync
 {
+    /// <summary>Shown with "Spotify Web API only", when Resonate leaves the Spotify app alone.</summary>
+    public const string LeftAloneText =
+        "With Spotify Web API only, Resonate leaves the Spotify app alone, so the equalizer changes your own music files. Spotify's songs get it once you switch back to Windows' media controls.";
+
     /// <summary>Shown when Spotify's settings file is not on this computer (and in demo mode).</summary>
     public const string NotFoundText =
         "Spotify's settings were not found on this computer, so for now the equalizer only changes your own music files.";
@@ -78,6 +92,7 @@ public sealed class SpotifyEqualizerSync
     private readonly ISpotifyAppRestarter? _restarter;
     private readonly PlayerController? _player;
     private readonly Func<bool>? _resumeAllowed;
+    private readonly Func<bool>? _mayUseSpotifyApp;
     private readonly TimeProvider _time;
     private readonly Lock _gate = new();
     private EqualizerSettings? _pending;
@@ -92,6 +107,10 @@ public sealed class SpotifyEqualizerSync
     /// Whether Spotify's music may still be put back after a restart; false
     /// once something else plays (such as the user's own music files).
     /// </param>
+    /// <param name="mayUseSpotifyApp">
+    /// Whether Resonate may look at, write to or restart the Spotify app on
+    /// this computer; false with "Spotify Web API only". Always when null.
+    /// </param>
     public SpotifyEqualizerSync(
         IReadOnlyList<string> spotifyFolders,
         ISpotifyAppLauncher launcher,
@@ -99,8 +118,10 @@ public sealed class SpotifyEqualizerSync
         PlayerController? player,
         EqualizerSettings? pending = null,
         TimeProvider? time = null,
-        Func<bool>? resumeAllowed = null)
+        Func<bool>? resumeAllowed = null,
+        Func<bool>? mayUseSpotifyApp = null)
     {
+        _mayUseSpotifyApp = mayUseSpotifyApp;
         _spotifyFolders = spotifyFolders;
         _launcher = launcher;
         _restarter = restarter;
@@ -116,8 +137,10 @@ public sealed class SpotifyEqualizerSync
     /// <summary>A change Spotify has not been given yet, or null. Never waits for file work in progress.</summary>
     public EqualizerSettings? Pending => Volatile.Read(ref _pending);
 
-    /// <summary>Whether Resonate can restart Spotify here (not in demo mode).</summary>
-    public bool CanRestart => _restarter is not null;
+    /// <summary>Whether Resonate can restart Spotify here (not in demo mode, nor with "Spotify Web API only").</summary>
+    public bool CanRestart => _restarter is not null && AppAllowed;
+
+    private bool AppAllowed => _mayUseSpotifyApp?.Invoke() != false;
 
     /// <summary>The decision behind <see cref="Apply"/>.</summary>
     public static EqualizerWritePlan Plan(bool found, bool alreadyThere, bool spotifyRunning) =>
@@ -134,6 +157,11 @@ public sealed class SpotifyEqualizerSync
     {
         lock (_gate)
         {
+            if (!AppAllowed)
+            {
+                return new SpotifyEqualizerStatus(null, _pending, SpotifyRunning: false) { SpotifyAppLeftAlone = true };
+            }
+
             var running = _launcher.IsRunning;
             if (!running)
             {
@@ -154,6 +182,12 @@ public sealed class SpotifyEqualizerSync
     {
         lock (_gate)
         {
+            if (!AppAllowed)
+            {
+                SetPendingLocked(settings);
+                return EqualizerApplyResult.SpotifyAppLeftAlone;
+            }
+
             var path = SpotifyPrefsFile.FindNewest(_spotifyFolders);
             var current = path is null ? null : SpotifyPrefsFile.TryRead(path);
             var plan = Plan(current is not null, settings.Equals(current?.Equalizer), _launcher.IsRunning);
@@ -200,7 +234,10 @@ public sealed class SpotifyEqualizerSync
     {
         lock (_gate)
         {
-            WritePendingLocked();
+            if (AppAllowed)
+            {
+                WritePendingLocked();
+            }
         }
     }
 
@@ -213,7 +250,7 @@ public sealed class SpotifyEqualizerSync
     /// </summary>
     public async Task<SpotifyRestartOutcome> RestartSpotifyAsync(CancellationToken cancellationToken)
     {
-        if (_restarter is null)
+        if (_restarter is null || !AppAllowed)
         {
             return new SpotifyRestartOutcome(SpotifyRestartStatus.CouldNotClose, false, ResumeOutcome.NothingToResume, null, TimeSpan.Zero);
         }
@@ -267,6 +304,11 @@ public sealed class SpotifyEqualizerSync
     /// </summary>
     public IDisposable? Watch(Action changed)
     {
+        if (!AppAllowed)
+        {
+            return null;
+        }
+
         var path = SpotifyPrefsFile.FindNewest(_spotifyFolders);
         if (path is null)
         {
@@ -297,6 +339,7 @@ public sealed class SpotifyEqualizerSync
         EqualizerApplyResult.Applied => "Applied to Spotify.",
         EqualizerApplyResult.Pending => "Spotify will use this the next time it starts.",
         EqualizerApplyResult.SpotifyNotFound => NotFoundText,
+        EqualizerApplyResult.SpotifyAppLeftAlone => LeftAloneText,
         _ => "Spotify's settings could not be saved. Resonate tries again the next time it starts Spotify.",
     };
 

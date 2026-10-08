@@ -14,6 +14,10 @@ namespace Resonate.Spotify.Playback;
 /// still shows the old situation is ignored, so a late answer can not undo
 /// what the user just did. A command that really fails is rolled back and
 /// reported through <see cref="ErrorOccurred"/>.
+/// With <see cref="ControlChannel.WebApi"/> it never touches the Spotify app
+/// on this computer: it does not listen to its media session, read its
+/// mixer volume or start it, and commands go to whichever Spotify Connect
+/// device plays (see <see cref="WebDeviceResolver"/>).
 /// </summary>
 public sealed class PlayerController : IPlayer, IDisposable
 {
@@ -41,12 +45,16 @@ public sealed class PlayerController : IPlayer, IDisposable
     private readonly IAppVolume _appVolume;
     private readonly ISpotifyWebApi _api;
     private readonly LocalDeviceResolver _devices;
+    private readonly WebDeviceResolver _webDevices;
     private readonly ISpotifyAppLauncher? _launcher;
     private readonly TimeProvider _time;
     private readonly Func<int, int>? _nextInt;
     private readonly Lock _gate = new();
     private readonly SerialWorker _transport = new();
     private readonly SerialWorker _volumeLane = new();
+
+    // Starting and stopping the local channel when the channel changes, in order and off the caller's thread.
+    private readonly SerialWorker _localLane = new();
     private readonly CancellationTokenSource _stopping = new();
 
     private PlayerState _state = PlayerState.Empty;
@@ -99,12 +107,14 @@ public sealed class PlayerController : IPlayer, IDisposable
         LocalDeviceResolver devices,
         ISpotifyAppLauncher? launcher = null,
         TimeProvider? time = null,
-        Func<int, int>? nextInt = null)
+        Func<int, int>? nextInt = null,
+        WebDeviceResolver? webDevices = null)
     {
         _local = local;
         _appVolume = appVolume;
         _api = api;
         _devices = devices;
+        _webDevices = webDevices ?? new WebDeviceResolver(api, Environment.MachineName);
         _launcher = launcher;
         _time = time ?? TimeProvider.System;
         _nextInt = nextInt;
@@ -118,7 +128,8 @@ public sealed class PlayerController : IPlayer, IDisposable
 
     /// <summary>
     /// How commands and reports travel. Can change at any time; the player
-    /// switches over at once.
+    /// switches over at once, and starts or stops listening to Spotify's
+    /// media session in the background.
     /// </summary>
     public ControlChannel Channel
     {
@@ -138,20 +149,28 @@ public sealed class PlayerController : IPlayer, IDisposable
 
             if (value == ControlChannel.Local)
             {
-                LocalMediaSnapshot latest;
-                lock (_gate)
-                {
-                    latest = _lastLocal;
-                }
-
-                ApplyLocal(latest);
-                ReadAppVolume();
+                _ = _localLane.Enqueue(StartLocalAsync);
             }
             else
             {
+                _ = _localLane.Enqueue(_ =>
+                {
+                    StopLocal();
+                    return Task.CompletedTask;
+                });
                 _ = RefreshSoonAsync(TimeSpan.Zero);
             }
         }
+    }
+
+    /// <summary>
+    /// The Spotify Connect device the user picked last (by name), used with
+    /// "Spotify Web API only" when nothing plays yet.
+    /// </summary>
+    public string? PreferredDeviceName
+    {
+        get => _webDevices.PreferredName;
+        set => _webDevices.PreferredName = value;
     }
 
     /// <summary>
@@ -178,7 +197,7 @@ public sealed class PlayerController : IPlayer, IDisposable
         }
     }
 
-    /// <summary>Starts listening to the local channel and, when needed, the Web API.</summary>
+    /// <summary>Starts following Spotify: through the local channel (unless the Web API is the only channel) and the Web API.</summary>
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         if (_started)
@@ -187,11 +206,58 @@ public sealed class PlayerController : IPlayer, IDisposable
         }
 
         _started = true;
-        _local.Changed += OnLocalChanged;
-        await _local.StartAsync(cancellationToken).ConfigureAwait(false);
-        ApplyLocal(_local.Current);
-        ReadAppVolume();
+        if (UseLocal)
+        {
+            await _localLane.Enqueue(StartLocalAsync).WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+
         _ = PollWebApiAsync(_stopping.Token);
+    }
+
+    /// <summary>Starts listening to Spotify's media session and shows what it reports.</summary>
+    private async Task StartLocalAsync(CancellationToken cancellationToken)
+    {
+        if (!UseLocal)
+        {
+            return;
+        }
+
+        _local.Changed -= OnLocalChanged;
+        _local.Changed += OnLocalChanged;
+        try
+        {
+            await _local.StartAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            ErrorOccurred?.Invoke(this, "Resonate could not reach Windows' media controls; playback goes through Spotify's servers instead.");
+            return;
+        }
+
+        if (UseLocal)
+        {
+            ApplyLocal(_local.Current);
+            ReadAppVolume();
+        }
+    }
+
+    /// <summary>Stops listening to Spotify's media session (Web API only).</summary>
+    private void StopLocal()
+    {
+        if (UseLocal)
+        {
+            return;
+        }
+
+        _local.Changed -= OnLocalChanged;
+        _local.Stop();
+        lock (_gate)
+        {
+            _lastLocal = LocalMediaSnapshot.None;
+            _localTrackKey = default;
+        }
+
+        _devices.Invalidate();
     }
 
     private Task<bool> TryLocalAsync(Func<CancellationToken, Task<bool>> command, CancellationToken cancellationToken) =>
@@ -226,7 +292,7 @@ public sealed class PlayerController : IPlayer, IDisposable
             {
                 if (!await TryLocalAsync(_local.PlayAsync, ct).ConfigureAwait(false))
                 {
-                    await WithLocalDeviceAsync((id, c) => _api.StartPlaybackAsync(null, id, c), ct).ConfigureAwait(false);
+                    await WithDeviceAsync((id, c) => _api.StartPlaybackAsync(null, id, c), ct, starts: true).ConfigureAwait(false);
                 }
             },
             () => RevertPlaying(generation, before.IsPlaying));
@@ -252,7 +318,7 @@ public sealed class PlayerController : IPlayer, IDisposable
             {
                 if (!await TryLocalAsync(_local.PauseAsync, ct).ConfigureAwait(false))
                 {
-                    await WithLocalDeviceAsync(_api.PauseAsync, ct).ConfigureAwait(false);
+                    await PauseOnDeviceAsync(ct).ConfigureAwait(false);
                 }
             },
             () => RevertPlaying(generation, before.IsPlaying));
@@ -267,7 +333,7 @@ public sealed class PlayerController : IPlayer, IDisposable
             {
                 if (!await TryLocalAsync(_local.NextAsync, ct).ConfigureAwait(false))
                 {
-                    await WithLocalDeviceAsync(_api.SkipToNextAsync, ct).ConfigureAwait(false);
+                    await WithDeviceAsync(_api.SkipToNextAsync, ct).ConfigureAwait(false);
                 }
             },
             revert: null);
@@ -285,7 +351,7 @@ public sealed class PlayerController : IPlayer, IDisposable
             {
                 if (!await TryLocalAsync(_local.PreviousAsync, ct).ConfigureAwait(false))
                 {
-                    await WithLocalDeviceAsync(_api.SkipToPreviousAsync, ct).ConfigureAwait(false);
+                    await WithDeviceAsync(_api.SkipToPreviousAsync, ct).ConfigureAwait(false);
                 }
             },
             revert: null);
@@ -369,7 +435,7 @@ public sealed class PlayerController : IPlayer, IDisposable
         }
 
         var uri = track.Uri!;
-        return RunTransportAsync(ct => WithLocalDeviceAsync((id, c) => _api.AddToQueueAsync(uri, id, c), ct), revert: null);
+        return RunTransportAsync(ct => WithDeviceAsync((id, c) => _api.AddToQueueAsync(uri, id, c), ct), revert: null);
     }
 
     /// <summary>
@@ -428,7 +494,7 @@ public sealed class PlayerController : IPlayer, IDisposable
         if (next is null)
         {
             return RunTransportAsync(
-                ct => WithLocalDeviceAsync(
+                ct => WithDeviceAsync(
                     async (id, c) =>
                     {
                         await _api.SetShuffleAsync(shuffle, id, c).ConfigureAwait(false);
@@ -457,13 +523,14 @@ public sealed class PlayerController : IPlayer, IDisposable
         }
 
         return RunTransportAsync(
-            ct => WithLocalDeviceAsync(
+            ct => WithDeviceAsync(
                 async (id, c) =>
                 {
                     await TrySetSpotifyShuffleAsync(false, id, c).ConfigureAwait(false);
                     await RestartAsync(body, id, c).ConfigureAwait(false);
                 },
-                ct),
+                ct,
+                starts: true),
             () =>
             {
                 lock (_gate)
@@ -502,12 +569,49 @@ public sealed class PlayerController : IPlayer, IDisposable
 
         RaiseStateChanged();
         var sent = RunTransportAsync(
-            ct => WithLocalDeviceAsync((id, c) => _api.SetRepeatAsync(mode, id, c), ct),
+            ct => WithDeviceAsync((id, c) => _api.SetRepeatAsync(mode, id, c), ct),
             () => RevertSetting(generation, before));
 
         // "Repeat all" switched on during a list's last song: the next pass follows.
         FollowSession();
         return sent;
+    }
+
+    /// <summary>
+    /// Moves the music to another Spotify Connect device ("Spotify Web API
+    /// only"), playing there if it was playing here. Shown at once; the
+    /// device is remembered for when nothing plays.
+    /// </summary>
+    public Task TransferToAsync(string deviceId, string deviceName)
+    {
+        CountUserCommand();
+        PlayerState before;
+        long generation;
+        bool play;
+        lock (_gate)
+        {
+            before = _state;
+            generation = ++_generation;
+            play = _state.IsPlaying;
+            SetState(_state with { DeviceName = deviceName, IsConnected = true });
+        }
+
+        PreferredDeviceName = deviceName;
+        RaiseStateChanged();
+        return RunTransportAsync(
+            ct => _api.TransferPlaybackAsync(deviceId, play, ct),
+            () =>
+            {
+                lock (_gate)
+                {
+                    if (_generation == generation)
+                    {
+                        SetState(_state with { DeviceName = before.DeviceName });
+                    }
+                }
+
+                RaiseStateChanged();
+            });
     }
 
     /// <summary>
@@ -723,7 +827,7 @@ public sealed class PlayerController : IPlayer, IDisposable
         }
 
         RaiseStateChanged();
-        return RunTransportAsync(ct => WithLocalDeviceAsync(send, ct), () => RevertTo(generation, before, previous));
+        return RunTransportAsync(ct => WithDeviceAsync(send, ct, starts: true), () => RevertTo(generation, before, previous));
     }
 
     /// <summary>
@@ -850,11 +954,11 @@ public sealed class PlayerController : IPlayer, IDisposable
             {
                 try
                 {
-                    await WithLocalDeviceAsync((id, c) => _api.StartPlaybackAsync(body, id, c), ct).ConfigureAwait(false);
+                    await WithDeviceAsync((id, c) => _api.StartPlaybackAsync(body, id, c), ct, starts: true).ConfigureAwait(false);
                 }
                 catch (SpotifyApiException ex) when (fallback is not null && IsRefusedContext(ex))
                 {
-                    await WithLocalDeviceAsync((id, c) => _api.StartPlaybackAsync(fallback, id, c), ct).ConfigureAwait(false);
+                    await WithDeviceAsync((id, c) => _api.StartPlaybackAsync(fallback, id, c), ct, starts: true).ConfigureAwait(false);
                 }
 
                 started = true;
@@ -959,7 +1063,7 @@ public sealed class PlayerController : IPlayer, IDisposable
         if (body is not null)
         {
             _ = RunTransportAsync(
-                ct => WithLocalDeviceAsync(
+                ct => WithDeviceAsync(
                     async (id, c) =>
                     {
                         if (shuffleOff)
@@ -969,7 +1073,8 @@ public sealed class PlayerController : IPlayer, IDisposable
 
                         await RestartAsync(body, id, c).ConfigureAwait(false);
                     },
-                    ct),
+                    ct,
+                    starts: true),
                 revert: null);
         }
     }
@@ -1109,6 +1214,7 @@ public sealed class PlayerController : IPlayer, IDisposable
         _stopping.Cancel();
         _transport.Dispose();
         _volumeLane.Dispose();
+        _localLane.Dispose();
     }
 
     internal static List<string> WindowAround(IReadOnlyList<string> uris, string uri)
@@ -1318,7 +1424,7 @@ public sealed class PlayerController : IPlayer, IDisposable
         bool mixerVolumeKnown,
         DateTimeOffset now)
     {
-        var next = s with { IsConnected = true };
+        var next = s with { IsConnected = true, DeviceName = playback.Device?.Name ?? s.DeviceName };
         if (localIsTruth)
         {
             // The local channel already drives the player; only add what it lacks.
@@ -1479,7 +1585,7 @@ public sealed class PlayerController : IPlayer, IDisposable
             return;
         }
 
-        await WithLocalDeviceAsync((id, c) => _api.SeekAsync(target, id, c), cancellationToken).ConfigureAwait(false);
+        await WithDeviceAsync((id, c) => _api.SeekAsync(target, id, c), cancellationToken).ConfigureAwait(false);
     }
 
     private async Task SendPendingVolumeAsync(CancellationToken cancellationToken)
@@ -1497,7 +1603,7 @@ public sealed class PlayerController : IPlayer, IDisposable
         }
 
         var percent = (int)Math.Round(target * 100);
-        await WithLocalDeviceAsync((id, c) => _api.SetVolumeAsync(percent, id, c), cancellationToken).ConfigureAwait(false);
+        await WithDeviceAsync((id, c) => _api.SetVolumeAsync(percent, id, c), cancellationToken).ConfigureAwait(false);
     }
 
     private void ReadAppVolume()
@@ -1527,6 +1633,91 @@ public sealed class PlayerController : IPlayer, IDisposable
     }
 
     /// <summary>
+    /// Runs <paramref name="call"/> with the device it should go to: the
+    /// Spotify app on this computer, or with "Spotify Web API only" whichever
+    /// device plays (see <see cref="WithWebDeviceAsync"/>).
+    /// </summary>
+    /// <param name="starts">The call starts music (play, a new song or list), rather than changing what plays.</param>
+    private Task WithDeviceAsync(Func<string?, CancellationToken, Task> call, CancellationToken cancellationToken, bool starts = false) =>
+        UseLocal ? WithLocalDeviceAsync(call, cancellationToken) : WithWebDeviceAsync(call, starts, cancellationToken);
+
+    /// <summary>
+    /// "Spotify Web API only": never the Spotify app on this computer unless
+    /// Spotify lists it as a device, and never started by Resonate. While a
+    /// device plays, commands carry no device, so Spotify sends them to it
+    /// and nothing moves. With nothing active, music starts on the device
+    /// <see cref="WebDeviceResolver"/> picks, and a command that needs a
+    /// device (skip, seek) first wakes that device. Tried again once.
+    /// </summary>
+    private async Task WithWebDeviceAsync(Func<string?, CancellationToken, Task> call, bool starts, CancellationToken cancellationToken)
+    {
+        bool active;
+        lock (_gate)
+        {
+            active = _webConnected;
+        }
+
+        string? deviceId = null;
+        if (starts && !active)
+        {
+            deviceId = (await _webDevices.ChooseAsync(cancellationToken).ConfigureAwait(false))?.Id ?? throw NoDeviceOnline();
+        }
+
+        try
+        {
+            await call(deviceId, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+        catch (SpotifyApiException ex) when (ex.IsNoActiveDevice)
+        {
+            if (deviceId is not null)
+            {
+                // The device just chosen went away.
+                throw NoDeviceOnline();
+            }
+
+            // The device that played has gone quiet since Spotify last said so.
+        }
+
+        var chosen = await _webDevices.ChooseAsync(cancellationToken).ConfigureAwait(false) ?? throw NoDeviceOnline();
+        if (!starts)
+        {
+            await _api.TransferPlaybackAsync(chosen.Id!, play: false, cancellationToken).ConfigureAwait(false);
+        }
+
+        try
+        {
+            await call(chosen.Id, cancellationToken).ConfigureAwait(false);
+        }
+        catch (SpotifyApiException ex) when (ex.IsNoActiveDevice)
+        {
+            throw NoDeviceOnline();
+        }
+    }
+
+    /// <summary>Pauses; with "Spotify Web API only" and nothing playing anywhere there is nothing to pause, and no device is woken for it.</summary>
+    private async Task PauseOnDeviceAsync(CancellationToken cancellationToken)
+    {
+        if (UseLocal)
+        {
+            await WithLocalDeviceAsync(_api.PauseAsync, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        try
+        {
+            await _api.PauseAsync(null, cancellationToken).ConfigureAwait(false);
+        }
+        catch (SpotifyApiException ex) when (ex.IsNoActiveDevice)
+        {
+            // Nothing plays on any device: already paused.
+        }
+    }
+
+    private static SpotifyApiException NoDeviceOnline() =>
+        new(HttpStatusCode.NotFound, SpotifyApiException.NoDeviceOnlineReason, "No Spotify device is online.");
+
+    /// <summary>
     /// Runs <paramref name="call"/> against the Spotify app on this computer.
     /// When that device is not online yet, starts Spotify and waits for it.
     /// </summary>
@@ -1552,6 +1743,12 @@ public sealed class PlayerController : IPlayer, IDisposable
 
     private async Task<string> WaitForLocalDeviceAsync(CancellationToken cancellationToken)
     {
+        // Switched to "Spotify Web API only" meanwhile: the Spotify app is left alone.
+        if (!UseLocal)
+        {
+            throw NoDeviceOnline();
+        }
+
         if (_launcher is not null)
         {
             var status = await _launcher.EnsureRunningAsync(cancellationToken).ConfigureAwait(false);
@@ -1562,7 +1759,7 @@ public sealed class PlayerController : IPlayer, IDisposable
         }
 
         // A freshly started Spotify takes a few seconds to appear as a device.
-        for (var attempt = 0; attempt < 8; attempt++)
+        for (var attempt = 0; attempt < 8 && UseLocal; attempt++)
         {
             _devices.Invalidate();
             if (await _devices.ResolveAsync(cancellationToken).ConfigureAwait(false) is { } id)

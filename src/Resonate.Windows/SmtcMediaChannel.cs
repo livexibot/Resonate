@@ -19,6 +19,7 @@ public sealed partial class SmtcMediaChannel : ILocalMediaChannel
     private (string? Title, string? Artist, string? Album) _artworkKey;
     private byte[]? _artwork;
     private bool _artworkRead;
+    private volatile bool _listening;
     private bool _disposed;
 
     public event EventHandler<LocalMediaSnapshot>? Changed;
@@ -40,9 +41,28 @@ public sealed partial class SmtcMediaChannel : ILocalMediaChannel
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        _manager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync().AsTask(cancellationToken).ConfigureAwait(false);
+        if (_listening || _disposed)
+        {
+            return;
+        }
+
+        _manager ??= await GlobalSystemMediaTransportControlsSessionManager.RequestAsync().AsTask(cancellationToken).ConfigureAwait(false);
+        _listening = true;
+        _manager.SessionsChanged -= OnSessionsChanged;
         _manager.SessionsChanged += OnSessionsChanged;
         await AttachAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public void Stop()
+    {
+        _listening = false;
+        if (_manager is not null)
+        {
+            _manager.SessionsChanged -= OnSessionsChanged;
+        }
+
+        Detach();
+        Publish(LocalMediaSnapshot.None);
     }
 
     public Task<bool> PlayAsync(CancellationToken cancellationToken) =>
@@ -110,7 +130,7 @@ public sealed partial class SmtcMediaChannel : ILocalMediaChannel
 
     private async Task AttachAsync(CancellationToken cancellationToken)
     {
-        if (_disposed || _manager is null)
+        if (_disposed || !_listening || _manager is null)
         {
             return;
         }
@@ -132,7 +152,7 @@ public sealed partial class SmtcMediaChannel : ILocalMediaChannel
         }
 
         Detach();
-        if (spotify is null)
+        if (spotify is null || !_listening)
         {
             Publish(LocalMediaSnapshot.None);
             return;
@@ -176,7 +196,7 @@ public sealed partial class SmtcMediaChannel : ILocalMediaChannel
 
         try
         {
-            if (!ReferenceEquals(session, Volatile.Read(ref _session)))
+            if (!_listening || !ReferenceEquals(session, Volatile.Read(ref _session)))
             {
                 return;
             }
@@ -199,12 +219,12 @@ public sealed partial class SmtcMediaChannel : ILocalMediaChannel
             if (!_artworkRead && media?.Thumbnail is { } thumbnail)
             {
                 // Publish the new song at once; the cover follows when read.
-                Publish(Build(media, playback, timeline, controls, artwork: null));
+                PublishFrom(session, Build(media, playback, timeline, controls, artwork: null));
                 _artwork = await ReadThumbnailAsync(thumbnail, cancellationToken).ConfigureAwait(false);
                 _artworkRead = _artwork is not null;
             }
 
-            Publish(Build(media, playback, timeline, controls, _artwork));
+            PublishFrom(session, Build(media, playback, timeline, controls, _artwork));
         }
         catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or InvalidOperationException or IOException)
         {
@@ -267,6 +287,15 @@ public sealed partial class SmtcMediaChannel : ILocalMediaChannel
         using var buffer = new MemoryStream((int)stream.Size);
         await source.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
         return buffer.ToArray();
+    }
+
+    /// <summary>Publishes a report read from <paramref name="session"/>, unless listening stopped or the session changed meanwhile.</summary>
+    private void PublishFrom(GlobalSystemMediaTransportControlsSession session, LocalMediaSnapshot snapshot)
+    {
+        if (_listening && ReferenceEquals(session, Volatile.Read(ref _session)))
+        {
+            Publish(snapshot);
+        }
     }
 
     private void Publish(LocalMediaSnapshot snapshot)

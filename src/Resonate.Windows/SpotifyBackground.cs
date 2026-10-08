@@ -33,7 +33,48 @@ public sealed class SpotifyBackground : ISpotifyAppWindow, IDisposable
     private int _closeWatchTicks;
     private volatile bool _keepHidden = true;
     private volatile bool _saveResources = true;
+    private volatile bool _enabled = true;
     private bool _started;
+
+    // Completed to wake the watcher when it is enabled again.
+    private TaskCompletionSource _enabledAgain = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public bool Enabled
+    {
+        get => _enabled;
+        set
+        {
+            if (_enabled == value)
+            {
+                return;
+            }
+
+            if (value)
+            {
+                _enabled = true;
+                Volatile.Read(ref _enabledAgain).TrySetResult();
+                return;
+            }
+
+            // A fresh signal before the flag, so the watcher never waits on one already used.
+            Volatile.Write(ref _enabledAgain, new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
+            _enabled = false;
+
+            // Give back what Resonate changed, off the caller's thread (it opens processes).
+            _ = Task.Run(() =>
+            {
+                try
+                {
+                    RestoreHiddenWindows();
+                    RestoreSavings();
+                }
+                catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or ExternalException)
+                {
+                    // A window or process went away meanwhile: nothing left to give back.
+                }
+            });
+        }
+    }
 
     public bool KeepHidden
     {
@@ -124,8 +165,18 @@ public sealed class SpotifyBackground : ISpotifyAppWindow, IDisposable
             var fast = Interlocked.Decrement(ref _closeWatchTicks) >= 0;
             try
             {
+                if (!_enabled)
+                {
+                    // "Spotify Web API only": the Spotify app is left alone, and nothing is checked.
+                    await Volatile.Read(ref _enabledAgain).Task.WaitAsync(_stopping.Token).ConfigureAwait(false);
+                    continue;
+                }
+
                 await Task.Delay(fast ? CloseWatchInterval : WatchInterval, _stopping.Token).ConfigureAwait(false);
-                Tick();
+                if (_enabled)
+                {
+                    Tick();
+                }
             }
             catch (OperationCanceledException)
             {

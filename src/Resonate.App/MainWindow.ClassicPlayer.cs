@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Resonate.App.Controls;
@@ -103,8 +102,4 @@ public sealed partial class MainWindow
         _windowActive = args.WindowActivationState != WindowActivationState.Deactivated;
         _classicPlayer?.SetWindowActive(_windowActive);
     }
-
-    [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool ShowWindow(nint hwnd, int command);
 }

@@ -53,11 +53,17 @@ equalizer in Settings is Spotify's own.
 The only music Resonate plays itself is your own files in Local Files,
 which Spotify does not let other apps start.
 
+Prefer to leave the Spotify app alone? Pick "Spotify Web API only" in
+Settings: Resonate then controls Spotify only through the Web API and
+plays on any Spotify Connect device you choose (your phone, a speaker, the
+web player), without starting or touching the desktop app.
+
 ## Requirements
 
 - Windows 10 or 11
 - Spotify Premium
-- The Spotify desktop app, installed and signed in
+- The Spotify desktop app, installed and signed in (or, with "Spotify Web
+  API only", any Spotify app or speaker that is online)
 - A free Spotify developer app of your own (Resonate's first screen walks
   you through it in about two minutes)
 
