@@ -1,0 +1,93 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Web player probe</title>
+<script>
+// Reports to Program.cs through chrome.webview.postMessage, one JSON object per message.
+const say = (o) => chrome.webview.postMessage(typeof o === 'string' ? o : JSON.stringify(o));
+const minutes = Number(new URLSearchParams(location.search).get('minutes') || 5);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+const keySystems = [
+  'com.widevine.alpha',
+  'com.microsoft.playready.recommendation',
+  'com.microsoft.playready.recommendation.3000',
+  'com.microsoft.playready',
+  'com.microsoft.playready.hardware',
+  'org.w3.clearkey',
+];
+const audio = [
+  { label: 'aac', initDataTypes: ['cenc'], audioCapabilities: [{ contentType: 'audio/mp4; codecs="mp4a.40.2"' }] },
+  { label: 'flac', initDataTypes: ['cenc'], audioCapabilities: [{ contentType: 'audio/mp4; codecs="flac"' }] },
+  { label: 'vorbis', initDataTypes: ['webm'], audioCapabilities: [{ contentType: 'audio/webm; codecs="vorbis"' }] },
+];
+
+async function checkEme(round) {
+  const results = {};
+  for (const ks of keySystems) {
+    results[ks] = {};
+    for (const c of audio) {
+      try {
+        const access = await navigator.requestMediaKeySystemAccess(ks, [
+          { initDataTypes: c.initDataTypes, audioCapabilities: c.audioCapabilities },
+        ]);
+        try {
+          await access.createMediaKeys();
+          results[ks][c.label] = 'ok';
+        } catch (e) {
+          results[ks][c.label] = `access ok, keys failed: ${e.name} ${e.message}`;
+        }
+      } catch (e) {
+        results[ks][c.label] = `no: ${e.name} ${e.message}`;
+      }
+    }
+  }
+  say({ kind: 'eme', round, results });
+  return results['com.widevine.alpha'].aac === 'ok';
+}
+
+function startSdk() {
+  return new Promise((resolve) => {
+    const makePlayer = () => {
+      say({ kind: 'sdk', event: 'script ready' });
+      const player = new Spotify.Player({
+        name: 'Resonate probe',
+        getOAuthToken: (cb) => cb('not-a-real-token'),
+        volume: 0.5,
+      });
+      for (const ev of ['ready', 'not_ready', 'initialization_error', 'authentication_error',
+        'account_error', 'playback_error', 'autoplay_failed']) {
+        player.addListener(ev, (d) => say({ kind: 'sdk', event: ev, detail: d }));
+      }
+      player.connect().then((ok) => say({ kind: 'sdk', event: 'connect() resolved', ok }));
+      setTimeout(resolve, 45000);
+    };
+    if (window.Spotify) {
+      makePlayer();
+      return;
+    }
+    window.onSpotifyWebPlaybackSDKReady = makePlayer;
+    const s = document.createElement('script');
+    s.src = 'https://sdk.scdn.co/spotify-player.js';
+    s.onerror = () => { say({ kind: 'sdk', event: 'script failed to load' }); resolve(); };
+    document.head.appendChild(s);
+  });
+}
+
+(async () => {
+  say({ kind: 'env', userAgent: navigator.userAgent, secure: window.isSecureContext,
+    brands: navigator.userAgentData ? navigator.userAgentData.brands : null });
+  let round = 0;
+  let widevine = await checkEme(round++);
+  await startSdk();
+  // Chromium may fetch the Widevine module a few minutes after the first start.
+  const end = Date.now() + minutes * 60000;
+  while (!widevine && Date.now() < end) {
+    await sleep(30000);
+    widevine = await checkEme(round++);
+  }
+  if (widevine && round > 1) {
+    await startSdk();
+  }
+  say('DONE');
+})();
+</script>

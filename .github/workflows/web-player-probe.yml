@@ -1,0 +1,81 @@
+# A throwaway check (8 October 2026): can WebView2 on Windows play the protected
+# audio that Spotify's Web Playback SDK needs, and which DRM does the SDK ask for?
+# Runs only on pushes to claude/ branches that touch the probe.
+name: Web player probe
+
+on:
+  push:
+    branches: ['claude/**']
+    paths:
+      - tools/WebPlayerProbe/**
+      - .github/workflows/web-player-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Which DRM Spotify's SDK asks for
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $seen = @{}
+          function Show-Drm([string] $url) {
+            if ($seen[$url]) { return }
+            $seen[$url] = $true
+            try { $text = (Invoke-WebRequest $url -UseBasicParsing).Content } catch { "$url -> $($_.Exception.Message)"; return }
+            if ($text -is [byte[]]) { $text = [Text.Encoding]::UTF8.GetString($text) }
+            "== $url ($($text.Length) chars)"
+            foreach ($m in [regex]::Matches($text, '(?i)(com\.widevine\.alpha|playready|com\.apple\.fps|requestMediaKeySystemAccess|clearkey|flac|mp4a|vorbis|opus)')) {
+              $start = [Math]::Max(0, $m.Index - 80)
+              $len = [Math]::Min(200, $text.Length - $start)
+              "  [$($m.Value)] " + $text.Substring($start, $len).Replace("`n", ' ')
+            }
+            $base = [Uri] $url
+            $links = [regex]::Matches($text, '(?:src|href)\s*=\s*["'']([^"'']+\.(?:js|html))["'']|["''](https://sdk\.scdn\.co/[^"'']+)["'']')
+            foreach ($l in $links) {
+              $target = if ($l.Groups[1].Success) { $l.Groups[1].Value } else { $l.Groups[2].Value }
+              $next = [Uri]::new($base, $target).AbsoluteUri
+              if ($next -match 'scdn\.co' -and $seen.Count -lt 12) { Show-Drm $next }
+            }
+          }
+          Show-Drm 'https://sdk.scdn.co/spotify-player.js'
+
+      - name: Find Widevine and the WebView2 runtime
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $key = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          if (Test-Path $key) { "WebView2 runtime registered: $((Get-ItemProperty $key).pv)" } else { 'WebView2 runtime not registered' }
+          foreach ($root in 'C:\Program Files (x86)\Microsoft\EdgeWebView\Application', 'C:\Program Files (x86)\Microsoft\Edge\Application', "$env:LOCALAPPDATA\Microsoft\Edge\User Data") {
+            if (Test-Path $root) {
+              "== $root"
+              Get-ChildItem $root -Directory | ForEach-Object { '  ' + $_.Name }
+              Get-ChildItem $root -Directory -Recurse -Depth 2 -Filter '*Widevine*' -ErrorAction SilentlyContinue | ForEach-Object { '  widevine: ' + $_.FullName }
+            } else { "missing: $root" }
+          }
+
+      - name: Install the WebView2 runtime if missing
+        shell: pwsh
+        run: |
+          $key = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          if (-not (Test-Path $key)) {
+            Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile "$env:RUNNER_TEMP\wv2.exe"
+            Start-Process "$env:RUNNER_TEMP\wv2.exe" -ArgumentList '/silent', '/install' -Wait
+          }
+
+      - name: Play-check in WebView2
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'probe'
+          Copy-Item tools/WebPlayerProbe $dir -Recurse
+          dotnet run --project "$dir/WebPlayerProbe.csproj" -c Release -- 6
