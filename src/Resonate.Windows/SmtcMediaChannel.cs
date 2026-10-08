@@ -283,10 +283,8 @@ public sealed partial class SmtcMediaChannel : ILocalMediaChannel
             return null;
         }
 
-        await using var source = stream.AsStreamForRead();
-        using var buffer = new MemoryStream((int)stream.Size);
-        await source.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
-        return buffer.ToArray();
+        // Straight into one array of its size (copying through a growing buffer made the picture twice).
+        return await ImageStreams.ToBytesAsync(stream).ConfigureAwait(false);
     }
 
     /// <summary>Publishes a report read from <paramref name="session"/>, unless listening stopped or the session changed meanwhile.</summary>

@@ -94,7 +94,8 @@ public sealed partial class LocalPlayer : ILocalPlayer
             _controls.RepeatRequested += OnControlRepeat;
         }
 
-        _clock = _time.CreateTimer(_ => OnClock(), null, ClockInterval, ClockInterval);
+        // Runs only while a song plays (SetState): a PC that never plays a local file is never woken by it.
+        _clock = _time.CreateTimer(_ => OnClock(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 
     public event EventHandler? StateChanged;
@@ -926,7 +927,23 @@ public sealed partial class LocalPlayer : ILocalPlayer
         };
     }
 
-    private void SetState(PlayerState state) => _state = state;
+    private void SetState(PlayerState state)
+    {
+        var wasPlaying = _state.IsPlaying;
+        _state = state;
+        if (state.IsPlaying != wasPlaying && !_disposed)
+        {
+            var interval = state.IsPlaying ? ClockInterval : Timeout.InfiniteTimeSpan;
+            try
+            {
+                _clock.Change(interval, interval);
+            }
+            catch (ObjectDisposedException)
+            {
+                // Closing.
+            }
+        }
+    }
 
     private void Raise()
     {

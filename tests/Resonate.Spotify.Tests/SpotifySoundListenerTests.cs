@@ -238,6 +238,55 @@ public sealed class SpotifySoundListenerTests : IDisposable
     }
 
     [Fact]
+    public async Task Silence_from_the_same_program_is_looked_into_less_often()
+    {
+        _listener.Wanted = true;
+        await StartSpotifyPlaying();
+        var lookups = _lookups;
+
+        _time.Advance(SpotifySoundListener.LookAgainAfter);
+        _listener.Write([], 2, Rate);
+        Assert.Equal(lookups + 1, _lookups);
+
+        // Found again: the next look waits twice as long.
+        _time.Advance(SpotifySoundListener.LookAgainAfter);
+        _listener.Write([], 2, Rate);
+        Assert.Equal(lookups + 1, _lookups);
+        _time.Advance(SpotifySoundListener.LookAgainAfter);
+        _listener.Write([], 2, Rate);
+        Assert.Equal(lookups + 2, _lookups);
+
+        // Sound brings the short wait back.
+        _listener.Write(Block(0.5f), 2, Rate);
+        _time.Advance(SpotifySoundListener.LookAgainAfter);
+        _listener.Write([], 2, Rate);
+        Assert.Equal(lookups + 3, _lookups);
+        Assert.Equal([42], _capture.Starts);
+    }
+
+    [Fact]
+    public async Task With_no_program_to_hear_player_updates_wait_for_the_next_look()
+    {
+        _program = null;
+        _listener.Wanted = true;
+        await StartSpotifyPlaying();
+        var lookups = _lookups;
+        Assert.False(_listener.IsListening);
+
+        _time.Advance(TimeSpan.FromSeconds(1));
+        ReportSpotify(playing: true);
+        Assert.Equal(lookups, _lookups);
+
+        // The wait itself brings the next look.
+        _program = 42;
+        _time.Advance(SpotifySoundListener.LookAgainAfter);
+
+        Assert.Equal(lookups + 1, _lookups);
+        Assert.Equal([42], _capture.Starts);
+        Assert.True(_listener.IsListening);
+    }
+
+    [Fact]
     public async Task Sound_that_flows_is_never_interrupted_to_look_again()
     {
         _listener.Wanted = true;

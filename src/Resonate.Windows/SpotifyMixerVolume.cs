@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
 using Resonate.Spotify.Playback;
@@ -48,15 +47,14 @@ public sealed class SpotifyMixerVolume : IAppVolume
     }
 
     /// <summary>Spotify's sessions on the default output, active ones first.</summary>
+    /// <remarks>
+    /// Each session names its process, and only those few are asked which
+    /// program they run: listing every process on the PC (as
+    /// <c>Process.GetProcessesByName</c> does) read the whole process and
+    /// thread table every time the player looked at the volume.
+    /// </remarks>
     private static List<ISimpleAudioVolume> FindSpotifyVolumes()
     {
-        var spotifyProcesses = SpotifyProcessIds();
-        var result = new List<(ISimpleAudioVolume Volume, bool Active)>();
-        if (spotifyProcesses.Count == 0)
-        {
-            return [];
-        }
-
         Marshal.ThrowExceptionForHR(Ole32.CoCreateInstance(
             CoreAudioIds.MMDeviceEnumerator, 0, CoreAudioIds.ClsCtxAll, CoreAudioIds.IMMDeviceEnumerator, out var pointer));
         IMMDeviceEnumerator enumerator;
@@ -73,36 +71,39 @@ public sealed class SpotifyMixerVolume : IAppVolume
         var manager = device.Activate(CoreAudioIds.IAudioSessionManager2, CoreAudioIds.ClsCtxAll, 0);
         var sessions = manager.GetSessionEnumerator();
         var count = sessions.GetCount();
+        List<ISimpleAudioVolume>? active = null;
+        List<ISimpleAudioVolume>? inactive = null;
         for (var i = 0; i < count; i++)
         {
             var control = sessions.GetSession(i);
-            if (control.GetProcessId(out var processId) < 0 || !spotifyProcesses.Contains(processId))
+            if (control.GetProcessId(out var processId) < 0 || processId == 0 || !ProcessImage.IsSpotify(processId))
             {
                 continue;
             }
 
             if (control is ISimpleAudioVolume volume)
             {
-                result.Add((volume, control.GetState() == CoreAudioIds.AudioSessionStateActive));
+                if (control.GetState() == CoreAudioIds.AudioSessionStateActive)
+                {
+                    (active ??= []).Add(volume);
+                }
+                else
+                {
+                    (inactive ??= []).Add(volume);
+                }
             }
         }
 
-        return result.OrderByDescending(r => r.Active).Select(r => r.Volume).ToList();
-    }
+        if (active is null)
+        {
+            return inactive ?? [];
+        }
 
-    private static HashSet<uint> SpotifyProcessIds()
-    {
-        var processes = Process.GetProcessesByName("Spotify");
-        try
+        if (inactive is not null)
         {
-            return processes.Select(p => (uint)p.Id).ToHashSet();
+            active.AddRange(inactive);
         }
-        finally
-        {
-            foreach (var process in processes)
-            {
-                process.Dispose();
-            }
-        }
+
+        return active;
     }
 }

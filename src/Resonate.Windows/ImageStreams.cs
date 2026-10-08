@@ -1,4 +1,3 @@
-using Windows.Security.Cryptography;
 using Windows.Storage.Streams;
 
 namespace Resonate.Windows;
@@ -8,7 +7,9 @@ namespace Resonate.Windows;
 /// objects. .NET's adapter for the other direction (AsRandomAccessStream)
 /// hands Windows a .NET object to call into, which the Native AOT build does
 /// not reliably support, so covers that came from bytes (local files' own
-/// covers) never showed; these never need it.
+/// covers) never showed; these never need it. The writer and reader are
+/// closed as soon as they are done, so their copy of the picture is let go
+/// of at once rather than whenever .NET next collects.
 /// </summary>
 public static class ImageStreams
 {
@@ -20,7 +21,12 @@ public static class ImageStreams
         {
             if (bytes.Length > 0)
             {
-                await stream.WriteAsync(CryptographicBuffer.CreateFromByteArray(bytes)).AsTask().ConfigureAwait(false);
+                using var writer = new DataWriter(stream);
+                writer.WriteBytes(bytes);
+                await writer.StoreAsync().AsTask().ConfigureAwait(false);
+
+                // The stream belongs to the caller: closing the writer must not close it.
+                writer.DetachStream();
             }
 
             stream.Seek(0);
@@ -42,9 +48,10 @@ public static class ImageStreams
             return [];
         }
 
-        stream.Seek(0);
-        var buffer = await stream.ReadAsync(new global::Windows.Storage.Streams.Buffer(size), size, InputStreamOptions.None).AsTask().ConfigureAwait(false);
-        CryptographicBuffer.CopyToByteArray(buffer, out var bytes);
-        return bytes ?? [];
+        using var reader = new DataReader(stream.GetInputStreamAt(0));
+        var loaded = await reader.LoadAsync(size).AsTask().ConfigureAwait(false);
+        var bytes = new byte[loaded];
+        reader.ReadBytes(bytes);
+        return bytes;
     }
 }
