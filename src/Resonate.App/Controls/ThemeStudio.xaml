@@ -55,7 +55,7 @@
         </controls:SettingsGroup>
 
         <!-- Effects: the user's own choices, kept whatever look is in use (not part of a look) -->
-        <controls:SettingsGroup Header="Effects">
+        <controls:SettingsGroup StartsCollapsed="True" Header="Effects">
             <StackPanel Spacing="6">
                 <controls:SettingRow Description="Turns like a record while a song plays." Header="Spinning cover">
                     <ToggleSwitch
@@ -84,23 +84,12 @@
             </StackPanel>
         </controls:SettingsGroup>
 
-        <Expander
-            x:Name="CustomizeExpander"
-            HorizontalAlignment="Stretch"
-            HorizontalContentAlignment="Stretch"
-            Collapsed="OnCustomizeCollapsed"
-            Expanding="OnCustomizeExpanding">
-            <Expander.Header>
-                <StackPanel Padding="0,12" Spacing="2">
-                    <TextBlock Style="{StaticResource ResonateBodyTextStyle}" Text="Customize" />
-                    <TextBlock
-                        x:Name="CustomizeHint"
-                        Style="{StaticResource ResonateCaptionTextStyle}"
-                        TextWrapping="Wrap" />
-                </StackPanel>
-            </Expander.Header>
-
+        <controls:SettingsGroup x:Name="CustomizeGroup" StartsCollapsed="True" Header="Customize">
             <StackPanel Spacing="6">
+                <TextBlock
+                    x:Name="CustomizeHint"
+                    Style="{StaticResource ResonateCaptionTextStyle}"
+                    TextWrapping="Wrap" />
                 <!-- Colours -->
                 <TextBlock Style="{StaticResource StudioSectionTextStyle}" Text="COLOURS" />
                 <controls:SettingRow Header="Mode">
@@ -342,6 +331,6 @@
                     Style="{StaticResource ResonateSubtleButtonStyle}"
                     Visibility="Collapsed" />
             </StackPanel>
-        </Expander>
+        </controls:SettingsGroup>
     </StackPanel>
 </UserControl>

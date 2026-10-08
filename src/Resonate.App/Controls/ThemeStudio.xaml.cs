@@ -142,20 +142,23 @@ public sealed partial class ThemeStudio : UserControl
         _looksTimer.Interval = TimeSpan.FromMilliseconds(250);
         _looksTimer.IsRepeating = false;
 
-        CustomizeExpander.IsExpanded = CustomizeOpen;
+        if (CustomizeOpen)
+        {
+            CustomizeGroup.IsExpanded = true;
+        }
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
         _loading = false;
     }
 
-    /// <summary>Whether Customize is open; kept while Resonate runs.</summary>
+    /// <summary>Opens Customize when the page is built (the screenshot tour).</summary>
     public static bool CustomizeOpen { get; set; }
 
     /// <summary>Opens Customize and scrolls it to the top of the page.</summary>
     internal void ShowCustomize()
     {
-        CustomizeExpander.IsExpanded = true;
-        CustomizeExpander.StartBringIntoView(new BringIntoViewOptions { VerticalAlignmentRatio = 0, AnimationDesired = false });
+        CustomizeGroup.IsExpanded = true;
+        CustomizeGroup.StartBringIntoView(new BringIntoViewOptions { VerticalAlignmentRatio = 0, AnimationDesired = false });
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -680,9 +683,7 @@ public sealed partial class ThemeStudio : UserControl
     private static void Select(ComboBox combo, string tag) =>
         combo.SelectedItem = combo.Items.OfType<ComboBoxItem>().FirstOrDefault(item => item.Tag as string == tag);
 
-    private void OnCustomizeExpanding(Expander sender, ExpanderExpandingEventArgs args) => CustomizeOpen = true;
 
-    private void OnCustomizeCollapsed(Expander sender, ExpanderCollapsedEventArgs args) => CustomizeOpen = false;
 
     private async void OnSaveAsClick(object sender, RoutedEventArgs e) => await SaveAsAsync(_theme.Current);
 

@@ -25,6 +25,19 @@ public sealed partial class SettingsGroup : ContentControl
         typeof(SettingsGroup),
         new PropertyMetadata(true, (group, _) => ((SettingsGroup)group).OnExpandedChanged()));
 
+    /// <summary>Folded until the user opens it (remembered by heading, like folding).</summary>
+    public bool StartsCollapsed
+    {
+        get => _startsCollapsed;
+        set
+        {
+            _startsCollapsed = value;
+            OnHeaderChanged();
+        }
+    }
+
+    private bool _startsCollapsed;
+
     private Button? _toggle;
 
     // True while the folded state is read from the settings, so that is not saved back.
@@ -73,7 +86,9 @@ public sealed partial class SettingsGroup : ContentControl
         _restoring = true;
         try
         {
-            IsExpanded = !settings.CollapsedSettingsSections.Contains(Header);
+            IsExpanded = StartsCollapsed
+                ? settings.ExpandedSettingsSections.Contains(Header)
+                : !settings.CollapsedSettingsSections.Contains(Header);
         }
         finally
         {
@@ -91,11 +106,12 @@ public sealed partial class SettingsGroup : ContentControl
             return;
         }
 
-        var collapsed = services.Settings.CollapsedSettingsSections;
-        collapsed.RemoveAll(header => header == Header);
-        if (!IsExpanded)
+        // A section that starts folded remembers being opened; the others remember being folded.
+        var list = StartsCollapsed ? services.Settings.ExpandedSettingsSections : services.Settings.CollapsedSettingsSections;
+        list.RemoveAll(header => header == Header);
+        if (IsExpanded == StartsCollapsed)
         {
-            collapsed.Add(Header);
+            list.Add(Header);
         }
 
         services.SaveSettings();

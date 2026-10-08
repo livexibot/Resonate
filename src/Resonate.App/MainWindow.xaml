@@ -230,13 +230,15 @@
                                         VerticalAlignment="Center"
                                         FontWeight="SemiBold"
                                         Style="{StaticResource ResonateBodyTextStyle}"
-                                        Text="{x:Bind Label}" />
+                                        Text="{x:Bind Label}"
+                                        Visibility="{x:Bind LabelVisibility, Mode=OneWay}" />
                                 </StackPanel>
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
 
                     <Grid
+                        x:Name="PlaylistsHeader"
                         Grid.Row="1"
                         Margin="16,14,8,4"
                         ColumnSpacing="2">
@@ -292,30 +294,37 @@
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="vm:PlaylistNavItem">
                                 <Grid
-                                    MinHeight="54"
+                                    MinHeight="64"
                                     Background="{StaticResource ResonateTransparentBrush}"
                                     ColumnSpacing="12">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="40" />
+                                        <ColumnDefinition Width="48" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <Grid
-                                        Width="40"
-                                        Height="40"
+                                        Width="48"
+                                        Height="48"
                                         Background="{x:Bind Cover.Background, Mode=OneWay}"
-                                        CornerRadius="{ThemeResource ResonateCornerSmall}">
+                                        CornerRadius="{ThemeResource ResonateCornerSmall}"
+                                        ToolTipService.ToolTip="{x:Bind Name}">
                                         <Image Source="{x:Bind Cover.Image}" Stretch="UniformToFill" />
                                     </Grid>
                                     <StackPanel
                                         Grid.Column="1"
                                         VerticalAlignment="Center"
-                                        Spacing="1">
+                                        Spacing="2"
+                                        Visibility="{x:Bind TextVisibility, Mode=OneWay}">
                                         <TextBlock
+                                            FontWeight="SemiBold"
                                             Foreground="{x:Bind NameBrush, Mode=OneWay}"
                                             Style="{StaticResource ResonateBodyTextStyle}"
-                                            Text="{x:Bind Name}" />
-                                        <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="{x:Bind Details}" />
+                                            Text="{x:Bind Name}"
+                                            TextTrimming="CharacterEllipsis" />
+                                        <TextBlock
+                                            Style="{StaticResource ResonateCaptionTextStyle}"
+                                            Text="{x:Bind Details}"
+                                            TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
                                     <FontIcon
                                         Grid.Column="2"

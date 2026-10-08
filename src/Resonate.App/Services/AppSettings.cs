@@ -40,6 +40,9 @@ public sealed class AppSettings
     /// <summary>The sections of Settings the user folded away, by their headings (see Controls/SettingsGroup).</summary>
     public List<string> CollapsedSettingsSections { get; set; } = [];
 
+    /// <summary>The sections that start folded (Customize, Effects, Winamp) which the user opened, by their headings.</summary>
+    public List<string> ExpandedSettingsSections { get; set; } = [];
+
     /// <summary>
     /// New versions download by themselves and install when Resonate closes
     /// (on unless the user switches it off; then only Check for updates looks).

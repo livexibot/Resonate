@@ -6,7 +6,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Resonate.App.Controls">
 
-    <controls:SettingsGroup x:Name="Group" Header="Winamp">
+    <controls:SettingsGroup x:Name="Group" StartsCollapsed="True" Header="Winamp">
         <StackPanel Spacing="12">
             <TextBlock
                 Style="{StaticResource ResonateSecondaryTextStyle}"

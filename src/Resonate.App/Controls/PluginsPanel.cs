@@ -42,36 +42,38 @@ internal sealed partial class PluginsPanel : StackPanel
             TextWrapping = TextWrapping.Wrap,
         });
 
-        // Built into Resonate: nothing to download. Each kind in a section that folds away.
-        var builtIn = new StackPanel { Spacing = 12 };
+        // Every plugin in one list by name; each says whether it is built in or downloaded.
+        var items = new List<(string Name, FrameworkElement Element)>();
         foreach (var plugin in BuiltInPlugins.All)
         {
             var card = new BuiltInCard(plugin, BuiltInPluginSettings.Create(plugin.Id, services));
             _builtInCards[plugin.Id] = card;
-            builtIn.Children.Add(Build(card));
+            items.Add((plugin.Name, Build(card)));
             RefreshBuiltIn(card);
         }
-
-        Children.Add(new SettingsGroup { Header = "Built in", Content = builtIn });
-
-        var downloaded = new StackPanel { Spacing = 12 };
-        downloaded.Children.Add(new TextBlock
-        {
-            Text = Intro(plugins),
-            Style = (Style)resources["ResonateSecondaryTextStyle"],
-            TextWrapping = TextWrapping.Wrap,
-        });
 
         foreach (var manifest in plugins.Available)
         {
             var card = new Card(manifest);
             _cards[manifest.Id] = card;
-            downloaded.Children.Add(Build(card));
+            items.Add((manifest.Name, Build(card)));
             Refresh(card);
         }
 
-        Children.Add(new SettingsGroup { Margin = new Thickness(0, 8, 0, 0), Header = "Downloaded when turned on", Content = downloaded });
+        foreach (var (_, element) in items.OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase))
+        {
+            Children.Add(element);
+        }
 
+        if (plugins.Available.Count == 0 || plugins.IsPreview)
+        {
+            Children.Add(new TextBlock
+            {
+                Text = Intro(plugins),
+                Style = (Style)resources["ResonateCaptionTextStyle"],
+                TextWrapping = TextWrapping.Wrap,
+            });
+        }
         Loaded += (_, _) =>
         {
             _plugins.Changed += OnChanged;
@@ -123,6 +125,7 @@ internal sealed partial class PluginsPanel : StackPanel
             }
         };
         panel.Children.Add(new SettingRow { Header = card.Plugin.Name, Description = card.Plugin.Description, Content = card.Switch });
+        panel.Children.Add(StatusLine("Built in"));
         if (card.Settings is not null)
         {
             panel.Children.Add(card.Settings);
@@ -130,6 +133,15 @@ internal sealed partial class PluginsPanel : StackPanel
 
         return panel;
     }
+
+    /// <summary>A small line under a plugin's name: built in, downloaded, or not downloaded yet.</summary>
+    private static TextBlock StatusLine(string text) => new()
+    {
+        Text = text,
+        Padding = new Thickness(16, 0, 16, 0),
+        Style = (Style)Application.Current.Resources["ResonateCaptionTextStyle"],
+        FontWeight = FontWeights.SemiBold,
+    };
 
     private void OnBuiltInChanged(object? sender, string id)
     {
@@ -442,8 +454,9 @@ internal sealed partial class PluginsPanel : StackPanel
                 PluginStatus.Downloading => $"Downloading… {view.Progress:P0}",
                 PluginStatus.Starting => "Starting…",
                 PluginStatus.Running when _plugins.IsPreview => "On (demo mode: not downloaded)",
-                PluginStatus.Running => string.IsNullOrEmpty(view.StatusText) ? "On" : "On. " + view.StatusText,
-                PluginStatus.Failed => "Not running",
+                PluginStatus.Running => string.IsNullOrEmpty(view.StatusText) ? "Downloaded" : "Downloaded. " + view.StatusText,
+                PluginStatus.Failed => "Downloaded, not running",
+                _ when !view.IsOn => "Not downloaded",
                 _ => null,
             };
             card.Status.Text = status ?? string.Empty;

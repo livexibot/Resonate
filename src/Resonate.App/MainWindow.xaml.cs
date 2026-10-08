@@ -39,8 +39,12 @@ public sealed partial class MainWindow : Window
     private const int HistoryLimit = 50;
 
     /// <summary>The sidebar's usual width, and how narrow and wide it can be dragged.</summary>
-    private const double SidebarDefaultWidth = 272;
-    private const double SidebarMinWidth = 200;
+    private const double SidebarDefaultWidth = 300;
+
+    // Narrower than this, the sidebar snaps to icons and covers only (like Spotify's collapsed library).
+    private const double SidebarCompactBelow = 180;
+    private const double SidebarCompactWidth = 84;
+    private const double SidebarMinWidth = SidebarCompactWidth;
     private const double SidebarMaxWidth = 520;
 
     /// <summary>How narrow and wide the queue pane can be dragged.</summary>
@@ -433,10 +437,15 @@ public sealed partial class MainWindow : Window
         {
             var others = gap + PageMinWidth + (paneOpen ? gap + paneMin : 0);
             sidebarWidth = Fit(sidebar ?? settings.SidebarWidth ?? SidebarDefaultWidth, SidebarMinWidth, SidebarMaxWidth, room - others);
+            if (sidebarWidth < SidebarCompactBelow)
+            {
+                sidebarWidth = SidebarCompactWidth;
+            }
         }
 
         var paneWidth = Fit(pane ?? paneWanted, paneMin, paneMax, room - sidebarWidth - (2 * gap) - PageMinWidth);
         SetWidth(SidebarColumn, sidebarWidth);
+        ApplySidebarCompact(sidebarWidth <= SidebarCompactWidth);
         SetWidth(_paneColumn, paneWidth);
 
         // A window too small for everything gives each panel its least, so the page keeps what it can.
@@ -452,6 +461,30 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private bool? _sidebarCompact;
+
+    /// <summary>Icons and covers only, without names or the Playlists heading, while the sidebar is at its narrowest.</summary>
+    private void ApplySidebarCompact(bool compact)
+    {
+        if (_sidebarCompact == compact)
+        {
+            return;
+        }
+
+        _sidebarCompact = compact;
+        PlaylistNavItem.Compact = compact;
+        foreach (var item in Playlists)
+        {
+            item.RefreshCompact();
+        }
+
+        foreach (var item in NavItems)
+        {
+            item.RefreshCompact();
+        }
+
+        PlaylistsHeader.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+    }
     /// <summary>A drag or an arrow key ended: the panels keep these widths, next time too.</summary>
     private void KeepPaneWidths()
     {

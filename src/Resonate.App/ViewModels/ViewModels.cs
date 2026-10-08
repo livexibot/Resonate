@@ -281,15 +281,23 @@ public sealed partial class PlaylistNavItem : ObservableObject
     {
         get
         {
+            // Like Spotify: what it is and whose, never how many songs.
             var owner = Playlist.Owner?.DisplayName ?? Playlist.Owner?.Id;
-            var count = Format.SongCount(Playlist.ItemCount);
-            return string.IsNullOrEmpty(owner) ? count : $"{owner} · {count}";
+            return string.IsNullOrEmpty(owner) ? "Playlist" : $"Playlist · {owner}";
         }
     }
 
+    /// <summary>While the sidebar is too narrow for names, only the covers show (see MainWindow.ApplySidebarCompact).</summary>
+    public static bool Compact { get; set; }
+
+    public Visibility TextVisibility => Compact ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>Picks up a change of <see cref="Compact"/>.</summary>
+    public void RefreshCompact() => OnPropertyChanged(nameof(TextVisibility));
+
     public Brush PlaceholderBrush { get; }
 
-    public CoverTile Cover => _cover ??= new CoverTile(ImagePicker.Pick(Playlist.Images, 64), 40, PlaceholderBrush);
+    public CoverTile Cover => _cover ??= new CoverTile(ImagePicker.Pick(Playlist.Images, 96), 48, PlaceholderBrush);
 
     public ImageSource? Image => Cover.Image;
 
@@ -356,7 +364,7 @@ public sealed partial class CardItem
 }
 
 /// <summary>A navigation entry at the top of the sidebar.</summary>
-public sealed partial class NavItem
+public sealed partial class NavItem : ObservableObject
 {
     public NavItem(string key, string glyph, string label)
     {
@@ -364,6 +372,11 @@ public sealed partial class NavItem
         Glyph = glyph;
         Label = label;
     }
+
+    /// <summary>Hidden while the sidebar shows only icons and covers (see <see cref="PlaylistNavItem.Compact"/>).</summary>
+    public Visibility LabelVisibility => PlaylistNavItem.Compact ? Visibility.Collapsed : Visibility.Visible;
+
+    public void RefreshCompact() => OnPropertyChanged(nameof(LabelVisibility));
 
     public string Key { get; }
 
