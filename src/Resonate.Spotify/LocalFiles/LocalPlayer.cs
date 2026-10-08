@@ -57,6 +57,8 @@ public sealed class LocalPlayer : ILocalPlayer
     private Task _pendingVolumeTask = Task.CompletedTask;
     private EqualizerSettings? _equalizer;
     private bool _equalizerQueued;
+    private ILocalAudioSink? _sink;
+    private bool _sinkQueued;
     private bool _controlsEnabled;
     private int _controlsQueued;
     private int _clockQueued;
@@ -232,6 +234,34 @@ public sealed class LocalPlayer : ILocalPlayer
             }
 
             _engine.SetEqualizer(latest);
+            return Task.CompletedTask;
+        });
+    }
+
+    public void SetAudioSink(ILocalAudioSink? sink)
+    {
+        lock (_gate)
+        {
+            _sink = sink;
+            if (_sinkQueued)
+            {
+                return;
+            }
+
+            _sinkQueued = true;
+        }
+
+        // Only the newest wish reaches the engine, so a visualiser that comes and goes quickly costs nothing.
+        _ = _side.Enqueue(_ =>
+        {
+            ILocalAudioSink? latest;
+            lock (_gate)
+            {
+                latest = _sink;
+                _sinkQueued = false;
+            }
+
+            _engine.SetSink(latest);
             return Task.CompletedTask;
         });
     }

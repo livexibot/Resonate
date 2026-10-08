@@ -134,6 +134,7 @@ public sealed partial class MainWindow : Window
 
         CompositionTarget.Rendering += OnFirstFrame;
         SetUpLocalFiles();
+        SetUpClassicPlayer();
     }
 
     /// <summary>False while the window is minimised or hidden: clocks and endless animations rest then.</summary>
@@ -159,7 +160,7 @@ public sealed partial class MainWindow : Window
         SignInFrame.Visibility = Visibility.Collapsed;
         SignInFrame.Content = null;
         ShellGrid.Visibility = Visibility.Visible;
-        PlayerBar.Visibility = Visibility.Visible;
+        ApplyPlayerStyle();
 
         ShowPlaylists(_services.Library.Snapshot);
         _history.Clear();
@@ -205,6 +206,7 @@ public sealed partial class MainWindow : Window
         }
 
         LayOutPanes();
+        QueueOpenChanged?.Invoke(this, EventArgs.Empty);
     }
 
     // ---- Resizing the sidebar and the queue ----
@@ -325,7 +327,7 @@ public sealed partial class MainWindow : Window
     {
         ShowQueue(false);
         ShellGrid.Visibility = Visibility.Collapsed;
-        PlayerBar.Visibility = Visibility.Collapsed;
+        ApplyPlayerStyle();
         SignInFrame.Visibility = Visibility.Visible;
         SignInFrame.Navigate(typeof(SignInPage), null, new SuppressNavigationTransitionInfo());
         _currentKey = null;
@@ -733,11 +735,7 @@ public sealed partial class MainWindow : Window
     private void OnSearchAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
         args.Handled = true;
-        if (ShellGrid.Visibility == Visibility.Visible)
-        {
-            OpenSearch();
-            SearchPage.FocusSearchBox(ContentFrame);
-        }
+        FocusSearch();
     }
 
     private void OnNextAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
@@ -953,7 +951,7 @@ public sealed partial class MainWindow : Window
         if (shown != IsShown)
         {
             IsShown = shown;
-            PlayerBar.SetWindowShown(shown);
+            TellPlayersShown();
             ShownChanged?.Invoke(this, EventArgs.Empty);
         }
     }

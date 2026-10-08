@@ -22,6 +22,30 @@ public sealed class AppSettings
     /// <summary>How switching looks animates.</summary>
     public ThemeTransitionKind ThemeTransition { get; set; } = ThemeTransitionKind.Morph;
 
+    /// <summary>The now-playing cover turns like a record while a song plays (off unless the user switches it on).</summary>
+    public bool SpinningCover { get; set; }
+
+    /// <summary>Looks with the song cover backdrop show the cover itself, blurred (off: only its colours).</summary>
+    public bool BlurredCoverBackground { get; set; } = true;
+
+    /// <summary>"modern" (Resonate's player bar) or "classic" (the skinnable player in the style of Winamp 2).</summary>
+    public string PlayerStyle { get; set; } = "modern";
+
+    /// <summary>The classic player's skin: a file name in <see cref="AppPaths.SkinsFolder"/>, or null for the built-in skin.</summary>
+    public string? ClassicSkin { get; set; }
+
+    /// <summary>The classic player at Winamp's double size.</summary>
+    public bool ClassicDoubleSize { get; set; }
+
+    /// <summary>The classic player in shade mode (just its title strip).</summary>
+    public bool ClassicShaded { get; set; }
+
+    /// <summary>The classic player's visualiser: a <see cref="Resonate.Themes.Skins.VisualiserMode"/> name.</summary>
+    public string ClassicVisualiser { get; set; } = nameof(Resonate.Themes.Skins.VisualiserMode.Spectrum);
+
+    /// <summary>The classic player's time display counts down.</summary>
+    public bool ClassicShowRemaining { get; set; }
+
     /// <summary>"local" (Windows' media controls first) or "webapi" (the Spotify Web API only).</summary>
     public string ControlChannel { get; set; } = "local";
 
@@ -103,6 +127,15 @@ public sealed class AppSettings
 
     /// <summary>The local files player's volume, from 0 to 1 (the Spotify app keeps its own).</summary>
     public double LocalVolume { get; set; } = 1;
+
+    [JsonIgnore]
+    public bool UsesClassicPlayer => PlayerStyle == "classic";
+
+    [JsonIgnore]
+    public Resonate.Themes.Skins.VisualiserMode ParsedClassicVisualiser =>
+        Enum.TryParse<Resonate.Themes.Skins.VisualiserMode>(ClassicVisualiser, ignoreCase: true, out var mode) && Enum.IsDefined(mode)
+            ? mode
+            : Resonate.Themes.Skins.VisualiserMode.Spectrum;
 
     [JsonIgnore]
     public Resonate.Spotify.Library.PlaylistSortMode ParsedPlaylistSort =>
@@ -254,4 +287,8 @@ public static class AppPaths
     /// <summary>Which plugins are on, their settings and what they keep (next to the settings).</summary>
     public static string PluginsFile { get; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Resonate", "plugins.json");
+
+    /// <summary>Classic player skins the user added (copies), next to <see cref="CacheFolder"/>.</summary>
+    public static string SkinsFolder { get; } =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Resonate", "skins");
 }

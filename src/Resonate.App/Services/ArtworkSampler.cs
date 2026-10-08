@@ -12,13 +12,16 @@ using Resonate.Windows;
 namespace Resonate.App.Services;
 
 /// <summary>
-/// Reads the playing song's cover for looks that use it: a heavily blurred
-/// copy for the artwork backdrop, and its most striking colour for an accent
-/// that follows the cover. Works only while the look in use needs it.
+/// Reads the playing song's cover for looks that use it: the picture behind
+/// the song cover backdrop (the cover itself, heavily blurred and made
+/// vivid, or, if the user turns that off, a soft wash of its colours) and
+/// its most striking colour for an accent that follows the cover. While
+/// nothing plays, the backdrop is a glow of the look's own accents. Works
+/// only while the look in use needs it.
 /// </summary>
 public sealed class ArtworkSampler : IDisposable
 {
-    // Tiny on purpose: decoding, colour picking and blurring take well under a millisecond.
+    // Tiny on purpose: decoding, colour picking, blurring and the wash take well under a millisecond.
     private const int Size = 40;
     private const int BlurRadius = 3;
 
@@ -30,6 +33,16 @@ public sealed class ArtworkSampler : IDisposable
     private CancellationTokenSource? _sampling;
     private object? _key;
     private int _updateQueued;
+
+    // The cover in _key at Size × Size once read, kept so switching the
+    // blurred cover on or off redraws at once, without downloading it again.
+    private byte[]? _pixels;
+
+    // Whether Blurred holds the blurred cover (true) or the wash (false).
+    private bool _showsBlurredCover;
+
+    // The look's accents Blurred glows with while nothing plays; null while it shows a cover.
+    private (ThemeColor, ThemeColor)? _glow;
 
     /// <summary>Call on the interface thread.</summary>
     /// <param name="covers">Where covers are kept; the player bar has usually fetched the playing one already.</param>
@@ -47,7 +60,11 @@ public sealed class ArtworkSampler : IDisposable
     /// <summary>Raised on the interface thread when <see cref="Blurred"/> changes.</summary>
     public event EventHandler? Changed;
 
-    /// <summary>The blurred cover, or null when nothing is playing.</summary>
+    /// <summary>
+    /// What the song cover backdrop shows: the blurred cover, or a wash of
+    /// its colours when the user turns that off; while nothing plays, a glow
+    /// of the look's accents. Null only before the first look that needs it.
+    /// </summary>
     public ImageSource? Blurred { get; private set; }
 
     public void Dispose()
@@ -73,6 +90,13 @@ public sealed class ArtworkSampler : IDisposable
 
     private void Update()
     {
+        // The user switched the blurred cover on or off: redrawn at once, even
+        // while another look shows, so a cover they turned off never comes back.
+        if (_showsBlurredCover != _theme.BlurredCoverBackground && Blurred is not null)
+        {
+            ShowBackdrop(_pixels);
+        }
+
         var look = _theme.Current;
         if (look.Backdrop != WindowBackdrop.Artwork && !look.AdaptiveAccent)
         {
@@ -82,16 +106,20 @@ public sealed class ArtworkSampler : IDisposable
         var state = _player.State;
         var name = state.Album ?? state.Title;
         object? key = state.ArtworkUrl ?? (object?)state.ArtworkBytes ?? name;
-        if (Equals(key, _key))
+        if (!Equals(key, _key))
         {
-            return;
+            _key = key;
+            _pixels = null;
+            _sampling?.Cancel();
+            _sampling?.Dispose();
+            _sampling = new CancellationTokenSource();
+            _ = SampleAsync(state.ArtworkUrl, state.ArtworkBytes, name, _sampling.Token);
         }
-
-        _key = key;
-        _sampling?.Cancel();
-        _sampling?.Dispose();
-        _sampling = new CancellationTokenSource();
-        _ = SampleAsync(state.ArtworkUrl, state.ArtworkBytes, name, _sampling.Token);
+        else if (key is null && (Blurred is null || !Equals(_glow, (look.Accent, look.Accent2))))
+        {
+            // Nothing plays (also at start-up): the glow follows the look's accents.
+            ShowBackdrop(null);
+        }
     }
 
     private async Task SampleAsync(string? url, byte[]? image, string? name, CancellationToken cancellationToken)
@@ -115,9 +143,10 @@ public sealed class ArtworkSampler : IDisposable
         {
             return;
         }
-        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException)
+        catch (Exception)
         {
-            // Offline or slow: the album's tile colours stand in for the cover.
+            // Offline, slow or an unreadable picture: the album's tile colours
+            // stand in for the cover, so the backdrop never stays dark.
         }
 
         if (cancellationToken.IsCancellationRequested)
@@ -131,19 +160,44 @@ public sealed class ArtworkSampler : IDisposable
             pixels = ArtworkColors.Gradient(from, to, Size);
         }
 
-        ThemeColor? accent = null;
-        WriteableBitmap? blurred = null;
-        if (pixels is not null)
+        _pixels = pixels;
+        ShowBackdrop(pixels);
+        _theme.SetArtworkAccent(pixels is null ? null : ArtworkColors.PickAccent(pixels, Size, Size));
+    }
+
+    /// <summary>
+    /// Draws the backdrop picture from the cover (or, without one, from the
+    /// look's two accents): blurred and made vivid, so a dark cover still
+    /// glows through the look's tint, or a wash of its colours alone when the
+    /// user turns the blurred cover off.
+    /// </summary>
+    private void ShowBackdrop(byte[]? pixels)
+    {
+        _showsBlurredCover = _theme.BlurredCoverBackground;
+        _glow = null;
+        if (pixels is null)
         {
-            accent = ArtworkColors.PickAccent(pixels, Size, Size);
-            ArtworkColors.Blur(pixels, Size, Size, BlurRadius);
-            blurred = new WriteableBitmap(Size, Size);
-            pixels.CopyTo(blurred.PixelBuffer);
-            blurred.Invalidate();
+            var look = _theme.Current;
+            _glow = (look.Accent, look.Accent2);
+            pixels = ArtworkColors.Gradient(look.Accent.Opaque, look.Accent2.Opaque, Size);
         }
 
-        Blurred = blurred;
+        byte[] shown;
+        if (_showsBlurredCover)
+        {
+            shown = (byte[])pixels.Clone();
+            ArtworkColors.Blur(shown, Size, Size, BlurRadius);
+            ArtworkColors.Vivid(shown, Size, Size);
+        }
+        else
+        {
+            shown = ArtworkColors.ColourWash(pixels, Size, Size, Size, Size);
+        }
+
+        var picture = new WriteableBitmap(Size, Size);
+        shown.CopyTo(picture.PixelBuffer);
+        picture.Invalidate();
+        Blurred = picture;
         Changed?.Invoke(this, EventArgs.Empty);
-        _theme.SetArtworkAccent(accent);
     }
 }

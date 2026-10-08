@@ -20,6 +20,9 @@
             <!-- Look: presets, your own looks and the customizer -->
             <controls:ThemeStudio x:Name="Studio" />
 
+            <!-- Classic player: the skinnable Winamp 2 style player -->
+            <controls:ClassicPlayerPanel x:Name="ClassicPlayerSection" />
+
             <!-- Playback and the Spotify app -->
             <StackPanel Spacing="12">
                 <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Playback" />
@@ -66,7 +69,7 @@
             </StackPanel>
 
             <!-- Equalizer: the Spotify app's own, and the same setting for local files -->
-            <controls:EqualizerPanel />
+            <controls:EqualizerPanel x:Name="EqualizerSection" />
 
             <!-- Local Files -->
             <controls:LocalFoldersPanel />

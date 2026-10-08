@@ -79,7 +79,7 @@ internal sealed partial class LookPreview : Grid
                 return Gradient(_look.GradientAngle, background, _look.Background2.Opaque);
 
             case WindowBackdrop.Artwork:
-                // Stands in for a song's cover: blurred colour behind the theme's tint.
+                // Stands in for the song cover backdrop: a wash of colours behind the theme's tint.
                 var tint = _look.BackdropTint;
                 return Gradient(
                     120,

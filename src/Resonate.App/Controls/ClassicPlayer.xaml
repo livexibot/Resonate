@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The classic player: the cover, a Winamp 2 style main window drawn from a
+  skin pixel for pixel, the song in the app's own text, the plugin button
+  and the heart. It sits where the player bar would, docked or floating
+  like it. See ClassicPlayer.xaml.cs.
+-->
+<UserControl
+    x:Class="Resonate.App.Controls.ClassicPlayer"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid
+        x:Name="PlayerFrame"
+        Margin="{ThemeResource ResonatePlayerMargin}"
+        Padding="16,10"
+        Background="{StaticResource ResonatePlayerBrush}"
+        BorderBrush="{StaticResource ResonateBorderBrush}"
+        BorderThickness="{ThemeResource ResonatePlayerBorderThickness}"
+        ColumnSpacing="16"
+        CornerRadius="{ThemeResource ResonatePlayerCorner}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <!-- The cover: as tall as the skin; round, like a record, when spinning covers are on -->
+        <Grid
+            x:Name="CoverFrame"
+            Width="116"
+            Height="116"
+            VerticalAlignment="Center"
+            Background="{StaticResource ResonateSurfaceHoverBrush}"
+            CornerRadius="8">
+            <FontIcon
+                x:Name="CoverGlyph"
+                FontFamily="{StaticResource ResonateIconFont}"
+                FontSize="20"
+                Foreground="{StaticResource ResonateTextTertiaryBrush}"
+                Glyph="&#xEC4F;" />
+            <Image
+                x:Name="CoverImage"
+                ImageOpened="OnCoverOpened"
+                Opacity="0"
+                Stretch="UniformToFill" />
+            <Ellipse
+                x:Name="CoverHole"
+                Width="12"
+                Height="12"
+                Fill="{StaticResource ResonatePlayerBrush}"
+                Stroke="{StaticResource ResonateBorderBrush}"
+                StrokeThickness="1"
+                Visibility="Collapsed" />
+        </Grid>
+
+        <!-- The skin, one skin pixel to a whole number of screen pixels; the visualiser is laid over its spot -->
+        <Grid
+            x:Name="SkinHost"
+            Grid.Column="1"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center"
+            AutomationProperties.Name="Classic player"
+            Background="{StaticResource ResonateTransparentBrush}"
+            DoubleTapped="OnSkinDoubleTapped"
+            PointerCanceled="OnSkinPointerCanceled"
+            PointerCaptureLost="OnSkinPointerCanceled"
+            PointerExited="OnSkinPointerExited"
+            PointerMoved="OnSkinPointerMoved"
+            PointerPressed="OnSkinPointerPressed"
+            PointerReleased="OnSkinPointerReleased"
+            PointerWheelChanged="OnSkinPointerWheelChanged">
+            <Image
+                x:Name="SkinView"
+                Width="275"
+                Height="116"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Stretch="Fill" />
+            <Image
+                x:Name="VisualiserView"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsHitTestVisible="False"
+                Stretch="Fill"
+                Visibility="Collapsed" />
+        </Grid>
+
+        <!-- The song, always readable whatever the skin -->
+        <StackPanel
+            Grid.Column="2"
+            VerticalAlignment="Center"
+            Spacing="2">
+            <TextBlock
+                x:Name="TitleText"
+                FontWeight="SemiBold"
+                Style="{StaticResource ResonateBodyTextStyle}"
+                Text="Nothing playing" />
+            <TextBlock
+                x:Name="ArtistText"
+                Style="{StaticResource ResonateSecondaryTextStyle}"
+                Text="Pick a song to start" />
+            <TextBlock x:Name="AlbumText" Style="{StaticResource ResonateCaptionTextStyle}" />
+        </StackPanel>
+
+        <StackPanel
+            Grid.Column="3"
+            VerticalAlignment="Center"
+            Orientation="Horizontal"
+            Spacing="6">
+            <!-- Commands from plugins that are on, such as the sleep timer, as in the player bar. -->
+            <Button
+                x:Name="PluginsButton"
+                AutomationProperties.Name="Plugins"
+                Click="OnPluginsClick"
+                Content="&#xEA86;"
+                Style="{StaticResource ResonateIconButtonStyle}"
+                ToolTipService.ToolTip="Plugins"
+                Visibility="Collapsed" />
+            <Button
+                x:Name="LikeButton"
+                Width="32"
+                Height="32"
+                AutomationProperties.Name="Save to Liked Songs"
+                Click="OnLikeClick"
+                Content="&#xEB51;"
+                FontSize="14"
+                Style="{StaticResource ResonateIconButtonStyle}"
+                ToolTipService.ToolTip="Save to Liked Songs"
+                Visibility="Collapsed" />
+        </StackPanel>
+    </Grid>
+</UserControl>

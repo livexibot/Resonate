@@ -314,5 +314,14 @@
             Level="Player"
             Visibility="{x:Bind PlayerBar.Visibility, Mode=OneWay}" />
         <controls:PlayerBar x:Name="PlayerBar" Grid.Row="2" />
+
+        <!-- The classic player's shadow; the player itself is added above it while it is chosen (MainWindow.ClassicPlayer.cs). -->
+        <controls:Elevation
+            x:Name="ClassicElevation"
+            Grid.Row="2"
+            Margin="{ThemeResource ResonatePlayerMargin}"
+            CornerRadius="{ThemeResource ResonatePlayerCorner}"
+            Level="Player"
+            Visibility="Collapsed" />
     </Grid>
 </Window>

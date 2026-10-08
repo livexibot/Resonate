@@ -59,6 +59,13 @@ public sealed class AppServices : IDisposable
         Artwork = new ArtworkSampler(player, Theme, http, covers);
         _owned.Add(Artwork);
 
+        // Demo mode (CI's screenshots) never touches the user's own skins.
+        Skins = new SkinLibrary(settings, isDemo ? Path.Combine(Path.GetTempPath(), "Resonate demo skins") : AppPaths.SkinsFolder);
+
+        // Real or demo, the local files engine feeds it: AudioGraph with the user's files, or DemoLocalAudio's made-up sound.
+        Visualiser = new VisualiserFeed(player);
+        _owned.Add(Visualiser);
+
         player.Spotify.Channel = settings.ParsedControlChannel;
         player.Spotify.PreferredDeviceName = settings.WebApiDeviceName;
         spotifyWindow.Enabled = UsesSpotifyApp;
@@ -125,6 +132,12 @@ public sealed class AppServices : IDisposable
 
     /// <summary>Every cover the interface shows, kept on disk and in memory so lists fill in at once.</summary>
     public CoverImages Covers { get; }
+
+    /// <summary>The classic player's skins: the built-in one and the ones the user added.</summary>
+    public SkinLibrary Skins { get; }
+
+    /// <summary>What the classic player's visualiser shows; only local files feed it.</summary>
+    public VisualiserFeed Visualiser { get; }
 
     public UpdateService Updates { get; } = new();
 

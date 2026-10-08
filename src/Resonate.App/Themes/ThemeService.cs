@@ -80,6 +80,57 @@ public sealed class ThemeService
         }
     }
 
+    /// <summary>
+    /// The user allows the now-playing cover to turn like a record while a
+    /// song plays (in every look). Off until they switch it on.
+    /// </summary>
+    public bool SpinningCover
+    {
+        get => _settings.SpinningCover;
+        set
+        {
+            if (_settings.SpinningCover != value)
+            {
+                _settings.SpinningCover = value;
+                SaveSoon();
+                Changed?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Looks with the song cover backdrop show the cover itself, blurred (on
+    /// unless the user switches it off; such looks then show a soft wash of
+    /// the cover's colours instead).
+    /// </summary>
+    public bool BlurredCoverBackground
+    {
+        get => _settings.BlurredCoverBackground;
+        set
+        {
+            if (_settings.BlurredCoverBackground != value)
+            {
+                _settings.BlurredCoverBackground = value;
+                SaveSoon();
+                Changed?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether the now-playing cover is drawn as a record (round, with a
+    /// centre): in looks with the vinyl cover style, and in every look while
+    /// the user lets covers spin.
+    /// </summary>
+    public bool CoverIsRecord => Current.Cover == CoverStyle.Vinyl || SpinningCover;
+
+    /// <summary>
+    /// Whether a now-playing cover may turn at all: only with the user's
+    /// Spinning cover switch on and Windows' animations allowed. It turns
+    /// only while a song plays.
+    /// </summary>
+    public bool CoverMaySpin => SpinningCover && AnimationsEnabled;
+
     /// <summary>Whether Windows' "Animation effects" setting allows motion.</summary>
     public bool AnimationsEnabled => _systemSettings.AnimationsEnabled;
 

@@ -1,10 +1,7 @@
-using System.Numerics;
-using Microsoft.UI.Composition;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media;
 using Resonate.App.Helpers;
 using Resonate.App.Services;
@@ -19,7 +16,7 @@ namespace Resonate.App.Controls;
 /// Now playing, play and pause, skip, seek and volume. Every control acts on
 /// the player at once (the player is optimistic), so the bar never waits for
 /// Spotify. The look decides the bar's shape, its progress bar and how the
-/// cover is drawn.
+/// cover is drawn; the user decides whether the cover spins.
 /// </summary>
 public sealed partial class PlayerBar : UserControl
 {
@@ -32,7 +29,6 @@ public sealed partial class PlayerBar : UserControl
     private const string HeartGlyph = "\uEB51";
     private const string HeartFilledGlyph = "\uEB52";
     private const float ArtworkSize = 56;
-    private static readonly TimeSpan VinylTurn = TimeSpan.FromSeconds(7);
 
     // The clock moves the progress bar on about one screen pixel a tick: at
     // least four ticks a second, so the time never lags a second change by
@@ -42,13 +38,12 @@ public sealed partial class PlayerBar : UserControl
     private static readonly TimeSpan FastestTick = TimeSpan.FromSeconds(1.0 / 30);
 
     private readonly DispatcherQueueTimer _clock;
+    private readonly CoverSpin _spin;
     private PlayerRouter? _player;
     private PlayerState _shown = PlayerState.Empty;
     private bool _windowShown = true;
     private bool _settingValues;
     private int _updateQueued;
-    private CoverStyle? _coverStyle;
-    private AnimationController? _vinylSpin;
     private double _volumeBeforeMute = 0.5;
     private object? _artworkKey;
     private PluginManager? _plugins;
@@ -62,6 +57,9 @@ public sealed partial class PlayerBar : UserControl
 
         // Fade covers in instead of popping them (runs on the compositor).
         ArtworkImage.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(180) };
+
+        // The whole frame turns, so the cover, its tile and the record's centre move together.
+        _spin = new CoverSpin(ArtworkFrame);
 
         // A drag only moves the bar; the seek is sent when it is let go.
         PositionBar.DragCompleted += OnSeekDragCompleted;
@@ -81,6 +79,7 @@ public sealed partial class PlayerBar : UserControl
         UpdateClock();
         RunClockWhenNeeded();
         UpdateAdvancing();
+        UpdateSpin();
     }
 
     /// <summary>
@@ -137,62 +136,20 @@ public sealed partial class PlayerBar : UserControl
 
     private void ShowPlugins()
     {
-        var active = _plugins?.WithCommands() ?? [];
-        PluginsButton.Visibility = active.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-
-        // What plugins report (a sleep timer counting down) shows in the tooltip, and lights the button.
-        var notes = active.Where(p => !string.IsNullOrEmpty(p.StatusText)).Select(p => $"{p.Manifest.Name}: {p.StatusText}").ToList();
-        ToolTipService.SetToolTip(PluginsButton, notes.Count == 0 ? "Plugins" : string.Join(Environment.NewLine, notes));
-        if (notes.Count == 0)
+        if (_plugins is { } plugins)
         {
-            PluginsButton.ClearValue(ForegroundProperty);
-        }
-        else
-        {
-            PluginsButton.Foreground = App.Services.Theme.GetBrush("ResonateAccentBrush");
+            PluginMenu.UpdateButton(PluginsButton, plugins);
         }
     }
 
     private void OnPluginsClick(object sender, RoutedEventArgs e)
     {
-        if (_plugins is not { } plugins)
+        if (_plugins is { } plugins)
         {
-            return;
+            var menu = PluginMenu.Build(plugins);
+            menu.Placement = FlyoutPlacementMode.TopEdgeAlignedRight;
+            menu.ShowAt(PluginsButton);
         }
-
-        // Built when opened, so it always shows the plugins' latest commands.
-        var menu = new MenuFlyout { Placement = FlyoutPlacementMode.TopEdgeAlignedRight };
-        var active = plugins.WithCommands();
-        foreach (var plugin in active)
-        {
-            var items = active.Count == 1 ? menu.Items : AddGroup(menu, plugin.Manifest.Name);
-            if (!string.IsNullOrEmpty(plugin.StatusText))
-            {
-                items.Add(new MenuFlyoutItem { Text = plugin.StatusText, IsEnabled = false });
-                items.Add(new MenuFlyoutSeparator());
-            }
-
-            foreach (var command in plugin.Commands)
-            {
-                var item = new MenuFlyoutItem { Text = command.Title };
-                var (id, commandId) = (plugin.Manifest.Id, command.Id);
-                item.Click += (_, _) => plugins.Invoke(id, commandId);
-                items.Add(item);
-            }
-        }
-
-        menu.Items.Add(new MenuFlyoutSeparator());
-        var settings = new MenuFlyoutItem { Text = "Plugin settings" };
-        settings.Click += (_, _) => App.MainWindow?.OpenSettings();
-        menu.Items.Add(settings);
-        menu.ShowAt(PluginsButton);
-    }
-
-    private static IList<MenuFlyoutItemBase> AddGroup(MenuFlyout menu, string name)
-    {
-        var group = new MenuFlyoutSubItem { Text = name };
-        menu.Items.Add(group);
-        return group.Items;
     }
 
     private void OnStateChanged(object? sender, EventArgs e)
@@ -245,71 +202,38 @@ public sealed partial class PlayerBar : UserControl
         UpdateClock();
         RunClockWhenNeeded();
         UpdateAdvancing();
-        UpdateVinylSpin();
+        UpdateSpin();
     }
 
     /// <summary>The look's progress bar and cover style.</summary>
     private void ApplyLook()
     {
-        var look = App.Services.Theme.Current;
+        var theme = App.Services.Theme;
+        var look = theme.Current;
         PositionBar.BarStyle = look.Progress;
 
         // A rolling wave makes no sense for volume; it gets the plain line.
         VolumeBar.BarStyle = look.Progress == ProgressStyle.Wave ? ProgressStyle.Line : look.Progress;
 
-        var palette = App.Services.Theme.Palette;
-        ArtworkFrame.CornerRadius = new CornerRadius(look.Cover switch
-        {
-            CoverStyle.Square => 0,
-            CoverStyle.Vinyl => ArtworkSize / 2,
-            _ => palette.CornerMedium,
-        });
-
-        if (_coverStyle != look.Cover)
-        {
-            _coverStyle = look.Cover;
-            VinylCentre.Visibility = look.Cover == CoverStyle.Vinyl ? Visibility.Visible : Visibility.Collapsed;
-            UpdateVinylSpin();
-        }
+        // A record for the vinyl style, and for every look while the user
+        // lets covers spin; otherwise the look's own shape.
+        var record = theme.CoverIsRecord;
+        ArtworkFrame.CornerRadius = new CornerRadius(record
+            ? ArtworkSize / 2
+            : look.Cover == CoverStyle.Square ? 0 : theme.Palette.CornerMedium);
+        VinylCentre.Visibility = record ? Visibility.Visible : Visibility.Collapsed;
+        UpdateSpin();
     }
 
-    /// <summary>A vinyl cover turns slowly while the song plays, and stops where it is when paused.</summary>
-    private void UpdateVinylSpin()
-    {
-        var visual = ElementCompositionPreview.GetElementVisual(ArtworkFrame);
-        if (_coverStyle != CoverStyle.Vinyl || !App.Services.Theme.AnimationsEnabled)
-        {
-            if (_vinylSpin is not null)
-            {
-                _vinylSpin = null;
-                visual.StopAnimation("RotationAngleInDegrees");
-                visual.RotationAngleInDegrees = 0;
-            }
+    /// <summary>Whether a spinning cover turns right now: while the shown song plays and the window can be seen.</summary>
+    private bool CoverMoving => _shown.IsPlaying && _windowShown;
 
-            return;
-        }
-
-        if (_vinylSpin is null)
-        {
-            var spin = visual.Compositor.CreateScalarKeyFrameAnimation();
-            spin.InsertKeyFrame(0, 0);
-            spin.InsertKeyFrame(1, 360, visual.Compositor.CreateLinearEasingFunction());
-            spin.Duration = VinylTurn;
-            spin.IterationBehavior = AnimationIterationBehavior.Forever;
-            visual.CenterPoint = new Vector3(ArtworkSize / 2, ArtworkSize / 2, 0);
-            visual.StartAnimation("RotationAngleInDegrees", spin);
-            _vinylSpin = visual.TryGetAnimationController("RotationAngleInDegrees");
-        }
-
-        if (_shown.IsPlaying)
-        {
-            _vinylSpin?.Resume();
-        }
-        else
-        {
-            _vinylSpin?.Pause();
-        }
-    }
+    /// <summary>
+    /// The cover turns like a record only when the user switched Spinning
+    /// cover on (and Windows allows animations), and stops where it is when
+    /// the music does. Without the switch nothing turns, not even vinyl.
+    /// </summary>
+    private void UpdateSpin() => _spin.Update(App.Services.Theme.CoverMaySpin, CoverMoving, ArtworkSize);
 
     /// <summary>Shuffle and repeat are lit (the look's toggle style) while on.</summary>
     private void ShowModes(PlayerState state)
