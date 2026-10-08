@@ -241,6 +241,7 @@
             </Grid>
 
             <Grid
+                x:Name="PageArea"
                 Grid.Column="1"
                 Background="{StaticResource ResonateSurfaceBrush}"
                 BorderBrush="{StaticResource ResonateBorderBrush}"
@@ -255,10 +256,9 @@
                     VerticalAlignment="Top"
                     IsOpen="False" />
 
-                <!-- A new version downloading, then ready to install (see ShowUpdateProgress). -->
+                <!-- A new version downloading, then ready to install (see ShowUpdateProgress); its width follows the page. -->
                 <InfoBar
                     x:Name="UpdateBar"
-                    Width="380"
                     Margin="16"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Bottom"

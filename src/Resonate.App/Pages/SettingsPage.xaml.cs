@@ -174,6 +174,8 @@ public sealed partial class SettingsPage : Page
 
         if (_services.Updates.Progress is not { } progress)
         {
+            // Stops the endless "getting it ready" animation too.
+            UpdateProgressBar.IsIndeterminate = false;
             UpdateProgressPanel.Visibility = Visibility.Collapsed;
             return;
         }

@@ -41,6 +41,9 @@ public sealed partial class MainWindow : Window
     /// <summary>The narrowest the page gets while the Settings pane is open beside it.</summary>
     private const double MinPageWidth = 360;
 
+    /// <summary>The update bar's width in the page's corner, when the page is wide enough.</summary>
+    private const double UpdateBarWidth = 380;
+
     /// <summary>
     /// How often the listening history is saved while Resonate is open.
     /// Spotify only shares the last 50 songs played (at least 100 minutes
@@ -212,6 +215,10 @@ public sealed partial class MainWindow : Window
                 _settingsColumn.Width = new GridLength(FitSettingsWidth(_services.Settings.SettingsPaneWidth));
             }
         };
+
+        // The update bar stays inside a page narrowed by Settings or the queue.
+        PageArea.SizeChanged += (_, e) =>
+            UpdateBar.Width = Math.Clamp(e.NewSize.Width - UpdateBar.Margin.Left - UpdateBar.Margin.Right, 0, UpdateBarWidth);
     }
 
     private void ShowSettings(bool open)
@@ -680,6 +687,7 @@ public sealed partial class MainWindow : Window
         if (_services.Updates.Progress is not { } progress)
         {
             UpdateBar.IsOpen = false;
+            UpdateProgressBar.IsIndeterminate = false;
             _updateBarDismissed = false;
             return;
         }
@@ -689,7 +697,8 @@ public sealed partial class MainWindow : Window
         UpdateBar.Severity = InfoBarSeverity.Informational;
         UpdateBar.ActionButton = null;
         UpdateBarProgress.Visibility = Visibility.Visible;
-        UpdateProgressBar.IsIndeterminate = progress.Preparing;
+        // The endless "getting it ready" animation only runs while it is on show.
+        UpdateProgressBar.IsIndeterminate = progress.Preparing && !_updateBarDismissed;
         UpdateProgressBar.Value = progress.Fraction;
         UpdateProgressText.Text = progress.Describe();
         UpdateBar.IsOpen = !_updateBarDismissed;
@@ -709,7 +718,11 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>Closing the download's bar hides it until the download is done; Settings still shows it.</summary>
-    private void OnUpdateBarCloseClick(InfoBar sender, object args) => _updateBarDismissed = true;
+    private void OnUpdateBarCloseClick(InfoBar sender, object args)
+    {
+        _updateBarDismissed = true;
+        UpdateProgressBar.IsIndeterminate = false;
+    }
 
     private void OnRootPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
