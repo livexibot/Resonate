@@ -308,7 +308,8 @@ internal sealed class ScreenshotTour
         await CaptureAsync($"{number++}-layout-hovering.png");
         CheckPlayerPlacement();
 
-        // Next to the queue the page is narrower: the compact bar, still over the page only.
+        // Next to the queue the page is narrower: over the page only while it
+        // has room for the player, else under the panels (as in CI's window).
         _window.ToggleQueue();
         await Task.Delay(1200);
         await ScrollToEndAsync();
