@@ -13,11 +13,12 @@ visitors; keep it short and in step with this file.
 
 - The first milestone is built and merged (pull request #1, 7 October
   2026; see "First milestone"). Releases are published with x64 and arm64
-  installers (`Resonate-win-x64-Setup.exe`); the latest is v0.5.0
-  (8 October 2026: the resizable sidebar, faster covers, local songs that
-  show covers and move on, and a Web API only mode that leaves the
-  Spotify app alone; v0.4.0 brought "Your top on Spotify" and plugins,
-  v0.3.0 the feature update and themes).
+  installers (`Resonate-win-x64-Setup.exe`); the latest is v0.6.0
+  (8 October 2026: the classic player, Settings in a side pane, bundled
+  fonts, the hovering player, eased look switching and a livelier Home;
+  v0.5.0 brought the resizable sidebar, faster covers and the Web API
+  only mode, v0.4.0 "Your top on Spotify" and plugins, v0.3.0 the
+  feature update and themes).
   CI proves on every pull
   request that an installed copy can install and update. The Spotify logic is tested on Linux; the
   WinUI 3 app is only compiled, timed and photographed on GitHub's Windows
