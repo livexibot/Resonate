@@ -59,6 +59,7 @@ internal sealed partial class PerformanceTour
     private readonly List<ScrollResult> _scrolls = [];
     private readonly List<string> _leftAlive = [];
     private readonly List<double> _privateMbAfterRound = [];
+    private readonly List<(string Step, List<double> Mb)> _growthPerStep = [];
     private readonly List<string> _errors = [];
     private string _stage = "starting";
     private bool _finished;
@@ -225,7 +226,10 @@ internal sealed partial class PerformanceTour
     /// Memory is read on Search, which shows no pictures. Read on Home, it also
     /// counted 17 to 28 MB that was given back as soon as another page opened
     /// (CI, 8 October 2026), so a round could seem to grow while nothing was
-    /// kept. A leak stays whichever page shows.
+    /// kept. A leak stays whichever page shows. It is read after every step,
+    /// back on Search each time, so the report names the step that keeps
+    /// memory: one round's total said nothing about where 8 to 16 MB a round
+    /// went after pull requests #30 and #31 (CI, 8 October 2026).
     /// </remarks>
     private async Task FindLeaksAsync()
     {
@@ -235,6 +239,7 @@ internal sealed partial class PerformanceTour
         _memory.Add(("Before visiting every page 4 more times", before));
 
         var visited = new List<Visit>();
+        var last = before.PrivateMb;
         for (var round = 1; round <= LeakRounds; round++)
         {
             foreach (var (name, key) in Pages)
@@ -246,11 +251,13 @@ internal sealed partial class PerformanceTour
                 }
 
                 await SettleAsync(TimeSpan.FromSeconds(3));
+                last = await NoteGrowthAsync(name, last);
             }
 
             _window.ToggleQueue();
             await SettleAsync(TimeSpan.FromSeconds(2));
             _window.ToggleQueue();
+            last = await NoteGrowthAsync("Queue (open and close)", last);
 
             // Closing the Settings pane lets go of its page, like leaving a page.
             _window.OpenSettings();
@@ -261,18 +268,10 @@ internal sealed partial class PerformanceTour
 
             await SettleAsync(TimeSpan.FromSeconds(3));
             _window.CloseSettings();
+            last = await NoteGrowthAsync("Settings (open and close)", last);
 
             // Memory that keeps climbing round after round is a leak; caches level off.
-            // The first sample after a round can still hold memory that one more
-            // collection gives back: the sample taken straight after round 4 was
-            // 11.6 to 12 MB lower in every run, and that slack alone failed main
-            // once with the same code that had passed (CI, 8 October 2026). The
-            // lower of two samples keeps what a leak keeps and drops the slack.
-            _window.Open(MainWindow.SearchKey);
-            await SettleAsync(TimeSpan.FromSeconds(3));
-            var first = await SampleMemoryAsync();
-            var second = await SampleMemoryAsync();
-            _privateMbAfterRound.Add(Math.Min(first.PrivateMb, second.PrivateMb));
+            _privateMbAfterRound.Add(last);
         }
 
         var current = _window.CurrentPage;
@@ -303,6 +302,33 @@ internal sealed partial class PerformanceTour
 
         _leftAlive.AddRange(Describe(alive));
     }
+
+    /// <summary>
+    /// Goes back to Search, reads memory there, and notes how much it grew since
+    /// <paramref name="lastMb"/> under <paramref name="step"/>.
+    /// </summary>
+    private async Task<double> NoteGrowthAsync(string step, double lastMb)
+    {
+        _window.Open(MainWindow.SearchKey);
+        await SettleAsync(TimeSpan.FromSeconds(2));
+        var now = (await SampleMemoryAsync()).PrivateMb;
+        var entry = _growthPerStep.FirstOrDefault(e => e.Step == step);
+        if (entry.Mb is null)
+        {
+            entry = (step, new List<double>());
+            _growthPerStep.Add(entry);
+        }
+
+        entry.Mb.Add(now - lastMb);
+        return now;
+    }
+
+    /// <summary>"Settings +6.1 MB, Home +2.3 MB": the steps that grew most in the last round.</summary>
+    private string GrewMostInLastRound() => string.Join(", ", _growthPerStep
+        .Where(e => e.Mb.Count > 0 && e.Mb[^1] >= 1)
+        .OrderByDescending(e => e.Mb[^1])
+        .Take(3)
+        .Select(e => string.Create(CultureInfo.InvariantCulture, $"{e.Step} +{e.Mb[^1]:N1} MB")));
 
     /// <summary>What a page still alive at the check is given next, in turn.</summary>
     private (string Step, Func<Task> Act)[] Nudges() =>
@@ -377,7 +403,9 @@ internal sealed partial class PerformanceTour
             var growth = _privateMbAfterRound[^1] - _privateMbAfterRound[^2];
             if (growth > LastRoundGrowthLimitMb)
             {
-                _errors.Add($"Memory still grew by {growth:N0} MB in the last round of visiting every page (limit {LastRoundGrowthLimitMb:N0} MB).");
+                var most = GrewMostInLastRound();
+                _errors.Add($"Memory still grew by {growth:N0} MB in the last round of visiting every page (limit {LastRoundGrowthLimitMb:N0} MB)" +
+                    (most.Length > 0 ? $"; most after {most}." : "."));
             }
         }
     }
@@ -669,6 +697,23 @@ internal sealed partial class PerformanceTour
 
             json.WriteEndArray();
 
+            json.WriteStartArray("privateMbGrowthPerStep");
+            foreach (var (step, mb) in _growthPerStep)
+            {
+                json.WriteStartObject();
+                json.WriteString("step", step);
+                json.WriteStartArray("eachRound");
+                foreach (var value in mb)
+                {
+                    json.WriteNumberValue(Round(value));
+                }
+
+                json.WriteEndArray();
+                json.WriteEndObject();
+            }
+
+            json.WriteEndArray();
+
             json.WriteStartArray("pagesLeftAlive");
             foreach (var page in _leftAlive)
             {
@@ -752,6 +797,18 @@ internal sealed partial class PerformanceTour
         if (_privateMbAfterRound.Count > 0)
         {
             md.AppendLine(CultureInfo.InvariantCulture, $"Private memory after each round of every page: {string.Join(", ", _privateMbAfterRound.Select(m => m.ToString("N0", CultureInfo.InvariantCulture)))} MB.");
+            md.AppendLine();
+        }
+
+        if (_growthPerStep.Count > 0)
+        {
+            md.AppendLine("| Memory growth after (read on Search) | " + string.Join(" | ", Enumerable.Range(1, LeakRounds).Select(r => $"Round {r}")) + " |");
+            md.AppendLine("|---|" + string.Concat(Enumerable.Repeat("---:|", LeakRounds)));
+            foreach (var (step, mb) in _growthPerStep)
+            {
+                md.AppendLine(CultureInfo.InvariantCulture, $"| {step} | {string.Join(" | ", mb.Select(m => m.ToString("+0.0;-0.0;0.0", CultureInfo.InvariantCulture) + " MB"))} |");
+            }
+
             md.AppendLine();
         }
 
