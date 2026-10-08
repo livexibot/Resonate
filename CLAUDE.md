@@ -13,8 +13,10 @@ visitors; keep it short and in step with this file.
 
 - The first milestone is built and merged (pull request #1, 7 October
   2026; see "First milestone"). Releases are published with x64 and arm64
-  installers (`Resonate-win-x64-Setup.exe`); the latest is v0.3.0
-  (7 October 2026: the feature update and themes). CI proves on every pull
+  installers (`Resonate-win-x64-Setup.exe`); the latest is v0.4.0
+  (7 October 2026: "Your top on Spotify", plugins, and artist pages
+  listing albums again; v0.3.0 brought the feature update and themes).
+  CI proves on every pull
   request that an installed copy can install and update. The Spotify logic is tested on Linux; the
   WinUI 3 app is only compiled, timed and photographed on GitHub's Windows
   machines (CI), because cloud sessions run on Linux.
