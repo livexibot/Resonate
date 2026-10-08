@@ -162,9 +162,11 @@ Building and testing:
   every step of every round, so the report's growth table and the error
   name the step that keeps memory. Single steps swing by up to 10 MB as
   memory comes back a step or two later, so judge a round's total. Open
-  (8 October 2026, pull request #32): rounds still grow 3 to 5 MB, about
-  4 MB each time the queue opens and closes and each time Settings does
-  (all native; no page stays alive). Not yet explained.
+  (8 October 2026, pull requests #32 and #44): rounds grow 0 to 5 MB,
+  about 4 MB each time the queue opens and closes and 0 to 3 MB each time
+  Settings does (all native; no page stays alive). Not the queue's rows:
+  letting go of them while it was closed changed nothing. Not yet
+  explained.
   GitHub's machines draw without a graphics card, so judge drawing cost
   on a real PC. WinUI lets go of a closed page only on a later frame, and
   an idle window draws none, so the test asks for frames between
@@ -177,9 +179,17 @@ Building and testing:
   a glide over a whole song) makes the window redraw at the screen's
   refresh rate; pause it while paused or minimised (`MainWindow.IsShown`
   and `ShownChanged`). The progress bar is moved by the player's clock
-  about once per screen pixel for this reason. A handler on a
-  `DispatcherQueueTimer` that captures a page keeps the page in memory
-  for good: subscribe while shown, unsubscribe when leaving. Never call
+  about once per screen pixel for this reason. Slow, soft motion
+  (Liquid Glass's drifting cover, the Home stage's clouds) is moved 30
+  times a second by `Helpers/SlowClock` from the curves in
+  `Resonate.Themes/SlowDrift` (tested: the cover moves about a pixel
+  between two frames at 5K, a cloud a few), not by an endless
+  composition animation (8 October 2026; Liquid Glass playing took 55 %
+  of a core on CI before). Measure: that both still look smooth at
+  165 Hz. A handler on a `DispatcherQueueTimer` that captures a page
+  keeps the page in memory for good: attach it only while needed (shown,
+  running, waiting to save) and remove it when done. `Loaded` can come
+  twice in a row, so unsubscribe before subscribing there. Never call
   `GC.WaitForPendingFinalizers` on the interface thread (it deadlocks).
 - Cloud sessions cannot download CI artifacts or logs (their storage host is
   blocked). CI therefore also stores each pull request's screenshots as a
@@ -335,7 +345,9 @@ Windows:
 - The system media controls (SMTC) can play, pause, skip, seek (when the app
   allows it) and report the song, cover and timeline. They have no volume.
   Resonate uses Spotify's per-app volume in the Windows mixer (Core Audio),
-  and the Web API's volume when Spotify has no audio session yet. Measure:
+  and the Web API's volume when Spotify has no audio session yet. Spotify's
+  sessions, and Spotify's windows to hide, are recognised by their
+  process's path (`ProcessImage`), never by listing every process. Measure:
   whether Spotify's session allows seeking and reports position (Resonate
   falls back to the Web API either way).
 - Spotify's own "start minimised" setting runs `Spotify.exe --autostart
@@ -576,8 +588,10 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   only (`SoundLeveller`: gain 1 to 8 towards 0.8 of full scale, 3 s
   release, since the copy may come after the mixer volume), and dropped
   once the analyser has its bands. No sound for 2 s means not heard (the
-  bars sway); while nothing is heard it looks for the program again
-  every 3 s (Spotify restarted, the own player started), and a capture
+  bars sway); while no program is found it looks again every 3 s
+  (Spotify restarted, the own player started), while the one found stays
+  silent (the music plays on a phone) after 3 s and then twice as long
+  each time, up to 15 s, and a capture
   that Windows refused or that stopped is tried again 10 s later (a
   timer, since a paused song brings no other news). The classic player's visualiser does not use
   it. Measure: that the bars follow the music with the Spotify app and
