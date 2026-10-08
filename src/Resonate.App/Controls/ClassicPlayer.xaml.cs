@@ -363,6 +363,14 @@ public sealed partial class ClassicPlayer : UserControl
             _pausedAt = Stopwatch.GetTimestamp();
         }
 
+        if (_pressed == ClassicControl.Seek
+            && (state.Source != _shown.Source || !string.Equals(state.Title, _shown.Title, StringComparison.Ordinal) || !CanSeek(state, play)))
+        {
+            // The song changed under the pointer (as in the player bar): letting go must not seek the new one.
+            _pressed = ClassicControl.None;
+            _dragValue = null;
+        }
+
         _shown = state;
         _play = play;
 

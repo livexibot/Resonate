@@ -137,7 +137,8 @@ public sealed class SmartPlaylist
 }
 
 /// <summary>The songs the rules look at: the source, and the songs of each playlist named by a "not in" rule.</summary>
-public sealed record SmartInputs(IReadOnlyList<TrackInfo> Source, IReadOnlyDictionary<string, IReadOnlySet<string>> Playlists)
+/// <param name="SourceHidden">Spotify did not list the source playlist's songs, so <paramref name="Source"/> is empty without being so.</param>
+public sealed record SmartInputs(IReadOnlyList<TrackInfo> Source, IReadOnlyDictionary<string, IReadOnlySet<string>> Playlists, bool SourceHidden = false)
 {
     public static readonly SmartInputs Empty = new([], new Dictionary<string, IReadOnlySet<string>>());
 }
@@ -178,7 +179,14 @@ public static class SmartPlaylistEvaluator
         }
 
         var ordered = Sort(matches, playlist.Order, playlist.Seed, DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, zone).Date));
-        return playlist.Limit is > 0 and var limit && ordered.Count > limit ? ordered.GetRange(0, limit) : ordered;
+        if (playlist.Limit is > 0 and var limit && ordered.Count > limit)
+        {
+            ordered = ordered.GetRange(0, limit);
+        }
+
+        // The songs still carry their places in the source; the smart order replaces them,
+        // so "Smart order" shows and plays the songs as sorted here.
+        return [.. ordered.Select((t, i) => t with { Position = i })];
     }
 
     /// <summary>Whether any rule needs songs' release years.</summary>

@@ -42,9 +42,6 @@ internal static class BuiltInPluginSettings
         // Signal path
         BuiltInPlugins.SignalPath => null,
 
-        // Sleep timer
-        BuiltInPlugins.SleepTimer => SleepTimerSettings.Create(services),
-
         _ => null,
     };
 }

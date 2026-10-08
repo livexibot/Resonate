@@ -665,7 +665,7 @@ public sealed partial class TracksPage : Page
 
     private void OnTrackDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
-        if (!IsInsideButton(e.OriginalSource as DependencyObject) && ListEvents.DoubleTapped<TrackRow>(TrackList, e) is { } row)
+        if (!IsInsideButtonOrHeader(e.OriginalSource as DependencyObject) && ListEvents.DoubleTapped<TrackRow>(TrackList, e) is { } row)
         {
             _ = PlayAsync(row);
         }
@@ -673,7 +673,8 @@ public sealed partial class TracksPage : Page
 
     private void OnTrackListKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (TrackList.SelectedItem is not TrackRow row)
+        // Enter or Delete in the filter box is not meant for the selected song.
+        if (TrackList.SelectedItem is not TrackRow row || IsInsideButtonOrHeader(e.OriginalSource as DependencyObject))
         {
             return;
         }
@@ -1022,11 +1023,17 @@ public sealed partial class TracksPage : Page
     }
 
     /// <summary>Double-clicking the heart should like the song, not play it.</summary>
-    private static bool IsInsideButton(DependencyObject? element)
+    /// <summary>
+    /// A button, or anything in the list's header (title, filter, column
+    /// headings): a double-click or Enter there falls back to the selected
+    /// song otherwise.
+    /// </summary>
+    private bool IsInsideButtonOrHeader(DependencyObject? element)
     {
+        var header = TrackList.Header;
         while (element is not null and not ListViewItem)
         {
-            if (element is ButtonBase)
+            if (element is ButtonBase || ReferenceEquals(element, header))
             {
                 return true;
             }

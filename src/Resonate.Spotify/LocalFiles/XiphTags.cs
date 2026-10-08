@@ -96,7 +96,7 @@ internal static class OggTags
             if (length >= 8)
             {
                 var head = Convert.FromBase64String(System.Text.Encoding.ASCII.GetString(stream.Comment.Read(offset, 8)));
-                type = (head[0] << 24) | (head[1] << 16) | (head[2] << 8) | head[3];
+                type = head.Length < 4 ? 0 : (head[0] << 24) | (head[1] << 16) | (head[2] << 8) | head[3];
             }
 
             tags.OfferCover(new CoverRef(0, 0, null, CoverEncoding.InComment), type == FlacPicture.FrontCover);
@@ -125,7 +125,7 @@ internal static class OggTags
             if (length >= 8)
             {
                 var head = Convert.FromBase64String(System.Text.Encoding.ASCII.GetString(stream.Comment.Read(offset, 8)));
-                isFront = ((head[0] << 24) | (head[1] << 16) | (head[2] << 8) | head[3]) == FlacPicture.FrontCover;
+                isFront = head.Length >= 4 && ((head[0] << 24) | (head[1] << 16) | (head[2] << 8) | head[3]) == FlacPicture.FrontCover;
             }
 
             if (best is null || (isFront && !bestIsFront))
