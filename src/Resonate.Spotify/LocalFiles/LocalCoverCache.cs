@@ -51,6 +51,9 @@ public sealed class LocalCoverCache : IDisposable
     // A folder's picture is shrunk once for all of its songs (each gets its own copy on disk).
     private readonly ConcurrentDictionary<string, Task<byte[]?>> _pictures = new(StringComparer.Ordinal);
 
+    /// <summary>Shrunk folder pictures kept at most: songs of one folder ask together, and each keeps its own copy on disk.</summary>
+    private const int PicturesKept = 32;
+
     public LocalCoverCache(string folder, ICoverShrinker shrinker)
     {
         _folder = folder;
@@ -203,6 +206,12 @@ public sealed class LocalCoverCache : IDisposable
     private Task<byte[]?> ShrinkPictureAsync(FolderPictureFile picture)
     {
         var id = $"{picture.Path.ToUpperInvariant()}|{picture.Size}|{picture.Ticks}";
+        if (_pictures.Count >= PicturesKept && !_pictures.ContainsKey(id))
+        {
+            // A scan through many album folders: the ones done long ago are on disk already.
+            _pictures.Clear();
+        }
+
         var task = _pictures.GetOrAdd(id, _ => LocalCovers.ReadPicture(picture.Path) is { } bytes
             ? _shrinker.ShrinkAsync(bytes, ThumbnailSize)
             : Task.FromResult<byte[]?>(null));

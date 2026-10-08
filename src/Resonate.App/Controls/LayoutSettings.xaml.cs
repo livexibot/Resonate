@@ -39,6 +39,9 @@ public sealed partial class LayoutSettings : UserControl
         // Only while shown, so the theme never keeps a closed Settings page alive.
         Loaded += (_, _) =>
         {
+            // Loaded can come twice in a row; each handler is held once.
+            _theme.Changed -= OnThemeChanged;
+            _theme.SizeChanged -= OnThemeChanged;
             _theme.Changed += OnThemeChanged;
             _theme.SizeChanged += OnThemeChanged;
             Refresh();

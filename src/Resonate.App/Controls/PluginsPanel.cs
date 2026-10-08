@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Resonate.App.Services;
 using Resonate.Plugins;
+using Windows.Foundation;
 
 namespace Resonate.App.Controls;
 
@@ -58,6 +59,9 @@ internal sealed partial class PluginsPanel : StackPanel
 
         Loaded += (_, _) =>
         {
+            // Loaded can come twice in a row; each handler is held once.
+            _plugins.Changed -= OnChanged;
+            _builtIns.Changed -= OnBuiltInChanged;
             _plugins.Changed += OnChanged;
             _builtIns.Changed += OnBuiltInChanged;
             foreach (var card in _cards.Values)
@@ -285,14 +289,19 @@ internal sealed partial class PluginsPanel : StackPanel
         var timer = DispatcherQueue.GetForCurrentThread().CreateTimer();
         timer.Interval = TypingPause;
         timer.IsRepeating = false;
+
+        // The timer holds its handler only while typing waits to be saved: a
+        // handler kept for good would keep the whole Settings page in memory.
+        TypedEventHandler<DispatcherQueueTimer, object>? tick = null;
         void Commit()
         {
             timer.Stop();
+            timer.Tick -= tick;
             card.SaveTyping = null;
             save(JsonValue.Create(box.Text));
         }
 
-        timer.Tick += (_, _) => Commit();
+        tick = (_, _) => Commit();
         box.TextChanged += (_, _) =>
         {
             if (_updating)
@@ -302,6 +311,8 @@ internal sealed partial class PluginsPanel : StackPanel
 
             card.SaveTyping = Commit;
             timer.Stop();
+            timer.Tick -= tick;
+            timer.Tick += tick;
             timer.Start();
         };
         box.LostFocus += (_, _) =>

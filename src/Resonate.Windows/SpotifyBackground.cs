@@ -310,33 +310,13 @@ public sealed class SpotifyBackground : ISpotifyAppWindow, IDisposable
             }
         }
 
-        var isSpotify = string.Equals(Path.GetFileName(ImagePath(processId)), "Spotify.exe", StringComparison.OrdinalIgnoreCase);
+        var isSpotify = ProcessImage.IsSpotify(processId);
         lock (_gate)
         {
             _isSpotify[processId] = isSpotify;
         }
 
         return isSpotify;
-    }
-
-    private static unsafe string? ImagePath(uint processId)
-    {
-        var process = Processes.OpenProcess(Processes.QueryLimitedInformation, false, processId);
-        if (process == 0)
-        {
-            return null;
-        }
-
-        try
-        {
-            var buffer = stackalloc char[1024];
-            uint size = 1024;
-            return Processes.QueryFullProcessImageName(process, 0, buffer, ref size) ? new string(buffer, 0, (int)size) : null;
-        }
-        finally
-        {
-            Processes.CloseHandle(process);
-        }
     }
 
     private void ApplySavings()

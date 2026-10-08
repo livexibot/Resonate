@@ -98,6 +98,8 @@ internal sealed partial class StageVisualizer : Grid
         SizeChanged += OnSizeChanged;
         Loaded += (_, _) =>
         {
+            // Loaded can come twice in a row; the handler is held once.
+            _rebuild.Tick -= OnRebuild;
             _rebuild.Tick += OnRebuild;
             Build();
         };
@@ -282,6 +284,18 @@ internal sealed partial class StageVisualizer : Grid
         var moving = _moving;
         _moving = false;
         _root.Children.RemoveAll();
+
+        // The old bars are gone from the stage: their sprites and brushes are let go of now, not when .NET next collects.
+        foreach (var (sprite, tip, bottom) in _bars)
+        {
+            var brush = sprite.Brush;
+            sprite.Brush = null;
+            brush?.Dispose();
+            tip.Dispose();
+            bottom.Dispose();
+            sprite.Dispose();
+        }
+
         _bars.Clear();
         for (var i = 0; i < count; i++)
         {

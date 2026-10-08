@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using Resonate.Spotify.Audio;
 using Resonate.Spotify.LocalFiles;
+using Windows.Foundation;
 using Windows.Media.Audio;
 using Windows.Media.Core;
 using Windows.Media.MediaProperties;
@@ -478,7 +479,8 @@ public sealed partial class AudioGraphEngine : ILocalAudioEngine
         {
             node.Stop();
             node.AddOutgoingConnection(bus);
-            node.MediaSourceCompleted += (_, _) => OnSourceCompleted(track);
+            track.Completed = (_, _) => OnSourceCompleted(track);
+            node.MediaSourceCompleted += track.Completed;
             lock (_gate)
             {
                 node.OutgoingGain = _equalizer.PreampGain;
@@ -1068,8 +1070,17 @@ public sealed partial class AudioGraphEngine : ILocalAudioEngine
 
         public int StuckTicks { get; set; }
 
+        /// <summary>Its end-of-song handler, removed when it closes so Windows' node and the track never hold each other.</summary>
+        public TypedEventHandler<MediaSourceAudioInputNode, object>? Completed { get; set; }
+
         public void Dispose()
         {
+            if (Completed is { } completed)
+            {
+                Completed = null;
+                Try(() => Node.MediaSourceCompleted -= completed);
+            }
+
             Try(Node.Dispose);
             Try(source.Dispose);
         }

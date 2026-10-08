@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
+using Resonate.App.Helpers;
 using Resonate.App.Services;
 using Resonate.App.Themes;
 using Resonate.Themes;
@@ -21,15 +22,8 @@ namespace Resonate.App.Controls;
 /// </summary>
 internal sealed partial class BackdropLayer : Grid
 {
-    private static readonly string[] DriftProperties = ["Scale", "RotationAngleInDegrees"];
-
     private static readonly TimeSpan LayerFade = TimeSpan.FromMilliseconds(450);
     private static readonly TimeSpan CoverFade = TimeSpan.FromMilliseconds(900);
-    private static readonly TimeSpan DriftPeriod = TimeSpan.FromSeconds(28);
-
-    // The tiny blurred cover (or wash) is stretched over the window and drawn
-    // larger than it, so its soft borders never show while it drifts.
-    private const float CoverZoom = 1.18f;
 
     private readonly ThemeService _theme;
     private readonly ArtworkSampler _artwork;
@@ -39,8 +33,8 @@ internal sealed partial class BackdropLayer : Grid
     private readonly Grid _drift;
     private readonly Image[] _covers = [new(), new()];
     private readonly Rectangle _tint;
+    private readonly SlowClock _driftClock;
     private int _front;
-    private bool _drifting;
     private bool _playing;
     private bool _windowShown = true;
     private int _playerUpdateQueued;
@@ -64,7 +58,10 @@ internal sealed partial class BackdropLayer : Grid
             _drift.Children.Add(cover);
         }
 
-        ElementCompositionPreview.GetElementVisual(_drift).Scale = new Vector3(CoverZoom);
+        // The tiny blurred cover (or wash) is stretched over the window and drawn
+        // larger than it, so its soft borders never show while it drifts.
+        ElementCompositionPreview.GetElementVisual(_drift).Scale = new Vector3(SlowDrift.CoverRestZoom);
+        _driftClock = new SlowClock(DispatcherQueue.GetForCurrentThread(), ShowDrift);
         _artworkLayer = Layer(new Grid { Children = { _drift } });
         _artworkLayer.Background = theme.GetBrush("ResonateBackgroundBrush");
         _tint = Layer(new Rectangle { Fill = theme.GetBrush("ResonateBackdropTintBrush") });
@@ -102,7 +99,7 @@ internal sealed partial class BackdropLayer : Grid
             _window = null;
         }
 
-        StopDrift();
+        _driftClock.Pause();
     }
 
     /// <summary>On any thread; the drift follows the newest state once.</summary>
@@ -186,8 +183,9 @@ internal sealed partial class BackdropLayer : Grid
     /// <summary>
     /// A slow zoom and turn, so the cover behind the panels feels alive. Only
     /// while it shows, and paused while nothing plays or the window is
-    /// minimised: a moving picture behind everything redraws the whole window
-    /// at the screen's refresh rate.
+    /// minimised. It is shown <see cref="SlowDrift.FramesPerSecond"/> times a
+    /// second (<see cref="SlowClock"/>): a moving picture behind everything
+    /// redraws the whole window each time.
     /// </summary>
     private void UpdateDrift()
     {
@@ -196,81 +194,38 @@ internal sealed partial class BackdropLayer : Grid
         visual.CenterPoint = new Vector3((float)ActualWidth / 2, (float)ActualHeight / 2, 0);
         if (!shown)
         {
-            // Stopped where it is, so nothing jumps while the layer fades out.
-            StopDrift();
+            // Held where it is, so nothing jumps while the layer fades out.
+            _driftClock.Pause();
             return;
         }
 
         if (!_theme.AnimationsEnabled)
         {
-            StopDrift();
-            visual.Scale = new Vector3(CoverZoom);
+            _driftClock.Reset();
+            visual.Scale = new Vector3(SlowDrift.CoverRestZoom);
             visual.RotationAngleInDegrees = 0;
             return;
         }
 
-        if (_drifting)
+        if (_playing && _windowShown)
         {
-            PauseDrift(!_playing || !_windowShown);
-            return;
+            _driftClock.Start();
+            ShowDrift(_driftClock.Seconds);
         }
-
-        _drifting = true;
-        var compositor = visual.Compositor;
-        var easing = compositor.CreateCubicBezierEasingFunction(new(0.45f, 0f), new(0.55f, 1f));
-
-        var zoom = compositor.CreateVector3KeyFrameAnimation();
-        zoom.InsertKeyFrame(0, new Vector3(CoverZoom));
-        zoom.InsertKeyFrame(1, new Vector3(1.32f), easing);
-        zoom.Duration = DriftPeriod;
-        zoom.Direction = AnimationDirection.Alternate;
-        zoom.IterationBehavior = AnimationIterationBehavior.Forever;
-
-        var turn = compositor.CreateScalarKeyFrameAnimation();
-        turn.InsertKeyFrame(0, -2.5f);
-        turn.InsertKeyFrame(1, 2.5f, easing);
-        turn.Duration = DriftPeriod * 1.7;
-        turn.Direction = AnimationDirection.Alternate;
-        turn.IterationBehavior = AnimationIterationBehavior.Forever;
-
-        visual.StartAnimation("Scale", zoom);
-        visual.StartAnimation("RotationAngleInDegrees", turn);
-        PauseDrift(!_playing || !_windowShown);
-    }
-
-    /// <summary>Holds the drift where it is (and picks it up from there), so nothing jumps.</summary>
-    private void PauseDrift(bool paused)
-    {
-        var visual = ElementCompositionPreview.GetElementVisual(_drift);
-        foreach (var property in DriftProperties)
+        else
         {
-            if (visual.TryGetAnimationController(property) is { } controller)
-            {
-                if (paused)
-                {
-                    controller.Pause();
-                }
-                else
-                {
-                    controller.Resume();
-                }
-            }
+            // Still, but in its place: the drift picks up from here without a jump.
+            _driftClock.Pause();
+            ShowDrift(_driftClock.Seconds);
         }
     }
 
-    private void StopDrift()
+    private void ShowDrift(double seconds)
     {
-        if (!_drifting)
-        {
-            return;
-        }
-
-        _drifting = false;
+        var (zoom, angle) = SlowDrift.Cover(seconds);
         var visual = ElementCompositionPreview.GetElementVisual(_drift);
-        foreach (var property in DriftProperties)
-        {
-            visual.StopAnimation(property);
-        }
+        visual.Scale = new Vector3(zoom);
+        visual.RotationAngleInDegrees = angle;
     }
 
     private T Layer<T>(T element)

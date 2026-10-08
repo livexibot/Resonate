@@ -22,6 +22,13 @@ public sealed class SpotifySoundListener : ISoundSink, IDisposable
     /// <summary>While nothing is heard, the program to hear is looked for again this often (Spotify restarted, the own player started).</summary>
     public static readonly TimeSpan LookAgainAfter = TimeSpan.FromSeconds(3);
 
+    /// <summary>
+    /// Silence from a program found again each time (the Spotify app is open
+    /// while the music plays on a phone) makes the looks this far apart at
+    /// most: each look lists the PC's processes.
+    /// </summary>
+    public static readonly TimeSpan LongestLookInterval = TimeSpan.FromSeconds(15);
+
     /// <summary>After Windows refused or the capture stopped by itself, it is tried again this much later.</summary>
     public static readonly TimeSpan RetryAfterFailure = TimeSpan.FromSeconds(10);
 
@@ -47,11 +54,13 @@ public sealed class SpotifySoundListener : ISoundSink, IDisposable
     private bool _disposed;
     private int? _program;
     private long _retryAt;
+    private long _lookAfter;
 
     // Read by the capture thread.
     private volatile bool _listening;
     private long _lastSound;
     private long _lookedAt;
+    private long _lookEveryMs = (long)LookAgainAfter.TotalMilliseconds;
     private int _hearing;
     private int _resetLeveller;
     private int _writing;
@@ -174,12 +183,13 @@ public sealed class SpotifySoundListener : ISoundSink, IDisposable
             if (IsLoud(interleaved))
             {
                 Volatile.Write(ref _lastSound, now);
+                Volatile.Write(ref _lookEveryMs, (long)LookAgainAfter.TotalMilliseconds);
             }
 
             var last = Volatile.Read(ref _lastSound);
             var hearing = last != 0 && _time.GetElapsedTime(last, now) < HearingHold;
             SetHearing(hearing);
-            if (!hearing && _time.GetElapsedTime(Volatile.Read(ref _lookedAt), now) >= LookAgainAfter)
+            if (!hearing && _time.GetElapsedTime(Volatile.Read(ref _lookedAt), now).TotalMilliseconds >= Volatile.Read(ref _lookEveryMs))
             {
                 // Silence for a while: Spotify may have restarted, or another program plays now.
                 Volatile.Write(ref _lookedAt, now);
@@ -328,11 +338,19 @@ public sealed class SpotifySoundListener : ISoundSink, IDisposable
             return;
         }
 
+        // Nothing played Spotify's sound here a moment ago (the music plays on
+        // a phone): the timer looks again, not every update of the player.
+        if (!_listening && !lookAgain && now < _lookAfter)
+        {
+            return;
+        }
+
         Volatile.Write(ref _lookedAt, now);
         var program = _findProgram();
         if (program is not { } found || found <= 0)
         {
             StopListening();
+            _lookAfter = now + (long)(LookAgainAfter.TotalSeconds * _time.TimestampFrequency);
 
             // Not running yet (Spotify starting, the own player connecting): look again shortly.
             if (!_disposed)
@@ -343,13 +361,18 @@ public sealed class SpotifySoundListener : ISoundSink, IDisposable
             return;
         }
 
+        _lookAfter = 0;
         if (_listening && found == _program)
         {
+            // Still silent, and still the same program: look less often.
+            var every = Volatile.Read(ref _lookEveryMs);
+            Volatile.Write(ref _lookEveryMs, Math.Min(every * 2, (long)LongestLookInterval.TotalMilliseconds));
             return;
         }
 
         // A new program (or the first): its sound starts from silence, at its own loudness.
         _program = found;
+        Volatile.Write(ref _lookEveryMs, (long)LookAgainAfter.TotalMilliseconds);
         Volatile.Write(ref _lastSound, 0);
         Volatile.Write(ref _resetLeveller, 1);
         SetHearing(false);

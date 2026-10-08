@@ -22,6 +22,7 @@ public sealed partial class LocalMediaControls : ILocalSystemControls
     private SynchronizationContext? _windowThread;
     private string? _shownTrack;
     private byte[]? _shownArtwork;
+    private IRandomAccessStream? _thumbnail;
     private bool _disposed;
 
     public event EventHandler<LocalControlButton>? ButtonPressed;
@@ -185,6 +186,11 @@ public sealed partial class LocalMediaControls : ILocalSystemControls
             var display = controls.DisplayUpdater;
             display.Thumbnail = RandomAccessStreamReference.CreateFromStream(stream);
             display.Update();
+
+            // The last song's cover is no longer shown: let go of its copy now.
+            var previous = _thumbnail;
+            _thumbnail = stream;
+            previous?.Dispose();
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {

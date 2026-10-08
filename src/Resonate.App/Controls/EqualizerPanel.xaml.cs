@@ -103,6 +103,8 @@ public sealed partial class EqualizerPanel : UserControl
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        // Loaded can come twice in a row; the handler is held once.
+        _equalizer.Changed -= OnEqualizerChanged;
         _equalizer.Changed += OnEqualizerChanged;
         Show();
 

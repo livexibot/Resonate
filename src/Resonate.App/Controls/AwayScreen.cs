@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Input;
 using Resonate.App.Services;
 using Resonate.Themes;
 using Resonate.Windows;
+using Windows.Foundation;
 
 namespace Resonate.App.Controls;
 
@@ -79,7 +80,6 @@ internal sealed partial class AwayScreen : UserControl
         _poll = DispatcherQueue.GetForCurrentThread().CreateTimer();
         _poll.Interval = TimeSpan.FromSeconds(1);
         _poll.IsRepeating = true;
-        _poll.Tick += (_, _) => Check();
 
         PointerMoved += OnPointerMoved;
         PointerPressed += OnPointerInput;
@@ -95,7 +95,7 @@ internal sealed partial class AwayScreen : UserControl
             e.Handled = true;
             Wake();
         };
-        Unloaded += (_, _) => _poll.Stop();
+        Unloaded += (_, _) => StopPolling();
     }
 
     /// <summary>Raised once, on the first touch of the mouse or keyboard.</summary>
@@ -106,6 +106,10 @@ internal sealed partial class AwayScreen : UserControl
     {
         _shownTick = UserPresence.LastInputTick;
         ShowTime(force: true);
+
+        // Only while shown: a timer's handler that holds this screen would keep it (and its stage) for good.
+        _poll.Tick -= OnPoll;
+        _poll.Tick += OnPoll;
         _poll.Start();
         OpacityTransition = _services.Theme.AnimationsEnabled ? new ScalarTransition { Duration = FadeIn } : null;
 
@@ -123,7 +127,7 @@ internal sealed partial class AwayScreen : UserControl
     /// <summary>Fades out quickly and calls <paramref name="gone"/>; it keeps catching the pointer until then, so a click's release lands here too.</summary>
     public void Disappear(Action gone)
     {
-        _poll.Stop();
+        StopPolling();
         if (!_services.Theme.AnimationsEnabled)
         {
             gone();
@@ -135,13 +139,24 @@ internal sealed partial class AwayScreen : UserControl
         var done = DispatcherQueue.CreateTimer();
         done.Interval = FadeOut;
         done.IsRepeating = false;
-        done.Tick += (_, _) =>
+        TypedEventHandler<DispatcherQueueTimer, object>? finished = null;
+        finished = (_, _) =>
         {
             done.Stop();
+            done.Tick -= finished;
             gone();
         };
+        done.Tick += finished;
         done.Start();
     }
+
+    private void StopPolling()
+    {
+        _poll.Stop();
+        _poll.Tick -= OnPoll;
+    }
+
+    private void OnPoll(DispatcherQueueTimer sender, object args) => Check();
 
     private void OnPointerMoved(object sender, PointerRoutedEventArgs e)
     {
