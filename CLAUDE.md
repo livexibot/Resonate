@@ -776,8 +776,24 @@ GitHub automation:
   start other workflows, so `release-please.yml` calls `release.yml`
   directly when a release is created. Pull requests it opens get CI runs
   that wait for approval by someone with write access (newer GitHub
-  behaviour); a fine-grained token secret avoids that if it becomes a
-  bother.
+  behaviour); on 8 October 2026 release pull requests sat 2 to 3 hours
+  that way. So when a release is wanted, Claude re-runs the release pull
+  request's newest CI run at once (`actions_run_trigger`,
+  `rerun_workflow_run`): the GitHub tools act as the owner, whose runs
+  need no approval. A fine-grained token secret for release-please would
+  avoid the wait altogether; only the owner can create one.
+- CI's first job, "What changed", lets a pull request that changes only
+  Markdown files or `docs/` skip every other job (a skipped job counts as
+  passed). It fails open: a push to main, a manual run, or any trouble
+  listing the files runs everything. Brief updates that ride along with a
+  code change still run in full.
+- The Windows app is built once ("Windows app (build)", Native AOT) and
+  handed as an artifact (`windows-app`, kept one day) to two jobs that
+  run side by side: "Windows app (screenshots, install, update)" and
+  "Windows app (speed and memory)", where `perf.md` is printed. The logic
+  tests run on Windows in a job of their own beside the build, because
+  some of their code paths exist only on Windows (case-insensitive paths,
+  the plugin helper's `.exe`, its processor-time limit).
 - release-please (action v5) is configured with `bump-minor-pre-major`,
   `initial-version` 0.1.0, and the version in `version.txt` and
   `Directory.Build.props` (`x-release-please-version` marker).
@@ -1125,7 +1141,8 @@ cannot be done right away, open an issue for it so nothing is forgotten.
   Velopack and attaches it, and installed copies update themselves.
 - Claude merges the release pull request when the owner asks ("publish a
   release"), or after a change the owner wants to try. Check the notes read
-  well for users before merging.
+  well for users before merging, and start its CI at once (see "GitHub
+  automation": its runs wait for approval otherwise).
 
 ### Repository layout
 
@@ -1185,10 +1202,11 @@ Keep it obvious what is what:
   from Google Fonts' sources (see its README).
 - `tests/` automated tests (`dotnet test`, run on Linux and Windows).
 - `docs/` user-facing guides (`plugins.md`).
-- `.github/workflows/` `ci.yml` (every pull request: format, tests, the
-  Windows build with start-up time, screenshots, the install test, the
-  plugin check, the web player check, the update test, and the speed and
-  memory test),
+- `.github/workflows/` `ci.yml` (every pull request that changes more
+  than text: format, tests on Linux and Windows, the Windows build, then
+  in parallel start-up time, screenshots, the install test, the plugin
+  check, the web player check and the update test, and the speed and
+  memory test; see "GitHub automation"),
   `release-please.yml` (release pull request, then calls `release.yml`),
   `release.yml` (builds the x64 installer with Velopack, packs the
   plugins and their helper, and attaches them; no arm64 build and no
