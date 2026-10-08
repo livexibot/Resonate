@@ -12,8 +12,10 @@ visitors; keep it short and in step with this file.
 ## Status and handoff (read first)
 
 - The first milestone is built and merged (pull request #1, 7 October
-  2026; see "First milestone"). Releases are published with x64 and arm64
-  installers (`Resonate-win-x64-Setup.exe`); the latest is v0.7.0
+  2026; see "First milestone"). Releases are published with one
+  installer, for ordinary (x64) Windows PCs (`Resonate-win-x64-Setup.exe`;
+  the owner dropped arm64 and the portable zip on 8 October 2026 to save
+  build time); the latest is v0.7.0
   (8 October 2026: swiping the playing song to skip, Web API only closing
   the Spotify app, the Winamp mini player, App size and Text size, and
   ten built-in plugins with synced lyrics; v0.6.0 brought the classic
@@ -986,7 +988,7 @@ on the owner's PC: everything that needs a real Spotify account (see
    customisation can be added, and smooth transitions between pages.
 6. The automation in "How work gets done" below: CI on every pull
    request, release-please, and a release workflow that builds the Windows
-   installer (x64, and arm64 if cheap) with Velopack, plus the in-app
+   installer (x64 only, the owner's choice) with Velopack, plus the in-app
    updater that installs new releases from this repository. Never commit a
    private key or token.
 
@@ -1185,8 +1187,9 @@ Keep it obvious what is what:
   plugin check, the web player check, the update test, and the speed and
   memory test),
   `release-please.yml` (release pull request, then calls `release.yml`),
-  `release.yml` (builds the x64 and arm64 installers with Velopack, packs
-  the plugins and helpers, and attaches them).
+  `release.yml` (builds the x64 installer with Velopack, packs the
+  plugins and their helper, and attaches them; no arm64 build and no
+  portable zip, the owner's choice of 8 October 2026).
 - `release-please-config.json`, `.release-please-manifest.json`,
   `version.txt`: release settings and the current version.
 - `README.md` for visitors, `CLAUDE.md` (this brief), `CHANGELOG.md`

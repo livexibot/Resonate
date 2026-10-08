@@ -161,7 +161,7 @@ jobs:
           $feed = Join-Path $env:RUNNER_TEMP 'feed'
           $pack = @('--packId', 'Resonate', '--packDir', 'artifacts/win-x64', '--mainExe', 'Resonate.exe',
                     '--packTitle', 'Resonate', '--packAuthors', 'livexibot', '--icon', 'src/Resonate.App/Assets/Resonate.ico',
-                    '--runtime', 'win-x64', '--channel', 'win-x64', '--outputDir', $feed)
+                    '--runtime', 'win-x64', '--channel', 'win-x64', '--noPortable', '--outputDir', $feed)
           vpk pack @pack --packVersion 0.0.1-ci
           if ($LASTEXITCODE -ne 0) { throw 'Packaging failed.' }
           Get-ChildItem $feed | Format-Table Name, Length
@@ -307,20 +307,3 @@ jobs:
           name: publish-log
           path: artifacts/publish.binlog
           if-no-files-found: ignore
-
-  app-arm64:
-    name: Windows app (arm64 build)
-    runs-on: windows-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: 10.0.x
-
-      - name: Publish (arm64, Native AOT)
-        run: dotnet publish src/Resonate.App/Resonate.App.csproj -c Release -r win-arm64 -p:Platform=ARM64 -o artifacts/win-arm64
-
-      - name: Publish the plugin helper (arm64, Native AOT)
-        run: dotnet publish src/Resonate.PluginHost/Resonate.PluginHost.csproj -c Release -r win-arm64 -o artifacts/plugin-host/win-arm64
