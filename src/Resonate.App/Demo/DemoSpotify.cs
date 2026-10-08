@@ -464,6 +464,9 @@ public sealed class DemoPlayer : ILocalMediaChannel, IAppVolume, ISpotifyAppLaun
 
     public Task<SpotifyAppStatus> EnsureRunningAsync(CancellationToken cancellationToken) => Task.FromResult(SpotifyAppStatus.Running);
 
+    /// <summary>Demo mode never closes the real Spotify app.</summary>
+    public Task<bool> CloseAsync(CancellationToken cancellationToken) => Task.FromResult(true);
+
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
     public void Stop()

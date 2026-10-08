@@ -159,10 +159,17 @@ public enum SpotifyAppStatus
     Failed,
 }
 
-/// <summary>Finds the Spotify desktop app and starts it hidden when needed.</summary>
+/// <summary>Finds the Spotify desktop app, starts it hidden when needed, and closes it.</summary>
 public interface ISpotifyAppLauncher
 {
     bool IsRunning { get; }
 
     Task<SpotifyAppStatus> EnsureRunningAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Closes the Spotify app (asking it first, ending it when it does not
+    /// close in time). True once none of its processes is left, also when it
+    /// was not running.
+    /// </summary>
+    Task<bool> CloseAsync(CancellationToken cancellationToken);
 }

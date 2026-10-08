@@ -25,7 +25,7 @@
                 <TextBlock
                     x:Name="WebApiOnlyNote"
                     Style="{StaticResource ResonateCaptionTextStyle}"
-                    Text="Music plays on the device picked with the button next to the volume. Media keys, Spotify's equalizer and DJ need Windows media controls."
+                    Text="Closes Spotify on this PC. Music plays on the device picked with the button next to the volume, such as your phone. Sound on this PC, media keys, Spotify's equalizer and DJ need Windows media controls."
                     TextWrapping="Wrap"
                     Visibility="Collapsed" />
 

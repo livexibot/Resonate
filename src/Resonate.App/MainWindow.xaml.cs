@@ -114,14 +114,8 @@ public sealed partial class MainWindow : Window
         QueuePane.CloseRequested += (_, _) => ShowQueue(false);
         services.Player.ErrorOccurred += (_, message) =>
             DispatcherQueue.TryEnqueue(() => ShowMessage(message, InfoBarSeverity.Warning));
-        services.ControlChannelChanged += (_, _) =>
-        {
-            if (_services.UsesSpotifyApp)
-            {
-                // Back to Windows' media controls: Resonate starts the Spotify app again if needed.
-                _ = EnsureSpotifyAppAsync(_lifetime.Token);
-            }
-        };
+        // Back to Windows' media controls starts the Spotify app hidden; Web API only closes it.
+        services.ControlChannelChanged += (_, _) => _ = FollowSpotifyAppAsync(_lifetime.Token);
         services.Library.PlaylistsChanged += (_, _) =>
             DispatcherQueue.TryEnqueue(() => ShowPlaylists(_services.Library.Snapshot));
         RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnRootPointerPressed), handledEventsToo: true);
@@ -725,11 +719,15 @@ public sealed partial class MainWindow : Window
         // Let the first frame appear before doing anything else.
         await Task.Yield();
 
-        // Follows Spotify; with "Spotify Web API only" it never touches the Spotify app.
+        // Follows Spotify; with "Spotify Web API only" it never listens to the Spotify app.
         await Task.Run(() => _services.Player.Spotify.StartAsync(token), token);
+
+        // Starts the Spotify app hidden, or with "Spotify Web API only" closes
+        // it, which can take a few seconds, so nothing waits for that.
+        var spotifyApp = FollowSpotifyAppAsync(token);
         if (_services.UsesSpotifyApp)
         {
-            await EnsureSpotifyAppAsync(token);
+            await spotifyApp;
         }
 
         // Plugins that are on start in their helper, off the interface thread;
@@ -750,17 +748,24 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>Starts the Spotify app hidden when it is not running, or says it is not installed. Never with "Spotify Web API only".</summary>
-    private async Task EnsureSpotifyAppAsync(CancellationToken token)
+    /// <summary>
+    /// Starts the Spotify app hidden when it is not running, or with "Spotify
+    /// Web API only" closes it, and says so when that did not work.
+    /// </summary>
+    private async Task FollowSpotifyAppAsync(CancellationToken token)
     {
         try
         {
-            var spotify = await Task.Run(() => _services.Launcher.EnsureRunningAsync(token), token);
-            if (spotify == SpotifyAppStatus.NotInstalled)
+            var outcome = await Task.Run(() => _services.SpotifyApp.FollowAsync(token), token);
+            if (outcome == SpotifyAppOutcome.NotInstalled)
             {
                 ShowMessage(
                     "The Spotify app is not installed. Resonate plays music through it: install it from spotify.com/download or the Microsoft Store, sign in, then come back. (Or pick Spotify Web API only in Settings to play on your other devices.)",
                     InfoBarSeverity.Error);
+            }
+            else if (outcome == SpotifyAppOutcome.CouldNotClose)
+            {
+                ShowMessage("The Spotify app did not close. Close it yourself if you want it gone.", InfoBarSeverity.Warning);
             }
         }
         catch (OperationCanceledException)

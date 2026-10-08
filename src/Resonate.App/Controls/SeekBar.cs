@@ -236,8 +236,11 @@ public sealed partial class SeekBar : RangeBase
         if (IsDragging)
         {
             SetValueFrom(e);
-            ReleasePointerCapture(e.Pointer);
+
+            // Ended before letting go, so the capture-lost event that follows
+            // has nothing to end: one release sends one seek.
             EndDrag();
+            ReleasePointerCapture(e.Pointer);
             e.Handled = true;
         }
     }
@@ -301,6 +304,24 @@ public sealed partial class SeekBar : RangeBase
 
         var x = e.GetCurrentPoint(_trackArea).Position.X;
         Value = Minimum + (Math.Clamp(x / TrackWidth, 0, 1) * (Maximum - Minimum));
+    }
+
+    /// <summary>
+    /// Ends a drag without <see cref="DragCompleted"/>, such as when the song
+    /// changes under the pointer: a place in the old song means nothing in
+    /// the new one. The owner shows the real position again.
+    /// </summary>
+    public void CancelDrag()
+    {
+        if (!IsDragging)
+        {
+            return;
+        }
+
+        IsDragging = false;
+        ReleasePointerCaptures();
+        UpdateLook();
+        Refresh();
     }
 
     private void EndDrag()

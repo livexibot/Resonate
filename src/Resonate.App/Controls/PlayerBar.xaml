@@ -33,67 +33,79 @@
                 <ColumnDefinition x:Name="VolumeColumn" Width="3*" MinWidth="180" />
             </Grid.ColumnDefinitions>
 
-            <!-- Now playing -->
+            <!--
+              Now playing. Swipe it to skip (PlayerBar.Swipe.cs): the whole
+              column takes the press, and the song inside moves.
+            -->
             <Grid
-                x:Name="NowPlaying"
-                VerticalAlignment="Center"
-                ColumnSpacing="14">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition x:Name="ArtworkColumn" Width="56" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <!-- The cover, with the look's shadow under it (it stays still while the cover spins). -->
-                <controls:Elevation x:Name="ArtworkShadow" Level="Item">
-                    <Grid
-                        x:Name="ArtworkFrame"
-                        Width="56"
-                        Height="56"
-                        Background="{StaticResource ResonateSurfaceHoverBrush}"
-                        CornerRadius="{ThemeResource ResonateCornerMedium}">
-                        <FontIcon
-                            x:Name="ArtworkGlyph"
-                            FontFamily="{StaticResource ResonateIconFont}"
-                            FontSize="20"
-                            Foreground="{StaticResource ResonateTextTertiaryBrush}"
-                            Glyph="&#xEC4F;" />
-                        <Image
-                            x:Name="ArtworkImage"
-                            ImageOpened="OnArtworkOpened"
-                            Opacity="0"
-                            Stretch="UniformToFill" />
-                        <!-- A record's centre (the vinyl cover style, or any cover while Spinning cover is on): a groove and the spindle hole. -->
-                        <Grid x:Name="VinylCentre" Visibility="Collapsed">
-                            <Ellipse
-                                Width="22"
-                                Height="22"
-                                Stroke="{StaticResource ResonateBorderBrush}"
-                                StrokeThickness="1" />
-                            <Ellipse
-                                Width="10"
-                                Height="10"
-                                Fill="{StaticResource ResonatePlayerBrush}"
-                                Stroke="{StaticResource ResonateBorderBrush}"
-                                StrokeThickness="1" />
-                        </Grid>
-                    </Grid>
-                </controls:Elevation>
-                <StackPanel
-                    Grid.Column="1"
+                x:Name="NowPlayingArea"
+                Background="{StaticResource ResonateTransparentBrush}"
+                PointerCanceled="OnSongPointerCanceled"
+                PointerCaptureLost="OnSongPointerCanceled"
+                PointerMoved="OnSongPointerMoved"
+                PointerPressed="OnSongPointerPressed"
+                PointerReleased="OnSongPointerReleased">
+                <Grid
+                    x:Name="NowPlaying"
                     VerticalAlignment="Center"
-                    Spacing="2">
-                    <TextBlock
-                        x:Name="TitleText"
-                        FontWeight="SemiBold"
-                        PointerEntered="OnTitlePointerEntered"
-                        PointerExited="OnTitlePointerExited"
-                        Style="{StaticResource ResonateBodyTextStyle}"
-                        Tapped="OnTitleTapped"
-                        Text="Nothing playing" />
-                    <TextBlock
-                        x:Name="ArtistText"
-                        Style="{StaticResource ResonateSecondaryTextStyle}"
-                        Text="Pick a song to start" />
-                </StackPanel>
+                    ColumnSpacing="14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition x:Name="ArtworkColumn" Width="56" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <!-- The cover, with the look's shadow under it (it stays still while the cover spins). -->
+                    <controls:Elevation x:Name="ArtworkShadow" Level="Item">
+                        <Grid
+                            x:Name="ArtworkFrame"
+                            Width="56"
+                            Height="56"
+                            Background="{StaticResource ResonateSurfaceHoverBrush}"
+                            CornerRadius="{ThemeResource ResonateCornerMedium}">
+                            <FontIcon
+                                x:Name="ArtworkGlyph"
+                                FontFamily="{StaticResource ResonateIconFont}"
+                                FontSize="20"
+                                Foreground="{StaticResource ResonateTextTertiaryBrush}"
+                                Glyph="&#xEC4F;" />
+                            <Image
+                                x:Name="ArtworkImage"
+                                ImageOpened="OnArtworkOpened"
+                                Opacity="0"
+                                Stretch="UniformToFill" />
+                            <!-- A record's centre (the vinyl cover style, or any cover while Spinning cover is on): a groove and the spindle hole. -->
+                            <Grid x:Name="VinylCentre" Visibility="Collapsed">
+                                <Ellipse
+                                    Width="22"
+                                    Height="22"
+                                    Stroke="{StaticResource ResonateBorderBrush}"
+                                    StrokeThickness="1" />
+                                <Ellipse
+                                    Width="10"
+                                    Height="10"
+                                    Fill="{StaticResource ResonatePlayerBrush}"
+                                    Stroke="{StaticResource ResonateBorderBrush}"
+                                    StrokeThickness="1" />
+                            </Grid>
+                        </Grid>
+                    </controls:Elevation>
+                    <StackPanel
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Spacing="2">
+                        <TextBlock
+                            x:Name="TitleText"
+                            FontWeight="SemiBold"
+                            PointerEntered="OnTitlePointerEntered"
+                            PointerExited="OnTitlePointerExited"
+                            Style="{StaticResource ResonateBodyTextStyle}"
+                            Tapped="OnTitleTapped"
+                            Text="Nothing playing" />
+                        <TextBlock
+                            x:Name="ArtistText"
+                            Style="{StaticResource ResonateSecondaryTextStyle}"
+                            Text="Pick a song to start" />
+                    </StackPanel>
+                </Grid>
             </Grid>
 
             <!-- Transport controls and the seek bar -->
