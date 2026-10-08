@@ -194,6 +194,13 @@ public sealed class AppSettings
     /// <summary>The stage shows the visualizer's bars along its bottom (on unless the user turns it off).</summary>
     public bool HomeStageVisualizer { get; set; } = true;
 
+    /// <summary>
+    /// The bars follow Spotify's own sound, heard through Windows (on unless
+    /// the user turns it off; the owner's choice of 8 October 2026). Off, they
+    /// sway on their own for Spotify songs.
+    /// </summary>
+    public bool HomeStageListens { get; set; } = true;
+
     // Away screen
 
     /// <summary>Minutes without touching the mouse or keyboard before the away screen shows (2, 5, 10 or 15).</summary>

@@ -38,7 +38,7 @@ Ctrl+Minus too), and Text size makes just the text larger.
 A player in the style of Winamp 2 can take the player bar's place, with
 its own original skin built in. Add any classic `.wsz` skin you have, show
 it at double size, or roll it up to one line. Its visualiser moves for
-your own music files; Spotify's sound can't be analysed.
+your own music files and stays still for Spotify songs.
 
 Ctrl+M (or the button beside the window's own buttons) turns Resonate into
 a mini player, as Spotifast does: a small window that stays on top, with

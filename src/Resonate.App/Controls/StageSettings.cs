@@ -15,7 +15,7 @@ internal static class StageSettings
     /// <summary>The minutes the away screen can wait, the first being the shortest.</summary>
     public static readonly int[] AwayMinutes = [2, 5, 10, 15];
 
-    /// <summary>The Home stage: the visualizer, and the blurred cover behind the clouds.</summary>
+    /// <summary>The Home stage: the visualizer and whether it hears Spotify, and the blurred cover behind the clouds.</summary>
     public static FrameworkElement HomeStage(AppServices services) => new StackPanel
     {
         Spacing = 4,
@@ -23,9 +23,19 @@ internal static class StageSettings
         {
             Switch(
                 "Visualizer",
-                "Moves with your own music files, and on its own for Spotify songs.",
+                "Bars that move with the music.",
                 () => services.Settings.HomeStageVisualizer,
                 on => services.Settings.HomeStageVisualizer = on,
+                services),
+            Switch(
+                "Listen to Spotify",
+                "The bars hear Spotify's sound only. Nothing is kept.",
+                () => services.Settings.HomeStageListens,
+                on =>
+                {
+                    services.Settings.HomeStageListens = on;
+                    services.Visualiser.ListensToSpotify = on;
+                },
                 services),
             Switch(
                 "Blurred cover",

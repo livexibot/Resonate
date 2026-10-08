@@ -116,7 +116,8 @@ public sealed record LocalSignal
 /// <summary>
 /// Signal path, a built-in plugin: whether what plays reaches the output
 /// losslessly, and what to change if not. A best estimate from Spotify's
-/// settings file and Windows; Resonate never hears Spotify's stream, so it
+/// settings file and Windows; Resonate never sees Spotify's stream (the
+/// Home stage's visualizer only hears it after Windows mixed it), so it
 /// can not confirm it. Spotify Lossless is up to 24-bit, 44.1 kHz FLAC.
 /// </summary>
 public static class SignalPath

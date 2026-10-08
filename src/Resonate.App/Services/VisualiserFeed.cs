@@ -1,4 +1,5 @@
 using Microsoft.UI.Dispatching;
+using Resonate.Spotify.Audio;
 using Resonate.Spotify.LocalFiles;
 using Resonate.Spotify.Playback;
 using Resonate.Themes.Skins;
@@ -7,14 +8,17 @@ namespace Resonate.App.Services;
 
 /// <summary>
 /// The visualisers' data: the classic player's and the now-playing stage's.
-/// Only the local files player feeds it (Resonate's own audio graph, the
-/// user's music files); Spotify's sound is never heard or analysed, so for
-/// Spotify songs it stays at rest.
+/// The local files player feeds both (Resonate's own audio graph, the
+/// user's music files). For Spotify songs the stage alone may also hear the
+/// program that plays them on this PC (<see cref="SpotifySoundListener"/>,
+/// the owner's choice of 8 October 2026; the classic player stays at rest);
+/// that sound is only turned into bar heights, never kept.
 /// </summary>
 public sealed class VisualiserFeed : ILocalAudioSink, IDisposable
 {
     private readonly PlayerRouter _player;
     private readonly LocalAudioListener _listener;
+    private readonly SpotifySoundListener? _heard;
     private readonly DispatcherQueue _queue;
     private readonly HashSet<object> _viewers = [];
     private readonly HashSet<object> _stageViewers = [];
@@ -23,13 +27,22 @@ public sealed class VisualiserFeed : ILocalAudioSink, IDisposable
     private int _updateQueued;
 
     /// <summary>Call on the interface thread.</summary>
-    public VisualiserFeed(PlayerRouter player)
+    /// <param name="player">The player whose music is shown.</param>
+    /// <param name="capture">Hears a program's sound for the stage (Windows' process loopback); null in demo mode.</param>
+    /// <param name="findSpotifySound">The process that plays Spotify's sound on this PC, or null; called off the interface thread.</param>
+    public VisualiserFeed(PlayerRouter player, IAppSoundCapture? capture = null, Func<int?>? findSpotifySound = null)
     {
         _player = player;
         _queue = DispatcherQueue.GetForCurrentThread();
         _listener = new LocalAudioListener(player, this);
+        if (capture is not null && findSpotifySound is not null)
+        {
+            _heard = new SpotifySoundListener(player, capture, findSpotifySound, new StageInput(Stage));
+            _heard.HearingChanged += OnStateChanged;
+        }
+
         player.StateChanged += OnStateChanged;
-        IsLive = _listener.IsLive;
+        IsLive = HasSound;
     }
 
     /// <summary>Winamp's classic look by default: 19 bars that move in whole rows, 60 steps a second of music.</summary>
@@ -79,9 +92,33 @@ public sealed class VisualiserFeed : ILocalAudioSink, IDisposable
         _classicWanted = classic;
         _stageWanted = staged;
         _listener.Wanted = classic || staged;
+        if (_heard is not null)
+        {
+            _heard.Wanted = staged;
+        }
     }
 
-    /// <summary>A local file is playing, so the analyser has sound to show; false for Spotify songs.</summary>
+    /// <summary>
+    /// The stage's bars follow Spotify's sound (Settings, Plugins, Home stage,
+    /// "Listen to Spotify"; on at first). Any thread.
+    /// </summary>
+    public bool ListensToSpotify
+    {
+        get => _heard?.Enabled ?? false;
+        set
+        {
+            if (_heard is not null)
+            {
+                _heard.Enabled = value;
+            }
+        }
+    }
+
+    /// <summary>
+    /// The stage's analyser has sound to show: a local file plays, or the
+    /// program playing a Spotify song is heard. False otherwise (the stage's
+    /// bars then sway on their own).
+    /// </summary>
     public bool IsLive { get; private set; }
 
     /// <summary>Raised on the interface thread when <see cref="IsLive"/> changes.</summary>
@@ -110,11 +147,22 @@ public sealed class VisualiserFeed : ILocalAudioSink, IDisposable
         }
     }
 
+    /// <summary>The program that plays Spotify's sound may have changed (the control mode switched, the own player started or stopped).</summary>
+    public void LookAgain() => _heard?.LookAgain();
+
     public void Dispose()
     {
         _player.StateChanged -= OnStateChanged;
         _listener.Dispose();
+        if (_heard is not null)
+        {
+            _heard.HearingChanged -= OnStateChanged;
+            _heard.Dispose();
+        }
     }
+
+    private bool HasSound =>
+        _listener.IsLive || (_heard is { HearsSound: true } && _player.ActiveSource == PlaybackSource.Spotify);
 
     private void OnStateChanged(object? sender, EventArgs e)
     {
@@ -124,7 +172,7 @@ public sealed class VisualiserFeed : ILocalAudioSink, IDisposable
             _queue.TryEnqueue(() =>
             {
                 Interlocked.Exchange(ref _updateQueued, 0);
-                SetLive(_listener.IsLive);
+                SetLive(HasSound);
             });
         }
     }
@@ -135,6 +183,23 @@ public sealed class VisualiserFeed : ILocalAudioSink, IDisposable
         {
             IsLive = live;
             LiveChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>
+    /// Spotify's heard sound goes to the stage's analyser only. It is heard as
+    /// Windows mixes it, so there is no graph latency to look back over.
+    /// </summary>
+    private sealed class StageInput(SpectrumAnalyser stage) : ISoundSink
+    {
+        public void Write(ReadOnlySpan<float> interleaved, int channels, int sampleRate)
+        {
+            if (stage.LagSamples != 0)
+            {
+                stage.LagSamples = 0;
+            }
+
+            stage.Process(interleaved, channels, sampleRate);
         }
     }
 }

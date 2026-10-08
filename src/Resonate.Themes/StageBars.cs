@@ -4,10 +4,11 @@ namespace Resonate.Themes;
 
 /// <summary>
 /// The now-playing stage's visualizer (part of the Home stage, a built-in
-/// plugin): a row of slim bars along the bottom of the stage. For the
-/// user's own music files they follow the sound of the local files player
-/// (its spectrum, <see cref="Skins.SpectrumAnalyser"/>). Resonate never hears
-/// Spotify's sound, so for Spotify songs they move on their own: each bar
+/// plugin): a row of slim bars along the bottom of the stage. They follow
+/// the music's spectrum (<see cref="Skins.SpectrumAnalyser"/>): the local
+/// files player's, or Spotify's sound heard through Windows. When nothing
+/// is heard (Spotify plays elsewhere, or the user turned listening off)
+/// they move on their own: each bar
 /// sways at its own pace under a slow wave that rolls across the row, all
 /// worked out by the compositor from one clock. The motion repeats exactly
 /// after <see cref="LoopSeconds"/>, so the clock can start again with no jump.

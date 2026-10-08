@@ -15,10 +15,11 @@ namespace Resonate.App.Controls;
 /// <summary>
 /// The now-playing stage's visualizer: slim bars in the cover's colours
 /// along the bottom of the stage, below the cover and the words (never
-/// under them). Sprites the compositor moves from one property set: for
-/// the user's own music files each bar follows a band of the local files
-/// player's spectrum, written once per new picture; for Spotify songs,
-/// whose sound Resonate never hears, each bar sways on its own under a
+/// under them). Sprites the compositor moves from one property set: while
+/// the feed has sound (the local files player, or the program playing a
+/// Spotify song, heard through Windows) each bar follows a band of the
+/// stage's spectrum, written once per new picture; otherwise (nothing
+/// heard, or "Listen to Spotify" off) each bar sways on its own under a
 /// slow wave (<see cref="StageBars"/>), worked out by the compositor with
 /// nothing on the interface thread. While nothing plays, or the stage is
 /// out of sight, the bars sink to a thin line and every animation stops,

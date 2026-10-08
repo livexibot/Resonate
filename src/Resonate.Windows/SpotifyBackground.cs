@@ -457,7 +457,7 @@ public sealed class SpotifyBackground : ISpotifyAppWindow, IDisposable
         }
     }
 
-    private static unsafe string? CommandLine(uint processId)
+    internal static unsafe string? CommandLine(uint processId)
     {
         var process = Processes.OpenProcess(Processes.QueryLimitedInformation, false, processId);
         if (process == 0)
