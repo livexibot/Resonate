@@ -40,6 +40,13 @@ public sealed record StartupOptions
     /// <summary>Show sample data instead of a Spotify account (for screenshots and trying the look).</summary>
     public bool Demo { get; init; }
 
+    /// <summary>
+    /// Keep settings, caches, plugins and the Spotify sign-in in this folder
+    /// instead of the installed copy's, so a local build can run beside it
+    /// and share nothing with it (see <see cref="AppPaths"/>).
+    /// </summary>
+    public string? DataFolder { get; init; }
+
     /// <summary>Write the time to the first frame to this file, then quit.</summary>
     public string? StartupBenchmarkFile { get; init; }
 
@@ -85,6 +92,10 @@ public sealed record StartupOptions
             {
                 case "--demo":
                     options = options with { Demo = true };
+                    break;
+                case "--data" when next is not null:
+                    options = options with { DataFolder = Path.GetFullPath(next) };
+                    i++;
                     break;
                 case "--startup-benchmark" when next is not null:
                     options = options with { StartupBenchmarkFile = next };

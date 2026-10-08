@@ -198,7 +198,7 @@ public sealed class AppServices : IDisposable
         };
         http.DefaultRequestHeaders.UserAgent.ParseAdd("Resonate/" + AppInfo.Version);
 
-        var account = new AccountService(http, new CredentialTokenStore(), settings.ClientId);
+        var account = new AccountService(http, new CredentialTokenStore(AppPaths.CredentialTarget), settings.ClientId);
         var api = new SpotifyWebApi(http, account);
         var library = new LibraryService(
             api,

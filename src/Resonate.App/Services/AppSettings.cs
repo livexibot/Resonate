@@ -360,38 +360,48 @@ public sealed class SettingsStore
 
 public static class AppPaths
 {
+    /// <summary>
+    /// "--data": everything below goes in this one folder instead, so a local
+    /// build run beside the installed copy shares nothing with it. Read once,
+    /// after <see cref="StartupOptions.Parse"/>.
+    /// </summary>
+    private static readonly string? DataFolder = StartupOptions.Current.DataFolder;
+
+    private static readonly string Roaming =
+        DataFolder ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Resonate");
+
+    private static readonly string Local =
+        DataFolder ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Resonate");
+
     /// <summary>Settings that should survive reinstalling (roaming app data).</summary>
-    public static string SettingsFile { get; } =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Resonate", "settings.json");
+    public static string SettingsFile { get; } = Path.Combine(Roaming, "settings.json");
 
     /// <summary>
     /// Caches. Velopack installs to %LocalAppData%\Resonate and only replaces
     /// its "current" folder on updates, so this survives updates and is
     /// removed on uninstall.
     /// </summary>
-    public static string CacheFolder { get; } =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Resonate", "data");
+    public static string CacheFolder { get; } = Path.Combine(Local, "data");
 
     /// <summary>
     /// Plugins that are on, and the helper that runs them. Next to the cache,
     /// so it survives updates and goes on uninstall; emptied when the last
     /// plugin is turned off.
     /// </summary>
-    public static string PluginsFolder { get; } =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Resonate", "plugins");
+    public static string PluginsFolder { get; } = Path.Combine(Local, "plugins");
 
     /// <summary>Which plugins are on, their settings and what they keep (next to the settings).</summary>
-    public static string PluginsFile { get; } =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Resonate", "plugins.json");
+    public static string PluginsFile { get; } = Path.Combine(Roaming, "plugins.json");
 
     /// <summary>
     /// WebView2's own folder for Resonate's own player ("Spotify Web API
     /// only"). It runs InPrivate, so no cookies, cache or history stay here.
     /// </summary>
-    public static string WebPlayerFolder { get; } =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Resonate", "webplayer");
+    public static string WebPlayerFolder { get; } = Path.Combine(Local, "webplayer");
 
     /// <summary>Classic player skins the user added (copies), next to <see cref="CacheFolder"/>.</summary>
-    public static string SkinsFolder { get; } =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Resonate", "skins");
+    public static string SkinsFolder { get; } = Path.Combine(Local, "skins");
+
+    /// <summary>Where the Spotify sign-in is kept in the Credential Manager; its own entry for "--data".</summary>
+    public static string CredentialTarget { get; } = DataFolder is null ? "Resonate/Spotify" : "Resonate/Spotify/" + DataFolder;
 }

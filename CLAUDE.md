@@ -27,6 +27,19 @@ visitors; keep it short and in step with this file.
   request that an installed copy can install and update. The Spotify logic is tested on Linux; the
   WinUI 3 app is only compiled, timed and photographed on GitHub's Windows
   machines (CI), because cloud sessions run on Linux.
+- Local builds (owner's choice, 8 October 2026): changes the owner asks
+  for are tried on their PC as a local build, and a release is published
+  only when the owner says so, bundling everything merged since. The
+  clone is `C:\Users\deity\Documents\Resonate` on that PC (.NET 10 SDK,
+  Build Tools 2026 with the C++ tools and Windows SDK 10.0.26100).
+  `tools/update-local.ps1` pulls `main` (or `-Branch <name>`, or
+  `-NoPull` for what is checked out) and publishes to
+  `artifacts\local\app`; the desktop shortcuts "Resonate (local)" and
+  "Resonate (local demo)" start it with `--data
+  %LocalAppData%\Resonate-local`, which keeps its settings, caches,
+  plugins and its own Credential Manager sign-in apart from the installed
+  copy. Never run CI's install, update or plugin checks there: they would
+  install over the owner's copy.
 - The feature update (pull request #9, 7 October 2026) adds Home with
   listening stats and daily mixes, Local Files, DJ, sorting and filtering
   of every list, likes, album and artist pages, truly random shuffle,
@@ -1139,8 +1152,9 @@ cannot be done right away, open an issue for it so nothing is forgotten.
 - Merging that release pull request creates the `vX.Y.Z` tag and the GitHub
   release. The release workflow then builds the Windows installer with
   Velopack and attaches it, and installed copies update themselves.
-- Claude merges the release pull request when the owner asks ("publish a
-  release"), or after a change the owner wants to try. Check the notes read
+- Claude merges the release pull request only when the owner asks
+  ("publish a release"); changes are tried as local builds first (see
+  "Status and handoff"). Check the notes read
   well for users before merging, and start its CI at once (see "GitHub
   automation": its runs wait for approval otherwise).
 
@@ -1200,6 +1214,7 @@ Keep it obvious what is what:
   the catalog the app is built with (`-p:PluginCatalog=<file>`).
 - `tools/fonts/` rebuilds the fonts in `src/Resonate.App/Assets/Fonts`
   from Google Fonts' sources (see its README).
+- `tools/update-local.ps1` refreshes the local build on the owner's PC.
 - `tests/` automated tests (`dotnet test`, run on Linux and Windows).
 - `docs/` user-facing guides (`plugins.md`).
 - `.github/workflows/` `ci.yml` (every pull request that changes more
