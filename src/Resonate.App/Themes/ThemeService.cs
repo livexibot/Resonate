@@ -213,8 +213,8 @@ public sealed class ThemeService
         }
     }
 
-    /// <summary>Text of <paramref name="size"/> at the user's Text size, for text built in code.</summary>
-    public double FontSize(double size) => AppScale.Font(size, TextSize);
+    /// <summary><see cref="TextSize"/> as a factor (1 at the usual size), for room that text needs.</summary>
+    public double TextScale => TextSize / 100.0;
 
     /// <summary>
     /// Whether the now-playing cover is drawn as a record (round, with a
@@ -598,6 +598,9 @@ public sealed class ThemeService
                 dictionary[AppScale.FontKey(size)] = AppScale.Font(size, text);
             }
 
+            dictionary["ResonateTrackNumberWidth"] = AppScale.Font(28, text);
+            dictionary["ResonateRankWidth"] = AppScale.Font(34, text);
+            dictionary["ResonateTimeWidth"] = AppScale.Font(44, text);
             dictionary["ControlContentThemeFontSize"] = AppScale.Font(14, text);
             dictionary["ResonateMenuFontSize"] = AppScale.Font(14, text) * Scale;
             dictionary["ToolTipContentThemeFontSize"] = AppScale.Font(12, text) * Scale;

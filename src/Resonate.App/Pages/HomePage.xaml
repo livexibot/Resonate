@@ -324,27 +324,29 @@
                 Background="{StaticResource ResonateTransparentBrush}"
                 ColumnSpacing="14">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="34" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="48" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock
-                    HorizontalAlignment="Right"
+                    Width="{ThemeResource ResonateRankWidth}"
                     VerticalAlignment="Center"
                     FontFamily="{ThemeResource ResonateDisplayFont}"
                     FontSize="{ThemeResource ResonateFontSize26}"
                     FontWeight="Bold"
                     Foreground="{StaticResource ResonateAccentBrush}"
                     Text="{x:Bind Rank}"
+                    TextAlignment="Right"
                     Visibility="{x:Bind FirstVisibility}" />
                 <TextBlock
-                    HorizontalAlignment="Right"
+                    Width="{ThemeResource ResonateRankWidth}"
                     VerticalAlignment="Center"
                     FontFamily="{ThemeResource ResonateDisplayFont}"
                     FontSize="{ThemeResource ResonateFontSize26}"
                     FontWeight="Bold"
                     Foreground="{StaticResource ResonateTextTertiaryBrush}"
                     Text="{x:Bind Rank}"
+                    TextAlignment="Right"
                     Visibility="{x:Bind OtherVisibility}" />
                 <Grid
                     Grid.Column="1"

@@ -96,7 +96,7 @@
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="vm:TrackRow">
                                 <Grid
-                                    Height="56"
+                                    MinHeight="56"
                                     Background="{StaticResource ResonateTransparentBrush}"
                                     ColumnSpacing="16">
                                     <Grid.ColumnDefinitions>

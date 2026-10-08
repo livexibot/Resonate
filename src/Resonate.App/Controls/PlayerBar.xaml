@@ -160,12 +160,13 @@
                 </StackPanel>
                 <Grid x:Name="SeekRow" ColumnSpacing="10">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition x:Name="PositionColumn" Width="44" />
+                        <ColumnDefinition x:Name="PositionColumn" Width="Auto" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition x:Name="DurationColumn" Width="44" />
+                        <ColumnDefinition x:Name="DurationColumn" Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <TextBlock
                         x:Name="PositionText"
+                        Width="{ThemeResource ResonateTimeWidth}"
                         VerticalAlignment="Center"
                         Style="{StaticResource ResonateCaptionTextStyle}"
                         Text="0:00"
@@ -181,6 +182,7 @@
                     <TextBlock
                         x:Name="DurationText"
                         Grid.Column="2"
+                        Width="{ThemeResource ResonateTimeWidth}"
                         VerticalAlignment="Center"
                         Style="{StaticResource ResonateCaptionTextStyle}"
                         Text="0:00" />

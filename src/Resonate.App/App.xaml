@@ -27,6 +27,9 @@
             <Style BasedOn="{StaticResource DefaultMenuFlyoutSubItemStyle}" TargetType="MenuFlyoutSubItem">
                 <Setter Property="FontSize" Value="{ThemeResource ResonateMenuFontSize}" />
             </Style>
+            <Style BasedOn="{StaticResource DefaultRadioMenuFlyoutItemStyle}" TargetType="RadioMenuFlyoutItem">
+                <Setter Property="FontSize" Value="{ThemeResource ResonateMenuFontSize}" />
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

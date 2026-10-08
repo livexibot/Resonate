@@ -24,7 +24,7 @@ public static class AppScale
     /// <c>ResonateFontSize{n}</c> token in Themes/Tokens.xaml. Icons are not
     /// text and keep their sizes.
     /// </summary>
-    public static IReadOnlyList<int> FontSizes { get; } = [10, 12, 13, 14, 15, 18, 20, 24, 26, 32, 44, 46, 48, 60];
+    public static IReadOnlyList<int> FontSizes { get; } = [10, 11, 12, 13, 14, 15, 18, 20, 24, 26, 32, 44, 46, 48, 60];
 
     /// <summary>The theme resource that holds text of <paramref name="size"/> at the usual Text size.</summary>
     public static string FontKey(int size) => "ResonateFontSize" + size.ToString(CultureInfo.InvariantCulture);

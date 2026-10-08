@@ -240,7 +240,7 @@
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="vm:PlaylistNavItem">
                                 <Grid
-                                    Height="54"
+                                    MinHeight="54"
                                     Background="{StaticResource ResonateTransparentBrush}"
                                     ColumnSpacing="12">
                                     <Grid.ColumnDefinitions>

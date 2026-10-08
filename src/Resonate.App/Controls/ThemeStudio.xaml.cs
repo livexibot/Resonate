@@ -22,6 +22,9 @@ namespace Resonate.App.Controls;
 /// </summary>
 public sealed partial class ThemeStudio : UserControl
 {
+    /// <summary>The room each colour button takes at the usual Text size.</summary>
+    private const double SwatchWidth = 164;
+
     /// <summary>Fonts that come with Windows 10 and 11, besides Segoe UI Variable.</summary>
     private static readonly string[] WindowsFonts =
     [
@@ -203,6 +206,8 @@ public sealed partial class ThemeStudio : UserControl
         _loading = true;
         try
         {
+            // Room for the colours' names at the user's Text size.
+            SwatchGrid.ItemWidth = SwatchWidth * _theme.TextScale;
             Select(TransitionChoice, _theme.Transition.ToString());
             Select(BackdropChoice, look.Backdrop.ToString());
             Select(ButtonsChoice, look.Buttons.ToString());
@@ -396,8 +401,9 @@ public sealed partial class ThemeStudio : UserControl
         var button = new Button
         {
             Content = content,
-            Width = 156,
             Height = 44,
+            Margin = new Thickness(0, 0, 8, 0),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             Padding = new Thickness(10, 0, 10, 0),
             HorizontalContentAlignment = HorizontalAlignment.Left,
             Style = (Style)Application.Current.Resources["ResonateSubtleButtonStyle"],

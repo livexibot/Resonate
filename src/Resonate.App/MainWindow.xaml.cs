@@ -1134,6 +1134,7 @@ public sealed partial class MainWindow : Window
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
     {
         NotePlacement(args);
+        NoteScreen(args);
         var shown = sender.IsVisible && !IsIconic(Hwnd);
         if (shown != IsShown)
         {

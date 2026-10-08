@@ -292,10 +292,10 @@ internal sealed class ScreenshotTour
 
     /// <summary>
     /// The player hovering over a long playlist scrolled to its end (its last
-    /// song must stay clear of the player), with the queue open, and in a
-    /// narrow window; then the sidebar reaching the bottom beside a floating
-    /// player. Afterwards the look, the sidebar switch and the window's size
-    /// are as they were.
+    /// song must stay clear of the player), with the queue open, in a narrow
+    /// window and at larger App and Text sizes; then the sidebar reaching the
+    /// bottom beside a floating player. Afterwards the look, the sidebar
+    /// switch, the sizes and the window's size are as they were.
     /// </summary>
     private async Task<int> LayoutsAsync(int number)
     {
@@ -344,6 +344,23 @@ internal sealed class ScreenshotTour
             Record("The player did not hover over the page again once Settings closed.");
         }
 
+        _window.AppWindow.Resize(size);
+        await Task.Delay(800);
+
+        // Larger App and Text sizes (no picture): the page still fills the
+        // window and its last song stays clear of the hovering player.
+        theme.AppSize = 150;
+        theme.TextSize = 125;
+        await Task.Delay(1500);
+        await ScrollToEndAsync();
+        CheckPlayerPlacement();
+        if (_window.CheckContentFills() is { } unfilled)
+        {
+            Record(unfilled);
+        }
+
+        theme.AppSize = AppScale.Normal;
+        theme.TextSize = AppScale.Normal;
         _window.AppWindow.Resize(size);
 
         theme.Select(ThemePresets.Daylight.Id, transition: ThemeTransitionKind.None);

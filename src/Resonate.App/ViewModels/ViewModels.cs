@@ -69,11 +69,14 @@ public sealed partial class TrackColumns : ObservableObject
         private set => Set(ref _addedWidth, value);
     }
 
-    /// <summary>Shows the columns the list has that fit in <paramref name="width"/>.</summary>
-    public void Fit(double width)
+    /// <summary>
+    /// Shows the columns the list has that fit in <paramref name="width"/>,
+    /// with text <paramref name="textScale"/> times its usual size (Text size).
+    /// </summary>
+    public void Fit(double width, double textScale = 1)
     {
-        AlbumWidth = _album && width >= AlbumMinWidth ? new GridLength(3, GridUnitType.Star) : new GridLength(0);
-        AddedWidth = _dateAdded && width >= AddedMinWidth ? new GridLength(132) : new GridLength(0);
+        AlbumWidth = _album && width >= AlbumMinWidth * textScale ? new GridLength(3, GridUnitType.Star) : new GridLength(0);
+        AddedWidth = _dateAdded && width >= AddedMinWidth * textScale ? new GridLength(132 * textScale) : new GridLength(0);
     }
 }
 

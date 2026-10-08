@@ -48,6 +48,7 @@
               icons keep their own sizes.
             -->
             <x:Double x:Key="ResonateFontSize10">10</x:Double>
+            <x:Double x:Key="ResonateFontSize11">11</x:Double>
             <x:Double x:Key="ResonateFontSize12">12</x:Double>
             <x:Double x:Key="ResonateFontSize13">13</x:Double>
             <x:Double x:Key="ResonateFontSize14">14</x:Double>
@@ -61,6 +62,10 @@
             <x:Double x:Key="ResonateFontSize46">46</x:Double>
             <x:Double x:Key="ResonateFontSize48">48</x:Double>
             <x:Double x:Key="ResonateFontSize60">60</x:Double>
+            <!-- Room for short text that lines up in columns (song numbers, ranks, times); grows with the Text size too. -->
+            <x:Double x:Key="ResonateTrackNumberWidth">28</x:Double>
+            <x:Double x:Key="ResonateRankWidth">34</x:Double>
+            <x:Double x:Key="ResonateTimeWidth">44</x:Double>
             <!-- Windows' own controls in the window (text boxes, lists to pick from, switches). -->
             <x:Double x:Key="ControlContentThemeFontSize">14</x:Double>
             <!--
@@ -257,6 +262,14 @@
         <Setter Property="FontSize" Value="{ThemeResource ResonateFontSize12}" />
         <Setter Property="Foreground" Value="{StaticResource ResonateTextTertiaryBrush}" />
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <!-- The hours and days under Home's bar charts. -->
+    <Style
+        x:Key="ResonateChartLabelTextStyle"
+        BasedOn="{StaticResource ResonateCaptionTextStyle}"
+        TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{ThemeResource ResonateFontSize11}" />
     </Style>
 
     <!-- A quiet button for icons (player controls, toolbar). Its shape follows the theme's buttons. -->

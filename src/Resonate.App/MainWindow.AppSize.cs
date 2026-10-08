@@ -19,12 +19,24 @@ public sealed partial class MainWindow
 {
     private OverlappedPresenter? _presenter;
 
+    // What the smallest window was worked out for, so a move to another screen works it out again.
+    private uint _minimumDpi;
+    private ulong _minimumDisplay;
+
     private void SetUpAppSize()
     {
-        ApplyAppSize();
-        _services.Theme.SizeChanged += (_, _) => ApplyAppSize(grow: true);
+        // The window is in its place by now, so this is the screen it is on.
+        ApplyAppSize(grow: true);
+        _services.Theme.SizeChanged += (_, _) =>
+        {
+            ApplyAppSize(grow: true);
+
+            // Menu items keep the text size they were made with (see ThemeService.ApplyTextSize).
+            BuildPlaylistSortMenu();
+        };
 
         AddAppSizeKey((VirtualKey)0xBB, 1); // the plus key beside Backspace (VK_OEM_PLUS)
+        AddAppSizeKey((VirtualKey)0xBB, 1, VirtualKeyModifiers.Shift); // Ctrl+Shift+= types a plus on US keyboards
         AddAppSizeKey(VirtualKey.Add, 1);
         AddAppSizeKey((VirtualKey)0xBD, -1); // the minus key (VK_OEM_MINUS)
         AddAppSizeKey(VirtualKey.Subtract, -1);
@@ -32,9 +44,9 @@ public sealed partial class MainWindow
         AddAppSizeKey(VirtualKey.NumberPad0, 0);
     }
 
-    private void AddAppSizeKey(VirtualKey key, int step)
+    private void AddAppSizeKey(VirtualKey key, int step, VirtualKeyModifiers also = VirtualKeyModifiers.None)
     {
-        var accelerator = new KeyboardAccelerator { Key = key, Modifiers = VirtualKeyModifiers.Control };
+        var accelerator = new KeyboardAccelerator { Key = key, Modifiers = VirtualKeyModifiers.Control | also };
         accelerator.Invoked += (_, args) =>
         {
             args.Handled = true;
@@ -67,7 +79,7 @@ public sealed partial class MainWindow
     private void ApplyAppSize(bool grow = false)
     {
         var scale = _services.Theme.Scale;
-        ContentScale.Scale = scale;
+        ContentScale.Factor = scale;
         CoverImages.Scale = scale;
         UpdateMinimumSize(grow);
     }
@@ -84,8 +96,11 @@ public sealed partial class MainWindow
             return;
         }
 
-        var dpi = GetDpiForWindow(Hwnd) / 96.0;
-        var area = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
+        _minimumDpi = GetDpiForWindow(Hwnd);
+        var dpi = _minimumDpi / 96.0;
+        var display = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary);
+        _minimumDisplay = display.DisplayId.Value;
+        var area = display.WorkArea;
         var appSize = _services.Theme.AppSize;
         var width = AppScale.MinimumWindow((int)Math.Round(MinimumWidth * dpi), appSize, area.Width);
         var height = AppScale.MinimumWindow((int)Math.Round(MinimumHeight * dpi), appSize, area.Height);
@@ -110,5 +125,32 @@ public sealed partial class MainWindow
         var x = Math.Clamp(position.X, area.X, Math.Max(area.X, area.X + area.Width - w));
         var y = Math.Clamp(position.Y, area.Y, Math.Max(area.Y, area.Y + area.Height - h));
         AppWindow.MoveAndResize(new RectInt32(x, y, w, h));
+    }
+
+    /// <summary>After the window moved: on another screen (or the same at another scale) its smallest size is worked out again.</summary>
+    private void NoteScreen(AppWindowChangedEventArgs args)
+    {
+        if (_presenter is null || !(args.DidPositionChange || args.DidSizeChange))
+        {
+            return;
+        }
+
+        // Larger App sizes are kept within the screen, so they also care which screen it is.
+        if (GetDpiForWindow(Hwnd) != _minimumDpi
+            || (_services.Theme.AppSize != AppScale.Normal
+                && DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary).DisplayId.Value != _minimumDisplay))
+        {
+            UpdateMinimumSize(grow: false);
+        }
+    }
+
+    /// <summary>For CI's tour: the scaled shell fills the space under the title bar exactly, or what it fills instead.</summary>
+    internal string? CheckContentFills()
+    {
+        var outer = ContentScale.ActualSize;
+        var inner = ShellGrid.ActualSize * (float)ContentScale.Factor;
+        return Math.Abs(outer.X - inner.X) > 1 || Math.Abs(outer.Y - inner.Y) > 1
+            ? $"At App size {AppScale.Label(_services.Theme.AppSize)} the page fills {inner.X:0}x{inner.Y:0} of {outer.X:0}x{outer.Y:0}."
+            : null;
     }
 }
