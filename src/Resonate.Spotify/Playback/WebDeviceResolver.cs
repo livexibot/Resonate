@@ -4,10 +4,10 @@ namespace Resonate.Spotify.Playback;
 
 /// <summary>
 /// Picks the Spotify Connect device that plays with "Spotify Web API only",
-/// from the devices Spotify lists (Resonate never starts the Spotify app in
-/// that mode): the one already playing, else the one the user picked last,
-/// else the Spotify app on this computer if it is online, else the only
-/// device there is. With several unknown devices it does not guess, so music
+/// from the devices Spotify lists (Resonate closes the Spotify app on this
+/// computer in that mode and never starts it): the one already playing, else
+/// the one the user picked last, else the Spotify app on this computer if the
+/// user opened it again, else the only device there is. With several unknown devices it does not guess, so music
 /// never starts on someone else's speaker.
 /// </summary>
 public sealed class WebDeviceResolver

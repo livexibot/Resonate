@@ -95,6 +95,9 @@ internal static partial class BuiltInSkin
         var balance = DrawBalance();
         var toggles = DrawToggles();
         var main = DrawMain(titleBar, buttons, lamps, channels, position, volume, balance, toggles);
+        var equalizer = DrawEqMain();
+        var equalizerShade = DrawEqEx();
+        var playlist = DrawPlEdit();
 
         var sheets = new Dictionary<SkinSheet, SkinImage>(SkinSheets.All.Count)
         {
@@ -110,6 +113,9 @@ internal static partial class BuiltInSkin
             [SkinSheet.Volume] = volume,
             [SkinSheet.Balance] = balance,
             [SkinSheet.ShufRep] = toggles,
+            [SkinSheet.EqMain] = equalizer,
+            [SkinSheet.EqEx] = equalizerShade,
+            [SkinSheet.PlEdit] = playlist,
         };
         return new Skin(Name, sheets, VisPalette, PlaylistPalette, isBuiltIn: true);
     }

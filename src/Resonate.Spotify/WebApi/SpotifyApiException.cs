@@ -37,7 +37,7 @@ public sealed class SpotifyApiException : Exception
 
     /// <summary>
     /// Resonate's own reason, with "Spotify Web API only": no Spotify device
-    /// is online, and Resonate does not start the Spotify app in that mode.
+    /// is online, and Resonate closes the Spotify app on this computer in that mode.
     /// </summary>
     public const string NoDeviceOnlineReason = "NO_DEVICE_ONLINE";
 
@@ -54,7 +54,7 @@ public sealed class SpotifyApiException : Exception
         { IsQuotaExceeded: true } => "Your Spotify developer app has used up its request allowance for now. Try again later.",
         { StatusCode: HttpStatusCode.TooManyRequests } => "Spotify asked Resonate to slow down. Try again in a moment.",
         { StatusCode: HttpStatusCode.Forbidden } => "Spotify does not allow this for your account or this app.",
-        { Reason: NoDeviceOnlineReason } => "No Spotify device is online. Open Spotify on this computer, your phone or a speaker (or the web player at open.spotify.com), then pick it with the devices button.",
+        { Reason: NoDeviceOnlineReason } => "No Spotify device is online. Open Spotify on your phone or a speaker and pick it with the devices button, or switch to Windows media controls in Settings for sound on this PC.",
         { IsNoActiveDevice: true } => "The Spotify app on this computer is not reachable. Make sure it is installed and signed in (Settings, Show the Spotify app).",
         _ => "Spotify could not do that right now.",
     };

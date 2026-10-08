@@ -86,6 +86,7 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         BackButton.SizeChanged += (_, _) => UpdateTitleBarPassthrough();
+        MiniPlayerButton.SizeChanged += (_, _) => UpdateTitleBarPassthrough();
         AppTitleBar.SizeChanged += (_, _) => UpdateTitleBarPassthrough();
         AppWindow.Title = AppName;
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Resonate.ico"));
@@ -113,14 +114,8 @@ public sealed partial class MainWindow : Window
         QueuePane.CloseRequested += (_, _) => ShowQueue(false);
         services.Player.ErrorOccurred += (_, message) =>
             DispatcherQueue.TryEnqueue(() => ShowMessage(message, InfoBarSeverity.Warning));
-        services.ControlChannelChanged += (_, _) =>
-        {
-            if (_services.UsesSpotifyApp)
-            {
-                // Back to Windows' media controls: Resonate starts the Spotify app again if needed.
-                _ = EnsureSpotifyAppAsync(_lifetime.Token);
-            }
-        };
+        // Back to Windows' media controls starts the Spotify app hidden; Web API only closes it.
+        services.ControlChannelChanged += (_, _) => _ = FollowSpotifyAppAsync(_lifetime.Token);
         services.Library.PlaylistsChanged += (_, _) =>
             DispatcherQueue.TryEnqueue(() => ShowPlaylists(_services.Library.Snapshot));
         RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnRootPointerPressed), handledEventsToo: true);
@@ -174,6 +169,7 @@ public sealed partial class MainWindow : Window
         SignInFrame.Visibility = Visibility.Collapsed;
         SignInFrame.Content = null;
         ShellGrid.Visibility = Visibility.Visible;
+        MiniPlayerButton.Visibility = Visibility.Visible;
         ApplyPlayerStyle();
 
         ShowPlaylists(_services.Library.Snapshot);
@@ -453,6 +449,8 @@ public sealed partial class MainWindow : Window
 
     public void ShowSignIn()
     {
+        LeaveMiniPlayer();
+        MiniPlayerButton.Visibility = Visibility.Collapsed;
         ShowQueue(false);
         ShowSettings(false);
         ShowLyrics(false);
@@ -475,6 +473,8 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public void Open(string key)
     {
+        // A page needs this window: from the mini player (a song's album, say) it comes back.
+        LeaveMiniPlayer();
         if (key == SettingsKey)
         {
             // Settings is a pane next to the page, not a page.
@@ -495,7 +495,11 @@ public sealed partial class MainWindow : Window
 
     public void OpenPlaylist(string playlistId) => Open(playlistId);
 
-    public void OpenSettings() => ShowSettings(true);
+    public void OpenSettings()
+    {
+        LeaveMiniPlayer();
+        ShowSettings(true);
+    }
 
     public void OpenSearch() => Open(SearchKey);
 
@@ -735,11 +739,15 @@ public sealed partial class MainWindow : Window
         // Let the first frame appear before doing anything else.
         await Task.Yield();
 
-        // Follows Spotify; with "Spotify Web API only" it never touches the Spotify app.
+        // Follows Spotify; with "Spotify Web API only" it never listens to the Spotify app.
         await Task.Run(() => _services.Player.Spotify.StartAsync(token), token);
+
+        // Starts the Spotify app hidden, or with "Spotify Web API only" closes
+        // it, which can take a few seconds, so nothing waits for that.
+        var spotifyApp = FollowSpotifyAppAsync(token);
         if (_services.UsesSpotifyApp)
         {
-            await EnsureSpotifyAppAsync(token);
+            await spotifyApp;
         }
 
         // Plugins that are on start in their helper, off the interface thread;
@@ -760,17 +768,24 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>Starts the Spotify app hidden when it is not running, or says it is not installed. Never with "Spotify Web API only".</summary>
-    private async Task EnsureSpotifyAppAsync(CancellationToken token)
+    /// <summary>
+    /// Starts the Spotify app hidden when it is not running, or with "Spotify
+    /// Web API only" closes it, and says so when that did not work.
+    /// </summary>
+    private async Task FollowSpotifyAppAsync(CancellationToken token)
     {
         try
         {
-            var spotify = await Task.Run(() => _services.Launcher.EnsureRunningAsync(token), token);
-            if (spotify == SpotifyAppStatus.NotInstalled)
+            var outcome = await Task.Run(() => _services.SpotifyApp.FollowAsync(token), token);
+            if (outcome == SpotifyAppOutcome.NotInstalled)
             {
                 ShowMessage(
                     "The Spotify app is not installed. Resonate plays music through it: install it from spotify.com/download or the Microsoft Store, sign in, then come back. (Or pick Spotify Web API only in Settings to play on your other devices.)",
                     InfoBarSeverity.Error);
+            }
+            else if (outcome == SpotifyAppOutcome.CouldNotClose)
+            {
+                ShowMessage("The Spotify app did not close. Close it yourself if you want it gone.", InfoBarSeverity.Warning);
             }
         }
         catch (OperationCanceledException)
@@ -1087,6 +1102,13 @@ public sealed partial class MainWindow : Window
 
     private void OnClosed(object sender, WindowEventArgs args)
     {
+        // Quitting from the mini player: it goes first, while the services it uses are still there.
+        if (_miniPlayer is { } mini)
+        {
+            _miniPlayer = null;
+            mini.CloseForGood();
+        }
+
         _lifetime.Cancel();
         _services.SaveSettings();
         _services.Dispose();
@@ -1107,28 +1129,41 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// The title bar drags the window, so clicks only reach the back button
-    /// through a "passthrough" area, kept in step with where the button is.
+    /// The title bar drags the window, so clicks only reach the back and mini
+    /// player buttons through "passthrough" areas, kept in step with where the
+    /// buttons are. The mini player button keeps clear of the window's own buttons.
     /// </summary>
     private void UpdateTitleBarPassthrough()
     {
-        var input = InputNonClientPointerSource.GetForWindowId(AppWindow.Id);
-        var rects = new List<RectInt32>(2);
-        AddPassthrough(BackButton, rects);
+        if (AppTitleBar.XamlRoot is { RasterizationScale: > 0 } titleRoot)
+        {
+            var margin = new Thickness(0, 0, (AppWindow.TitleBar.RightInset / titleRoot.RasterizationScale) + 4, 0);
+            if (!MiniPlayerButton.Margin.Equals(margin))
+            {
+                MiniPlayerButton.Margin = margin;
+            }
+        }
 
-        // The window shapes button (Window shapes plugin), while it is there.
+        var rects = new List<RectInt32>(3);
+        AddPassthrough(BackButton, rects);
+        AddPassthrough(MiniPlayerButton, rects);
+
+        // The window shapes button (Window shapes plugin), while it is there, left of the mini player button.
         if (_shapeButton is not null)
         {
+            PlaceShapeButton();
             AddPassthrough(_shapeButton, rects);
         }
 
+        var input = InputNonClientPointerSource.GetForWindowId(AppWindow.Id);
         if (rects.Count == 0)
         {
             input.ClearRegionRects(NonClientRegionKind.Passthrough);
-            return;
         }
-
-        input.SetRegionRects(NonClientRegionKind.Passthrough, [.. rects]);
+        else
+        {
+            input.SetRegionRects(NonClientRegionKind.Passthrough, [.. rects]);
+        }
     }
 
     private static void AddPassthrough(FrameworkElement button, List<RectInt32> rects)

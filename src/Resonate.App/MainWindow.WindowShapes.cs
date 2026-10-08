@@ -607,13 +607,18 @@ public sealed partial class MainWindow
 
     private void OnShapeTitleBarSizeChanged(object sender, SizeChangedEventArgs e) => PlaceShapeButton();
 
-    /// <summary>Just left of the caption buttons, whose width Windows reports in pixels.</summary>
+    /// <summary>Just left of the caption buttons (whose width Windows reports in pixels) and of the mini player button.</summary>
     private void PlaceShapeButton()
     {
         if (_shapeButton is not null)
         {
             var scale = GetDpiForWindow(Hwnd) / 96.0;
-            _shapeButton.Margin = new Thickness(0, 0, (AppWindow.TitleBar.RightInset / scale) + 4, 0);
+            var miniPlayer = MiniPlayerButton.Visibility == Visibility.Visible ? MiniPlayerButton.Width + 4 : 0;
+            var margin = new Thickness(0, 0, (AppWindow.TitleBar.RightInset / scale) + 4 + miniPlayer, 0);
+            if (!_shapeButton.Margin.Equals(margin))
+            {
+                _shapeButton.Margin = margin;
+            }
         }
     }
 

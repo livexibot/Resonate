@@ -23,6 +23,9 @@ public sealed class SkinLibrary
     /// <summary>What the built-in skin is called in lists (drawing the skin just to read its name would cost time).</summary>
     public const string BuiltInLabel = "Resonate Classic";
 
+    /// <summary>The mini player's largest size (4x, as in Spotifast).</summary>
+    public const int MaxMiniSize = 4;
+
     private Skin? _current;
     private IReadOnlyList<SkinChoice>? _choices;
     private bool _started;
@@ -40,6 +43,9 @@ public sealed class SkinLibrary
 
     /// <summary>Raised on the interface thread when one of the classic player's options changes (including whether it is used at all).</summary>
     public event EventHandler? OptionsChanged;
+
+    /// <summary>Raised when one of the mini player's options changes (its size, what it shows, staying on top).</summary>
+    public event EventHandler? MiniOptionsChanged;
 
     public AppSettings Settings { get; }
 
@@ -105,6 +111,63 @@ public sealed class SkinLibrary
         set => SetOption(Settings.ClassicShowRemaining, value, on => Settings.ClassicShowRemaining = on);
     }
 
+    // The mini player: a small window of its own (Ctrl+M) with the main window, the equalizer and the playlist
+
+    /// <summary>Each skin pixel 1 to 4 times as large, on top of the display's scaling.</summary>
+    public int MiniSize
+    {
+        get => Math.Clamp(Settings.MiniPlayerSize, 1, MaxMiniSize);
+        set => SetMiniOption(MiniSize, Math.Clamp(value, 1, MaxMiniSize), size => Settings.MiniPlayerSize = size);
+    }
+
+    /// <summary>The mini player stays above other windows (the clutter bar's A).</summary>
+    public bool MiniOnTop
+    {
+        get => Settings.MiniPlayerOnTop;
+        set => SetMiniOption(Settings.MiniPlayerOnTop, value, on => Settings.MiniPlayerOnTop = on);
+    }
+
+    /// <summary>The mini player's main window rolled up into its title strip.</summary>
+    public bool MiniShaded
+    {
+        get => Settings.MiniPlayerShaded;
+        set => SetMiniOption(Settings.MiniPlayerShaded, value, on => Settings.MiniPlayerShaded = on);
+    }
+
+    public bool MiniEqualizer
+    {
+        get => Settings.MiniPlayerEqualizer;
+        set => SetMiniOption(Settings.MiniPlayerEqualizer, value, on => Settings.MiniPlayerEqualizer = on);
+    }
+
+    public bool MiniEqualizerShaded
+    {
+        get => Settings.MiniPlayerEqualizerShaded;
+        set => SetMiniOption(Settings.MiniPlayerEqualizerShaded, value, on => Settings.MiniPlayerEqualizerShaded = on);
+    }
+
+    public bool MiniPlaylist
+    {
+        get => Settings.MiniPlayerPlaylist;
+        set => SetMiniOption(Settings.MiniPlayerPlaylist, value, on => Settings.MiniPlayerPlaylist = on);
+    }
+
+    public bool MiniPlaylistShaded
+    {
+        get => Settings.MiniPlayerPlaylistShaded;
+        set => SetMiniOption(Settings.MiniPlayerPlaylistShaded, value, on => Settings.MiniPlayerPlaylistShaded = on);
+    }
+
+    /// <summary>The playlist's height in skin pixels (see <see cref="PlaylistLayout.SnapHeight"/>).</summary>
+    public int MiniPlaylistHeight
+    {
+        get => PlaylistLayout.SnapHeight(Settings.MiniPlayerPlaylistHeight);
+        set => SetMiniOption(MiniPlaylistHeight, PlaylistLayout.SnapHeight(value), height => Settings.MiniPlayerPlaylistHeight = height);
+    }
+
+    /// <summary>Which of the mini player's windows show, and how.</summary>
+    public ClassicStackState MiniStack => new(MiniShaded, MiniEqualizer, MiniEqualizerShaded, MiniPlaylist, MiniPlaylistShaded, MiniPlaylistHeight);
+
     /// <summary>
     /// The classic player is about to show: draws the built-in skin and loads
     /// the chosen one in the background (once), then raises <see cref="Changed"/>.
@@ -145,8 +208,8 @@ public sealed class SkinLibrary
         }
     }
 
-    /// <summary>Lets the user pick a .wsz file, then adds and uses it.</summary>
-    public async Task PickAndImportAsync()
+    /// <summary>Lets the user pick a .wsz file, then adds and uses it; the picker belongs to <paramref name="owner"/> (the main window if null).</summary>
+    public async Task PickAndImportAsync(Microsoft.UI.WindowId? owner = null)
     {
         if (App.MainWindow is not { } window)
         {
@@ -157,7 +220,7 @@ public sealed class SkinLibrary
         try
         {
             // The Windows App SDK's picker works without package identity (Resonate is installed by Velopack).
-            var picker = new FileOpenPicker(window.AppWindow.Id) { SuggestedStartLocation = PickerLocationId.Downloads };
+            var picker = new FileOpenPicker(owner ?? window.AppWindow.Id) { SuggestedStartLocation = PickerLocationId.Downloads };
             picker.FileTypeFilter.Add(".wsz");
             picker.FileTypeFilter.Add(".zip");
             path = (await picker.PickSingleFileAsync())?.Path;
@@ -312,6 +375,18 @@ public sealed class SkinLibrary
         store(value);
         Save();
         OptionsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void SetMiniOption<T>(T current, T value, Action<T> store)
+    {
+        if (EqualityComparer<T>.Default.Equals(current, value))
+        {
+            return;
+        }
+
+        store(value);
+        Save();
+        MiniOptionsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     // The library belongs to the app, so it saves and speaks through the app's own window and settings.

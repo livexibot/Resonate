@@ -30,6 +30,7 @@ public sealed partial class MainWindow
     /// <summary>Opens Settings at one of its sections.</summary>
     public void OpenSettings(SettingsSection section)
     {
+        LeaveMiniPlayer();
         // Settings already open: glide there; opening: jump straight to it.
         var alreadyOpen = SettingsPane.IsOpen;
         ShowSettings(true);
@@ -39,6 +40,7 @@ public sealed partial class MainWindow
     /// <summary>Opens Search with the cursor in its box (Ctrl+F, and the classic player's eject button).</summary>
     public void FocusSearch()
     {
+        LeaveMiniPlayer();
         if (ShellGrid.Visibility == Visibility.Visible)
         {
             OpenSearch();

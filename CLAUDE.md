@@ -13,11 +13,12 @@ visitors; keep it short and in step with this file.
 
 - The first milestone is built and merged (pull request #1, 7 October
   2026; see "First milestone"). Releases are published with x64 and arm64
-  installers (`Resonate-win-x64-Setup.exe`); the latest is v0.5.0
-  (8 October 2026: the resizable sidebar, faster covers, local songs that
-  show covers and move on, and a Web API only mode that leaves the
-  Spotify app alone; v0.4.0 brought "Your top on Spotify" and plugins,
-  v0.3.0 the feature update and themes).
+  installers (`Resonate-win-x64-Setup.exe`); the latest is v0.6.0
+  (8 October 2026: the classic player, Settings in a side pane, bundled
+  fonts, the hovering player, eased look switching and a livelier Home;
+  v0.5.0 brought the resizable sidebar, faster covers and the Web API
+  only mode, v0.4.0 "Your top on Spotify" and plugins, v0.3.0 the
+  feature update and themes).
   CI proves on every pull
   request that an installed copy can install and update. The Spotify logic is tested on Linux; the
   WinUI 3 app is only compiled, timed and photographed on GitHub's Windows
@@ -43,6 +44,12 @@ visitors; keep it short and in step with this file.
   downloaded `.wsz` skin imports, that the visualiser moves for Local
   Files, and the cost of the spinning cover and Liquid Glass's drift on
   their 165 Hz display.
+- The mini player (8 October 2026, the owner asked for a Winamp player
+  "like Spotifast does") is described under "Classic player and cover
+  art". On the owner's PC, check that it moves and snaps smoothly, stays
+  on top, stays sharp at 1x to 4x and when moved to another display, that
+  its keys work once clicked, and that Ctrl+M and its close button bring
+  the full window back where it was.
 - The theme upgrades (8 October 2026: a hovering player, a sidebar that
   reaches the bottom, smoother and longer look-switching animations, a
   bolder look and a livelier Home) are described under "Look, layouts and
@@ -185,20 +192,33 @@ Windows:
   Web API and the player polls `/me/player` (every 2 s while playing, 6 s
   paused, and 0.7 s after each command) instead of using the media session
   and the mixer. Mind the development-mode quota. The owner asked
-  (8 October 2026) that this mode never touch the Spotify app: Resonate
-  then does not start, hide, slow down or restart it, does not listen to
-  its media session, read its mixer volume or write its settings file
-  (the equalizer waits and reaches local files only), and "Open in
-  Spotify" opens open.spotify.com. Music plays on whatever Spotify Connect
-  device Spotify lists: the one already playing, else the one picked last
-  with the player bar's devices button, else this PC's Spotify if it is
-  online, else the only device; with several unknown devices it does not
-  guess (`WebDeviceResolver`). A skip or seek with nothing active wakes
-  that device first. Switching modes takes effect at once, without a
-  restart. Still needs a Spotify device: something must play the music,
-  Lossless depends on that device, DJ only starts in a Spotify app, and
-  media keys come from Spotify's own media session. Measure: switching
-  modes while music plays, and playing with the desktop app closed.
+  (8 October 2026) that this mode close the Spotify app: `SpotifyAppKeeper`
+  closes it when the mode is switched on and when Resonate starts in it
+  (asking first, ending it after 6 s, like the equalizer's restart; its
+  window stays hidden meanwhile so it does not flash onto the taskbar), and
+  switching back to Windows media controls starts it hidden at once.
+  Otherwise the mode leaves the app alone: Resonate does not start, hide,
+  slow down or restart it, does not listen to its media session, read its
+  mixer volume or write its settings file (the equalizer waits and reaches
+  local files only), and "Open in Spotify" opens open.spotify.com. A
+  Spotify the user opens again is not closed. Music plays on whatever
+  Spotify Connect device Spotify lists: the one already playing, else the
+  one picked last with the player bar's devices button, else this PC's
+  Spotify if the user opened it again, else the only device; with several
+  unknown devices it does not guess (`WebDeviceResolver`). A skip or seek
+  with nothing active wakes that device first. Switching modes takes
+  effect at once, without a restart. So nothing on this PC plays Spotify's
+  songs in this mode: the Web API only sends commands, something must
+  play the music, Lossless depends on that device, DJ only starts in a
+  Spotify app, and media keys come from Spotify's own media session. This
+  is why the owner heard nothing in Web API only (since v0.5.0 it never
+  started Spotify). Spotifast has sound there because it bundles
+  librespot, signed in with Spotify's own desktop client ID
+  (`65b708073fc0480ea92a077233ca87bd`), at most 320 kbps; that works
+  around Spotify's copy protection and stays out (hard rules). Spotify's
+  Web Playback SDK needs Widevine, which fails in embedded browsers
+  (Electron reports), so it is no way out either. Measure: switching
+  modes while music plays, and that Spotify closes.
 - The system media controls (SMTC) can play, pause, skip, seek (when the app
   allows it) and report the song, cover and timeline. They have no volume.
   Resonate uses Spotify's per-app volume in the Windows mixer (Core Audio),
@@ -362,8 +382,9 @@ Plugins (checked 2026-10-07):
   and output (one JSON message per line), so the installer and start-up
   are unchanged when no plugin is on.
 - Release downloads (`/releases/download/<tag>/<file>`) need the repository
-  to be public, like the updater. Until then, turning a plugin on in an
-  installed copy fails with "The download did not start".
+  to be public, like the updater. It is (checked 8 October 2026); while it
+  was private, turning a plugin on in an installed copy failed with "The
+  download did not start".
 
 Classic player and cover art (checked 2026-10-08):
 - Classic Winamp skins (`.wsz`, Winamp 2) are zip archives of BMP sheets
@@ -405,6 +426,39 @@ Classic player and cover art (checked 2026-10-08):
   the GPU, so nothing is blurred per frame. Real covers are never decoded
   in CI (demo covers are made-up gradients), so check Liquid Glass with
   real, dark covers on the owner's PC.
+- The mini player (`MiniPlayerWindow`, Ctrl+M, the button beside the
+  window's caption buttons, the classic player's menu, or Settings) follows
+  Spotifast's: the full window hides (`AppWindow.Hide`, so everything there
+  rests) and a borderless window of its own (`OverlappedPresenter` without
+  border or title bar, square corners through DWM) shows the classic player
+  with Winamp's equalizer (`eqmain.bmp`, `eq_ex.bmp`) and playlist
+  (`pledit.bmp`) windows docked under it, opened by its EQ and PL buttons.
+  The cover stays beside the main window (cover, song and artist always
+  visible), so the windows under it are indented by the cover's width and
+  the strip below the cover is black. Sizes are 1x to 4x of the display
+  scale, whole screen pixels per skin pixel, and the window is sized to the
+  pixel (`ClassicStack.Arrange`; CI's tour checks it). It moves by any part
+  that is not a control (`GetCursorPos` and `AppWindow.Move`, not the
+  caption drag, so double-clicks still roll windows up), snaps to the
+  screen's edges within 10 px (`WindowSnap`), and opens where it was left
+  (`MiniPlayerPlace`). The clutter bar's A is always on top (on at first),
+  D is 2x. Close, the logo, Esc, Ctrl+M, Alt+F4 and anything that needs the
+  full window (search, a page, Settings, a new playlist) go back to it;
+  "Exit Resonate" in its menu quits. Keys: Z X C V B, space, arrows.
+  Options live in `SkinLibrary` (`Mini*`, raising `MiniOptionsChanged`).
+- Winamp's ten EQ sliders drive Spotify's six bands (60 Hz, 150, 400, 1 k,
+  2.4 k, 15 k): each slider moves the nearest band, so sliders that share
+  one move together (`EqualizerSliders`). The preamp shows Resonate's
+  automatic preamp and cannot be dragged; AUTO lays the bands flat (a
+  default chosen here, Spotifast-like); PRESETS lists Spotify's presets and
+  "Restart Spotify to hear it" when a change waits for Spotify. The
+  playlist window is the queue (the song playing first, as the queue pane
+  reads it), drawn in the skin's `pledit.txt` font and colours as XAML text
+  over the skin's frame; it can only be read and added to, so REM and SEL
+  do nothing, ADD opens Search, and a song's menu is on right-click. A
+  closed EQ or playlist window leaves the tree, so it reads nothing.
+  Dropping a `.wsz` on either player adds and uses it (`SkinDrop`, by path
+  only, no casts).
 
 Look, layouts and switching (checked 2026-10-08; the owner asked for a
 more modern look without bloat, a centred hovering player, a sidebar that
@@ -732,6 +786,14 @@ link, the playlist that plays shows a speaker, the window's name is the
 song that plays (taskbar and Alt+Tab), and clicking the song's title in
 the player bar opens what it plays from.
 
+Later on 8 October 2026 the owner asked to "skip through songs by
+dragging like Spotify". Dragging the progress bar already seeked when let
+go (now one seek per release, and a drag that a new song interrupts is
+dropped). The playing song in the player bar can also be swiped, as on
+Spotify's phone app: left for the next song, right for the previous one
+(`Controls/PlayerBar.Swipe.cs`; distances and flick speed in
+`Resonate.Themes/SongSwipe.cs`, tested).
+
 ## How work gets done
 
 The owner is not familiar with git or GitHub and wants everything handled
@@ -822,7 +884,9 @@ Keep it obvious what is what:
   switching, `Controls/ThemeStudio` is the Look section of Settings,
   `MainWindow.PlayerPlacement.cs` places the player), and
   the classic player (`Controls/ClassicPlayer`, its Settings section
-  `Controls/ClassicPlayerPanel`, and `Services/SkinLibrary.cs`). Both
+  `Controls/ClassicPlayerPanel`, and `Services/SkinLibrary.cs`) and the
+  mini player (`MiniPlayerWindow.cs`, `MainWindow.MiniPlayer.cs`, with
+  `Controls/ClassicEqualizer.cs` and `Controls/ClassicPlaylist.cs`). Both
   players share the plugin button (`Controls/PluginMenu.cs`).
 - `src/Resonate.Spotify/` everything about Spotify that is not Windows:
   sign-in, the Web API client, the library, the player logic, listening
@@ -836,7 +900,9 @@ Keep it obvious what is what:
   (`ThemeTransitionCatalog`) and the player's placement
   (`PlayerPlacement`); and the classic player's skins (`Skins/`): reading `.wsz`
   files safely, the built-in skin, drawing and hit-testing the main
-  window, and the visualiser's analyser. Any OS, tested.
+  window, the equalizer and playlist windows (`EqualizerWindow.cs`,
+  `PlaylistWindow.cs`) and how the mini player stacks them
+  (`ClassicStack.cs`), and the visualiser's analyser. Any OS, tested.
 - `src/Resonate.Windows/` the Windows side of the player: the media
   session, the mixer volume, starting and restarting Spotify, the local
   files player (`LocalAudio/`), the Credential Manager.
@@ -887,9 +953,8 @@ when the work first needs them, then tick them off here.
   in, and let it start with Windows, minimised.
 - [ ] Choose a license before making the repository public (MIT is a
   common, simple choice).
-- [ ] Make the repository public (decided 7 October 2026, so installed
-  copies can see new releases): Settings, General, Danger Zone, Change
-  visibility. Do the email setting above first.
+- [x] Make the repository public (decided 7 October 2026, so installed
+  copies can see new releases). Public by 8 October 2026.
 - [ ] Optional, later: Windows code signing, so the installer does not show
   a SmartScreen warning. This costs money (for example Azure Trusted
   Signing).
@@ -903,8 +968,9 @@ when the work first needs them, then tick them off here.
 - Keyboard shortcuts for everything, and a command palette.
 - A mini player, a Now Playing view, and tray and taskbar-thumbnail
   controls. (The sleep timer is a plugin. Lyrics are declined, below.)
-- The classic player's own equalizer and playlist windows. For now its EQ
-  button opens Settings at the equalizer and PL opens the queue.
+- Equalizer and playlist windows for the classic player in the full window
+  too. For now only the mini player has them; in the full window EQ opens
+  Settings at the equalizer and PL opens the queue.
 - Queue editing (Spotify's queue can only be read and added to).
 
 ## Decisions and open questions
@@ -972,6 +1038,14 @@ when the work first needs them, then tick them off here.
   playback and change the volume, each only with its permission, and
   Resonate rate-limits all of it. No network, file or Spotify Web API
   access for plugins yet; adding any is a decision for the owner.
+- Decided (8 October 2026): "Spotify Web API only" closes the Spotify
+  app and plays on the user's other Spotify devices; Windows media
+  controls is the mode with Lossless sound on this PC. The owner then
+  asked for Resonate's own Spotify player in that mode, like Spotifast's;
+  Claude declined (it means librespot with Spotify's own client ID, which
+  works around Spotify's copy protection, see the hard rules) and offered
+  a "hidden engine" instead: Spotify running invisibly only while
+  Resonate is open. Open: the owner's answer to that offer.
 - Decided (8 October 2026, the owner's requests): Settings opens in a
   pane on the right of the window beside the page, not in place of it.
   It shares the queue's column and grip (`MainWindow.LayOutPanes`; its
