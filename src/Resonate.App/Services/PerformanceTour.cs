@@ -81,7 +81,6 @@ internal sealed partial class PerformanceTour
         ("Local Files", MainWindow.LocalFilesKey),
         ("DJ", MainWindow.DjKey),
         ("Search", MainWindow.SearchKey),
-        ("Settings", MainWindow.SettingsKey),
         ("Home", MainWindow.HomeKey),
     ];
 
@@ -139,6 +138,11 @@ internal sealed partial class PerformanceTour
 
             _pages.Add(await MeasureAsync("Queue (open)", _window.ToggleQueue));
             _window.ToggleQueue();
+            await SettleAsync();
+
+            // Settings opens in a pane beside the page.
+            _pages.Add(await MeasureAsync("Settings (open)", _window.OpenSettings));
+            _window.CloseSettings();
             await SettleAsync();
 
             Checkpoint("scrolling");
@@ -246,6 +250,16 @@ internal sealed partial class PerformanceTour
             _window.ToggleQueue();
             await SettleAsync(TimeSpan.FromSeconds(2));
             _window.ToggleQueue();
+
+            // Closing the Settings pane lets go of its page, like leaving a page.
+            _window.OpenSettings();
+            if (_window.SettingsPage is { } settings)
+            {
+                visited.Add(("Settings", new WeakReference(settings)));
+            }
+
+            await SettleAsync(TimeSpan.FromSeconds(3));
+            _window.CloseSettings();
 
             // Memory that keeps climbing round after round is a leak; caches level off.
             _window.Open(MainWindow.SearchKey);

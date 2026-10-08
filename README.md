@@ -21,7 +21,8 @@ you theme every part of it.
 
 Six looks to start from (Midnight, Daylight, Liquid Glass, Pure Black,
 Synthwave and Paper), and a customizer for everything: colours, light or
-dark, the backdrop, corners, shadows, fonts, and how the player, its
+dark, the backdrop, corners, shadows, fonts (Windows' own plus 18
+open-licence fonts that come with Resonate), and how the player, its
 progress bar and buttons look. The player can sit docked along the bottom,
 float, or hover as a centred pill over the page, and the sidebar can reach
 the bottom of the window. Save your own looks, share them as text, and pick

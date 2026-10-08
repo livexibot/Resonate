@@ -355,7 +355,7 @@ public sealed class WholeListTests : IDisposable
         using var library = Library();
         await library.GetAllLikedSongsAsync(TestContext.Current.CancellationToken);
 
-        // The player bar knows the song only by its address and names.
+        // A like can come with only the song's address and names.
         _web.SavedTracks.Insert(0, InFull("new", DateTimeOffset.UnixEpoch.AddDays(10_000)));
         var bare = new TrackInfo("spotify:track:new", "Song new", "Band", "Record", null, TimeSpan.FromSeconds(1), null, null, false, true);
         await library.NoteLikeChangedAsync(bare, liked: true, TestContext.Current.CancellationToken);

@@ -10,11 +10,11 @@
         <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Classic player" />
         <TextBlock
             Style="{StaticResource ResonateSecondaryTextStyle}"
-            Text="A skinnable player in the style of Winamp 2. It works with classic .wsz skins."
+            Text="A skinnable player in the style of Winamp 2."
             TextWrapping="Wrap" />
 
         <StackPanel Spacing="6">
-            <controls:SettingRow Description="Shown along the bottom in place of the player bar. Its close button brings the player bar back." Header="Use the classic player">
+            <controls:SettingRow Description="In place of the player bar." Header="Use the classic player">
                 <ToggleSwitch
                     x:Name="UseSwitch"
                     MinWidth="0"
@@ -23,14 +23,14 @@
                     OnContent=""
                     Toggled="OnUseToggled" />
             </controls:SettingRow>
-            <controls:SettingRow Description="Resonate Classic is built in. Skins you add are copied into Resonate." Header="Skin">
+            <controls:SettingRow Description="Resonate Classic is built in." Header="Skin">
                 <ComboBox
                     x:Name="SkinList"
                     MinWidth="190"
                     AutomationProperties.Name="Skin"
                     SelectionChanged="OnSkinChanged" />
             </controls:SettingRow>
-            <controls:SettingRow Description="Every skin pixel twice as large, like Winamp's double size, when the window is wide enough." Header="Double size">
+            <controls:SettingRow Description="When the window has room." Header="Double size">
                 <ToggleSwitch
                     x:Name="DoubleSizeSwitch"
                     MinWidth="0"
@@ -39,7 +39,7 @@
                     OnContent=""
                     Toggled="OnDoubleSizeToggled" />
             </controls:SettingRow>
-            <controls:SettingRow Description="Moves only for your own music files (Local Files). Spotify's sound can't be analysed." Header="Visualiser">
+            <controls:SettingRow Description="Moves for your own music files only." Header="Visualiser">
                 <ComboBox
                     x:Name="VisualiserChoice"
                     MinWidth="190"
@@ -66,7 +66,7 @@
         </StackPanel>
         <TextBlock
             Style="{StaticResource ResonateCaptionTextStyle}"
-            Text="Skins are .wsz files made for Winamp 2. Resonate keeps its own copy, so you can move or delete the file afterwards."
+            Text="Winamp 2 skins (.wsz). Resonate keeps its own copy."
             TextWrapping="Wrap" />
     </StackPanel>
 </UserControl>

@@ -10,7 +10,7 @@
         <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Local Files" />
         <TextBlock
             Style="{StaticResource ResonateSecondaryTextStyle}"
-            Text="Music files on this computer (MP3, FLAC, AAC, ALAC, WAV, WMA, Ogg and Opus) appear in Local Files and are played by Resonate itself, with its own queue and the equalizer. Resonate looks in these folders and every folder inside them:"
+            Text="Music files in these folders and the folders inside them:"
             TextWrapping="Wrap" />
 
         <ItemsControl ItemsSource="{x:Bind Folders}">
@@ -64,7 +64,7 @@
             <Button
                 x:Name="RescanButton"
                 Click="OnRescanClick"
-                Content="Look again now"
+                Content="Rescan"
                 Style="{StaticResource ResonateSubtleButtonStyle}" />
             <Button
                 x:Name="DefaultsButton"
@@ -82,11 +82,7 @@
             x:Name="SidebarSwitch"
             Header="Show Local Files in the sidebar"
             OffContent="Off"
-            OnContent="On: under Liked Songs"
+            OnContent="On"
             Toggled="OnSidebarToggled" />
-        <TextBlock
-            Style="{StaticResource ResonateCaptionTextStyle}"
-            Text="Resonate never looks inside the Spotify app's own folders, and Spotify songs always play in the Spotify app, untouched."
-            TextWrapping="Wrap" />
     </StackPanel>
 </UserControl>

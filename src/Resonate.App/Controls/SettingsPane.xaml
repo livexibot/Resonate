@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Settings, in a pane on the right of the window next to the page on show.
+  The window's grip in the gap on its left resizes it (see MainWindow.LayOutPanes).
+-->
+<UserControl
+    x:Class="Resonate.App.Controls.SettingsPane"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid
+        Background="{StaticResource ResonateSurfaceBrush}"
+        BorderBrush="{StaticResource ResonateBorderBrush}"
+        BorderThickness="{ThemeResource ResonatePanelBorderThickness}"
+        CornerRadius="{ThemeResource ResonateCornerLarge}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Padding="24,14,10,6" ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock
+                VerticalAlignment="Center"
+                Style="{StaticResource ResonateTitleTextStyle}"
+                Text="Settings" />
+            <Button
+                Grid.Column="1"
+                AutomationProperties.Name="Close Settings"
+                Click="OnCloseClick"
+                Content="&#xE711;"
+                Style="{StaticResource ResonateIconButtonStyle}"
+                ToolTipService.ToolTip="Close" />
+        </Grid>
+
+        <Frame
+            x:Name="SettingsFrame"
+            Grid.Row="1"
+            IsNavigationStackEnabled="False" />
+    </Grid>
+</UserControl>

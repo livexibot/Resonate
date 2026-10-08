@@ -47,8 +47,14 @@ public sealed partial class MainWindow : Window
     private const double QueueMinWidth = 280;
     private const double QueueMaxWidth = 600;
 
+    /// <summary>How wide the Settings pane can be dragged (its narrowest is <see cref="SettingsPane.MinimumWidth"/>).</summary>
+    private const double SettingsMaxWidth = 960;
+
     /// <summary>The page keeps at least this much room when a panel is dragged wider.</summary>
     private const double PageMinWidth = 380;
+
+    /// <summary>The update bar's width in the page's corner, when the page is wide enough.</summary>
+    private const double UpdateBarWidth = 380;
 
     /// <summary>
     /// How often the listening history is saved while Resonate is open.
@@ -61,12 +67,15 @@ public sealed partial class MainWindow : Window
     private readonly CancellationTokenSource _lifetime = new();
     private readonly DispatcherQueueTimer _messageTimer;
     private readonly List<string> _history = [];
-    private readonly ColumnDefinition _queueColumn = new() { Width = new GridLength(Controls.QueuePanel.PaneWidth) };
+    private readonly ColumnDefinition _paneColumn = new() { Width = new GridLength(Controls.QueuePanel.PaneWidth) };
     private string? _currentKey;
     private bool _syncingSelection;
     private bool _backgroundStarted;
     private bool _firstFrameSeen;
     private double _dragStartWidth;
+    private bool _dragMoved;
+    private bool _updateBarDismissed;
+    private int _updateProgressQueued;
 
     public MainWindow(AppServices services)
     {
@@ -118,6 +127,8 @@ public sealed partial class MainWindow : Window
         BuildPlaylistSortMenu();
         services.Account.SignedOut += (_, _) => DispatcherQueue.TryEnqueue(ShowSignIn);
         services.Updates.UpdateReady += (_, _) => DispatcherQueue.TryEnqueue(ShowUpdateReady);
+        services.Updates.ProgressChanged += OnUpdateProgressChanged;
+        SetUpSettingsPane();
         services.Plugins.Notified += (_, note) =>
             DispatcherQueue.TryEnqueue(() => ShowMessage($"{note.PluginName}: {note.Text}", InfoBarSeverity.Informational));
         PlayerBar.AttachPlugins(services.Plugins);
@@ -185,6 +196,27 @@ public sealed partial class MainWindow : Window
     /// <summary>Opens the queue pane next to the pages, or closes it (the player bar's queue button).</summary>
     public void ToggleQueue() => ShowQueue(!QueuePane.IsOpen);
 
+    /// <summary>Opens Settings in the pane on the right, or closes it (the gear in the sidebar).</summary>
+    public void ToggleSettings() => ShowSettings(!SettingsPane.IsOpen);
+
+    public void CloseSettings() => ShowSettings(false);
+
+    /// <summary>The Settings page while the Settings pane is open.</summary>
+    internal SettingsPage? SettingsPage => SettingsPane.Page;
+
+    private void SetUpSettingsPane()
+    {
+        SettingsPane.CloseRequested += (_, _) => ShowSettings(false);
+
+        // The update bar stays inside a page narrowed by Settings or the queue
+        // (16 px from each edge, inside the page's outline).
+        ContentPanel.SizeChanged += (_, e) =>
+        {
+            var outline = ContentPanel.BorderThickness.Left + ContentPanel.BorderThickness.Right;
+            UpdateBar.Width = Math.Clamp(e.NewSize.Width - outline - 32, 0, UpdateBarWidth);
+        };
+    }
+
     private void ShowQueue(bool open)
     {
         if (open == QueuePane.IsOpen)
@@ -192,33 +224,86 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        // The pane's column exists only while it is open: the grid's spacing
-        // would otherwise leave a gap for an empty column at the right edge.
-        QueuePane.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
-        QueueSplitter.Visibility = QueuePane.Visibility;
+        // One pane at a time on the right, so the page keeps its room.
         if (open)
         {
-            ShellGrid.ColumnDefinitions.Add(_queueColumn);
+            ShowSettings(false);
+        }
+
+        QueuePane.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        if (open)
+        {
             QueuePane.Open(_services.Player);
         }
         else
         {
-            ShellGrid.ColumnDefinitions.Remove(_queueColumn);
             QueuePane.Close();
+        }
+
+        PlaceRightPane();
+    }
+
+    private void ShowSettings(bool open)
+    {
+        if (open == SettingsPane.IsOpen)
+        {
+            return;
+        }
+
+        if (open)
+        {
+            ShowQueue(false);
+        }
+
+        SettingsPane.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        if (open)
+        {
+            SettingsPane.Open();
+        }
+        else
+        {
+            SettingsPane.Close();
+        }
+
+        PlaceRightPane();
+    }
+
+    /// <summary>
+    /// The queue and Settings share the column on the right. It exists only
+    /// while one of them is open: the grid's spacing would otherwise leave a
+    /// gap for an empty column at the right edge.
+    /// </summary>
+    private void PlaceRightPane()
+    {
+        var open = QueuePane.IsOpen || SettingsPane.IsOpen;
+        RightSplitter.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        RightSplitter.Label = SettingsPane.IsOpen ? "Resize Settings" : "Resize the queue";
+        var shown = ShellGrid.ColumnDefinitions.Contains(_paneColumn);
+        if (open && !shown)
+        {
+            ShellGrid.ColumnDefinitions.Add(_paneColumn);
+        }
+        else if (!open && shown)
+        {
+            ShellGrid.ColumnDefinitions.Remove(_paneColumn);
         }
 
         LayOutPanes();
         QueueOpenChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    // ---- Resizing the sidebar and the queue ----
+    // ---- Resizing the sidebar and the pane on the right ----
 
     private void SetUpSplitters()
     {
         SidebarSplitter.Label = "Resize the sidebar";
-        SidebarSplitter.DragStarted += (_, _) => _dragStartWidth = SidebarColumn.Width.Value;
-        SidebarSplitter.Dragged += (_, moved) => LayOutPanes(sidebar: _dragStartWidth + moved);
-        SidebarSplitter.DragCompleted += (_, _) => KeepPaneWidths();
+        SidebarSplitter.DragStarted += (_, _) => StartDrag(SidebarColumn);
+        SidebarSplitter.Dragged += (_, moved) =>
+        {
+            _dragMoved = true;
+            LayOutPanes(sidebar: _dragStartWidth + moved);
+        };
+        SidebarSplitter.DragCompleted += (_, _) => EndDrag();
         SidebarSplitter.Stepped += (_, step) =>
         {
             LayOutPanes(sidebar: SidebarColumn.Width.Value + step);
@@ -231,19 +316,30 @@ public sealed partial class MainWindow : Window
             LayOutPanes();
         };
 
-        // The queue is on the right, so moving the grip right makes it narrower.
-        QueueSplitter.Label = "Resize the queue";
-        QueueSplitter.DragStarted += (_, _) => _dragStartWidth = _queueColumn.Width.Value;
-        QueueSplitter.Dragged += (_, moved) => LayOutPanes(queue: _dragStartWidth - moved);
-        QueueSplitter.DragCompleted += (_, _) => KeepPaneWidths();
-        QueueSplitter.Stepped += (_, step) =>
+        // The queue or Settings is on the right, so moving the grip right makes it narrower.
+        RightSplitter.DragStarted += (_, _) => StartDrag(_paneColumn);
+        RightSplitter.Dragged += (_, moved) =>
         {
-            LayOutPanes(queue: _queueColumn.Width.Value - step);
+            _dragMoved = true;
+            LayOutPanes(pane: _dragStartWidth - moved);
+        };
+        RightSplitter.DragCompleted += (_, _) => EndDrag();
+        RightSplitter.Stepped += (_, step) =>
+        {
+            LayOutPanes(pane: _paneColumn.Width.Value - step);
             KeepPaneWidths();
         };
-        QueueSplitter.ResetRequested += (_, _) =>
+        RightSplitter.ResetRequested += (_, _) =>
         {
-            _services.Settings.QueueWidth = null;
+            if (SettingsPane.IsOpen)
+            {
+                _services.Settings.SettingsPaneWidth = null;
+            }
+            else
+            {
+                _services.Settings.QueueWidth = null;
+            }
+
             _services.SaveSettings();
             LayOutPanes();
         };
@@ -261,43 +357,61 @@ public sealed partial class MainWindow : Window
         LayOutPanes();
     }
 
+    private void StartDrag(ColumnDefinition column)
+    {
+        _dragStartWidth = column.Width.Value;
+        _dragMoved = false;
+    }
+
+    // A click on a grip is not a drag: it must not keep a width that a small window squeezed the panel to.
+    private void EndDrag()
+    {
+        if (_dragMoved)
+        {
+            KeepPaneWidths();
+        }
+    }
+
     /// <summary>Centres each grip on the gap between its panels, however wide the look makes that gap.</summary>
     private void PlaceSplitters()
     {
         var reach = -((ShellGrid.ColumnSpacing / 2) + (PaneSplitter.GripWidth / 2));
         SidebarSplitter.Margin = new Thickness(0, 0, reach, 0);
-        QueueSplitter.Margin = new Thickness(reach, 0, 0, 0);
+        RightSplitter.Margin = new Thickness(reach, 0, 0, 0);
     }
 
     /// <summary>
-    /// Sizes the sidebar and the queue: as the user last dragged them (or
-    /// <paramref name="sidebar"/> or <paramref name="queue"/> while dragging),
-    /// within their limits, and never so wide that the page between them has
-    /// less than <see cref="PageMinWidth"/>. The sidebar comes first; the
-    /// queue takes what is left.
+    /// Sizes the sidebar and the pane on the right (the queue or Settings):
+    /// as the user last dragged them (or <paramref name="sidebar"/> or
+    /// <paramref name="pane"/> while dragging), within their limits, and never
+    /// so wide that the page between them has less than <see cref="PageMinWidth"/>.
+    /// The sidebar comes first; the pane takes what is left.
     /// </summary>
-    private void LayOutPanes(double? sidebar = null, double? queue = null)
+    private void LayOutPanes(double? sidebar = null, double? pane = null)
     {
         var settings = _services.Settings;
         var gap = ShellGrid.ColumnSpacing;
         var room = ShellGrid.ActualWidth - ShellGrid.Padding.Left - ShellGrid.Padding.Right;
-        var queueOpen = QueuePane.IsOpen;
+        var paneOpen = QueuePane.IsOpen || SettingsPane.IsOpen;
+        var (paneMin, paneMax, paneWanted) = SettingsPane.IsOpen
+            ? (SettingsPane.MinimumWidth, SettingsMaxWidth, settings.SettingsPaneWidth ?? SettingsPane.DefaultWidth)
+            : (QueueMinWidth, QueueMaxWidth, settings.QueueWidth ?? QueuePanel.PaneWidth);
 
         double sidebarWidth;
-        if (queue is not null)
+        if (pane is not null)
         {
-            // Dragging the queue leaves the sidebar where it is.
+            // Dragging the pane leaves the sidebar where it is.
             sidebarWidth = SidebarColumn.Width.Value;
         }
         else
         {
-            var others = gap + PageMinWidth + (queueOpen ? gap + QueueMinWidth : 0);
+            var others = gap + PageMinWidth + (paneOpen ? gap + paneMin : 0);
             sidebarWidth = Fit(sidebar ?? settings.SidebarWidth ?? SidebarDefaultWidth, SidebarMinWidth, SidebarMaxWidth, room - others);
         }
 
-        var queueWidth = Fit(queue ?? settings.QueueWidth ?? QueuePanel.PaneWidth, QueueMinWidth, QueueMaxWidth, room - sidebarWidth - (2 * gap) - PageMinWidth);
+        var paneWidth = Fit(pane ?? paneWanted, paneMin, paneMax, room - sidebarWidth - (2 * gap) - PageMinWidth);
         SetWidth(SidebarColumn, sidebarWidth);
-        SetWidth(_queueColumn, queueWidth);
+        SetWidth(_paneColumn, paneWidth);
 
         // Before the first layout there is no room to measure: only the limits apply.
         static double Fit(double wanted, double min, double max, double room) =>
@@ -317,9 +431,14 @@ public sealed partial class MainWindow : Window
     {
         var settings = _services.Settings;
         settings.SidebarWidth = SidebarColumn.Width.Value == SidebarDefaultWidth ? null : SidebarColumn.Width.Value;
-        if (QueuePane.IsOpen)
+        var paneWidth = _paneColumn.Width.Value;
+        if (SettingsPane.IsOpen)
         {
-            settings.QueueWidth = _queueColumn.Width.Value == QueuePanel.PaneWidth ? null : _queueColumn.Width.Value;
+            settings.SettingsPaneWidth = paneWidth == SettingsPane.DefaultWidth ? null : paneWidth;
+        }
+        else if (QueuePane.IsOpen)
+        {
+            settings.QueueWidth = paneWidth == QueuePanel.PaneWidth ? null : paneWidth;
         }
 
         _services.SaveSettings();
@@ -328,6 +447,7 @@ public sealed partial class MainWindow : Window
     public void ShowSignIn()
     {
         ShowQueue(false);
+        ShowSettings(false);
         ShellGrid.Visibility = Visibility.Collapsed;
         ApplyPlayerStyle();
         SignInFrame.Visibility = Visibility.Visible;
@@ -347,13 +467,20 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public void Open(string key)
     {
+        if (key == SettingsKey)
+        {
+            // Settings is a pane next to the page, not a page.
+            ShowSettings(true);
+            return;
+        }
+
         SelectNav(key);
         Navigate(key, remember: true);
     }
 
     public void OpenPlaylist(string playlistId) => Open(playlistId);
 
-    public void OpenSettings() => Open(SettingsKey);
+    public void OpenSettings() => ShowSettings(true);
 
     public void OpenSearch() => Open(SearchKey);
 
@@ -371,7 +498,7 @@ public sealed partial class MainWindow : Window
         Navigate(key, remember: false);
     }
 
-    /// <summary>The page on show, such as a <see cref="SettingsPage"/>.</summary>
+    /// <summary>The page on show, such as a <see cref="HomePage"/>.</summary>
     internal object? CurrentPage => ContentFrame.Content;
 
     /// <summary>A list was played; remembered for the "Recently played" playlist order, and so the player bar can open it.</summary>
@@ -437,9 +564,6 @@ public sealed partial class MainWindow : Window
             case DjKey:
                 ContentFrame.Navigate(typeof(DjPage), null, transition);
                 break;
-            case SettingsKey:
-                ContentFrame.Navigate(typeof(SettingsPage), null, transition);
-                break;
             case not null when key.StartsWith(ArtistPrefix, StringComparison.Ordinal):
                 ContentFrame.Navigate(typeof(ArtistPage), key[ArtistPrefix.Length..], transition);
                 break;
@@ -485,7 +609,7 @@ public sealed partial class MainWindow : Window
         Open(item.Id);
     }
 
-    private void OnSettingsClick(object sender, RoutedEventArgs e) => Open(SettingsKey);
+    private void OnSettingsClick(object sender, RoutedEventArgs e) => ToggleSettings();
 
     private void OnBackClick(object sender, RoutedEventArgs e) => GoBack();
 
@@ -706,17 +830,66 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void OnUpdateProgressChanged(object? sender, EventArgs e)
+    {
+        // Reported on a background thread; draw the newest progress once.
+        if (Interlocked.Exchange(ref _updateProgressQueued, 1) == 0)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                Interlocked.Exchange(ref _updateProgressQueued, 0);
+                ShowUpdateProgress();
+            });
+        }
+    }
+
+    /// <summary>A new version downloading: a progress bar with the speed and the time left, in the corner.</summary>
+    private void ShowUpdateProgress()
+    {
+        if (_services.Updates.PendingVersion is not null)
+        {
+            // Downloaded: the bar says so (ShowUpdateReady).
+            return;
+        }
+
+        if (_services.Updates.Progress is not { } progress)
+        {
+            UpdateBar.IsOpen = false;
+            UpdateProgressBar.IsIndeterminate = false;
+            _updateBarDismissed = false;
+            return;
+        }
+
+        UpdateBar.Title = progress.Title;
+        UpdateBar.Message = string.Empty;
+        UpdateBar.Severity = InfoBarSeverity.Informational;
+        UpdateBar.ActionButton = null;
+        UpdateBarProgress.Visibility = Visibility.Visible;
+        // The endless "almost ready" animation only runs while it is on show.
+        UpdateProgressBar.IsIndeterminate = progress.Preparing && !_updateBarDismissed;
+        UpdateProgressBar.Value = progress.Fraction;
+        UpdateProgressText.Text = progress.Describe();
+        UpdateBar.IsOpen = !_updateBarDismissed;
+    }
+
     private void ShowUpdateReady()
     {
         var restart = new Button { Content = "Restart now" };
         restart.Click += (_, _) => _services.Updates.RestartToUpdate();
-        MessageBar.Title = "Update ready";
-        MessageBar.Message = $"Resonate {_services.Updates.PendingVersion} is downloaded. Restart to start using it.";
-        MessageBar.Severity = InfoBarSeverity.Success;
-        MessageBar.ActionButton = restart;
-        MessageBar.IsClosable = true;
-        MessageBar.IsOpen = true;
-        _messageTimer.Stop();
+        UpdateBar.Title = "Update ready";
+        UpdateBar.Message = $"Resonate {_services.Updates.PendingVersion} is downloaded.";
+        UpdateBar.Severity = InfoBarSeverity.Success;
+        UpdateBar.ActionButton = restart;
+        UpdateBarProgress.Visibility = Visibility.Collapsed;
+        UpdateProgressBar.IsIndeterminate = false;
+        UpdateBar.IsOpen = true;
+    }
+
+    /// <summary>Closing the download's bar hides it until the download is done; Settings still shows it.</summary>
+    private void OnUpdateBarCloseClick(InfoBar sender, object args)
+    {
+        _updateBarDismissed = true;
+        UpdateProgressBar.IsIndeterminate = false;
     }
 
     private void OnRootPreviewKeyDown(object sender, KeyRoutedEventArgs e)

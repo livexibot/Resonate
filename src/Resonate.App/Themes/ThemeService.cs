@@ -477,8 +477,9 @@ public sealed class ThemeService
                 dictionary["ResonatePlayerBorderThickness"] = playerOutline.ToThickness();
                 dictionary["ResonatePlayerCorner"] = new CornerRadius(playerCorner);
                 dictionary["ResonatePlayerMaxWidth"] = PlayerPlacement.MaxWidth(layout);
-                dictionary["ResonateDisplayFont"] = new FontFamily(look.DisplayFont);
-                dictionary["ResonateTextFont"] = new FontFamily(look.TextFont);
+                // Fonts that come with Resonate load from its own folder (see BundledFonts).
+                dictionary["ResonateDisplayFont"] = new FontFamily(BundledFonts.Resolve(look.DisplayFont));
+                dictionary["ResonateTextFont"] = new FontFamily(BundledFonts.Resolve(look.TextFont));
             }
         }
 

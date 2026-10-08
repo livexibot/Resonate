@@ -324,16 +324,4 @@ public static class PluginPermissions
     };
 
     public static bool IsKnown(string permission) => Descriptions.ContainsKey(permission);
-
-    /// <summary>The permissions in words for Settings, such as "see what is playing and control playback".</summary>
-    public static string Describe(IEnumerable<string> permissions)
-    {
-        var parts = permissions.Where(Descriptions.ContainsKey).Select(p => Descriptions[p]).ToList();
-        return parts.Count switch
-        {
-            0 => "nothing beyond its own settings",
-            1 => parts[0],
-            _ => string.Join(", ", parts.Take(parts.Count - 1)) + " and " + parts[^1],
-        };
-    }
 }

@@ -150,24 +150,6 @@ public sealed class PluginManager : IDisposable
         }
     }
 
-    /// <summary>How much turning <paramref name="id"/> on downloads now, in bytes.</summary>
-    public long DownloadSize(string id)
-    {
-        var plugin = _catalog.Find(id);
-        if (plugin is null || _installer is null)
-        {
-            return 0;
-        }
-
-        var size = _installer.IsInstalled(PackageName(id), plugin.Package) ? 0 : plugin.Package.Size;
-        if (_catalog.Host is { } host && !_installer.IsInstalled(HostFolderName, host))
-        {
-            size += host.Size;
-        }
-
-        return size;
-    }
-
     /// <summary>
     /// At start-up: tidies left-over files, downloads plugins that are on but
     /// missing (after Resonate updated, each release brings new copies), and

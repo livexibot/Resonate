@@ -1,5 +1,7 @@
 using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Resonate.App.Controls;
 using Resonate.App.Demo;
@@ -103,13 +105,14 @@ internal sealed class ScreenshotTour
             await Task.Delay(1500);
             await CaptureAsync("3b-artist.png");
 
+            // Settings opens in a pane beside the page.
             ThemeStudio.CustomizeOpen = true;
             _window.OpenSettings();
             await Task.Delay(1500);
             await CaptureAsync("4-settings-look.png");
 
             // Further down the same page (demo values; there are no Spotify settings to find in CI).
-            var settings = _window.CurrentPage as SettingsPage;
+            var settings = _window.SettingsPage;
             settings?.ShowSection(SettingsSection.Equalizer);
             await Task.Delay(800);
             await CaptureAsync("4b-equalizer.png");
@@ -120,17 +123,34 @@ internal sealed class ScreenshotTour
                 await Task.Delay(600);
                 await CaptureAsync("5-customize.png");
 
-                // The plugins, with the sleep timer turned on (demo mode shows its settings without downloading it).
+                // The plugins, turned on (demo mode shows their settings without downloading them):
+                // Skip rules' lists sit under their names, the sleep timer's controls beside them.
                 var plugins = App.Services.Plugins;
-                if (plugins.Available.FirstOrDefault(p => p.Id == "sleep-timer") is { } sleepTimer)
+                foreach (var id in (string[])["skip-rules", "sleep-timer"])
                 {
-                    await plugins.EnableAsync(sleepTimer.Id, CancellationToken.None);
+                    if (plugins.Available.FirstOrDefault(p => p.Id == id) is { } plugin)
+                    {
+                        await plugins.EnableAsync(plugin.Id, CancellationToken.None);
+                    }
                 }
 
                 settings.ShowPlugins();
                 await Task.Delay(800);
                 await CaptureAsync("6-plugins.png");
+
+                // A new version downloading (made up: demo mode never downloads), in Settings, then in the page's corner.
+                App.Services.Updates.Preview(new UpdateProgress("0.5.0", 14_900_000, 38_400_000, 3_600_000, Preparing: false));
+                settings.ShowUpdates();
+                await Task.Delay(800);
+                await CaptureAsync("6b-update-settings.png");
+                _window.CloseSettings();
+                await Task.Delay(800);
+                await CaptureAsync("6b-update-download.png");
+                App.Services.Updates.Preview(null);
             }
+
+            _window.CloseSettings();
+            await CaptureBundledFontsAsync();
 
             // Every preset, switched at run time, so the live switching of shapes and fonts is checked too.
             var number = 7;
@@ -159,6 +179,86 @@ internal sealed class ScreenshotTour
         finally
         {
             Application.Current.Exit();
+        }
+    }
+
+    /// <summary>
+    /// Every font that comes with Resonate, in its regular and semibold
+    /// weights, over the whole window. A font file that does not load falls
+    /// back to Windows' own font, so its sample measures the same as the
+    /// fallback's; that is recorded as an error.
+    /// </summary>
+    private async Task CaptureBundledFontsAsync()
+    {
+        if (_root is not ThemeHost host)
+        {
+            Record("The window's root is not the theme host, so the bundled fonts were not checked.");
+            return;
+        }
+
+        const string Sample = "Resonate · Hamburgefonstiv 0123";
+        var theme = App.Services.Theme;
+        var sheet = new Grid
+        {
+            Background = theme.GetBrush("ResonateSurfaceBrush"),
+            Padding = new Thickness(40, 56, 40, 40),
+            ColumnSpacing = 40,
+            RowSpacing = 14,
+        };
+        sheet.ColumnDefinitions.Add(new ColumnDefinition());
+        sheet.ColumnDefinitions.Add(new ColumnDefinition());
+
+        TextBlock Line(string? font, string text, bool semibold) => new()
+        {
+            Text = text,
+            FontSize = 16,
+            FontFamily = new FontFamily(font ?? "Resonate Missing Font"),
+            FontWeight = semibold ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal,
+            Foreground = theme.GetBrush("ResonateTextPrimaryBrush"),
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+
+        var fonts = BundledFonts.All;
+        var samples = new List<(BundledFont Font, TextBlock Text)>();
+        for (var i = 0; i <= fonts.Count; i++)
+        {
+            sheet.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        }
+
+        for (var i = 0; i < fonts.Count; i++)
+        {
+            var font = fonts[i];
+            var family = BundledFonts.Resolve(font.Name);
+            var sample = Line(family, Sample, semibold: true);
+            var cell = new StackPanel { Spacing = 2, Children = { Line(family, $"{font.Name} ({font.Kind})", semibold: false), sample } };
+            Grid.SetRow(cell, i / 2);
+            Grid.SetColumn(cell, i % 2);
+            sheet.Children.Add(cell);
+            samples.Add((font, sample));
+        }
+
+        // The same sample in a font that does not exist: Windows' fallback.
+        var fallback = Line(null, Sample, semibold: true);
+        fallback.Opacity = 0;
+        Grid.SetRow(fallback, fonts.Count);
+        sheet.Children.Add(fallback);
+
+        host.Children.Add(sheet);
+        try
+        {
+            await Task.Delay(1500);
+            await CaptureAsync("6c-fonts.png");
+            foreach (var (font, sample) in samples)
+            {
+                if (Math.Abs(sample.ActualWidth - fallback.ActualWidth) < 0.5)
+                {
+                    Record($"The bundled font {font.Name} did not load: its text measures {sample.ActualWidth:0.#} px, like Windows' fallback font.");
+                }
+            }
+        }
+        finally
+        {
+            host.Children.Remove(sheet);
         }
     }
 
