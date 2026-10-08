@@ -92,13 +92,18 @@ Building and testing:
   Glass) and memory over four rounds of every page, prints `perf.md` in
   the job log, and fails CI on: a page holding the interface over 250 ms
   or first frame over 500 ms, idle over 2 % of a core (4 % while
-  playing), a page still alive after leaving it (one still letting go
-  gets up to 12 s more and is listed), memory growing over 10 MB in the
-  last round (read on Search, which shows no pictures; read on Home it
-  also counted memory given back once another page opened), a warm
-  start over 1 s, or a build warning.
+  playing), a page still alive after leaving it, memory growing over
+  10 MB in the last round (read on Search, which shows no pictures; read
+  on Home it also counted memory given back once another page opened), a
+  warm start over 1 s, or a build warning.
   GitHub's machines draw without a graphics card, so judge drawing cost
-  on a real PC.
+  on a real PC. WinUI lets go of a closed page only on a later frame, and
+  an idle window draws none, so the test asks for frames between
+  collections (`CompositionTarget.Rendering`); that is the likely reason
+  the Settings page closed last sometimes looked kept on 8 October 2026.
+  A page still alive at the end is given Home, Search and Settings
+  again, and the log names the step that let it go and whether its
+  `Unloaded` ran.
 - Anything that animates for ever (a composition animation with no end,
   a glide over a whole song) makes the window redraw at the screen's
   refresh rate; pause it while paused or minimised (`MainWindow.IsShown`

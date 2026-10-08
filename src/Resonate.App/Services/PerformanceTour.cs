@@ -37,14 +37,6 @@ internal sealed partial class PerformanceTour
     private static readonly TimeSpan SettleLimit = TimeSpan.FromSeconds(8);
     private static readonly TimeSpan IdleSpan = TimeSpan.FromSeconds(5);
 
-    /// <summary>
-    /// How much longer a page still alive at the check gets to go. WinUI lets
-    /// go of a large page's elements over several ticks and collections, so
-    /// the page left last (Settings, closed moments before) can still be alive
-    /// at first. A page that is really kept stays alive however long this is.
-    /// </summary>
-    private static readonly TimeSpan LateReleaseLimit = TimeSpan.FromSeconds(12);
-
     // Limits that fail CI. GitHub's machines draw without a graphics card, so
     // these are several times what they measure there; a real PC is faster.
     private const double PageHeldLimitMs = 250;
@@ -66,8 +58,6 @@ internal sealed partial class PerformanceTour
     private readonly List<StepResult> _looks = [];
     private readonly List<ScrollResult> _scrolls = [];
     private readonly List<string> _leftAlive = [];
-    private readonly List<string> _releasedLate = [];
-    private double _lateReleaseSeconds;
     private readonly List<double> _privateMbAfterRound = [];
     private readonly List<string> _errors = [];
     private string _stage = "starting";
@@ -282,21 +272,7 @@ internal sealed partial class PerformanceTour
         _memory.Add(("After visiting every page 4 more times", await SampleMemoryAsync()));
 
         // Only weak references are kept here, so the check itself holds no page.
-        var aliveAtCheck = visited.Where(v => v.IsAlive(current)).ToList();
-        var alive = aliveAtCheck;
-        var waited = Stopwatch.StartNew();
-        while (alive.Count > 0 && waited.Elapsed < LateReleaseLimit)
-        {
-            await SettleAsync(TimeSpan.FromSeconds(1));
-            await SampleMemoryAsync();
-            alive = alive.Where(v => v.IsAlive(current)).ToList();
-        }
-
-        if (aliveAtCheck.Count > alive.Count)
-        {
-            _releasedLate.AddRange(Describe(aliveAtCheck.Except(alive)));
-            _lateReleaseSeconds = waited.Elapsed.TotalSeconds;
-        }
+        var alive = visited.Where(v => v.IsAlive(current)).ToList();
 
         // Still alive: whatever lets go of it says what holds it. Each step
         // fails CI like a page kept for good, naming the step.
@@ -321,7 +297,7 @@ internal sealed partial class PerformanceTour
         _leftAlive.AddRange(Describe(alive));
     }
 
-    /// <summary>What a page still alive after the wait is given next, in turn.</summary>
+    /// <summary>What a page still alive at the check is given next, in turn.</summary>
     private (string Step, Func<Task> Act)[] Nudges() =>
     [
         ("Home opened", () => OpenPage(MainWindow.HomeKey)),
@@ -549,8 +525,14 @@ internal sealed partial class PerformanceTour
                 GC.Collect();
             });
 
-            // WinUI lets go of what it held for collected objects on a later tick.
-            await Task.Delay(300);
+            // WinUI lets go of what it held for collected objects on a later
+            // frame, and an idle window draws none, so the page closed last
+            // could stay alive through any number of collections (CI, 8
+            // October 2026). Asking for frames makes the window draw them.
+            using var frames = new FrameRecorder();
+            frames.Start(Stopwatch.GetTimestamp());
+            await frames.WhenFrameAsync(2, TimeSpan.FromSeconds(1));
+            await Task.Delay(100);
         }
 
         using var process = Process.GetCurrentProcess();
@@ -687,13 +669,6 @@ internal sealed partial class PerformanceTour
             }
 
             json.WriteEndArray();
-            json.WriteStartArray("pagesReleasedLate");
-            foreach (var page in _releasedLate)
-            {
-                json.WriteStringValue(page);
-            }
-
-            json.WriteEndArray();
             json.WriteNumber("errors", _errors.Count);
             json.WriteEndObject();
         }
@@ -776,11 +751,6 @@ internal sealed partial class PerformanceTour
         md.AppendLine(_leftAlive.Count == 0
             ? "Pages kept in memory after leaving them: **none**."
             : $"Pages kept in memory after leaving them: **{string.Join(", ", _leftAlive)}**.");
-        if (_releasedLate.Count > 0)
-        {
-            md.AppendLine();
-            md.AppendLine(CultureInfo.InvariantCulture, $"Let go only after waiting up to {_lateReleaseSeconds:N1} s more (not kept): {string.Join(", ", _releasedLate)}.");
-        }
 
         if (_errors.Count > 0)
         {
