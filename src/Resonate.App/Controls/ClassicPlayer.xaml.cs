@@ -38,6 +38,13 @@ public sealed partial class ClassicPlayer : UserControl
     /// <summary>Enough for double size on a 400 % display; keeps a bad scale from taking much memory.</summary>
     private const int MaxScale = 8;
 
+    /// <summary>
+    /// Room the rest of the row needs beside the cover and the skin: padding
+    /// and spacing, a readable song title, and the plugin and heart buttons.
+    /// Double size gives way to normal size when the window can't spare it.
+    /// </summary>
+    private const double RestOfRowWidth = 32 + 48 + 160 + 80;
+
     /// <summary>What the marquee says when nothing is loaded.</summary>
     private const string IdleLine = "Resonate";
 
@@ -70,6 +77,7 @@ public sealed partial class ClassicPlayer : UserControl
     private ClassicPlayState _play = ClassicPlayState.Stopped;
     private long _pausedAt;
     private int _updateQueued;
+    private int _pluginsQueued;
     private string _songLine = IdleLine;
     private int _marqueeStep;
     private object? _coverKey;
@@ -111,6 +119,7 @@ public sealed partial class ClassicPlayer : UserControl
 
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
+        SizeChanged += OnSizeChanged;
     }
 
     /// <summary>
@@ -161,11 +170,13 @@ public sealed partial class ClassicPlayer : UserControl
         _services.Visualiser.LiveChanged += OnLiveChanged;
         _services.Likes.Changed += OnLikesChanged;
         _services.Equalizer.Changed += OnEqualizerChanged;
+        _services.Plugins.Changed += OnPluginsChanged;
         if (App.MainWindow is { } window)
         {
             window.QueueOpenChanged += OnQueueOpenChanged;
         }
 
+        PluginMenu.UpdateButton(PluginsButton, _services.Plugins);
         _clock = DispatcherQueue.CreateTimer();
         _clock.IsRepeating = false;
         _clock.Tick += OnClockTick;
@@ -201,6 +212,7 @@ public sealed partial class ClassicPlayer : UserControl
         _services.Visualiser.LiveChanged -= OnLiveChanged;
         _services.Likes.Changed -= OnLikesChanged;
         _services.Equalizer.Changed -= OnEqualizerChanged;
+        _services.Plugins.Changed -= OnPluginsChanged;
         if (App.MainWindow is { } window)
         {
             window.QueueOpenChanged -= OnQueueOpenChanged;
@@ -242,6 +254,31 @@ public sealed partial class ClassicPlayer : UserControl
                 Show(_player.State);
             }
         });
+    }
+
+    private void OnPluginsChanged(object? sender, string id)
+    {
+        // Plugins report from the helper's thread; show the newest once.
+        if (Interlocked.Exchange(ref _pluginsQueued, 1) == 1)
+        {
+            return;
+        }
+
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            Interlocked.Exchange(ref _pluginsQueued, 0);
+            if (_loaded)
+            {
+                PluginMenu.UpdateButton(PluginsButton, _services.Plugins);
+            }
+        });
+    }
+
+    private void OnPluginsClick(object sender, RoutedEventArgs e)
+    {
+        var menu = PluginMenu.Build(_services.Plugins);
+        menu.Placement = FlyoutPlacementMode.TopEdgeAlignedRight;
+        menu.ShowAt(PluginsButton);
     }
 
     private void Show(PlayerState state)
@@ -295,7 +332,7 @@ public sealed partial class ClassicPlayer : UserControl
 
         _raster = _root.RasterizationScale > 0 ? _root.RasterizationScale : 1;
         var shaded = _skins.Shaded;
-        _scale = Math.Clamp((int)Math.Round((_skins.DoubleSize ? 2 : 1) * _raster, MidpointRounding.AwayFromZero), 1, MaxScale);
+        _scale = FittingScale();
 
         var height = shaded ? ClassicRenderer.ShadeHeight : ClassicRenderer.Height;
         if (_frame is null || _frame.Height != height)
@@ -328,6 +365,39 @@ public sealed partial class ClassicPlayer : UserControl
 
         _drawn = null;
         _visSequence = -1;
+    }
+
+    /// <summary>Screen pixels per skin pixel: a whole number, twice as many at double size while the window has room for it.</summary>
+    private int FittingScale()
+    {
+        var single = ScaleFor(1);
+        if (!_skins.DoubleSize)
+        {
+            return single;
+        }
+
+        var doubled = ScaleFor(2);
+        var available = ActualWidth - PlayerFrame.Margin.Left - PlayerFrame.Margin.Right;
+        var height = (_skins.Shaded ? ClassicRenderer.ShadeHeight : ClassicRenderer.Height) * doubled / _raster;
+        var needed = (ClassicRenderer.Width * doubled / _raster) + Math.Max(MinCoverSize, height) + RestOfRowWidth;
+
+        // Before the first layout there is no width yet; SizeChanged follows.
+        return available <= 0 || needed <= available ? doubled : single;
+    }
+
+    private int ScaleFor(int factor) => Math.Clamp((int)Math.Round(factor * _raster, MidpointRounding.AwayFromZero), 1, MaxScale);
+
+    private void OnSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        // Only double size depends on the width, and only a different scale needs new bitmaps.
+        if (_loaded && _skins.DoubleSize && FittingScale() != _scale)
+        {
+            RebuildSurface();
+            ShowCover(_shown);
+            ApplyCoverLook();
+            UpdateVisualiser();
+            Invalidate();
+        }
     }
 
     private WriteableBitmap Surface(WriteableBitmap? bitmap, ref byte[]? pixels, int width, int height)
@@ -394,14 +464,15 @@ public sealed partial class ClassicPlayer : UserControl
         var shaded = _skins.Shaded;
         var duration = state.Duration > TimeSpan.Zero ? state.Duration : TimeSpan.Zero;
 
-        // The display shows whole seconds, so the picture changes (and is drawn) once a second.
-        var position = WholeSeconds(state.PositionAt(DateTimeOffset.UtcNow));
+        // The display shows whole seconds; the thumb goes where the song is, so it stays where a drag let go.
+        var exact = state.PositionAt(DateTimeOffset.UtcNow);
+        var position = WholeSeconds(exact);
         double? seek = null;
         if (CanSeek(state, play))
         {
             seek = _pressed == ClassicControl.Seek && _dragValue is { } target
                 ? target
-                : Math.Clamp(position / duration, 0, 1);
+                : Math.Clamp(exact / duration, 0, 1);
         }
 
         // In shade mode there is no marquee: the mini time shows where a drag would seek to.
@@ -412,6 +483,10 @@ public sealed partial class ClassicPlayer : UserControl
 
         var (line, offset) = MarqueeText();
         var stopped = play == ClassicPlayState.Stopped;
+
+        // Spotify can't say what it streams; 44 kHz stereo is what its songs are.
+        // A local file's rate and channels aren't known here, so the display leaves them out.
+        var spotify = !stopped && state.Source == PlaybackSource.Spotify;
         return new ClassicView
         {
             State = play,
@@ -422,10 +497,9 @@ public sealed partial class ClassicPlayer : UserControl
             Marquee = line,
             MarqueeOffset = offset,
 
-            // Spotify can't say what it streams; 44 kHz stereo is what its songs are.
             Kbps = string.Empty,
-            Khz = stopped ? string.Empty : "44",
-            Stereo = !stopped,
+            Khz = spotify ? "44" : string.Empty,
+            Stereo = spotify,
             Volume = _pressed == ClassicControl.Volume && _dragValue is { } volume ? volume : state.Volume,
             Balance = 0,
             Seek = seek,
@@ -493,7 +567,14 @@ public sealed partial class ClassicPlayer : UserControl
             feed.Wanted = wanted;
         }
 
-        var overlay = on && feed.IsLive && _play != ClassicPlayState.Stopped && _skins.IsReady && _visBitmap is not null;
+        // Keyed on the song, not on whether sound flows: a paused local file keeps its last picture.
+        var local = _shown.Source == PlaybackSource.LocalFiles;
+        if (!local)
+        {
+            _lastFrame = null;
+        }
+
+        var overlay = on && local && _play != ClassicPlayState.Stopped && _skins.IsReady && _visBitmap is not null;
         VisualiserView.Visibility = overlay ? Visibility.Visible : Visibility.Collapsed;
 
         var animate = overlay && _windowShown && _play == ClassicPlayState.Playing;
@@ -552,15 +633,7 @@ public sealed partial class ClassicPlayer : UserControl
         _visBitmap.Invalidate();
     }
 
-    private void OnLiveChanged(object? sender, EventArgs e)
-    {
-        if (!_services.Visualiser.IsLive)
-        {
-            _lastFrame = null;
-        }
-
-        UpdateVisualiser();
-    }
+    private void OnLiveChanged(object? sender, EventArgs e) => UpdateVisualiser();
 
     // Timers: nothing ticks while stopped or out of sight, and only the blink while paused
 

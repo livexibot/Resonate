@@ -102,6 +102,17 @@ public sealed class SkinFolderTests : IDisposable
     }
 
     [Fact]
+    public void A_long_name_is_never_cut_through_an_emoji()
+    {
+        var original = new string('A', 119) + "\U0001F3B5 more.wsz";
+
+        var name = new SkinFolder(SkinsPath).Import(WriteSource(original, ClassicSkin()));
+
+        Assert.Equal(new string('A', 119) + ".wsz", name);
+        Assert.DoesNotContain(name, char.IsSurrogate);
+    }
+
+    [Fact]
     public void Importing_something_that_is_not_a_skin_copies_nothing()
     {
         var folder = new SkinFolder(SkinsPath);

@@ -698,6 +698,21 @@ public sealed class SkinArchiveTests
         Assert.Null(skin.OwnSheet(SkinSheet.CButtons));
     }
 
+    [Fact]
+    public void A_skin_whose_pictures_are_all_locked_or_packed_oddly_says_they_cant_be_read()
+    {
+        var error = Assert.Throws<SkinFormatException>(() => Skin.Load(
+            Zip(
+            [
+                new ZipItem("main.bmp", SheetBmp(SkinSheet.Main)) { Encrypted = true },
+                new ZipItem("cbuttons.bmp", SheetBmp(SkinSheet.CButtons)) { Method = 12 },
+                new ZipItem("viscolor.txt", Text("1,1,1")),
+            ]),
+            "Locked"));
+
+        Assert.Equal(SkinArchive.DamagedMessage, error.Message);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

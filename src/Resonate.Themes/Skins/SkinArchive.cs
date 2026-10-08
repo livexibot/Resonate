@@ -116,11 +116,11 @@ internal static class SkinArchive
         }
 
         var slots = new Entry?[WantedNames.Length];
-        var isModern = ScanDirectory(archive, directory, slots);
+        var isModern = ScanDirectory(archive, directory, slots, out var unreadableSheets);
 
         var budget = MaxTotalBytes;
         var sheets = new Dictionary<SkinSheet, SkinImage>();
-        var hasSheetFiles = false;
+        var hasSheetFiles = unreadableSheets;
         foreach (var sheet in SkinSheets.All)
         {
             if (slots[(int)sheet] is not { } entry)
@@ -245,11 +245,15 @@ internal static class SkinArchive
     /// <summary>
     /// Walks the first <see cref="MaxEntries"/> entries of the directory and
     /// keeps, for each wanted name, the last readable entry with that name in
-    /// any folder. Says whether the archive looks like a modern Winamp skin.
+    /// any folder. Says whether the archive looks like a modern Winamp skin,
+    /// and whether it has skin pictures that can't be unpacked (encrypted, or
+    /// packed some other way), so the user hears they are unreadable rather
+    /// than missing.
     /// </summary>
-    private static bool ScanDirectory(ReadOnlySpan<byte> data, CentralDirectory directory, Entry?[] slots)
+    private static bool ScanDirectory(ReadOnlySpan<byte> data, CentralDirectory directory, Entry?[] slots, out bool unreadableSheets)
     {
         var isModern = false;
+        unreadableSheets = false;
         var at = directory.Start;
         for (var count = 0; count < MaxEntries; count++)
         {
@@ -289,9 +293,15 @@ internal static class SkinArchive
 
             var slot = FindSlot(fileName);
 
-            // Encrypted entries, and packing methods other than stored and deflate, are left out.
-            if (slot < 0 || (flags & 1) != 0 || method is not (Stored or Deflated))
+            if (slot < 0)
             {
+                continue;
+            }
+
+            // Encrypted entries, and packing methods other than stored and deflate, are left out.
+            if ((flags & 1) != 0 || method is not (Stored or Deflated))
+            {
+                unreadableSheets |= slot < SkinSheets.All.Count;
                 continue;
             }
 

@@ -140,16 +140,28 @@ public sealed class SkinFolder(string path)
         var characters = stem.ToCharArray();
         for (var i = 0; i < characters.Length; i++)
         {
-            if (char.IsControl(characters[i]) || ForbiddenCharacters.Contains(characters[i]))
+            if (char.IsControl(characters[i]) || ForbiddenCharacters.Contains(characters[i]) || IsLoneSurrogate(characters, i))
             {
                 characters[i] = '_';
             }
         }
 
-        stem = new string(characters, 0, Math.Min(characters.Length, MaxStemLength)).Trim();
+        // Never cut an emoji in half: half of one can't be saved in the settings, so the skin would be lost on restart.
+        var length = Math.Min(characters.Length, MaxStemLength);
+        if (length < characters.Length && char.IsHighSurrogate(characters[length - 1]))
+        {
+            length--;
+        }
+
+        stem = new string(characters, 0, length).Trim();
         var name = stem + extension;
         return IsPlainFileName(name) && !stem.AsSpan().Trim(" .").IsEmpty ? name : "Skin" + extension;
     }
+
+    private static bool IsLoneSurrogate(char[] characters, int i) =>
+        char.IsHighSurrogate(characters[i])
+            ? i + 1 >= characters.Length || !char.IsLowSurrogate(characters[i + 1])
+            : char.IsLowSurrogate(characters[i]) && (i == 0 || !char.IsHighSurrogate(characters[i - 1]));
 
     /// <summary>Writes a new file, never over an old one: "Name.wsz", then "Name (2).wsz" and so on.</summary>
     private string WriteNew(string fileName, byte[] bytes)

@@ -14,6 +14,16 @@ public static class PixelFont
 
     private static readonly (int Row, int Column) Space = (0, 30);
 
+    /// <summary>
+    /// U+0100 to U+017F (Latin Extended-A: Czech, Polish, Turkish, Baltic and
+    /// more) without their accents, one letter each, as webamp's deburr does.
+    /// </summary>
+    private const string LatinExtendedA =
+        "aaaaaaccccccccddddeeeeeeeeeegggg" +
+        "gggghhhhiiiiiiiiiiiijjkkklllllll" +
+        "lllnnnnnnnnnoooooooorrrrrrssssss" +
+        "ssttttttuuuuuuuuuuuuwwyyyzzzzzzs";
+
     // webamp's FONT_LOOKUP (skinSprites.ts), key for key: lower-case keys, values are (row, column).
     private static readonly FrozenDictionary<char, (int Row, int Column)> Lookup = new Dictionary<char, (int Row, int Column)>
     {
@@ -170,6 +180,7 @@ public static class PixelFont
             (>= 'Ù' and <= 'Ü') or (>= 'ù' and <= 'ü') => 'u',
             'Ý' or 'ý' or 'ÿ' => 'y',
             'ß' => 's',
+            >= '\u0100' and <= '\u017F' => LatinExtendedA[character - 0x100],
             '\u2018' or '\u2019' or '`' => '\'',
             '\u201C' or '\u201D' => '"',
             '\u2013' or '\u2014' or '\u2212' => '-',

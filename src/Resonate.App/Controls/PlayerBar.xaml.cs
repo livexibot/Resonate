@@ -134,62 +134,20 @@ public sealed partial class PlayerBar : UserControl
 
     private void ShowPlugins()
     {
-        var active = _plugins?.WithCommands() ?? [];
-        PluginsButton.Visibility = active.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-
-        // What plugins report (a sleep timer counting down) shows in the tooltip, and lights the button.
-        var notes = active.Where(p => !string.IsNullOrEmpty(p.StatusText)).Select(p => $"{p.Manifest.Name}: {p.StatusText}").ToList();
-        ToolTipService.SetToolTip(PluginsButton, notes.Count == 0 ? "Plugins" : string.Join(Environment.NewLine, notes));
-        if (notes.Count == 0)
+        if (_plugins is { } plugins)
         {
-            PluginsButton.ClearValue(ForegroundProperty);
-        }
-        else
-        {
-            PluginsButton.Foreground = App.Services.Theme.GetBrush("ResonateAccentBrush");
+            PluginMenu.UpdateButton(PluginsButton, plugins);
         }
     }
 
     private void OnPluginsClick(object sender, RoutedEventArgs e)
     {
-        if (_plugins is not { } plugins)
+        if (_plugins is { } plugins)
         {
-            return;
+            var menu = PluginMenu.Build(plugins);
+            menu.Placement = FlyoutPlacementMode.TopEdgeAlignedRight;
+            menu.ShowAt(PluginsButton);
         }
-
-        // Built when opened, so it always shows the plugins' latest commands.
-        var menu = new MenuFlyout { Placement = FlyoutPlacementMode.TopEdgeAlignedRight };
-        var active = plugins.WithCommands();
-        foreach (var plugin in active)
-        {
-            var items = active.Count == 1 ? menu.Items : AddGroup(menu, plugin.Manifest.Name);
-            if (!string.IsNullOrEmpty(plugin.StatusText))
-            {
-                items.Add(new MenuFlyoutItem { Text = plugin.StatusText, IsEnabled = false });
-                items.Add(new MenuFlyoutSeparator());
-            }
-
-            foreach (var command in plugin.Commands)
-            {
-                var item = new MenuFlyoutItem { Text = command.Title };
-                var (id, commandId) = (plugin.Manifest.Id, command.Id);
-                item.Click += (_, _) => plugins.Invoke(id, commandId);
-                items.Add(item);
-            }
-        }
-
-        menu.Items.Add(new MenuFlyoutSeparator());
-        var settings = new MenuFlyoutItem { Text = "Plugin settings" };
-        settings.Click += (_, _) => App.MainWindow?.OpenSettings();
-        menu.Items.Add(settings);
-        menu.ShowAt(PluginsButton);
-    }
-
-    private static IList<MenuFlyoutItemBase> AddGroup(MenuFlyout menu, string name)
-    {
-        var group = new MenuFlyoutSubItem { Text = name };
-        menu.Items.Add(group);
-        return group.Items;
     }
 
     private void OnStateChanged(object? sender, EventArgs e)

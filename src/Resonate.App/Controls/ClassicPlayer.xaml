@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   The classic player: the cover, a Winamp 2 style main window drawn from a
-  skin pixel for pixel, the song in the app's own text, and the heart. It
-  sits where the player bar would, docked or floating like it. See
-  ClassicPlayer.xaml.cs.
+  skin pixel for pixel, the song in the app's own text, the plugin button
+  and the heart. It sits where the player bar would, docked or floating
+  like it. See ClassicPlayer.xaml.cs.
 -->
 <UserControl
     x:Class="Resonate.App.Controls.ClassicPlayer"
@@ -11,6 +11,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Grid
+        x:Name="PlayerFrame"
         Margin="{ThemeResource ResonatePlayerMargin}"
         Padding="16,10"
         Background="{StaticResource ResonatePlayerBrush}"
@@ -103,18 +104,31 @@
             <TextBlock x:Name="AlbumText" Style="{StaticResource ResonateCaptionTextStyle}" />
         </StackPanel>
 
-        <Button
-            x:Name="LikeButton"
+        <StackPanel
             Grid.Column="3"
-            Width="32"
-            Height="32"
             VerticalAlignment="Center"
-            AutomationProperties.Name="Save to Liked Songs"
-            Click="OnLikeClick"
-            Content="&#xEB51;"
-            FontSize="14"
-            Style="{StaticResource ResonateIconButtonStyle}"
-            ToolTipService.ToolTip="Save to Liked Songs"
-            Visibility="Collapsed" />
+            Orientation="Horizontal"
+            Spacing="6">
+            <!-- Commands from plugins that are on, such as the sleep timer, as in the player bar. -->
+            <Button
+                x:Name="PluginsButton"
+                AutomationProperties.Name="Plugins"
+                Click="OnPluginsClick"
+                Content="&#xEA86;"
+                Style="{StaticResource ResonateIconButtonStyle}"
+                ToolTipService.ToolTip="Plugins"
+                Visibility="Collapsed" />
+            <Button
+                x:Name="LikeButton"
+                Width="32"
+                Height="32"
+                AutomationProperties.Name="Save to Liked Songs"
+                Click="OnLikeClick"
+                Content="&#xEB51;"
+                FontSize="14"
+                Style="{StaticResource ResonateIconButtonStyle}"
+                ToolTipService.ToolTip="Save to Liked Songs"
+                Visibility="Collapsed" />
+        </StackPanel>
     </Grid>
 </UserControl>

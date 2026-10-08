@@ -324,8 +324,8 @@ Classic player and cover art (checked 2026-10-08):
   copies them to `%LocalAppData%\Resonate\skins`.
 - Sharp pixels: each skin pixel covers a whole number of screen pixels,
   `max(1, round(size x RasterizationScale))` (size is 1, or 2 for double
-  size), and the picture is drawn at that size and shown 1:1, never
-  stretched by XAML.
+  size while the window has room to keep the song's title beside it), and
+  the picture is drawn at that size and shown 1:1, never stretched by XAML.
 - The visualiser only hears the local files player: a frame output node on
   the AudioGraph's EQ bus (`AudioGraphTap`), read when each quantum starts,
   feeds a 512-point FFT (`SpectrumAnalyser`) and the oscilloscope. Its
@@ -666,7 +666,8 @@ Keep it obvious what is what:
   token, `ThemeService.cs` applies looks, `ThemeTransitions.cs` animates
   switching, `Controls/ThemeStudio` is the Look section of Settings), and
   the classic player (`Controls/ClassicPlayer`, its Settings section
-  `Controls/ClassicPlayerPanel`, and `Services/SkinLibrary.cs`).
+  `Controls/ClassicPlayerPanel`, and `Services/SkinLibrary.cs`). Both
+  players share the plugin button (`Controls/PluginMenu.cs`).
 - `src/Resonate.Spotify/` everything about Spotify that is not Windows:
   sign-in, the Web API client, the library, the player logic, listening
   history and daily mixes (`History/`), the equalizer and Spotify's

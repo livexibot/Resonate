@@ -82,6 +82,22 @@ public sealed class ArtworkSampler : IDisposable
 
     private void Update()
     {
+        // The user switched the blurred cover on or off: redrawn at once, even
+        // while another look shows, so a cover they turned off never comes back.
+        if (_showsBlurredCover != _theme.BlurredCoverBackground)
+        {
+            if (_pixels is not null)
+            {
+                ShowBackdrop(_pixels);
+            }
+            else if (_showsBlurredCover)
+            {
+                _showsBlurredCover = false;
+                Blurred = null;
+                Changed?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
         var look = _theme.Current;
         if (look.Backdrop != WindowBackdrop.Artwork && !look.AdaptiveAccent)
         {
@@ -99,13 +115,6 @@ public sealed class ArtworkSampler : IDisposable
             _sampling?.Dispose();
             _sampling = new CancellationTokenSource();
             _ = SampleAsync(state.ArtworkUrl, state.ArtworkBytes, name, _sampling.Token);
-            return;
-        }
-
-        // The same cover, but the user may have switched the blurred cover on or off.
-        if (_pixels is not null && _showsBlurredCover != _theme.BlurredCoverBackground)
-        {
-            ShowBackdrop(_pixels);
         }
     }
 

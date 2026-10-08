@@ -94,7 +94,7 @@
         <!-- Cover art: the user's own choices, kept whatever look is in use (not part of a look) -->
         <StackPanel Spacing="6">
             <TextBlock Style="{StaticResource StudioSectionTextStyle}" Text="COVER ART" />
-            <controls:SettingRow Description="The cover turns like a record while a song plays." Header="Spinning cover">
+            <controls:SettingRow Description="The cover becomes a round record in every look and turns while a song plays." Header="Spinning cover">
                 <ToggleSwitch
                     x:Name="SpinningCoverSwitch"
                     AutomationProperties.Name="Spinning cover"
@@ -352,7 +352,7 @@
                         <ComboBoxItem Content="Symbol only" Tag="Plain" />
                     </ComboBox>
                 </controls:SettingRow>
-                <controls:SettingRow Description="Vinyl draws the cover as a still record. It turns while a song plays when Spinning cover is on." Header="Cover">
+                <controls:SettingRow Description="Vinyl draws the cover as a still record. While Spinning cover is on, every cover is a turning record." Header="Cover">
                     <ComboBox
                         x:Name="CoverChoice"
                         SelectionChanged="OnChoiceChanged"

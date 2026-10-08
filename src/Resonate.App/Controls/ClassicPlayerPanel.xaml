@@ -18,6 +18,7 @@
                 <ToggleSwitch
                     x:Name="UseSwitch"
                     MinWidth="0"
+                    AutomationProperties.Name="Use the classic player"
                     OffContent=""
                     OnContent=""
                     Toggled="OnUseToggled" />
@@ -29,10 +30,11 @@
                     AutomationProperties.Name="Skin"
                     SelectionChanged="OnSkinChanged" />
             </controls:SettingRow>
-            <controls:SettingRow Description="Every skin pixel twice as large, like Winamp's double size." Header="Double size">
+            <controls:SettingRow Description="Every skin pixel twice as large, like Winamp's double size, when the window is wide enough." Header="Double size">
                 <ToggleSwitch
                     x:Name="DoubleSizeSwitch"
                     MinWidth="0"
+                    AutomationProperties.Name="Double size"
                     OffContent=""
                     OnContent=""
                     Toggled="OnDoubleSizeToggled" />

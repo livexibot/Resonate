@@ -932,6 +932,13 @@ public sealed class PixelFontTests
     [InlineData('~', '-')]
     [InlineData('|', '/')]
     [InlineData(';', ',')]
+    [InlineData('ř', 'r')]
+    [InlineData('Ł', 'l')]
+    [InlineData('ı', 'i')]
+    [InlineData('Ş', 's')]
+    [InlineData('ő', 'o')]
+    [InlineData('ž', 'z')]
+    [InlineData('ſ', 's')]
     public void Other_characters_fold_onto_the_ones_the_font_has(char character, char shown)
     {
         Assert.Equal(PixelFont.Cell(shown), PixelFont.Cell(character));
@@ -952,6 +959,7 @@ public sealed class PixelFontTests
     public void Covers_says_whether_a_whole_line_can_be_written()
     {
         Assert.True(PixelFont.Covers("Björk - Jóga (5:05)"));
+        Assert.True(PixelFont.Covers("Dvořák, Łódź, Barış Manço"));
         Assert.True(PixelFont.Covers("\uFF082026\uFF09\u3000REMIX"));
         Assert.False(PixelFont.Covers("宇多田ヒカル - First Love"));
         Assert.True(PixelFont.Covers(string.Empty));
