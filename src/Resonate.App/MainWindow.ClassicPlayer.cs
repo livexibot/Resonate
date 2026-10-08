@@ -69,6 +69,7 @@ public sealed partial class MainWindow
         {
             _classicPlayer = new ClassicPlayer();
             _classicPlayer.SetWindowActive(_windowActive);
+            _classicPlayer.SetWindowShown(IsShown);
             Grid.SetRow(_classicPlayer, 2);
 
             // Above its shadow, like the player bar above its own.
@@ -79,6 +80,18 @@ public sealed partial class MainWindow
             RootGrid.Children.Remove(_classicPlayer);
             _classicPlayer = null;
         }
+
+        TellPlayersShown();
+    }
+
+    /// <summary>
+    /// Each player hears whether it can be seen: the window is shown and the
+    /// player is the one in use. A hidden player rests its clock and its motion.
+    /// </summary>
+    private void TellPlayersShown()
+    {
+        PlayerBar.SetWindowShown(IsShown && PlayerBar.Visibility == Visibility.Visible);
+        _classicPlayer?.SetWindowShown(IsShown);
     }
 
     private void OnWindowActivated(object sender, WindowActivatedEventArgs args)

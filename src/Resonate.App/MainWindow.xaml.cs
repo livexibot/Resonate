@@ -793,7 +793,7 @@ public sealed partial class MainWindow : Window
         if (shown != IsShown)
         {
             IsShown = shown;
-            PlayerBar.SetWindowShown(shown);
+            TellPlayersShown();
             ShownChanged?.Invoke(this, EventArgs.Empty);
         }
     }
