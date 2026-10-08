@@ -10,7 +10,7 @@ namespace Resonate.Spotify.Playback;
 /// starts playing by itself (a media key, a phone controlling Spotify) it
 /// takes over the player bar.
 /// </summary>
-public sealed class PlayerRouter : IPlayer, IDisposable
+public sealed partial class PlayerRouter : IPlayer, IDisposable
 {
     private readonly ILocalPlayer _local;
     private IPlayer _active;

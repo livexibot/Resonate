@@ -153,7 +153,7 @@ public sealed partial class QueuePanel : UserControl
         NowDuration.Text = state.Duration > TimeSpan.Zero ? Format.Duration(state.Duration) : string.Empty;
         SourceText.Text = state.SourceName is { Length: > 0 } name ? $"Playing from {name}" : string.Empty;
         SourceText.Visibility = SourceText.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-        NoteText.Text = source == PlaybackSource.LocalFiles ? LocalNote : SpotifyNote;
+        NoteText.Text = _upNextNote ?? DefaultNote(source);
         ShowArtwork(state);
 
         // What plays next changes with the song, the player, shuffle and repeat.
@@ -170,6 +170,8 @@ public sealed partial class QueuePanel : UserControl
             RefreshSoon();
         }
     }
+
+    private static string DefaultNote(PlaybackSource source) => source == PlaybackSource.LocalFiles ? LocalNote : SpotifyNote;
 
     private void ShowArtwork(PlayerState state)
     {
@@ -236,6 +238,11 @@ public sealed partial class QueuePanel : UserControl
         _refreshTimer.Stop();
         CancelLoading();
         var version = ++_version;
+
+        if (TryShowUpNext(player))
+        {
+            return;
+        }
 
         if (player.ActiveSource == PlaybackSource.LocalFiles)
         {
@@ -376,7 +383,9 @@ public sealed partial class QueuePanel : UserControl
     {
         if (ListEvents.ContextRequested<TrackRow>(UpcomingList, args) is { } row)
         {
-            TrackActions.ShowMenu(TrackActions.BuildMenu(row.Track), UpcomingList, args);
+            var menu = TrackActions.BuildMenu(row.Track);
+            AddUpNextItems(menu, row);
+            TrackActions.ShowMenu(menu, UpcomingList, args);
         }
     }
 

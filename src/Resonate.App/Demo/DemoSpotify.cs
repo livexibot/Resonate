@@ -241,7 +241,7 @@ public sealed class DemoWebApi : ISpotifyWebApi
 
     public Task StartPlaybackAsync(StartPlaybackBody? body, string? deviceId, CancellationToken cancellationToken)
     {
-        var uri = body?.Offset?.Uri ?? body?.Uris?.FirstOrDefault();
+        var uri = body?.Offset?.Uri ?? body?.Uris?.ElementAtOrDefault(body.Offset?.Position ?? 0);
         if (DemoCatalog.FindByUri(uri) is { } track)
         {
             _player.Start(track);

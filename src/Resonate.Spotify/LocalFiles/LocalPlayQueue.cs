@@ -10,7 +10,7 @@ namespace Resonate.Spotify.LocalFiles;
 /// to queue" (they play next, in the order added), and repeat. Not thread
 /// safe; the player guards it.
 /// </summary>
-public sealed class LocalPlayQueue
+public sealed partial class LocalPlayQueue
 {
     private readonly Func<int, int>? _random;
     private readonly Queue<TrackInfo> _queued = new();
