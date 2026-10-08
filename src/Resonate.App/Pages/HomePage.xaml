@@ -39,7 +39,7 @@
                         Spacing="8"
                         ToolTipService.ToolTip="{x:Bind MinutesNote}">
                         <TextBlock
-                            FontSize="44"
+                            FontSize="{ThemeResource ResonateFontSize44}"
                             FontWeight="Bold"
                             Style="{StaticResource ResonateDisplayTextStyle}"
                             Text="{x:Bind Minutes}" />
@@ -65,7 +65,7 @@
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
                                     FontFamily="{ThemeResource ResonateTextFont}"
-                                    FontSize="13"
+                                    FontSize="{ThemeResource ResonateFontSize13}"
                                     FontWeight="SemiBold"
                                     Foreground="{x:Bind ArtistInitialsBrush}"
                                     Text="{x:Bind ArtistInitials}" />
@@ -163,14 +163,14 @@
                             <TextBlock
                                 CharacterSpacing="140"
                                 FontFamily="{ThemeResource ResonateTextFont}"
-                                FontSize="10"
+                                FontSize="{ThemeResource ResonateFontSize10}"
                                 FontWeight="SemiBold"
                                 Foreground="#E6FFFFFF"
                                 Text="{x:Bind Eyebrow}" />
                             <TextBlock
                                 Margin="0,-6,0,-10"
                                 FontFamily="{ThemeResource ResonateDisplayFont}"
-                                FontSize="60"
+                                FontSize="{ThemeResource ResonateFontSize60}"
                                 FontWeight="Bold"
                                 Foreground="#FFFFFFFF"
                                 Text="{x:Bind Numeral}"
@@ -261,7 +261,7 @@
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
                                 FontFamily="{ThemeResource ResonateDisplayFont}"
-                                FontSize="32"
+                                FontSize="{ThemeResource ResonateFontSize32}"
                                 FontWeight="SemiBold"
                                 Foreground="{x:Bind InitialsBrush}"
                                 Text="{x:Bind Initials}" />
@@ -280,7 +280,7 @@
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
                                 FontFamily="{ThemeResource ResonateTextFont}"
-                                FontSize="12"
+                                FontSize="{ThemeResource ResonateFontSize12}"
                                 FontWeight="Bold"
                                 Foreground="{StaticResource ResonateOnAccentBrush}"
                                 Text="{x:Bind Rank}" />
@@ -300,7 +300,7 @@
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
                                 FontFamily="{ThemeResource ResonateTextFont}"
-                                FontSize="12"
+                                FontSize="{ThemeResource ResonateFontSize12}"
                                 FontWeight="Bold"
                                 Foreground="{StaticResource ResonateTextPrimaryBrush}"
                                 Text="{x:Bind Rank}" />
@@ -324,27 +324,29 @@
                 Background="{StaticResource ResonateTransparentBrush}"
                 ColumnSpacing="14">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="34" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="48" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock
-                    HorizontalAlignment="Right"
+                    Width="{ThemeResource ResonateRankWidth}"
                     VerticalAlignment="Center"
                     FontFamily="{ThemeResource ResonateDisplayFont}"
-                    FontSize="26"
+                    FontSize="{ThemeResource ResonateFontSize26}"
                     FontWeight="Bold"
                     Foreground="{StaticResource ResonateAccentBrush}"
                     Text="{x:Bind Rank}"
+                    TextAlignment="Right"
                     Visibility="{x:Bind FirstVisibility}" />
                 <TextBlock
-                    HorizontalAlignment="Right"
+                    Width="{ThemeResource ResonateRankWidth}"
                     VerticalAlignment="Center"
                     FontFamily="{ThemeResource ResonateDisplayFont}"
-                    FontSize="26"
+                    FontSize="{ThemeResource ResonateFontSize26}"
                     FontWeight="Bold"
                     Foreground="{StaticResource ResonateTextTertiaryBrush}"
                     Text="{x:Bind Rank}"
+                    TextAlignment="Right"
                     Visibility="{x:Bind OtherVisibility}" />
                 <Grid
                     Grid.Column="1"
@@ -446,13 +448,13 @@
                                 </StackPanel>
                                 <TextBlock
                                     x:Name="GreetingText"
-                                    FontSize="46"
+                                    FontSize="{ThemeResource ResonateFontSize46}"
                                     FontWeight="Bold"
                                     Style="{StaticResource ResonateDisplayTextStyle}"
                                     Text="Home" />
                                 <TextBlock
                                     x:Name="TodayText"
-                                    FontSize="15"
+                                    FontSize="{ThemeResource ResonateFontSize15}"
                                     Style="{StaticResource ResonateSecondaryTextStyle}"
                                     TextWrapping="Wrap" />
                             </StackPanel>
@@ -492,7 +494,7 @@
                                         <TextBlock
                                             x:Name="NowTitle"
                                             Margin="0,4,0,0"
-                                            FontSize="18"
+                                            FontSize="{ThemeResource ResonateFontSize18}"
                                             Style="{StaticResource ResonateTitleTextStyle}" />
                                         <TextBlock x:Name="NowArtists" Style="{StaticResource ResonateSecondaryTextStyle}" />
                                         <TextBlock x:Name="NowSource" Style="{StaticResource ResonateCaptionTextStyle}" />

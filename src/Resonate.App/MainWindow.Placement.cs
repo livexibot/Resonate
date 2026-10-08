@@ -19,7 +19,7 @@ public sealed partial class MainWindow
     /// <summary>At least this much of the window stays on its screen, so it can always be grabbed.</summary>
     private const int KeepOnScreen = 120;
 
-    /// <summary>The smallest window, in pixels at 100 % scaling: room for the page beside the sidebar and a mini player.</summary>
+    /// <summary>The smallest window, in pixels at 100 % scaling and the usual App size: room for the page beside the sidebar and a mini player.</summary>
     private const int MinimumWidth = 760;
     private const int MinimumHeight = 540;
 
@@ -34,19 +34,17 @@ public sealed partial class MainWindow
 
     /// <summary>
     /// Keeps the window from being made smaller than <see cref="MinimumWidth"/>
-    /// by <see cref="MinimumHeight"/>. Called first thing, before the title
-    /// bar is set up and the window is placed, so nothing set later is lost.
+    /// by <see cref="MinimumHeight"/> (more at a larger App size, see
+    /// UpdateMinimumSize). Called first thing, before the title bar is set up
+    /// and the window is placed, so nothing set later is lost.
     /// </summary>
     private void SetMinimumSize()
     {
-        var scale = GetDpiForWindow(Hwnd) / 96.0;
-
         // A presenter of its own, rather than a cast of the current one, which
         // Native AOT may not recognise (see CLAUDE.md); it is the same kind.
-        var presenter = OverlappedPresenter.Create();
-        presenter.PreferredMinimumWidth = (int)Math.Round(MinimumWidth * scale);
-        presenter.PreferredMinimumHeight = (int)Math.Round(MinimumHeight * scale);
-        AppWindow.SetPresenter(presenter);
+        _presenter = OverlappedPresenter.Create();
+        UpdateMinimumSize(grow: false);
+        AppWindow.SetPresenter(_presenter);
     }
 
     /// <summary>Puts the window where it was left (before it is first shown).</summary>

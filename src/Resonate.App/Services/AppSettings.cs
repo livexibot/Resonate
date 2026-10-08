@@ -31,6 +31,12 @@ public sealed class AppSettings
     /// <summary>The library sidebar runs to the bottom of the window, beside the player (off unless the user switches it on).</summary>
     public bool SidebarFullHeight { get; set; }
 
+    /// <summary>How large everything under the title bar is drawn, in percent (one of <see cref="AppScale.AppSizes"/>).</summary>
+    public int AppSize { get; set; } = AppScale.Normal;
+
+    /// <summary>How large text is drawn, in percent (one of <see cref="AppScale.TextSizes"/>).</summary>
+    public int TextSize { get; set; } = AppScale.Normal;
+
     /// <summary>"modern" (Resonate's player bar) or "classic" (the skinnable player in the style of Winamp 2).</summary>
     public string PlayerStyle { get; set; } = "modern";
 

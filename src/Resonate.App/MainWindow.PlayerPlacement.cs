@@ -128,11 +128,11 @@ public sealed partial class MainWindow
     /// </summary>
     internal string? CheckPlayerPlacement()
     {
-        var player = BoundsInWindow(PlayerSlot);
-        var page = BoundsInWindow(ContentPanel);
+        var player = BoundsInShell(PlayerSlot);
+        var page = BoundsInShell(ContentPanel);
         if (!PlayerHovers)
         {
-            var shell = BoundsInWindow(ShellGrid);
+            var shell = BoundsInShell(ShellGrid);
             return player.Top < page.Bottom - 0.5 || player.Left < shell.Left - 0.5 || player.Right > shell.Right + 0.5 || player.Bottom > shell.Bottom + 0.5
                 ? $"The player ({player}) is not under the page ({page}) inside the window ({shell})."
                 : null;
@@ -153,12 +153,13 @@ public sealed partial class MainWindow
             return "The page on show leaves no room for the hovering player.";
         }
 
-        var room = BoundsInWindow(inset.PlayerSpacer);
+        var room = BoundsInShell(inset.PlayerSpacer);
         return room.Top > player.Top + 0.5
             ? $"The page's last row ends at {room.Top:0}, under the hovering player's top at {player.Top:0}."
             : null;
     }
 
-    private static Rect BoundsInWindow(FrameworkElement element) =>
-        element.TransformToVisual(null).TransformBounds(new Rect(0, 0, element.ActualWidth, element.ActualHeight));
+    // In the shell's own units, which App size does not change (see ContentScale).
+    private Rect BoundsInShell(FrameworkElement element) =>
+        element.TransformToVisual(ShellGrid).TransformBounds(new Rect(0, 0, element.ActualWidth, element.ActualHeight));
 }

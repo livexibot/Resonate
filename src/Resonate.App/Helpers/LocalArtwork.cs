@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Resonate.App.Services;
 using Resonate.Spotify.Library;
 using Resonate.Windows;
 
@@ -21,7 +22,7 @@ public static class LocalArtwork
             return null;
         }
 
-        var bitmap = new BitmapImage { DecodePixelWidth = displayWidth, DecodePixelType = DecodePixelType.Logical };
+        var bitmap = new BitmapImage { DecodePixelWidth = CoverImages.DecodeWidth(displayWidth), DecodePixelType = DecodePixelType.Logical };
         _ = LoadAsync(bitmap, track);
         return bitmap;
     }

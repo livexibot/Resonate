@@ -283,8 +283,8 @@ public sealed partial class PlayerBar : UserControl
         RepeatButton.Visibility = shown;
         PositionText.Visibility = shown;
         DurationText.Visibility = shown;
-        PositionColumn.Width = new GridLength(mini ? 0 : 44);
-        DurationColumn.Width = new GridLength(mini ? 0 : 44);
+        PositionColumn.Width = mini ? new GridLength(0) : GridLength.Auto;
+        DurationColumn.Width = mini ? new GridLength(0) : GridLength.Auto;
         SeekRow.ColumnSpacing = mini ? 0 : 10;
         SeekRow.MinWidth = mini ? 150 : 0;
         MuteButton.Visibility = shown;

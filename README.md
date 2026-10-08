@@ -30,6 +30,8 @@ how switching animates: a morph, a cross-fade, a spread from the middle, a
 ripple from the click and more, each eased over one to two seconds. Liquid
 Glass puts the playing song's cover, blurred, behind the window, and if you
 like, the cover can spin like a record; both are switches in Settings.
+App size makes everything in the window larger or smaller (Ctrl+Plus and
+Ctrl+Minus too), and Text size makes just the text larger.
 
 ## Classic player
 

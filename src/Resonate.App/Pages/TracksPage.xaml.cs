@@ -24,9 +24,8 @@ namespace Resonate.App.Pages;
 /// </summary>
 public sealed partial class TracksPage : Page
 {
-    /// <summary>Below this list width the page uses its compact layout.</summary>
+    /// <summary>Below this list width the page uses its compact layout (wider with larger text).</summary>
     private const double CompactWidth = 600;
-    private const double CompactTitleSize = 32;
     private const int CoverSize = 232;
     private const int CompactCoverSize = 128;
 
@@ -97,6 +96,7 @@ public sealed partial class TracksPage : Page
         _filterTimer.Tick += OnFilterTick;
         _services.Player.StateChanged += OnPlayerStateChanged;
         _services.Likes.Changed += OnLikesChanged;
+        _services.Theme.SizeChanged += OnTextSizeChanged;
         _source.Attach(OnSourceChanged);
         _hero.Attach();
         _ = LoadAsync();
@@ -107,6 +107,7 @@ public sealed partial class TracksPage : Page
         _source.Detach();
         _services.Player.StateChanged -= OnPlayerStateChanged;
         _services.Likes.Changed -= OnLikesChanged;
+        _services.Theme.SizeChanged -= OnTextSizeChanged;
         _filterTimer.Stop();
         _filterTimer.Tick -= OnFilterTick;
         _hero.Detach();
@@ -684,6 +685,9 @@ public sealed partial class TracksPage : Page
         await _services.Player.PlayAsync(request);
     }
 
+    private void OnTextSizeChanged(object? sender, EventArgs e) =>
+        FitToWidth(TrackList.ActualWidth > 0 ? TrackList.ActualWidth : double.PositiveInfinity);
+
     private void OnTrackListSizeChanged(object sender, SizeChangedEventArgs e)
     {
         if (e.NewSize.Width != e.PreviousSize.Width)
@@ -699,11 +703,12 @@ public sealed partial class TracksPage : Page
     /// </summary>
     private void FitToWidth(double width)
     {
-        _columns.Fit(width);
+        var text = _services.Theme.TextScale;
+        _columns.Fit(width, text);
         AlbumHeadingColumn.Width = _columns.AlbumWidth;
         AddedHeadingColumn.Width = _columns.AddedWidth;
 
-        var compact = width < CompactWidth;
+        var compact = width < CompactWidth * text;
         if (compact == _compact)
         {
             return;
@@ -717,15 +722,8 @@ public sealed partial class TracksPage : Page
         CoverShadow.Width = cover;
         CoverShadow.Height = cover;
 
-        // A smaller title, so a long name still fits on its two lines.
-        if (compact)
-        {
-            TitleText.FontSize = CompactTitleSize;
-        }
-        else
-        {
-            TitleText.ClearValue(TextBlock.FontSizeProperty);
-        }
+        // A smaller title, so a long name still fits on its two lines (a style, so it follows the Text size).
+        TitleText.Style = (Style)Application.Current.Resources[compact ? "ResonateCompactDisplayTextStyle" : "ResonateDisplayTextStyle"];
 
         Grid.SetRow(FilterBox, compact ? 1 : 0);
         Grid.SetColumn(FilterBox, compact ? 0 : 4);

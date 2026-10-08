@@ -20,10 +20,9 @@ public sealed partial class ArtistPage : Page
 
     private const int PortraitSize = 232;
 
-    // A narrow page (a small window, or Settings or the queue open beside it), as on a playlist.
+    // A narrow page (a small window, or Settings or the queue open beside it), as on a playlist; wider with larger text.
     private const double CompactWidth = 600;
     private const int CompactPortraitSize = 128;
-    private const double CompactNameSize = 32;
     private const string OpenInSpotifyLabel = "Open in Spotify";
 
     private readonly AppServices _services = App.Services;
@@ -51,15 +50,19 @@ public sealed partial class ArtistPage : Page
     {
         _artistId = e.Parameter as string ?? string.Empty;
         PortraitFrame.Background = Artwork.PlaceholderBrush(_artistId);
+        _services.Theme.SizeChanged += OnTextSizeChanged;
         _hero.Attach();
         _ = LoadAsync();
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
+        _services.Theme.SizeChanged -= OnTextSizeChanged;
         _hero.Detach();
         _leaving.Cancel();
     }
+
+    private void OnTextSizeChanged(object? sender, EventArgs e) => FitToWidth(ActualWidth);
 
     private void OnPageSizeChanged(object sender, SizeChangedEventArgs e)
     {
@@ -72,7 +75,7 @@ public sealed partial class ArtistPage : Page
     /// <summary>A narrow page gets a smaller picture and name, and shorter buttons, so nothing is cut off.</summary>
     private void FitToWidth(double width)
     {
-        var compact = width < CompactWidth;
+        var compact = width < CompactWidth * _services.Theme.TextScale;
         if (compact == _compact)
         {
             return;
@@ -84,14 +87,8 @@ public sealed partial class ArtistPage : Page
         PortraitFrame.Width = PortraitFrame.Height = size;
         PortraitShadow.Width = PortraitShadow.Height = size;
         PortraitFrame.CornerRadius = PortraitShadow.CornerRadius = new CornerRadius(size / 2.0);
-        if (compact)
-        {
-            NameText.FontSize = CompactNameSize;
-        }
-        else
-        {
-            NameText.ClearValue(TextBlock.FontSizeProperty);
-        }
+        // A smaller name, so a long one still fits on its two lines (a style, so it follows the Text size).
+        NameText.Style = (Style)Application.Current.Resources[compact ? "ResonateCompactDisplayTextStyle" : "ResonateDisplayTextStyle"];
 
         LikedSongsButton.Content = compact ? "Liked songs" : "Liked songs by this artist";
         OpenInSpotifyText.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
