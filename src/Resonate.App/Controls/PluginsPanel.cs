@@ -33,15 +33,6 @@ internal sealed partial class PluginsPanel : StackPanel
         _builtIns = services.BuiltIns;
         Spacing = 12;
 
-        // The tab above is called Plugins, so no heading here.
-        var resources = Application.Current.Resources;
-        Children.Add(new TextBlock
-        {
-            Text = "Optional extras, off until you turn them on.",
-            Style = (Style)resources["ResonateSecondaryTextStyle"],
-            TextWrapping = TextWrapping.Wrap,
-        });
-
         // Every plugin in one list by name; each says whether it is built in or downloaded.
         var items = new List<(string Name, FrameworkElement Element)>();
         foreach (var plugin in BuiltInPlugins.All)
@@ -65,15 +56,6 @@ internal sealed partial class PluginsPanel : StackPanel
             Children.Add(element);
         }
 
-        if (plugins.Available.Count == 0 || plugins.IsPreview)
-        {
-            Children.Add(new TextBlock
-            {
-                Text = Intro(plugins),
-                Style = (Style)resources["ResonateCaptionTextStyle"],
-                TextWrapping = TextWrapping.Wrap,
-            });
-        }
         Loaded += (_, _) =>
         {
             _plugins.Changed += OnChanged;
@@ -99,18 +81,6 @@ internal sealed partial class PluginsPanel : StackPanel
         };
     }
 
-    private static string Intro(PluginManager plugins)
-    {
-        if (plugins.Available.Count == 0)
-        {
-            return "This copy of Resonate was built without plugins. Copies installed from a release get them.";
-        }
-
-        return plugins.IsPreview
-            ? "Demo mode: nothing is downloaded or run."
-            : "Downloaded from Resonate's releases, and deleted when turned off.";
-    }
-
     private StackPanel Build(BuiltInCard card)
     {
         var panel = new StackPanel { Spacing = 8 };
@@ -125,7 +95,6 @@ internal sealed partial class PluginsPanel : StackPanel
             }
         };
         panel.Children.Add(new SettingRow { Header = card.Plugin.Name, Description = card.Plugin.Description, Content = card.Switch });
-        panel.Children.Add(StatusLine("Built in"));
         if (card.Settings is not null)
         {
             panel.Children.Add(card.Settings);
@@ -133,15 +102,6 @@ internal sealed partial class PluginsPanel : StackPanel
 
         return panel;
     }
-
-    /// <summary>A small line under a plugin's name: built in, downloaded, or not downloaded yet.</summary>
-    private static TextBlock StatusLine(string text) => new()
-    {
-        Text = text,
-        Padding = new Thickness(16, 0, 16, 0),
-        Style = (Style)Application.Current.Resources["ResonateCaptionTextStyle"],
-        FontWeight = FontWeights.SemiBold,
-    };
 
     private void OnBuiltInChanged(object? sender, string id)
     {
