@@ -48,6 +48,9 @@ public sealed record TrackInfo(
 
     public int? DiscNumber { get; init; }
 
+    /// <summary>The year its album came out, when Spotify says (smart playlists' "released" rules).</summary>
+    public int? ReleaseYear { get; init; }
+
     /// <summary>The first artist's name, for grouping and statistics.</summary>
     public string PrimaryArtist => ArtistRefs.Count > 0 ? ArtistRefs[0].Name : Artists;
 
@@ -86,8 +89,17 @@ public sealed record TrackInfo(
             AlbumId = album?.Id,
             TrackNumber = item.TrackNumber,
             DiscNumber = item.DiscNumber,
+            ReleaseYear = ParseYear(album?.ReleaseDate),
         };
     }
+
+    /// <summary>The year of Spotify's "release_date" ("1999", "1999-03" or "1999-03-01"); null when missing or "0000".</summary>
+    public static int? ParseYear(string? releaseDate) =>
+        releaseDate is { Length: >= 4 }
+            && int.TryParse(releaseDate.AsSpan(0, 4), NumberStyles.None, CultureInfo.InvariantCulture, out var year)
+            && year > 0
+            ? year
+            : null;
 
     /// <summary>Reads Spotify's "added_at" (ISO 8601); null when missing or unreadable.</summary>
     public static DateTimeOffset? ParseTime(string? value) =>

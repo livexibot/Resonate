@@ -479,6 +479,13 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        if (key == NewSmartPlaylistKey)
+        {
+            // Not a page: it makes a smart playlist, then opens it (MainWindow.SmartPlaylists.cs).
+            DispatcherQueue.TryEnqueue(OpenNewSmartPlaylist);
+            return;
+        }
+
         SelectNav(key);
         Navigate(key, remember: true);
     }

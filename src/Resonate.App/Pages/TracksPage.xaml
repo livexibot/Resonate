@@ -81,6 +81,9 @@
                             </StackPanel>
                         </Grid>
 
+                        <!-- The list's own controls, such as a smart playlist's rules (TrackListSource.CreatePanel) -->
+                        <Border x:Name="SourcePanel" Visibility="Collapsed" />
+
                         <!-- Play, shuffle, filter and sort (filter and sort move to a second row when narrow) -->
                         <Grid
                             x:Name="ActionsGrid"

@@ -273,6 +273,27 @@ public sealed class SpotifyWebApi : ISpotifyWebApi
             cancellationToken);
     }
 
+    public Task<string?> ReplacePlaylistItemsAsync(string playlistId, IReadOnlyList<string> uris, CancellationToken cancellationToken)
+    {
+        if (uris.Count > MaxPlaylistUris)
+        {
+            throw new ArgumentException($"At most {MaxPlaylistUris} songs per request.", nameof(uris));
+        }
+
+        return SendForSnapshotAsync(
+            HttpMethod.Put,
+            $"playlists/{Uri.EscapeDataString(playlistId)}/items",
+            JsonContent.Create(new AddItemsBody { Uris = [.. uris] }, SpotifyJsonContext.Default.AddItemsBody),
+            cancellationToken);
+    }
+
+    public Task ChangePlaylistDetailsAsync(string playlistId, string name, CancellationToken cancellationToken) =>
+        SendAndForgetAsync(
+            HttpMethod.Put,
+            $"playlists/{Uri.EscapeDataString(playlistId)}",
+            JsonContent.Create(new ChangePlaylistDetailsBody { Name = name }, SpotifyJsonContext.Default.ChangePlaylistDetailsBody),
+            cancellationToken);
+
     public async Task<SimplifiedPlaylist> CreatePlaylistAsync(string name, string? description, bool isPublic, CancellationToken cancellationToken)
     {
         using var response = await SendAsync(

@@ -153,6 +153,9 @@ public sealed class AppSettings
 
     // Smart playlists
 
+    /// <summary>The user's smart playlists: their rules, and the playlist on Spotify each one keeps up to date.</summary>
+    public List<Resonate.Spotify.Library.SmartPlaylist> SmartPlaylists { get; set; } = [];
+
     // Window shapes
 
     // Summon bar

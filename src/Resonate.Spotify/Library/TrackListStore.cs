@@ -13,6 +13,12 @@ public sealed class CachedTrackList
 
     public DateTimeOffset SavedAt { get; set; }
 
+    /// <summary>
+    /// 1 when every song was read since songs carry their release year
+    /// (<see cref="TrackInfo.ReleaseYear"/>); 0 for lists stored before.
+    /// </summary>
+    public int Format { get; set; }
+
     public List<TrackInfo> Tracks { get; set; } = [];
 }
 
