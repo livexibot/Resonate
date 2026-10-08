@@ -120,7 +120,9 @@ Building and testing:
   playing), a page still alive after leaving it, memory growing over
   10 MB in the last round (read on Search, which shows no pictures; read
   on Home it also counted memory given back once another page opened), a
-  warm start over 1 s, or a build warning.
+  warm start over 1 s, or a build warning. Memory is read on Search after
+  every step of every round, so the report's growth table and the error
+  name the step that keeps memory.
   GitHub's machines draw without a graphics card, so judge drawing cost
   on a real PC. WinUI lets go of a closed page only on a later frame, and
   an idle window draws none, so the test asks for frames between

@@ -253,10 +253,10 @@ jobs:
           $folder = Join-Path $env:GITHUB_WORKSPACE 'artifacts/perf'
           $process = Start-Process -FilePath artifacts/win-x64/Resonate.exe -ArgumentList '--perf', $folder -PassThru
           $report = Join-Path $folder 'perf.md'
-          if (-not $process.WaitForExit(300000)) {
+          if (-not $process.WaitForExit(420000)) {
             $process.Kill()
             if (Test-Path $report) { Get-Content $report }
-            throw 'The speed test did not finish within five minutes.'
+            throw 'The speed test did not finish within seven minutes.'
           }
           if (-not (Test-Path $report)) { throw 'The speed test wrote no results.' }
           Get-Content $report
