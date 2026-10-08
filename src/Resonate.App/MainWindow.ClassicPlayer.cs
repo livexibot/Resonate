@@ -19,6 +19,9 @@ public sealed partial class MainWindow
     private ClassicPlayer? _classicPlayer;
     private bool _windowActive = true;
 
+    /// <summary>The classic player is in use and shows at double size (for the screenshot tour's check).</summary>
+    internal bool ClassicPlayerShowsDoubleSize => _classicPlayer?.ShowsDoubleSize == true;
+
     /// <summary>The queue pane is open (the classic player's PL button is lit).</summary>
     public bool IsQueueOpen => QueuePane.IsOpen;
 

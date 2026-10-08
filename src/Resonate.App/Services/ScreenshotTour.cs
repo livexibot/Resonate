@@ -192,6 +192,12 @@ internal sealed class ScreenshotTour
         skins.DoubleSize = true;
         await Task.Delay(1200);
         await CaptureAsync($"{number++}-classic-double.png");
+        if (!_window.ClassicPlayerShowsDoubleSize)
+        {
+            // Double size gives way in narrow windows; the tour's window must still have room for it.
+            Record("The classic player did not show at double size in the screenshot tour's window.");
+        }
+
         skins.DoubleSize = false;
 
         skins.Shaded = true;

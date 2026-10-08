@@ -40,10 +40,11 @@ public sealed partial class ClassicPlayer : UserControl
 
     /// <summary>
     /// Room the rest of the row needs beside the cover and the skin: padding
-    /// and spacing, a readable song title, and the plugin and heart buttons.
-    /// Double size gives way to normal size when the window can't spare it.
+    /// and spacing (32 + 48), the plugin and heart buttons (74), and the start
+    /// of the song's title (64). Double size gives way to normal size when the
+    /// window can't spare it (a 1024-wide window at 100 % still can).
     /// </summary>
-    private const double RestOfRowWidth = 32 + 48 + 160 + 80;
+    private const double RestOfRowWidth = 32 + 48 + 74 + 64;
 
     /// <summary>What the marquee says when nothing is loaded.</summary>
     private const string IdleLine = "Resonate";
@@ -384,6 +385,9 @@ public sealed partial class ClassicPlayer : UserControl
         // Before the first layout there is no width yet; SizeChanged follows.
         return available <= 0 || needed <= available ? doubled : single;
     }
+
+    /// <summary>Whether the skin shows at double size now (it may not, in a narrow window).</summary>
+    public bool ShowsDoubleSize => _loaded && _scale > ScaleFor(1);
 
     private int ScaleFor(int factor) => Math.Clamp((int)Math.Round(factor * _raster, MidpointRounding.AwayFromZero), 1, MaxScale);
 
