@@ -42,6 +42,20 @@ public sealed class CoverImages
     public ImageSource? Get(string? url, int displayWidth) => Find(url, displayWidth)?.Bitmap;
 
     /// <summary>
+    /// Like <see cref="Get"/>, and <paramref name="missing"/> ends true when
+    /// the picture can not be had (no address, offline, or a picture Windows
+    /// can not read), so a colour tile can stand in for it, or false once it
+    /// shows. A picture is never shown over a colour tile while it loads:
+    /// that tile would flash for a moment before every cover.
+    /// </summary>
+    public ImageSource? Get(string? url, int displayWidth, out Task<bool> missing)
+    {
+        var entry = Find(url, displayWidth);
+        missing = entry?.Missing ?? Task.FromResult(true);
+        return entry?.Bitmap;
+    }
+
+    /// <summary>
     /// Like <see cref="Get"/>, but waits until the picture has its pixels
     /// (for places that fade a cover in). <c>Loaded</c> is false when the
     /// picture could not be had, or when Windows loads the address itself
@@ -98,17 +112,24 @@ public sealed class CoverImages
 
         var bitmap = new BitmapImage { DecodePixelWidth = key.Width, DecodePixelType = DecodePixelType.Logical };
         Task<bool> ready;
+        Task<bool> missing;
         if (Store is null || !CoverStore.Handles(url))
         {
+            // Windows decodes it once it is on screen, and tells then.
+            var told = new TaskCompletionSource<bool>();
+            bitmap.ImageOpened += (_, _) => told.TrySetResult(false);
+            bitmap.ImageFailed += (_, _) => told.TrySetResult(true);
             bitmap.UriSource = uri;
             ready = Task.FromResult(false);
+            missing = told.Task;
         }
         else
         {
             ready = LoadAsync(key, bitmap);
+            missing = FailedAsync(ready);
         }
 
-        var entry = new Entry(key, bitmap, ready);
+        var entry = new Entry(key, bitmap, ready, missing);
         _index[key] = _recent.AddFirst(entry);
         while (_index.Count > Kept && _recent.Last is { } oldest)
         {
@@ -152,5 +173,7 @@ public sealed class CoverImages
         return false;
     }
 
-    private sealed record Entry((string Url, int Width) Key, BitmapImage Bitmap, Task<bool> Ready);
+    private static async Task<bool> FailedAsync(Task<bool> ready) => !await ready;
+
+    private sealed record Entry((string Url, int Width) Key, BitmapImage Bitmap, Task<bool> Ready, Task<bool> Missing);
 }

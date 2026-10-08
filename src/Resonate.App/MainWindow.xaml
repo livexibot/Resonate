@@ -290,9 +290,9 @@
                                     <Grid
                                         Width="40"
                                         Height="40"
-                                        Background="{x:Bind PlaceholderBrush}"
+                                        Background="{x:Bind Cover.Background, Mode=OneWay}"
                                         CornerRadius="{ThemeResource ResonateCornerSmall}">
-                                        <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
+                                        <Image Source="{x:Bind Cover.Image}" Stretch="UniformToFill" />
                                     </Grid>
                                     <StackPanel
                                         Grid.Column="1"

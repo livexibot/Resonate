@@ -35,9 +35,6 @@ public abstract class TrackListSource
     /// <summary>The Spotify playlist or album to play inside, when the list is shown in its own order.</summary>
     public virtual string? ContextUri => null;
 
-    /// <summary>A spotify: link for "Open in Spotify", when there is one.</summary>
-    public virtual string? SpotifyLink => null;
-
     /// <summary>The user may reorder and remove songs (their own or a collaborative playlist).</summary>
     public virtual bool CanEdit => false;
 

@@ -20,8 +20,6 @@ public sealed class LikedSongsSource : TrackListSource
     public override string? ContextUri =>
         _services.Library.Snapshot?.User?.Id is { } userId ? $"spotify:user:{userId}:collection" : null;
 
-    public override string? SpotifyLink => "spotify:collection:tracks";
-
     public override string EmptyText => "Songs you like appear here. Use the heart next to any song.";
 
     public override string OwnOrderName => "Recently added";
@@ -56,8 +54,6 @@ public sealed class PlaylistSource : TrackListSource
     public string PlaylistId => _id;
 
     public override string? ContextUri => Cached?.Uri ?? $"spotify:playlist:{_id}";
-
-    public override string? SpotifyLink => ContextUri;
 
     public override bool CanEdit => _services.Library.CanEdit(_id);
 
@@ -131,8 +127,6 @@ public sealed class AlbumSource : TrackListSource
     public override string Key => Prefix + _id;
 
     public override string? ContextUri => $"spotify:album:{_id}";
-
-    public override string? SpotifyLink => ContextUri;
 
     public override bool IsAlbum => true;
 

@@ -200,10 +200,13 @@ Spotify Web API (these changed a lot; re-check before relying on them):
   public (see open questions).
 - Design guidelines: Spotify content (names, covers, playback) must be
   attributed to Spotify with its logo and link back to Spotify. "Spotify"
-  must not be in the app's name. Resonate credits Spotify in words in
-  Settings, About, and offers "Open in Spotify"; the official logo is not
-  added yet (open question). The owner asked (8 October 2026) to drop the
-  caption under the sidebar, so keep the credit in About.
+  must not be in the app's name. The owner asked (8 October 2026) to drop
+  the caption under the sidebar, then every "Open in Spotify" button and
+  every "from Spotify" credit line (Home's "Song and cover from Spotify",
+  About's "Songs, covers and details come from Spotify"): Resonate is meant
+  to be used instead of Spotify's app. About keeps only "Resonate is not
+  affiliated with Spotify." Before going public this conflicts with the
+  guidelines again (open question).
 
 Windows:
 - Resonate keeps the Spotify app in the background (owner's request,
@@ -228,7 +231,7 @@ Windows:
   Otherwise the mode leaves the app alone: Resonate does not start, hide,
   slow down or restart it, does not listen to its media session, read its
   mixer volume or write its settings file (the equalizer waits and reaches
-  local files only), and "Open in Spotify" opens open.spotify.com. A
+  local files only). A
   Spotify the user opens again is not closed. Music plays on whatever
   Spotify Connect device Spotify lists: the one already playing, else
   Resonate's own player on this PC (below; a play command waits up to
@@ -433,6 +436,15 @@ only the owner's PC can tell):
   (while the pointer rests on a playlist in the sidebar) use at most six
   downloads. `CoverImages` makes one picture per cover and size, shared by
   every row. Signing out clears the folder.
+- No colour tile flashes before a cover (the owner's request, 8 October
+  2026): rows and cards (`CoverTile` in `ViewModels.cs`) and page headers
+  (`Helpers/PageCover`, which also hides the shadow) draw nothing while a
+  cover loads, and the album's colour tile only for a song without a cover
+  or once its cover can not be had (`CoverImages.Get(..., out missing)`).
+  A song list waits up to 150 ms for the first screen of covers before
+  showing its songs (`TracksPage.WarmCoversAsync`; from memory or disk
+  that takes a frame or two). Measure: that opening a playlist shows its
+  covers with the songs.
 
 Plugins (checked 2026-10-07):
 - A Native AOT app cannot load .NET code at run time, so plugins are
@@ -964,9 +976,8 @@ and Resonate never sees the audio.
 - Resonate is not affiliated with Spotify. Never make the app look like an
   official Spotify product, never put "Spotify" in its name or icon, and say
   "for Spotify". Spotify's design guidelines require their logo as the
-  credit next to Spotify content; whether to add it is an open question
-  for the owner (until then Resonate credits Spotify in words, in
-  Settings, About).
+  credit next to Spotify content; the owner had the text credits removed
+  (8 October 2026), so this is an open question again before going public.
 
 ## Suggested technology
 
@@ -1050,8 +1061,7 @@ Built then: the sidebar and the queue can be dragged wider (double-click
 the gap for the usual width; widths are remembered), covers are kept on
 disk and fetched ahead, the window opens where it was left (size, place,
 maximised), double-clicking a playlist in the sidebar plays it and
-right-clicking it offers Play, Shuffle play, Open in Spotify and Copy
-link, the playlist that plays shows a speaker, the window's name is the
+right-clicking it offers Play, Shuffle play and Copy link, the playlist that plays shows a speaker, the window's name is the
 song that plays (taskbar and Alt+Tab), and clicking the song's title in
 the player bar opens what it plays from.
 
@@ -1062,6 +1072,13 @@ dropped). The playing song in the player bar can also be swiped, as on
 Spotify's phone app: left for the next song, right for the previous one
 (`Controls/PlayerBar.Swipe.cs`; distances and flick speed in
 `Resonate.Themes/SongSwipe.cs`, tested).
+
+Also on 8 October 2026 the owner asked to click an artist or album name in
+a playlist to open its page. In song rows (playlists, Liked Songs, albums,
+search and the queue) the names become links while the pointer is on them
+(`Helpers/SongLinks`, `helpers:SongLinks.To="Artists"` or `"Album"` on the
+row's TextBlock), the one under the pointer underlined; a click reads the
+row it is on then, so a reused row never opens the wrong page.
 
 ## How work gets done
 
@@ -1274,8 +1291,9 @@ when the work first needs them, then tick them off here.
   repository, own developer app), ask Spotify for permission, or reshape it
   to add value Spotify's app lacks. The owner decides.
 - Open: add Spotify's official logo as the credit next to Spotify content
-  (the guidelines require it), or keep the text credit while Resonate stays
-  personal. The original rule said never use the logo.
+  (the guidelines require it), or no credit while Resonate stays personal
+  (the owner had the text credits removed on 8 October 2026). The original
+  rule said never use the logo.
 - Decided: the repository becomes public so the updater works without
   tokens (7 October 2026). The choice was offered with the Developer Policy
   question spelled out; the logo question below is still open.

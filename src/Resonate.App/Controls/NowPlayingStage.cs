@@ -7,7 +7,6 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Resonate.App.Helpers;
-using Resonate.App.Pages.Lists;
 using Resonate.App.Services;
 using Resonate.App.Themes;
 using Resonate.Spotify.History;
@@ -78,9 +77,7 @@ internal sealed partial class NowPlayingStage : Grid
     private readonly TextBlock _title;
     private readonly TextBlock _artists;
     private readonly TextBlock _source;
-    private readonly TextBlock _credit;
     private readonly Button? _play;
-    private readonly Button? _openInSpotify;
     private readonly StackPanel? _upNext;
     private readonly List<(Grid Cover, Image Image, TextBlock Title, TextBlock Artists, Grid Row)> _upNextRows = [];
     private readonly TextBlock? _upNextLine;
@@ -127,12 +124,6 @@ internal sealed partial class NowPlayingStage : Grid
         };
         _artists = new TextBlock { Style = (Style)resources["ResonateTitleTextStyle"], FontSize = away ? 26 : 22, FontWeight = Microsoft.UI.Text.FontWeights.Normal };
         _source = new TextBlock { Style = (Style)resources["ResonateSecondaryTextStyle"], FontSize = away ? 16 : 14 };
-        _credit = new TextBlock
-        {
-            Style = (Style)resources["ResonateCaptionTextStyle"],
-            Text = "Song and cover from Spotify",
-            Margin = new Thickness(0, 14, 0, 0),
-        };
         _text.Children.Add(_eyebrow);
         _text.Children.Add(_title);
         _text.Children.Add(_artists);
@@ -148,22 +139,11 @@ internal sealed partial class NowPlayingStage : Grid
                 Height = 64,
                 FontSize = 24,
                 Content = PlayGlyph,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 18, 0, 0),
             };
             _play.Click += OnPlayClick;
-            _openInSpotify = new Button
-            {
-                Style = (Style)resources["ResonateSubtleButtonStyle"],
-                Content = "Open in Spotify",
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            _openInSpotify.Click += OnOpenInSpotifyClick;
-            _text.Children.Add(new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 16,
-                Margin = new Thickness(0, 18, 0, 0),
-                Children = { _play, _openInSpotify },
-            });
+            _text.Children.Add(_play);
 
             _upNext = new StackPanel { Spacing = 10, Margin = new Thickness(0, 26, 0, 0), Visibility = Visibility.Collapsed };
             _upNext.Children.Add(new TextBlock { Style = (Style)resources["ResonateEyebrowTextStyle"], Text = "UP NEXT" });
@@ -187,8 +167,6 @@ internal sealed partial class NowPlayingStage : Grid
             };
             _text.Children.Add(_upNextLine);
         }
-
-        _text.Children.Add(_credit);
 
         _cover.Children.Add(_coverBack);
         _cover.Children.Add(_coverFront);
@@ -416,9 +394,7 @@ internal sealed partial class NowPlayingStage : Grid
                 state.ArtworkUrl,
                 state.ArtworkBytes,
                 state.FullArtworkUrl,
-                state.TrackUri,
-                state.IsPlaying ? "NOW PLAYING" : "PAUSED",
-                state.Source == PlaybackSource.Spotify);
+                state.IsPlaying ? "NOW PLAYING" : "PAUSED");
         }
         else if (_lastPlayed is { } play)
         {
@@ -430,9 +406,7 @@ internal sealed partial class NowPlayingStage : Grid
                 play.ImageUrl,
                 null,
                 null,
-                play.Uri,
-                "LAST PLAYED",
-                true);
+                "LAST PLAYED");
         }
 
         if (!_songShown || song != _shown)
@@ -462,12 +436,6 @@ internal sealed partial class NowPlayingStage : Grid
             _artists.Visibility = Visibility.Collapsed;
             _source.Text = "Play something and it shows here.";
             _source.Visibility = Visibility.Visible;
-            _credit.Visibility = Visibility.Collapsed;
-            if (_openInSpotify is not null)
-            {
-                _openInSpotify.Visibility = Visibility.Collapsed;
-            }
-
             _coverSong = null;
             _coverArt = null;
             _coverFull = null;
@@ -486,13 +454,6 @@ internal sealed partial class NowPlayingStage : Grid
         _artists.Visibility = song.Artists.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         _source.Text = song.Source;
         _source.Visibility = song.Source.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-        var fromSpotify = song.FromSpotify && song.Uri is not null && song.Uri.StartsWith("spotify:", StringComparison.Ordinal);
-        _credit.Visibility = song.FromSpotify ? Visibility.Visible : Visibility.Collapsed;
-        if (_openInSpotify is not null)
-        {
-            _openInSpotify.Visibility = fromSpotify ? Visibility.Visible : Visibility.Collapsed;
-        }
-
         ShowCover(song);
         ShowColours(song.SmallUrl ?? song.FullUrl, song.Bytes, song.Name, song.SmallUrl ?? (object?)song.Bytes ?? song.FullUrl ?? song.Name);
     }
@@ -995,8 +956,6 @@ internal sealed partial class NowPlayingStage : Grid
         }
     }
 
-    private void OnOpenInSpotifyClick(object sender, RoutedEventArgs e) => TrackActions.OpenInSpotify(_shown?.Uri);
-
     private void OnTitleTapped(object sender, TappedRoutedEventArgs e)
     {
         if (_services.Player.State.HasTrack)
@@ -1014,7 +973,5 @@ internal sealed partial class NowPlayingStage : Grid
         string? SmallUrl,
         byte[]? Bytes,
         string? FullUrl,
-        string? Uri,
-        string Label,
-        bool FromSpotify);
+        string Label);
 }
