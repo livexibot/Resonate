@@ -269,17 +269,26 @@ public sealed class SpectrumAnalyserTests
             _ = analyser.Read();
         }
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var q = 0; q < 2000; q++)
+        // Up to three rounds: the runtime itself may allocate once on this
+        // thread (472 bytes, once, on CI's Windows machine), while anything
+        // the analyser allocates shows up in every round.
+        var allocated = long.MaxValue;
+        for (var round = 0; round < 3 && allocated != 0; round++)
         {
-            analyser.Process(q % 50 < 40 ? quanta[q % 8] : silence, Channels, Rate);
-            if ((q & 1) == 0)
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            for (var q = 0; q < 2000; q++)
             {
-                _ = analyser.Read();
+                analyser.Process(q % 50 < 40 ? quanta[q % 8] : silence, Channels, Rate);
+                if ((q & 1) == 0)
+                {
+                    _ = analyser.Read();
+                }
             }
+
+            allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         }
 
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Assert.Equal(0, allocated);
     }
 
     [Fact]

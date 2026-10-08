@@ -1,7 +1,12 @@
 # Checks every pull request (and main): formatting, the Spotify, theme and
-# plugin logic's tests on Linux, and the Windows app built with Native AOT,
-# timed, photographed with demo data, installed, updated, and running its
-# plugins from the installed copy.
+# plugin logic's tests on Linux and on Windows, and the Windows app built
+# with Native AOT, timed, photographed with demo data, installed, updated,
+# running its plugins from the installed copy, and its speed and memory.
+#
+# The Windows app is built once; the screenshots and install checks and the
+# speed and memory test then run side by side on two more machines, from
+# that build. Pull requests that change only text (Markdown, docs/) skip
+# everything but the first job.
 name: CI
 
 on:
@@ -27,8 +32,40 @@ env:
   VPK_VERSION: 1.2.161
 
 jobs:
+  # Fails open: a push to main, a manual run, or any trouble listing the
+  # files means everything runs.
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    outputs:
+      code: ${{ steps.files.outputs.code }}
+    steps:
+      - name: List the changed files
+        id: files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          code=true
+          if [ -n "$PR" ]; then
+            # Renamed files count under both names.
+            if files=$(gh api "repos/${{ github.repository }}/pulls/$PR/files" --paginate --jq '.[] | .filename, (.previous_filename // empty)'); then
+              echo "$files"
+              if [ -n "$files" ] && ! echo "$files" | grep -Ev '\.md$|^docs/' > /dev/null; then
+                code=false
+              fi
+            fi
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "Build and test: $code"
+
   logic:
     name: Spotify, theme and plugin logic, formatting (Linux)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -60,13 +97,12 @@ jobs:
           dotnet test tests/Resonate.Themes.Tests/Resonate.Themes.Tests.csproj -c Release
           dotnet test tests/Resonate.Plugins.Tests/Resonate.Plugins.Tests.csproj -c Release
 
-  app:
-    name: Windows app
+  windows-tests:
+    name: Logic tests on Windows
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: windows-latest
-    timeout-minutes: 45
-    permissions:
-      # Only to keep the screenshots under refs/screenshots (see below).
-      contents: write
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
 
@@ -84,6 +120,19 @@ jobs:
       - name: Test the plugins on Windows
         run: dotnet test tests/Resonate.Plugins.Tests/Resonate.Plugins.Tests.csproj -c Release
 
+  app:
+    name: Windows app (build)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
       # Plugins are not part of the app or its installer: they and their
       # helper are packed next to it, as a release does, and the app is
       # built with the catalog of those files.
@@ -99,6 +148,50 @@ jobs:
       # an unrelated pull request red overnight.
       - name: Publish (x64, Native AOT)
         run: dotnet publish src/Resonate.App/Resonate.App.csproj -c Release -r win-x64 -p:Platform=x64 "-p:PluginCatalog=${{ github.workspace }}/artifacts/plugins/plugin-catalog.json" -o artifacts/win-x64 -bl:artifacts/publish.binlog -warnaserror -warnnotaserror:NU1901,NU1902,NU1903,NU1904
+
+      # The app, the plugins and their helper, for the two jobs below.
+      - name: Keep the build for the checks
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-app
+          path: |
+            artifacts/win-x64
+            artifacts/plugins
+            artifacts/plugin-host/win-x64
+            !artifacts/**/*.pdb
+          compression-level: 1
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: publish-log
+          path: artifacts/publish.binlog
+          if-no-files-found: ignore
+
+  app-checks:
+    name: Windows app (screenshots, install, update)
+    needs: app
+    if: ${{ !cancelled() && needs.app.result == 'success' }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      # Only to keep the screenshots under refs/screenshots (see below).
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      # For vpk, which packs the installer in the install test.
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: windows-app
+          path: artifacts
 
       - name: Measure start-up time
         shell: pwsh
@@ -251,32 +344,6 @@ jobs:
           Write-Output "Update check: $outcome"
           if ($outcome -ne 'ReadyToRestart 0.0.2-ci') { throw "The installed copy did not download the new version ($outcome)." }
 
-      # Speed and memory with a heavy listener's library (10,000 liked songs):
-      # every page, scrolling, switching looks, what the app costs while
-      # nobody touches it, and pages or memory that are never given back.
-      # The results are printed here and in the run's summary.
-      - name: Measure speed and memory
-        shell: pwsh
-        run: |
-          # Windows' "Animation effects" on, as on the owner's PC, so page and
-          # look-switching animations and the moving cover are measured too.
-          Add-Type -Namespace Win32 -Name Spi -MemberDefinition '[DllImport("user32.dll")] public static extern bool SystemParametersInfo(uint action, uint param, IntPtr value, uint flags);'
-          [Win32.Spi]::SystemParametersInfo(0x1043, 0, [IntPtr]1, 3) | Out-Null
-          $folder = Join-Path $env:GITHUB_WORKSPACE 'artifacts/perf'
-          $process = Start-Process -FilePath artifacts/win-x64/Resonate.exe -ArgumentList '--perf', $folder -PassThru
-          $report = Join-Path $folder 'perf.md'
-          if (-not $process.WaitForExit(420000)) {
-            $process.Kill()
-            if (Test-Path $report) { Get-Content $report }
-            throw 'The speed test did not finish within seven minutes.'
-          }
-          if (-not (Test-Path $report)) { throw 'The speed test wrote no results.' }
-          Get-Content $report
-          Get-Content $report | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
-          Get-Content (Join-Path $folder 'perf.json')
-          $errors = Join-Path $folder 'perf-errors.txt'
-          if (Test-Path $errors) { Get-Content $errors; throw 'The speed test found the problems above.' }
-
       # Last, so a broken tour still keeps its screenshots and runs the
       # install test above, yet fails the pull request.
       - name: Check the screenshot tour
@@ -295,18 +362,53 @@ jobs:
           path: artifacts/screenshots
           if-no-files-found: warn
 
+  app-perf:
+    name: Windows app (speed and memory)
+    needs: app
+    if: ${{ !cancelled() && needs.app.result == 'success' }}
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: windows-app
+          path: artifacts
+
+      # Speed and memory with a heavy listener's library (10,000 liked songs):
+      # every page, scrolling, switching looks, what the app costs while
+      # nobody touches it, and pages or memory that are never given back.
+      # The results are printed here and in the run's summary.
+      - name: Measure speed and memory
+        shell: pwsh
+        run: |
+          # Windows' "Animation effects" on, as on the owner's PC, so page and
+          # look-switching animations and the moving cover are measured too.
+          Add-Type -Namespace Win32 -Name Spi -MemberDefinition '[DllImport("user32.dll")] public static extern bool SystemParametersInfo(uint action, uint param, IntPtr value, uint flags);'
+          [Win32.Spi]::SystemParametersInfo(0x1043, 0, [IntPtr]1, 3) | Out-Null
+          # One start first, so the measured run does not pay for this
+          # machine opening the freshly downloaded files for the first time.
+          $warmup = Join-Path $env:RUNNER_TEMP 'warm-up.txt'
+          $process = Start-Process -FilePath artifacts/win-x64/Resonate.exe -ArgumentList '--demo', '--startup-benchmark', $warmup -PassThru
+          if (-not $process.WaitForExit(60000)) { $process.Kill(); throw 'Resonate did not show a window within a minute.' }
+          $folder = Join-Path $env:GITHUB_WORKSPACE 'artifacts/perf'
+          $process = Start-Process -FilePath artifacts/win-x64/Resonate.exe -ArgumentList '--perf', $folder -PassThru
+          $report = Join-Path $folder 'perf.md'
+          if (-not $process.WaitForExit(420000)) {
+            $process.Kill()
+            if (Test-Path $report) { Get-Content $report }
+            throw 'The speed test did not finish within seven minutes.'
+          }
+          if (-not (Test-Path $report)) { throw 'The speed test wrote no results.' }
+          Get-Content $report
+          Get-Content $report | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+          Get-Content (Join-Path $folder 'perf.json')
+          $errors = Join-Path $folder 'perf-errors.txt'
+          if (Test-Path $errors) { Get-Content $errors; throw 'The speed test found the problems above.' }
+
       - name: Upload speed and memory results
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: perf
           path: artifacts/perf
-          if-no-files-found: ignore
-
-      - name: Upload build log
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: publish-log
-          path: artifacts/publish.binlog
           if-no-files-found: ignore
