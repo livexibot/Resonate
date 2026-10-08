@@ -11,6 +11,8 @@ using Resonate.Spotify.WebApi;
 using Resonate.Themes;
 using Resonate.Windows;
 using Resonate.Windows.LocalAudio;
+using Windows.Foundation;
+using Windows.Graphics;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
 
@@ -60,6 +62,14 @@ internal sealed class ScreenshotTour
                 await Task.Delay(800);
                 await CaptureAsync("0-home-top-year.png");
                 home.PickTopRange(TopRange.ShortTerm);
+
+                // The mix covers, and the row of songs played lately.
+                home.ScrollTo(HomeSection.Mixes);
+                await Task.Delay(800);
+                await CaptureAsync("0-home-mixes.png");
+                home.ScrollTo(HomeSection.Recent);
+                await Task.Delay(800);
+                await CaptureAsync("0-home-recent.png");
             }
 
             _window.Open(DailyMixSource.KeyFor(1));
@@ -133,7 +143,9 @@ internal sealed class ScreenshotTour
             }
 
             number = await CoverEffectsAsync(number);
+            number = await LayoutsAsync(number);
             number = await ClassicPlayerAsync(number);
+            number = await SwitchingAsync(number);
 
             theme.Select(ThemePresets.Default.Id, transition: ThemeTransitionKind.None);
             _window.ShowSignIn();
@@ -179,10 +191,80 @@ internal sealed class ScreenshotTour
     }
 
     /// <summary>
+    /// The player hovering over a long playlist scrolled to its end (its last
+    /// song must stay clear of the player), with the queue open, and in a
+    /// narrow window; then the sidebar reaching the bottom beside a floating
+    /// player. Afterwards the look, the sidebar switch and the window's size
+    /// are as they were.
+    /// </summary>
+    private async Task<int> LayoutsAsync(int number)
+    {
+        var theme = App.Services.Theme;
+        theme.Select(ThemePresets.Default.Id, transition: ThemeTransitionKind.None);
+        theme.Edit(look => look with { PlayerLayout = PlayerLayout.Hovering });
+        _window.OpenPlaylist("focus");
+        await Task.Delay(1500);
+        await ScrollToEndAsync();
+        await CaptureAsync($"{number++}-layout-hovering.png");
+        CheckHoveringPlayer();
+
+        // Next to the queue the page is narrower: the compact bar, still over the page only.
+        _window.ToggleQueue();
+        await Task.Delay(1200);
+        await ScrollToEndAsync();
+        await CaptureAsync($"{number++}-layout-hovering-queue.png");
+        CheckHoveringPlayer();
+        _window.ToggleQueue();
+
+        // A narrow window: the mini bar.
+        var size = _window.AppWindow.Size;
+        var scale = _root.XamlRoot.RasterizationScale;
+        _window.AppWindow.Resize(new SizeInt32((int)Math.Round(840 * scale), size.Height));
+        await Task.Delay(1500);
+        await ScrollToEndAsync();
+        await CaptureAsync($"{number++}-layout-narrow.png");
+        CheckHoveringPlayer();
+        _window.AppWindow.Resize(size);
+
+        theme.Select(ThemePresets.Daylight.Id, transition: ThemeTransitionKind.None);
+        theme.Delete(ThemeLibrary.CustomId);
+        theme.SidebarFullHeight = true;
+        _window.OpenPlaylist("late-night");
+        await Task.Delay(1500);
+        await CaptureAsync($"{number++}-layout-full-height.png");
+
+        theme.SidebarFullHeight = false;
+        theme.Select(ThemePresets.Default.Id, transition: ThemeTransitionKind.None);
+        await Task.Delay(800);
+        return number;
+    }
+
+    /// <summary>Twice: the list only knows its full length once its last rows are drawn.</summary>
+    private async Task ScrollToEndAsync()
+    {
+        if (_window.CurrentPage is TracksPage tracks)
+        {
+            tracks.ScrollToEndForTour();
+            await Task.Delay(400);
+            tracks.ScrollToEndForTour();
+        }
+
+        await Task.Delay(800);
+    }
+
+    private void CheckHoveringPlayer()
+    {
+        if (_window.CheckHoveringPlayer() is { } problem)
+        {
+            Record(problem);
+        }
+    }
+
+    /// <summary>
     /// The classic player with the built-in skin, while a made-up music file
-    /// plays so the visualiser moves; then double size, shade mode and its
-    /// part of Settings. Afterwards everything is as before: the player bar,
-    /// normal size, the default look and a Spotify song.
+    /// plays so the visualiser moves; then double size, shade mode, hovering
+    /// over the page, and its part of Settings. Afterwards everything is as
+    /// before: the player bar, normal size, the default look and a Spotify song.
     /// </summary>
     private async Task<int> ClassicPlayerAsync(int number)
     {
@@ -210,6 +292,13 @@ internal sealed class ScreenshotTour
         await Task.Delay(1200);
         await CaptureAsync($"{number++}-classic-shade.png");
         skins.Shaded = false;
+
+        // Hovering over the page, it hugs the skin and sits in the middle.
+        services.Theme.Edit(look => look with { PlayerLayout = PlayerLayout.Hovering });
+        await Task.Delay(1200);
+        await CaptureAsync($"{number++}-classic-hovering.png");
+        services.Theme.Select(ThemePresets.Default.Id, transition: ThemeTransitionKind.None);
+        services.Theme.Delete(ThemeLibrary.CustomId);
 
         _window.OpenSettings(SettingsSection.ClassicPlayer);
         await Task.Delay(1400);
@@ -308,6 +397,66 @@ internal sealed class ScreenshotTour
         encoder.SetPixelData(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Ignore, (uint)width, (uint)height, 96, 96, pixels);
         await encoder.FlushAsync();
         return await ImageStreams.ToBytesAsync(stream);
+    }
+
+    /// <summary>
+    /// Switching looks with Spread from the middle, Ripple (from a fixed
+    /// point) and Cross-fade, each held halfway so the picture shows both
+    /// looks, then let finish. Windows' animations may be off on CI's
+    /// machine, so the tour asks for them regardless. Afterwards the default
+    /// look is back.
+    /// </summary>
+    private async Task<int> SwitchingAsync(int number)
+    {
+        var theme = App.Services.Theme;
+        theme.Select(ThemePresets.Default.Id, transition: ThemeTransitionKind.None);
+        _window.OpenPlaylist("focus");
+        await Task.Delay(1300);
+
+        var origin = new Point(_root.ActualWidth * 0.3, _root.ActualHeight * 0.4);
+        (ThemeTransitionKind Kind, string Name, Point? Origin)[] switches =
+        [
+            (ThemeTransitionKind.Grow, "grow", null),
+            (ThemeTransitionKind.Ripple, "ripple", origin),
+            (ThemeTransitionKind.Fade, "fade", null),
+        ];
+
+        theme.AnimateRegardless = true;
+        try
+        {
+            foreach (var (kind, name, from) in switches)
+            {
+                // Back and forth between a dark look and a light one.
+                var target = theme.Current.Id == ThemePresets.Daylight.Id ? ThemePresets.Default : ThemePresets.Daylight;
+                theme.Select(target.Id, from, kind);
+                var started = theme.TransitionStarted;
+                var animation = theme.TransitionTask;
+                await Task.WhenAny(started, Task.Delay(5000));
+                if (!theme.FreezeTransition(0.5) || theme.TransitionShowing != kind)
+                {
+                    Record($"The {name} switching animation did not show (showing: {theme.TransitionShowing?.ToString() ?? "nothing"}; failure: {theme.TransitionFailure ?? "none"}).");
+                }
+
+                // Long enough for the new look's backdrop and layout to settle under the held animation.
+                await Task.Delay(900);
+                await CaptureAsync($"{number++}-switch-{name}.png");
+                theme.ResumeTransition();
+                await Task.WhenAny(animation, Task.Delay(5000));
+                if (theme.TransitionShowing is not null)
+                {
+                    Record($"The {name} switching animation did not end.");
+                }
+
+                await Task.Delay(300);
+            }
+        }
+        finally
+        {
+            theme.AnimateRegardless = false;
+        }
+
+        theme.Select(ThemePresets.Default.Id, transition: ThemeTransitionKind.None);
+        return number;
     }
 
     private void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)

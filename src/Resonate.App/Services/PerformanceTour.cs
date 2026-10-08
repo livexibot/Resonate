@@ -152,6 +152,14 @@ internal sealed partial class PerformanceTour
             {
                 _scrolls.Add(await ScrollAsync("Liked Songs, steady (2 rows a frame)", songs, rowsPerFrame: 2, frames: 300));
                 _scrolls.Add(await ScrollAsync("Liked Songs, fast (25 rows a frame)", songs, rowsPerFrame: 25, frames: 300));
+
+                // Under the hovering player, whose shadow is drawn again as rows pass beneath it.
+                theme.Edit(look => look with { PlayerLayout = PlayerLayout.Hovering });
+                await SettleAsync();
+                _scrolls.Add(await ScrollAsync("Liked Songs, under the hovering player (2 rows a frame)", songs, rowsPerFrame: 2, frames: 300));
+                theme.Select(ThemePresets.Default.Id, transition: ThemeTransitionKind.None);
+                theme.Delete(ThemeLibrary.CustomId);
+                await SettleAsync();
             }
             else
             {
@@ -160,7 +168,8 @@ internal sealed partial class PerformanceTour
 
             _memory.Add(("After scrolling 10,000 songs", await SampleMemoryAsync()));
 
-            // Each switching animation once, each to the next preset, from a playlist.
+            // Each switching animation once, each to the next preset, from a
+            // playlist. Each plays to its end before the next one starts.
             Checkpoint("switching looks");
             _window.Open("focus");
             await SettleAsync();
@@ -169,7 +178,13 @@ internal sealed partial class PerformanceTour
             foreach (var kind in Enum.GetValues<ThemeTransitionKind>().Where(k => k is not ThemeTransitionKind.Random))
             {
                 var preset = presets[next++ % presets.Count];
-                _looks.Add(await MeasureAsync($"{preset.Name} ({kind})", () => theme.Select(preset.Id, transition: kind)));
+                _looks.Add(await SwitchAsync($"{preset.Name} ({kind})", () => theme.Select(preset.Id, transition: kind)));
+            }
+
+            // Not a limit: an animation that could not be built at all is a bug.
+            if (theme.TransitionFailure is { } failure)
+            {
+                _errors.Add($"A switching animation failed, so the look changed without it: {failure}");
             }
 
             theme.Select(ThemePresets.Default.Id, transition: ThemeTransitionKind.None);
@@ -322,6 +337,43 @@ internal sealed partial class PerformanceTour
             settled.TotalMilliseconds,
             frames.LongestGapMilliseconds,
             (GC.GetTotalAllocatedBytes() - allocated) / Megabyte);
+    }
+
+    /// <summary>
+    /// Times one switch of looks like <see cref="MeasureAsync"/>, and also
+    /// when its animation first moved on screen and when it ended. It waits
+    /// for the end, so one switch never cuts the next one short.
+    /// </summary>
+    private async Task<StepResult> SwitchAsync(string name, Action action)
+    {
+        var theme = App.Services.Theme;
+        using var frames = new FrameRecorder();
+        using var layout = new LayoutWatcher(_root);
+        var allocated = GC.GetTotalAllocatedBytes();
+        var start = Stopwatch.GetTimestamp();
+        frames.Start(start);
+        layout.Start(start);
+
+        action();
+        var held = Stopwatch.GetElapsedTime(start);
+        var started = theme.TransitionStarted;
+        var animation = theme.TransitionTask;
+        var firstFrame = await frames.WhenFrameAsync(2, SettleLimit);
+        await Task.WhenAny(started, Task.Delay(SettleLimit));
+        var moved = started.IsCompletedSuccessfully ? Stopwatch.GetElapsedTime(start, started.Result) : SettleLimit;
+        await Task.WhenAny(animation, Task.Delay(SettleLimit));
+        var finished = Stopwatch.GetElapsedTime(start);
+        var settled = await layout.WhenQuietAsync(Quiet, SettleLimit);
+
+        return new StepResult(
+            name,
+            held.TotalMilliseconds,
+            firstFrame.TotalMilliseconds,
+            settled.TotalMilliseconds,
+            frames.LongestGapMilliseconds,
+            (GC.GetTotalAllocatedBytes() - allocated) / Megabyte,
+            moved.TotalMilliseconds,
+            finished.TotalMilliseconds);
     }
 
     private async Task SettleAsync(TimeSpan? limit = null)
@@ -561,6 +613,12 @@ internal sealed partial class PerformanceTour
             json.WriteNumber("settledMs", Round(step.SettledMs));
             json.WriteNumber("longestFrameMs", Round(step.LongestFrameMs));
             json.WriteNumber("allocatedMb", Round(step.AllocatedMb));
+            if (step.FirstMotionMs is { } moved && step.FinishedMs is { } finished)
+            {
+                json.WriteNumber("firstMotionMs", Round(moved));
+                json.WriteNumber("finishedMs", Round(finished));
+            }
+
             json.WriteEndObject();
         }
 
@@ -598,7 +656,7 @@ internal sealed partial class PerformanceTour
         md.AppendLine();
         AppendSteps(md, "Page", _pages);
         md.AppendLine();
-        AppendSteps(md, "Switching looks", _looks);
+        AppendSwitches(md, _looks);
         md.AppendLine();
 
         md.AppendLine("| Scrolling | Frames | Median frame | 95th percentile | Longest | Frames over 33 ms | Allocated |");
@@ -637,6 +695,17 @@ internal sealed partial class PerformanceTour
         }
     }
 
+    /// <summary>Switching looks: when the animation first moved and when it ended, both from the click (for information; no limits).</summary>
+    private static void AppendSwitches(StringBuilder md, List<StepResult> steps)
+    {
+        md.AppendLine("| Switching looks | Held the interface | First frame | First motion | Animation ended | Settled | Longest frame | Allocated |");
+        md.AppendLine("|---|---:|---:|---:|---:|---:|---:|---:|");
+        foreach (var s in steps)
+        {
+            md.AppendLine(CultureInfo.InvariantCulture, $"| {s.Name} | {s.HeldMs:N0} ms | {s.FirstFrameMs:N0} ms | {s.FirstMotionMs:N0} ms | {s.FinishedMs:N0} ms | {s.SettledMs:N0} ms | {s.LongestFrameMs:N0} ms | {s.AllocatedMb:N1} MB |");
+        }
+    }
+
     private static double Round(double value) => Math.Round(value, 1);
 
     private const int ShowMinimized = 6;
@@ -653,7 +722,7 @@ internal sealed partial class PerformanceTour
 
     private sealed record MemorySample(double WorkingSetMb, double PrivateMb, double ManagedMb, int Handles, int Threads, uint GdiObjects, uint UserObjects);
 
-    private sealed record StepResult(string Name, double HeldMs, double FirstFrameMs, double SettledMs, double LongestFrameMs, double AllocatedMb);
+    private sealed record StepResult(string Name, double HeldMs, double FirstFrameMs, double SettledMs, double LongestFrameMs, double AllocatedMb, double? FirstMotionMs = null, double? FinishedMs = null);
 
     private sealed record ScrollResult(string Name, List<double> Gaps, double AllocatedMb)
     {

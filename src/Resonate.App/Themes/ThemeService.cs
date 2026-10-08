@@ -3,6 +3,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Resonate.App.Controls;
 using Resonate.App.Services;
 using Resonate.Themes;
 using Windows.Foundation;
@@ -21,14 +22,14 @@ namespace Resonate.App.Themes;
 /// </summary>
 public sealed class ThemeService
 {
-    private static readonly TimeSpan MorphDuration = TimeSpan.FromMilliseconds(520);
-    private static readonly TimeSpan QuickMorphDuration = TimeSpan.FromMilliseconds(220);
-    private static readonly TimeSpan AccentMorphDuration = TimeSpan.FromMilliseconds(700);
+    // When the playing song's colours change the accent; switching looks times itself (ThemeTransitionCatalog).
+    private static readonly ThemeTransitionSpec AccentSlide = new(TimeSpan.FromMilliseconds(700), ThemeTransitionCatalog.Emphasized);
 
     // Heights of the themed buttons (Tokens.xaml); a round button's corner is
     // half its height, since a larger corner draws an oval instead of a pill.
     private const double ButtonHeight = 36;
     private const double PlayButtonSize = 40;
+    private const double InputHeight = 40;
 
     private readonly AppSettings _settings;
     private readonly Action _save;
@@ -37,15 +38,18 @@ public sealed class ThemeService
     private ResourceDictionary? _tokens;
     private LinearGradientBrush? _backgroundGradient;
     private Application? _application;
-    private Window? _window;
+    private MainWindow? _window;
     private FrameworkElement? _root;
     private ThemeTransitions? _transitions;
     private ThemeDefinition? _applied;
     private bool _shownIsLight;
     private ThemeColor? _artworkAccent;
     private long _morphStart;
-    private TimeSpan _morphDuration;
+    private ThemeTransitionSpec _morphSpec;
     private bool _morphing;
+    private Action<long>? _morphMoving;
+    private TaskCompletionSource? _morphDone;
+    private TaskCompletionSource<long> _started = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int _version;
     private Func<ThemeDefinition, ThemeDefinition>? _pendingEdit;
     private DispatcherQueueTimer? _saveTimer;
@@ -56,6 +60,7 @@ public sealed class ThemeService
         _save = save;
         Library = new ThemeLibrary(settings.ThemeId, settings.CustomLook, settings.SavedLooks);
         Palette = ThemePalette.From(Current);
+        _started.SetResult(0);
     }
 
     /// <summary>Raised after the look in use, or its colours, change.</summary>
@@ -79,6 +84,28 @@ public sealed class ThemeService
             SaveSoon();
         }
     }
+
+    /// <summary>The latest switch of looks: finishes when its animation has (for the speed test and the screenshot tour).</summary>
+    internal Task TransitionTask { get; private set; } = Task.CompletedTask;
+
+    /// <summary>
+    /// Finishes when the latest switch first shows on screen: the Stopwatch
+    /// time of the first frame drawn after it (or of the switch itself, when
+    /// it shows at once).
+    /// </summary>
+    internal Task<long> TransitionStarted => _started.Task;
+
+    /// <summary>The switching animation on screen right now, or null.</summary>
+    internal ThemeTransitionKind? TransitionShowing => _transitions?.Showing;
+
+    /// <summary>Why the last switching animation that failed could not play (the look then switched at once), or null.</summary>
+    internal string? TransitionFailure => _transitions?.Failure;
+
+    /// <summary>For the screenshot tour: switches animate even with Windows' animations off, as they may be on CI's machine.</summary>
+    internal bool AnimateRegardless { get; set; }
+
+    /// <summary>Whether a switch may animate now: Windows allows motion, and somebody can see the window.</summary>
+    private bool MayAnimate => (AnimationsEnabled || AnimateRegardless) && _window is { IsShown: true };
 
     /// <summary>
     /// The user allows the now-playing cover to turn like a record while a
@@ -111,6 +138,25 @@ public sealed class ThemeService
             if (_settings.BlurredCoverBackground != value)
             {
                 _settings.BlurredCoverBackground = value;
+                SaveSoon();
+                Changed?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The library sidebar runs to the bottom of the window and the player
+    /// sits under the page (and the queue) only. The user's own window
+    /// arrangement, kept whatever look is in use; off until they switch it on.
+    /// </summary>
+    public bool SidebarFullHeight
+    {
+        get => _settings.SidebarFullHeight;
+        set
+        {
+            if (_settings.SidebarFullHeight != value)
+            {
+                _settings.SidebarFullHeight = value;
                 SaveSoon();
                 Changed?.Invoke(this, EventArgs.Empty);
             }
@@ -151,18 +197,24 @@ public sealed class ThemeService
     }
 
     /// <summary>
-    /// Connects the window: <paramref name="root"/> carries the light or dark
-    /// theme, <paramref name="capture"/> is what transitions take a picture
-    /// of, and <paramref name="overlay"/> (above it) is where they play.
+    /// Connects the window: <paramref name="host"/> carries the light or dark
+    /// theme, and holds the layers where switching looks animates.
     /// </summary>
-    public void AttachWindow(Window window, FrameworkElement root, FrameworkElement capture, Panel overlay)
+    internal void AttachWindow(MainWindow window, ThemeHost host)
     {
         _window = window;
-        _root = root;
-        _transitions = new ThemeTransitions(capture, overlay);
+        _root = host;
+        _transitions = new ThemeTransitions(host);
+        window.ShownChanged += OnWindowShownChanged;
         _applied = null;
         ApplyNow(Current, Palette);
     }
+
+    /// <summary>For the screenshot tour: holds the switching animation on screen at <paramref name="progress"/> (0 to 1). False when none plays.</summary>
+    internal bool FreezeTransition(double progress) => _transitions?.Freeze(progress) ?? false;
+
+    /// <summary>Lets a held switching animation finish.</summary>
+    internal void ResumeTransition() => _transitions?.Resume();
 
     /// <summary>Switches to a preset or saved look, with the chosen transition starting at <paramref name="origin"/>.</summary>
     public void Select(string id, Point? origin = null, ThemeTransitionKind? transition = null)
@@ -174,7 +226,7 @@ public sealed class ThemeService
 
         Library.Select(id);
         Persist();
-        _ = ShowAsync(transition ?? Transition, origin, MorphDuration);
+        Switch(transition ?? Transition, origin);
     }
 
     /// <summary>
@@ -190,7 +242,7 @@ public sealed class ThemeService
             FlushPendingEdit();
             Library.Edit(change);
             Persist();
-            _ = ShowAsync(ThemeTransitionKind.Morph, null, QuickMorphDuration);
+            Switch(ThemeTransitionKind.Fade, null, ThemeTransitionCatalog.QuickEdit);
             return;
         }
 
@@ -217,7 +269,7 @@ public sealed class ThemeService
     {
         Library.Add(look);
         Persist();
-        _ = ShowAsync(Transition, origin, MorphDuration);
+        Switch(Transition, origin);
     }
 
     public void Rename(string id, string name)
@@ -234,7 +286,7 @@ public sealed class ThemeService
         Persist();
         if (wasActive)
         {
-            _ = ShowAsync(Transition, null, MorphDuration);
+            Switch(Transition, null);
         }
         else
         {
@@ -255,7 +307,7 @@ public sealed class ThemeService
         {
             Palette = PaletteFor(Current);
             ApplyThemeAccents(Palette);
-            StartMorph(Palette, AccentMorphDuration);
+            StartMorph(Palette, AccentSlide);
             Changed?.Invoke(this, EventArgs.Empty);
         }
     }
@@ -279,79 +331,101 @@ public sealed class ThemeService
         _pendingEdit = null;
         Library.Edit(change);
         Persist();
-        _ = ShowAsync(ThemeTransitionKind.None, null, TimeSpan.Zero);
+        Switch(ThemeTransitionKind.None, null);
     }
 
-    private async Task ShowAsync(ThemeTransitionKind kind, Point? origin, TimeSpan morphDuration)
+    /// <summary>Starts switching to the look in use; a newer switch takes over from this one.</summary>
+    private void Switch(ThemeTransitionKind kind, Point? origin, ThemeTransitionSpec? spec = null)
+    {
+        _started.TrySetResult(Stopwatch.GetTimestamp());
+        var started = new TaskCompletionSource<long>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _started = started;
+        TransitionTask = ShowAsync(kind, origin, spec, time => started.TrySetResult(time));
+    }
+
+    private async Task ShowAsync(ThemeTransitionKind kind, Point? origin, ThemeTransitionSpec? quick, Action<long> moving)
     {
         var version = ++_version;
         var next = Current;
         var palette = PaletteFor(next);
-        var structural = _applied is null || !_applied.HasSameStructure(next) || palette.IsLight != _shownIsLight;
+        var previous = _applied;
+        var structural = previous is null || !previous.HasSameStructure(next) || palette.IsLight != _shownIsLight;
 
-        if (kind == ThemeTransitionKind.Random)
+        kind = ThemeTransitionCatalog.Resolve(kind, Random.Shared.Next);
+        if (ThemeTransitionCatalog.RevealsLive(kind) && (IsSeeThrough(previous) || IsSeeThrough(next)))
         {
-            ThemeTransitionKind[] choices = [ThemeTransitionKind.Morph, ThemeTransitionKind.Ripple, ThemeTransitionKind.Split, ThemeTransitionKind.Blinds, ThemeTransitionKind.Wipe];
-            kind = choices[Random.Shared.Next(choices.Length)];
+            // Mica and acrylic leave the window see-through, so the old look
+            // would show through the new one as it grows; fade instead.
+            kind = ThemeTransitionKind.Fade;
         }
 
-        if (_transitions is null || !AnimationsEnabled || morphDuration <= TimeSpan.Zero)
+        if (_transitions is null || kind == ThemeTransitionKind.None || !MayAnimate)
         {
-            kind = ThemeTransitionKind.None;
+            _transitions?.Clear();
+            ApplyNow(next, palette);
+            moving(Stopwatch.GetTimestamp());
+            return;
         }
 
-        switch (kind)
+        var spec = quick ?? ThemeTransitionCatalog.Spec(kind);
+        if (kind == ThemeTransitionKind.Morph && !structural)
         {
-            case ThemeTransitionKind.None:
+            // Only colours change: they flow, with no picture.
+            ApplyStructure(next, palette);
+            StartMorph(palette, spec, moving);
+            Changed?.Invoke(this, EventArgs.Empty);
+            await MorphDone;
+            return;
+        }
+
+        if (!await _transitions.CoverAsync() || !MayAnimate)
+        {
+            // Nothing to picture, the window was hidden meanwhile, or a newer switch took over.
+            if (version == _version)
+            {
+                _transitions.Clear();
                 ApplyNow(next, palette);
-                break;
+                moving(Stopwatch.GetTimestamp());
+            }
 
-            case ThemeTransitionKind.Morph:
-                // Colours flow; shapes, fonts and light or dark cross-fade from a picture.
-                var covered = structural && await _transitions!.CoverAsync();
-                if (version != _version)
-                {
-                    // A newer switch that took no picture of its own is already
-                    // showing; this picture would stay frozen over it.
-                    if (covered)
-                    {
-                        _transitions!.Clear();
-                    }
+            return;
+        }
 
-                    return;
-                }
+        if (version != _version)
+        {
+            // A newer switch that needs no picture is already showing.
+            return;
+        }
 
+        if (kind == ThemeTransitionKind.Morph)
+        {
+            // Colours flow; shapes, fonts and light or dark cross-fade from the picture.
+            await _transitions.PlayAsync(kind, origin, palette, spec, () =>
+            {
                 ApplyStructure(next, palette);
-                StartMorph(palette, morphDuration);
+                StartMorph(palette, spec, null);
                 Changed?.Invoke(this, EventArgs.Empty);
-                if (covered)
-                {
-                    await _transitions!.RevealAsync(ThemeTransitionKind.Morph, origin, palette, morphDuration);
-                }
+            }, moving);
+            if (version == _version)
+            {
+                await MorphDone;
+            }
+        }
+        else
+        {
+            await _transitions.PlayAsync(kind, origin, palette, spec, () => ApplyNow(next, palette), moving);
+        }
+    }
 
-                break;
+    private static bool IsSeeThrough(ThemeDefinition? look) => look?.Backdrop is WindowBackdrop.Mica or WindowBackdrop.Acrylic;
 
-            default:
-                if (!await _transitions!.CoverAsync())
-                {
-                    // Nothing to picture (minimised), or a newer switch took over.
-                    if (version == _version)
-                    {
-                        ApplyNow(next, palette);
-                    }
-
-                    break;
-                }
-
-                if (version != _version)
-                {
-                    _transitions.Clear();
-                    return;
-                }
-
-                ApplyNow(next, palette);
-                await _transitions.RevealAsync(kind, origin, palette, morphDuration);
-                break;
+    /// <summary>Nobody can see the window: a switch in progress ends at once rather than animate.</summary>
+    private void OnWindowShownChanged(object? sender, EventArgs e)
+    {
+        if (_window is { IsShown: false })
+        {
+            _transitions?.Clear();
+            StopMorph();
         }
     }
 
@@ -378,9 +452,11 @@ public sealed class ThemeService
 
         if (!sameStructure && _tokens is not null)
         {
-            var floating = look.PlayerLayout == PlayerLayout.Floating;
             var gap = palette.PanelGap;
-            var floatGap = Math.Max(gap, 8);
+            var layout = look.PlayerLayout;
+            var playerMargin = PlayerPlacement.Margin(layout, gap);
+            var playerOutline = PlayerPlacement.Outline(layout, palette.BorderWidth);
+            var playerCorner = PlayerPlacement.Corner(layout, look.Buttons, palette.CornerLarge, PlayerPlacement.BarHeight);
             foreach (var dictionary in _tokens.ThemeDictionaries.Values.OfType<ResourceDictionary>())
             {
                 dictionary["ResonateCornerSmall"] = new CornerRadius(palette.CornerSmall);
@@ -390,13 +466,17 @@ public sealed class ThemeService
                 dictionary["ResonatePlayButtonCorner"] = new CornerRadius(Math.Min(palette.CornerButton, PlayButtonSize / 2));
                 dictionary["ControlCornerRadius"] = new CornerRadius(Math.Min(palette.CornerSmall, 8));
                 dictionary["OverlayCornerRadius"] = new CornerRadius(Math.Min(palette.CornerMedium, 12));
+                dictionary["ListViewItemCornerRadius"] = new CornerRadius(Math.Min(palette.CornerMedium, 8));
+                dictionary["GridViewItemCornerRadius"] = new CornerRadius(Math.Min(palette.CornerLarge, 14));
+                dictionary["ResonateCornerInput"] = new CornerRadius(Math.Min(palette.CornerButton, InputHeight / 2));
                 dictionary["ResonatePanelBorderThickness"] = new Thickness(palette.BorderWidth);
                 dictionary["ResonatePlayButtonBorderThickness"] = new Thickness(palette.PlayButtonBorderWidth);
                 dictionary["ResonatePanelGap"] = gap;
                 dictionary["ResonateShellPadding"] = new Thickness(gap, 0, gap, gap);
-                dictionary["ResonatePlayerMargin"] = floating ? new Thickness(floatGap, 0, floatGap, floatGap) : new Thickness(0);
-                dictionary["ResonatePlayerBorderThickness"] = floating ? new Thickness(palette.BorderWidth) : new Thickness(0, palette.BorderWidth, 0, 0);
-                dictionary["ResonatePlayerCorner"] = floating ? new CornerRadius(Math.Max(palette.CornerLarge, 4)) : new CornerRadius(0);
+                dictionary["ResonatePlayerMargin"] = playerMargin.ToThickness();
+                dictionary["ResonatePlayerBorderThickness"] = playerOutline.ToThickness();
+                dictionary["ResonatePlayerCorner"] = new CornerRadius(playerCorner);
+                dictionary["ResonatePlayerMaxWidth"] = PlayerPlacement.MaxWidth(layout);
                 dictionary["ResonateDisplayFont"] = new FontFamily(look.DisplayFont);
                 dictionary["ResonateTextFont"] = new FontFamily(look.TextFont);
             }
@@ -448,7 +528,11 @@ public sealed class ThemeService
         resources["SystemAccentColorDark3"] = palette.AccentPressed.ToColor();
     }
 
-    private void StartMorph(ThemePalette to, TimeSpan duration)
+    /// <summary>
+    /// Slides every colour to <paramref name="to"/>. <paramref name="moving"/>
+    /// gets the time of the first frame that shows the colours moving.
+    /// </summary>
+    private void StartMorph(ThemePalette to, ThemeTransitionSpec spec, Action<long>? moving = null)
     {
         foreach (var slot in _slots)
         {
@@ -456,14 +540,19 @@ public sealed class ThemeService
             slot.To = slot.Pick(to);
         }
 
-        if (duration <= TimeSpan.Zero || !AnimationsEnabled)
+        _morphMoving?.Invoke(Stopwatch.GetTimestamp());
+        _morphMoving = moving;
+        if (spec.Duration <= TimeSpan.Zero || !MayAnimate)
         {
             StopMorph();
             return;
         }
 
-        _morphStart = Stopwatch.GetTimestamp();
-        _morphDuration = duration;
+        // The clock starts with the first frame, after the work of switching,
+        // so the slide never begins part of the way along.
+        _morphStart = 0;
+        _morphSpec = spec;
+        _morphDone ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         if (!_morphing)
         {
             _morphing = true;
@@ -471,17 +560,31 @@ public sealed class ThemeService
         }
     }
 
+    /// <summary>Finishes when the colour slide in progress (if any) has landed.</summary>
+    private Task MorphDone => _morphDone?.Task ?? Task.CompletedTask;
+
     private void OnMorphFrame(object? sender, object e)
     {
-        var progress = Stopwatch.GetElapsedTime(_morphStart) / _morphDuration;
+        var now = Stopwatch.GetTimestamp();
+        if (_morphStart == 0)
+        {
+            _morphStart = now;
+            return;
+        }
+
+        var progress = Stopwatch.GetElapsedTime(_morphStart, now) / _morphSpec.Duration;
         if (progress >= 1)
         {
             StopMorph();
             return;
         }
 
-        // Ease in and out, so colours leave gently and settle gently.
-        var eased = progress < 0.5 ? 4 * progress * progress * progress : 1 - (Math.Pow((-2 * progress) + 2, 3) / 2);
+        var moving = _morphMoving;
+        _morphMoving = null;
+        moving?.Invoke(now);
+
+        // The same curve as the compositor's part of the switch, so they move as one.
+        var eased = _morphSpec.Curve.Evaluate(progress);
         foreach (var slot in _slots)
         {
             slot.Show(slot.From.Mix(slot.To, eased));
@@ -500,6 +603,13 @@ public sealed class ThemeService
                 slot.Show(slot.To);
             }
         }
+
+        var moving = _morphMoving;
+        _morphMoving = null;
+        moving?.Invoke(Stopwatch.GetTimestamp());
+        var done = _morphDone;
+        _morphDone = null;
+        done?.TrySetResult();
     }
 
     /// <summary>Copies the library into the settings, and writes them shortly (sliders change a lot).</summary>
@@ -572,6 +682,8 @@ public sealed class ThemeService
         Solid("ResonateOnAccentBrush", p => p.OnAccent);
         Solid("ResonateAccent2Brush", p => p.Accent2);
         Gradient("ResonateAccentGradientBrush", p => p.Accent, p => p.Accent2);
+        Solid("ResonateAccentSoftBrush", p => p.AccentSoft);
+        Gradient("ResonateHeroGradientBrush", p => p.HeroTint(p.Accent), p => p.HeroTint(p.Accent).WithAlpha(0));
         Solid("ResonateTrackBrush", p => p.Track);
         Solid("ResonatePlayButtonBackgroundBrush", p => p.PlayButtonBackground);
         Solid("ResonatePlayButtonHoverBrush", p => p.PlayButtonHover);

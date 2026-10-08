@@ -9,13 +9,10 @@
     <ScrollViewer>
         <StackPanel
             MaxWidth="760"
-            Padding="36,36,36,48"
+            Padding="{StaticResource ResonatePagePadding}"
             HorizontalAlignment="Left"
-            Spacing="28">
-            <TextBlock
-                FontSize="32"
-                Style="{StaticResource ResonateDisplayTextStyle}"
-                Text="Settings" />
+            Spacing="{StaticResource ResonateSectionSpacing}">
+            <TextBlock Style="{StaticResource ResonateDisplayTextStyle}" Text="Settings" />
 
             <!-- Look: presets, your own looks and the customizer -->
             <controls:ThemeStudio x:Name="Studio" />
@@ -137,6 +134,9 @@
                     Content="Resonate on GitHub"
                     NavigateUri="https://github.com/livexibot/Resonate" />
             </StackPanel>
+
+            <!-- Room for a player hovering over the page (see IPlayerInset). -->
+            <Border x:Name="PlayerSpace" Height="0" />
         </StackPanel>
     </ScrollViewer>
 </Page>

@@ -270,6 +270,175 @@ public sealed class ListeningStatsTests
 
         Assert.Equal(["y", "x"], ListeningStats.TopArtists(plays, 5).Select(a => a.Id));
     }
+
+    [Fact]
+    public void Hours_follow_the_local_clock_with_the_hour_now_last()
+    {
+        // Now is 17:30 in India (UTC+5:30), so the hours start at half past on UTC's clock.
+        var india = TimeZoneInfo.CreateCustomTimeZone("Test/India", TimeSpan.FromHours(5.5), "India", "India");
+        var plays = new[]
+        {
+            Music.Play("this-hour", "x", Now.AddMinutes(-20), seconds: 100),
+            Music.Play("last-hour", "x", Now.AddMinutes(-40), seconds: 200),
+            Music.Play("also-last-hour", "x", Now.AddMinutes(-89), seconds: 50),
+            Music.Play("first-hour", "x", Now.AddHours(-23).AddMinutes(-29), seconds: 300),
+            Music.Play("too-old", "x", Now.AddHours(-23).AddMinutes(-31), seconds: 400),
+            Music.Play("not-yet", "x", Now.AddMinutes(1), seconds: 500),
+        };
+
+        var hours = ListeningStats.Hourly(plays, Now, india);
+
+        Assert.Equal(24, hours.Length);
+        Assert.Equal(100_000, hours[23]);
+        Assert.Equal(250_000, hours[22]);
+        Assert.Equal(300_000, hours[0]);
+        Assert.Equal(650_000, hours.Sum());
+    }
+
+    [Fact]
+    public void Hour_labels_read_the_clock_across_a_change_of_clocks()
+    {
+        // 25 October 2026 at noon in Europe: the clocks went back at 03:00, so 02:00 came twice.
+        var autumn = ListeningStats.HourStarts(new DateTimeOffset(2026, 10, 25, 12, 0, 0, TimeSpan.FromHours(1)), Europe());
+        Assert.Equal(24, autumn.Length);
+        Assert.Equal(14, autumn[0].Hour);
+        Assert.Equal(12, autumn[23].Hour);
+        Assert.Equal(2, autumn.Count(h => h.Hour == 2));
+        Assert.All(autumn.Skip(1).Zip(autumn), pair => Assert.Equal(TimeSpan.FromHours(1), pair.First - pair.Second));
+
+        // 29 March 2026 at noon: the clocks went forward at 02:00, so there was no 02:00.
+        var spring = ListeningStats.HourStarts(new DateTimeOffset(2026, 3, 29, 12, 0, 0, TimeSpan.FromHours(2)), Europe());
+        Assert.Equal(12, spring[23].Hour);
+        Assert.DoesNotContain(spring, h => h.Hour == 2);
+        Assert.Equal(12, spring[0].Hour);
+    }
+
+    [Fact]
+    public void Days_follow_the_local_calendar_across_a_change_of_clocks()
+    {
+        // Central European time: summer time (UTC+2) ends on Sunday 25 October 2026 at 03:00.
+        var now = DateTimeOffset.Parse("2026-10-27T12:00:00Z", CultureInfo.InvariantCulture);
+        var europe = Europe();
+        var plays = new[]
+        {
+            Music.Play("tuesday", "x", now.AddHours(-1), seconds: 60),
+            Music.Play("monday", "x", DateTimeOffset.Parse("2026-10-26T10:00:00Z", CultureInfo.InvariantCulture), seconds: 30),
+
+            // 23:30 on Sunday in winter time (a fixed UTC+2 would make it Monday).
+            Music.Play("sunday-late", "x", DateTimeOffset.Parse("2026-10-25T22:30:00Z", CultureInfo.InvariantCulture), seconds: 120),
+
+            // 00:30 on Sunday in summer time (a fixed UTC+1 would make it Saturday).
+            Music.Play("sunday-early", "x", DateTimeOffset.Parse("2026-10-24T22:30:00Z", CultureInfo.InvariantCulture), seconds: 180),
+            Music.Play("wednesday-a-week-ago", "x", DateTimeOffset.Parse("2026-10-21T08:00:00Z", CultureInfo.InvariantCulture), seconds: 240),
+            Music.Play("tuesday-a-week-ago", "x", DateTimeOffset.Parse("2026-10-20T08:00:00Z", CultureInfo.InvariantCulture), seconds: 300),
+        };
+
+        var days = ListeningStats.Daily(plays, now, europe);
+
+        Assert.Equal([240_000, 0, 0, 0, 300_000, 30_000, 60_000], days);
+    }
+
+    [Fact]
+    public void The_day_starts_at_local_midnight()
+    {
+        var europe = Europe();
+
+        // 01:30 on 25 October in Europe is still summer time: midnight was 22:00 UTC the day before.
+        var early = DateTimeOffset.Parse("2026-10-24T23:30:00Z", CultureInfo.InvariantCulture);
+        Assert.Equal(DateTimeOffset.Parse("2026-10-24T22:00:00Z", CultureInfo.InvariantCulture), ListeningStats.StartOfDay(early, europe));
+
+        // After the change the offset is one hour.
+        var later = DateTimeOffset.Parse("2026-10-26T10:00:00Z", CultureInfo.InvariantCulture);
+        Assert.Equal(DateTimeOffset.Parse("2026-10-25T23:00:00Z", CultureInfo.InvariantCulture), ListeningStats.StartOfDay(later, europe));
+        Assert.Equal(Now.AddHours(-12), ListeningStats.StartOfDay(Now, TimeZoneInfo.Utc));
+    }
+
+    [Fact]
+    public void The_change_on_the_week_before_needs_a_full_week_before()
+    {
+        var thisWeek = Music.Play("a", "x", Now.AddDays(-1), seconds: 300);
+        var weekBefore = Music.Play("b", "x", Now.AddDays(-10), seconds: 240);
+        var longAgo = Music.Play("c", "x", Now.AddDays(-15), seconds: 10);
+
+        Assert.Equal(0.25, ListeningStats.Change([thisWeek, weekBefore, longAgo], Now, ListeningStats.Week)!.Value, 6);
+        Assert.Equal(-1.0, ListeningStats.Change([weekBefore, longAgo], Now, ListeningStats.Week));
+
+        // History that starts within the week before: nothing fair to compare with.
+        Assert.Null(ListeningStats.Change([thisWeek, weekBefore], Now, ListeningStats.Week));
+
+        // Nothing played the week before.
+        Assert.Null(ListeningStats.Change([thisWeek, longAgo], Now, ListeningStats.Week));
+        Assert.Null(ListeningStats.Change([], Now, ListeningStats.Week));
+    }
+
+    [Fact]
+    public void A_mix_cover_takes_the_albums_that_come_up_most()
+    {
+        TrackInfo Song(string id, string album, string? image = "https://img/x") =>
+            new($"spotify:track:{id}", id, "Artist", album, $"spotify:album:{album}", TimeSpan.FromMinutes(3), image, image, false, true);
+
+        var tracks = new[]
+        {
+            Song("1", "one"),
+            Song("2", "two", image: null),
+            Song("3", "two", image: "https://img/two"),
+            Song("4", "three"),
+            Song("5", "two"),
+            Song("6", "four"),
+            Song("7", "four"),
+            Song("8", "five"),
+            new("spotify:track:9", "No album", "Artist", string.Empty, null, TimeSpan.FromMinutes(3), null, null, false, true),
+        };
+
+        var albums = ListeningStats.MostFrequentAlbums(tracks, 4);
+
+        Assert.Equal(["two", "four", "one", "three"], albums.Select(t => t.Album));
+        Assert.Equal("https://img/two", albums[0].LargeImageUrl);
+        Assert.Empty(ListeningStats.MostFrequentAlbums([], 4));
+    }
+
+    /// <summary>Central European time, with summer time from the last Sunday of March to the last Sunday of October.</summary>
+    private static TimeZoneInfo Europe()
+    {
+        var start = TimeZoneInfo.TransitionTime.CreateFloatingDateRule(new DateTime(1, 1, 1, 2, 0, 0, DateTimeKind.Unspecified), 3, 5, DayOfWeek.Sunday);
+        var end = TimeZoneInfo.TransitionTime.CreateFloatingDateRule(new DateTime(1, 1, 1, 3, 0, 0, DateTimeKind.Unspecified), 10, 5, DayOfWeek.Sunday);
+        var rule = TimeZoneInfo.AdjustmentRule.CreateAdjustmentRule(new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Unspecified), new DateTime(2099, 12, 31, 0, 0, 0, DateTimeKind.Unspecified), TimeSpan.FromHours(1), start, end);
+        return TimeZoneInfo.CreateCustomTimeZone("Test/Europe", TimeSpan.FromHours(1), "Europe", "Europe", "Europe summer", [rule]);
+    }
+}
+
+public sealed class HomeTextTests
+{
+    [Theory]
+    [InlineData("Sam Rivera", "Sam")]
+    [InlineData("  livexibot ", "livexibot")]
+    [InlineData("Zoë", "Zoë")]
+    [InlineData("1123581321", null)]
+    [InlineData("", null)]
+    [InlineData(null, null)]
+    public void The_greeting_uses_the_first_word_of_the_name(string? displayName, string? expected) =>
+        Assert.Equal(expected, HomeText.FirstName(displayName));
+
+    [Theory]
+    [InlineData("Mira Sol", "MS")]
+    [InlineData("Lumen", "L")]
+    [InlineData("The Paper Kites Club", "TC")]
+    [InlineData("(hed) p.e.", "HP")]
+    [InlineData("björk", "B")]
+    [InlineData("🎵 Ünder", "Ü")]
+    [InlineData("---", "")]
+    [InlineData(null, "")]
+    public void Initials_are_the_first_letters_of_the_first_and_last_words(string? name, string expected) =>
+        Assert.Equal(expected, HomeText.Initials(name));
+
+    [Fact]
+    public void A_letter_beyond_the_basic_plane_stays_whole()
+    {
+        // U+20000, a CJK letter written with two UTF-16 characters.
+        var letter = char.ConvertFromUtf32(0x20000);
+
+        Assert.Equal(letter, HomeText.Initials(letter + "abc"));
+    }
 }
 
 public sealed class DailyMixTests

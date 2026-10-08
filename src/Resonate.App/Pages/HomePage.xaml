@@ -3,60 +3,78 @@
     x:Class="Resonate.App.Pages.HomePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Resonate.App.Controls"
     xmlns:vm="using:Resonate.App.ViewModels"
     Background="{StaticResource ResonateTransparentBrush}">
 
     <Page.Resources>
-        <!-- Listening over the past day or week: minutes, songs, top artist and top song. -->
+        <!-- The cards rise under the pointer (HoverLift) instead of getting a grey square behind them. -->
+        <StaticResource x:Key="GridViewItemBackgroundPointerOver" ResourceKey="ResonateTransparentBrush" />
+        <StaticResource x:Key="GridViewItemBackgroundPressed" ResourceKey="ResonateTransparentBrush" />
+
+        <!-- Listening over the past day or week: the minutes, a chart of when, the top artist and the top song. -->
         <DataTemplate x:Key="StatCardTemplate" x:DataType="vm:StatCard">
             <Border
-                Padding="20,18,20,20"
+                Padding="20,18,20,18"
                 Background="{StaticResource ResonateSurfaceHoverBrush}"
                 BorderBrush="{StaticResource ResonateBorderBrush}"
                 BorderThickness="1"
                 CornerRadius="{ThemeResource ResonateCornerLarge}">
                 <StackPanel Spacing="14">
-                    <TextBlock
-                        CharacterSpacing="60"
-                        Style="{StaticResource ResonateCaptionTextStyle}"
-                        Text="{x:Bind Heading}" />
-                    <StackPanel Orientation="Horizontal" Spacing="36">
-                        <StackPanel ToolTipService.ToolTip="{x:Bind MinutesNote}">
-                            <TextBlock
-                                FontSize="30"
-                                Style="{StaticResource ResonateTitleTextStyle}"
-                                Text="{x:Bind Minutes}" />
-                            <TextBlock Style="{StaticResource ResonateSecondaryTextStyle}" Text="{x:Bind MinutesLabel}" />
-                        </StackPanel>
-                        <StackPanel>
-                            <TextBlock
-                                FontSize="30"
-                                Style="{StaticResource ResonateTitleTextStyle}"
-                                Text="{x:Bind Songs}" />
-                            <TextBlock Style="{StaticResource ResonateSecondaryTextStyle}" Text="{x:Bind SongsLabel}" />
-                        </StackPanel>
-                    </StackPanel>
-                    <Grid ColumnSpacing="16" Visibility="{x:Bind TopVisibility}">
+                    <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
+                        <TextBlock Style="{StaticResource ResonateEyebrowTextStyle}" Text="{x:Bind Heading}" />
+                        <TextBlock
+                            Grid.Column="1"
+                            Foreground="{StaticResource ResonateAccentBrush}"
+                            Style="{StaticResource ResonateCaptionTextStyle}"
+                            Text="{x:Bind Trend}"
+                            Visibility="{x:Bind TrendVisibility}" />
+                    </Grid>
+                    <StackPanel
+                        Orientation="Horizontal"
+                        Spacing="8"
+                        ToolTipService.ToolTip="{x:Bind MinutesNote}">
+                        <TextBlock
+                            FontSize="44"
+                            FontWeight="Bold"
+                            Style="{StaticResource ResonateDisplayTextStyle}"
+                            Text="{x:Bind Minutes}" />
+                        <TextBlock
+                            Margin="0,0,0,10"
+                            VerticalAlignment="Bottom"
+                            Style="{StaticResource ResonateSecondaryTextStyle}"
+                            Text="{x:Bind MinutesDetail}" />
+                    </StackPanel>
+                    <controls:BarStrip Series="{x:Bind Bars}" />
+                    <StackPanel Spacing="10" Visibility="{x:Bind TopVisibility}">
                         <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition Width="36" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Grid
-                                Width="40"
-                                Height="40"
+                                Width="36"
+                                Height="36"
                                 Background="{x:Bind ArtistPlaceholder}"
-                                CornerRadius="20">
+                                CornerRadius="18">
+                                <TextBlock
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    FontFamily="{ThemeResource ResonateTextFont}"
+                                    FontSize="13"
+                                    FontWeight="SemiBold"
+                                    Foreground="{x:Bind ArtistInitialsBrush}"
+                                    Text="{x:Bind ArtistInitials}" />
                                 <Image Source="{x:Bind ArtistImage, Mode=OneWay}" Stretch="UniformToFill" />
                             </Grid>
                             <StackPanel
                                 Grid.Column="1"
                                 VerticalAlignment="Center"
-                                Spacing="2">
+                                Spacing="1">
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Style="{StaticResource ResonateBodyTextStyle}"
@@ -64,14 +82,14 @@
                                 <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="{x:Bind ArtistDetail}" />
                             </StackPanel>
                         </Grid>
-                        <Grid Grid.Column="1" ColumnSpacing="12">
+                        <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition Width="36" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Grid
-                                Width="40"
-                                Height="40"
+                                Width="36"
+                                Height="36"
                                 Background="{x:Bind SongPlaceholder}"
                                 CornerRadius="{ThemeResource ResonateCornerSmall}">
                                 <Image Source="{x:Bind SongImage}" Stretch="UniformToFill" />
@@ -79,7 +97,7 @@
                             <StackPanel
                                 Grid.Column="1"
                                 VerticalAlignment="Center"
-                                Spacing="2">
+                                Spacing="1">
                                 <TextBlock
                                     FontWeight="SemiBold"
                                     Style="{StaticResource ResonateBodyTextStyle}"
@@ -87,7 +105,7 @@
                                 <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="{x:Bind SongDetail}" />
                             </StackPanel>
                         </Grid>
-                    </Grid>
+                    </StackPanel>
                     <TextBlock
                         Style="{StaticResource ResonateSecondaryTextStyle}"
                         Text="{x:Bind EmptyText}"
@@ -97,109 +115,241 @@
             </Border>
         </DataTemplate>
 
-        <!-- A daily mix: the seed artist's picture on a square of colour. -->
+        <!--
+          A daily mix: four of its albums' covers in a square (or the artist's
+          picture), fading into the mix's colour under its big number. The play
+          button shows under the pointer and plays it without opening it.
+        -->
         <DataTemplate x:Key="MixCardTemplate" x:DataType="vm:MixCard">
-            <StackPanel
-                Width="168"
-                Padding="4,4,4,8"
-                Spacing="8">
-                <Grid
-                    Width="160"
-                    Height="160"
-                    Background="{x:Bind PlaceholderBrush}"
-                    CornerRadius="{ThemeResource ResonateCornerMedium}">
-                    <FontIcon
-                        FontFamily="{StaticResource ResonateIconFont}"
-                        FontSize="48"
-                        Foreground="#E6FFFFFF"
-                        Glyph="{x:Bind Glyph}"
-                        Visibility="{x:Bind GlyphVisibility}" />
+            <controls:HoverLift Width="176" Padding="0,0,0,10">
+                <StackPanel Spacing="2">
                     <Grid
-                        Width="112"
-                        Height="112"
-                        CornerRadius="56"
-                        Visibility="{x:Bind PortraitVisibility}">
+                        Width="176"
+                        Height="176"
+                        Margin="0,0,0,8"
+                        Background="{x:Bind PlaceholderBrush}"
+                        CornerRadius="{ThemeResource ResonateCornerLarge}">
+                        <Grid Visibility="{x:Bind MosaicVisibility}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid Background="{x:Bind TopLeft.Placeholder}">
+                                <Image Source="{x:Bind TopLeft.Image}" Stretch="UniformToFill" />
+                            </Grid>
+                            <Grid Grid.Column="1" Background="{x:Bind TopRight.Placeholder}">
+                                <Image Source="{x:Bind TopRight.Image}" Stretch="UniformToFill" />
+                            </Grid>
+                            <Grid Grid.Row="1" Background="{x:Bind BottomLeft.Placeholder}">
+                                <Image Source="{x:Bind BottomLeft.Image}" Stretch="UniformToFill" />
+                            </Grid>
+                            <Grid
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                Background="{x:Bind BottomRight.Placeholder}">
+                                <Image Source="{x:Bind BottomRight.Image}" Stretch="UniformToFill" />
+                            </Grid>
+                        </Grid>
+                        <Image
+                            Source="{x:Bind Portrait}"
+                            Stretch="UniformToFill"
+                            Visibility="{x:Bind PortraitVisibility}" />
+                        <Border Background="{x:Bind ScrimBrush}" />
+                        <StackPanel Margin="14,0,14,12" VerticalAlignment="Bottom">
+                            <TextBlock
+                                CharacterSpacing="140"
+                                FontFamily="{ThemeResource ResonateTextFont}"
+                                FontSize="10"
+                                FontWeight="SemiBold"
+                                Foreground="#E6FFFFFF"
+                                Text="{x:Bind Eyebrow}" />
+                            <TextBlock
+                                Margin="0,-6,0,-10"
+                                FontFamily="{ThemeResource ResonateDisplayFont}"
+                                FontSize="60"
+                                FontWeight="Bold"
+                                Foreground="#FFFFFFFF"
+                                Text="{x:Bind Numeral}"
+                                Visibility="{x:Bind NumeralVisibility}" />
+                            <FontIcon
+                                Margin="0,12,0,4"
+                                HorizontalAlignment="Left"
+                                FontFamily="{StaticResource ResonateIconFont}"
+                                FontSize="40"
+                                Foreground="#FFFFFFFF"
+                                Glyph="{x:Bind Glyph}"
+                                Visibility="{x:Bind GlyphVisibility}" />
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock
+                        FontWeight="SemiBold"
+                        Style="{StaticResource ResonateBodyTextStyle}"
+                        Text="{x:Bind Title}" />
+                    <TextBlock Style="{StaticResource ResonateSecondaryTextStyle}" Text="{x:Bind Subtitle}" />
+                </StackPanel>
+                <controls:HoverReveal
+                    Margin="0,122,10,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top">
+                    <Button
+                        Width="44"
+                        Height="44"
+                        Padding="0"
+                        AutomationProperties.Name="{x:Bind PlayName}"
+                        Click="{x:Bind Play}"
+                        Content="&#xF5B0;"
+                        CornerRadius="22"
+                        FontFamily="{StaticResource ResonateIconFont}"
+                        FontSize="16"
+                        Style="{StaticResource ResonateAccentButtonStyle}"
+                        ToolTipService.ToolTip="Play" />
+                </controls:HoverReveal>
+            </controls:HoverLift>
+        </DataTemplate>
+
+        <!-- A song played lately, with when; a click plays it. -->
+        <DataTemplate x:Key="RecentCardTemplate" x:DataType="vm:RecentCard">
+            <controls:HoverLift
+                Width="140"
+                Padding="0,0,0,8"
+                ToolTipService.ToolTip="{x:Bind Tooltip}">
+                <StackPanel Spacing="2">
+                    <Grid
+                        Width="140"
+                        Height="140"
+                        Margin="0,0,0,8"
+                        Background="{x:Bind PlaceholderBrush}"
+                        CornerRadius="{ThemeResource ResonateCornerMedium}">
                         <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
                     </Grid>
-                </Grid>
-                <TextBlock
-                    FontWeight="SemiBold"
-                    Style="{StaticResource ResonateBodyTextStyle}"
-                    Text="{x:Bind Title}" />
-                <TextBlock Style="{StaticResource ResonateSecondaryTextStyle}" Text="{x:Bind Subtitle}" />
-            </StackPanel>
+                    <TextBlock
+                        FontWeight="SemiBold"
+                        Style="{StaticResource ResonateBodyTextStyle}"
+                        Text="{x:Bind Title}" />
+                    <TextBlock Style="{StaticResource ResonateSecondaryTextStyle}" Text="{x:Bind Artists}" />
+                    <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="{x:Bind Ago}" />
+                </StackPanel>
+                <controls:HoverReveal
+                    Width="40"
+                    Height="40"
+                    Margin="0,92,8,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Background="{StaticResource ResonateAccentBrush}"
+                    CornerRadius="20"
+                    IsHitTestVisible="False">
+                    <FontIcon
+                        FontFamily="{StaticResource ResonateIconFont}"
+                        FontSize="15"
+                        Foreground="{StaticResource ResonateOnAccentBrush}"
+                        Glyph="&#xF5B0;" />
+                </controls:HoverReveal>
+            </controls:HoverLift>
         </DataTemplate>
 
-        <!-- A song played lately; a click plays it. -->
-        <DataTemplate x:Key="RecentCardTemplate" x:DataType="vm:RecentCard">
-            <StackPanel
-                Width="136"
-                Padding="4,4,4,8"
-                Background="{StaticResource ResonateTransparentBrush}"
-                Spacing="6"
-                ToolTipService.ToolTip="{x:Bind Tooltip}">
-                <Grid
-                    Width="128"
-                    Height="128"
-                    Background="{x:Bind PlaceholderBrush}"
-                    CornerRadius="{ThemeResource ResonateCornerMedium}">
-                    <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
-                </Grid>
-                <TextBlock
-                    FontWeight="SemiBold"
-                    Style="{StaticResource ResonateBodyTextStyle}"
-                    Text="{x:Bind Title}" />
-                <TextBlock Style="{StaticResource ResonateSecondaryTextStyle}" Text="{x:Bind Artists}" />
-            </StackPanel>
-        </DataTemplate>
-
-        <!-- One of the top artists on Spotify: rank, portrait and name. A click opens the artist. -->
+        <!-- One of the top artists on Spotify: a round portrait (initials until it loads) with its rank. A click opens the artist. -->
         <DataTemplate x:Key="TopArtistTemplate" x:DataType="vm:TopArtistRow">
-            <Grid Height="52" ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="20" />
-                    <ColumnDefinition Width="40" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <TextBlock
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Center"
-                    Style="{StaticResource ResonateSecondaryTextStyle}"
-                    Text="{x:Bind Rank}" />
-                <Grid
-                    Grid.Column="1"
-                    Width="40"
-                    Height="40"
-                    Background="{x:Bind PlaceholderBrush}"
-                    CornerRadius="20">
-                    <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
-                </Grid>
-                <TextBlock
-                    Grid.Column="2"
-                    VerticalAlignment="Center"
-                    FontWeight="SemiBold"
-                    Style="{StaticResource ResonateBodyTextStyle}"
-                    Text="{x:Bind Name}" />
-            </Grid>
+            <controls:HoverLift Width="112" Padding="4,0,4,10">
+                <StackPanel Spacing="10">
+                    <Grid Width="104" Height="104">
+                        <Grid Background="{x:Bind PlaceholderBrush}" CornerRadius="52">
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                FontFamily="{ThemeResource ResonateDisplayFont}"
+                                FontSize="32"
+                                FontWeight="SemiBold"
+                                Foreground="{x:Bind InitialsBrush}"
+                                Text="{x:Bind Initials}" />
+                            <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
+                        </Grid>
+                        <Border
+                            Height="28"
+                            MinWidth="28"
+                            Padding="8,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Bottom"
+                            Background="{StaticResource ResonateAccentBrush}"
+                            CornerRadius="14"
+                            Visibility="{x:Bind FirstVisibility}">
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                FontFamily="{ThemeResource ResonateTextFont}"
+                                FontSize="12"
+                                FontWeight="Bold"
+                                Foreground="{StaticResource ResonateOnAccentBrush}"
+                                Text="{x:Bind Rank}" />
+                        </Border>
+                        <Border
+                            Height="28"
+                            MinWidth="28"
+                            Padding="8,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Bottom"
+                            Background="{StaticResource ResonateSurfaceBrush}"
+                            BorderBrush="{StaticResource ResonateBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="14"
+                            Visibility="{x:Bind OtherVisibility}">
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                FontFamily="{ThemeResource ResonateTextFont}"
+                                FontSize="12"
+                                FontWeight="Bold"
+                                Foreground="{StaticResource ResonateTextPrimaryBrush}"
+                                Text="{x:Bind Rank}" />
+                        </Border>
+                    </Grid>
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        FontWeight="SemiBold"
+                        Style="{StaticResource ResonateBodyTextStyle}"
+                        Text="{x:Bind Name}"
+                        TextAlignment="Center" />
+                </StackPanel>
+            </controls:HoverLift>
         </DataTemplate>
 
-        <!-- One of the top songs on Spotify: rank, cover, title and artists. A click plays the list from it. -->
+        <!-- One of the top songs on Spotify: a large rank, the cover, title and artists. A click plays the list from it. -->
         <DataTemplate x:Key="TopSongTemplate" x:DataType="vm:TopSongRow">
-            <Grid Height="52" ColumnSpacing="12">
+            <Grid
+                Height="64"
+                Padding="4,0,8,0"
+                Background="{StaticResource ResonateTransparentBrush}"
+                ColumnSpacing="14">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="20" />
-                    <ColumnDefinition Width="40" />
+                    <ColumnDefinition Width="34" />
+                    <ColumnDefinition Width="48" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock
                     HorizontalAlignment="Right"
                     VerticalAlignment="Center"
-                    Style="{StaticResource ResonateSecondaryTextStyle}"
-                    Text="{x:Bind Rank}" />
+                    FontFamily="{ThemeResource ResonateDisplayFont}"
+                    FontSize="26"
+                    FontWeight="Bold"
+                    Foreground="{StaticResource ResonateAccentBrush}"
+                    Text="{x:Bind Rank}"
+                    Visibility="{x:Bind FirstVisibility}" />
+                <TextBlock
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    FontFamily="{ThemeResource ResonateDisplayFont}"
+                    FontSize="26"
+                    FontWeight="Bold"
+                    Foreground="{StaticResource ResonateTextTertiaryBrush}"
+                    Text="{x:Bind Rank}"
+                    Visibility="{x:Bind OtherVisibility}" />
                 <Grid
                     Grid.Column="1"
-                    Width="40"
-                    Height="40"
+                    Width="48"
+                    Height="48"
                     Background="{x:Bind PlaceholderBrush}"
                     CornerRadius="{ThemeResource ResonateCornerSmall}">
                     <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
@@ -219,12 +369,179 @@
     </Page.Resources>
 
     <ScrollViewer>
-        <StackPanel Padding="28,36,28,28" Spacing="32">
-            <StackPanel Spacing="16">
+        <StackPanel
+            x:Name="Body"
+            Padding="28,28,28,28"
+            SizeChanged="OnBodySizeChanged"
+            Spacing="40">
+            <StackPanel Spacing="12">
+                <!--
+                  The greeting with what plays (or played last), on a wash of
+                  that song's cover colours; the stats beside it on a wide
+                  window, under it otherwise (see Fit).
+                -->
+                <Grid
+                    x:Name="Overview"
+                    ColumnSpacing="16"
+                    RowSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid
+                        x:Name="Hero"
+                        Grid.ColumnSpan="2"
+                        MinHeight="220"
+                        Background="{StaticResource ResonateSurfaceHoverBrush}"
+                        BorderBrush="{StaticResource ResonateBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="{ThemeResource ResonateCornerLarge}">
+                        <Image
+                            x:Name="HeroWash"
+                            Opacity="0"
+                            Stretch="UniformToFill" />
+                        <Border x:Name="HeroScrim" IsHitTestVisible="False" />
+                        <Grid
+                            x:Name="HeroContent"
+                            Padding="32,26,26,26"
+                            ColumnSpacing="32"
+                            RowSpacing="22">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <StackPanel
+                                x:Name="HeroGreeting"
+                                VerticalAlignment="Center"
+                                Spacing="8">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon
+                                        x:Name="DayGlyph"
+                                        FontFamily="{StaticResource ResonateIconFont}"
+                                        FontSize="14"
+                                        Foreground="{StaticResource ResonateAccentBrush}"
+                                        Glyph="&#xE706;" />
+                                    <TextBlock
+                                        x:Name="DateText"
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource ResonateEyebrowTextStyle}" />
+                                </StackPanel>
+                                <TextBlock
+                                    x:Name="GreetingText"
+                                    FontSize="46"
+                                    FontWeight="Bold"
+                                    Style="{StaticResource ResonateDisplayTextStyle}"
+                                    Text="Home" />
+                                <TextBlock
+                                    x:Name="TodayText"
+                                    FontSize="15"
+                                    Style="{StaticResource ResonateSecondaryTextStyle}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <!-- What plays now, or what played last while nothing is loaded. -->
+                            <Border
+                                x:Name="NowPlaying"
+                                Grid.Column="1"
+                                Padding="14"
+                                VerticalAlignment="Center"
+                                BorderBrush="{StaticResource ResonateBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{ThemeResource ResonateCornerLarge}"
+                                Visibility="Collapsed">
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid
+                                        Width="104"
+                                        Height="104"
+                                        VerticalAlignment="Center">
+                                        <controls:Elevation CornerRadius="{ThemeResource ResonateCornerMedium}" Level="Item" />
+                                        <Grid x:Name="NowCover" CornerRadius="{ThemeResource ResonateCornerMedium}">
+                                            <Image x:Name="NowImage" Stretch="UniformToFill" />
+                                        </Grid>
+                                    </Grid>
+                                    <StackPanel
+                                        Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        Spacing="2">
+                                        <TextBlock
+                                            x:Name="NowLabel"
+                                            Style="{StaticResource ResonateEyebrowTextStyle}"
+                                            Text="NOW PLAYING" />
+                                        <TextBlock
+                                            x:Name="NowTitle"
+                                            Margin="0,4,0,0"
+                                            FontSize="18"
+                                            Style="{StaticResource ResonateTitleTextStyle}" />
+                                        <TextBlock x:Name="NowArtists" Style="{StaticResource ResonateSecondaryTextStyle}" />
+                                        <TextBlock x:Name="NowSource" Style="{StaticResource ResonateCaptionTextStyle}" />
+                                        <Button
+                                            x:Name="HeroPlayButton"
+                                            Margin="0,10,0,0"
+                                            Padding="16,6"
+                                            Click="OnHeroPlayClick"
+                                            Style="{StaticResource ResonateAccentButtonStyle}">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <FontIcon
+                                                    x:Name="HeroPlayGlyph"
+                                                    FontFamily="{StaticResource ResonateIconFont}"
+                                                    FontSize="12"
+                                                    Glyph="&#xF5B0;" />
+                                                <TextBlock x:Name="HeroPlayText" Text="Resume" />
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Grid>
+
+                    <!-- Shown once the stored history is read (a moment after the page), so no empty numbers flash first. -->
+                    <Grid
+                        x:Name="StatsGrid"
+                        Grid.Row="1"
+                        Grid.ColumnSpan="2"
+                        ColumnSpacing="16"
+                        Visibility="Collapsed">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <ContentPresenter
+                            x:Name="DayStats"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"
+                            ContentTemplate="{StaticResource StatCardTemplate}" />
+                        <ContentPresenter
+                            x:Name="WeekStats"
+                            Grid.Column="1"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"
+                            ContentTemplate="{StaticResource StatCardTemplate}" />
+                    </Grid>
+                </Grid>
                 <TextBlock
-                    x:Name="GreetingText"
-                    Style="{StaticResource ResonateDisplayTextStyle}"
-                    Text="Home" />
+                    x:Name="HistoryNote"
+                    Style="{StaticResource ResonateCaptionTextStyle}"
+                    Text="Spotify shares the last 50 songs you played. Resonate keeps them from now on, so your stats fill in as you listen."
+                    TextWrapping="Wrap"
+                    Visibility="Collapsed" />
                 <Border
                     x:Name="PermissionNote"
                     Padding="16,12"
@@ -238,47 +555,55 @@
                 </Border>
             </StackPanel>
 
-            <!-- Shown once the stored history is read (a moment after the page), so no empty numbers flash first. -->
             <StackPanel
                 x:Name="Sections"
-                Spacing="32"
+                Spacing="40"
                 Visibility="Collapsed">
-                <!-- Stats for the past day and week -->
-                <StackPanel Spacing="10">
-                    <Grid ColumnSpacing="16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <ContentPresenter
-                            x:Name="DayStats"
-                            HorizontalContentAlignment="Stretch"
-                            VerticalContentAlignment="Stretch"
-                            ContentTemplate="{StaticResource StatCardTemplate}" />
-                        <ContentPresenter
-                            x:Name="WeekStats"
-                            Grid.Column="1"
-                            HorizontalContentAlignment="Stretch"
-                            VerticalContentAlignment="Stretch"
-                            ContentTemplate="{StaticResource StatCardTemplate}" />
-                    </Grid>
-                    <TextBlock
-                        x:Name="HistoryNote"
-                        Style="{StaticResource ResonateCaptionTextStyle}"
-                        Text="Spotify shares the last 50 songs you played. Resonate keeps them from now on, so your stats fill in as you listen."
-                        TextWrapping="Wrap"
-                        Visibility="Collapsed" />
-                </StackPanel>
-
-                <!-- Spotify's own top artists and songs, over the time range picked on the right. -->
-                <StackPanel Spacing="12">
+                <!-- Made for you: the daily mixes and On repeat, as many as fit in a row ("Show all" for the rest). -->
+                <StackPanel x:Name="MixesSection" Spacing="12">
                     <Grid ColumnSpacing="16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center" Spacing="2">
-                            <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Your top on Spotify" />
+                            <TextBlock Style="{StaticResource ResonateSectionTextStyle}" Text="Made for you" />
+                            <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="Daily mixes from your Liked Songs, new every day." />
+                        </StackPanel>
+                        <Button
+                            x:Name="MixesMoreButton"
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Click="OnMixesMoreClick"
+                            Content="Show all"
+                            Style="{StaticResource ResonateSubtleButtonStyle}"
+                            Visibility="Collapsed" />
+                    </Grid>
+                    <TextBlock
+                        x:Name="MixesNote"
+                        Style="{StaticResource ResonateSecondaryTextStyle}"
+                        TextWrapping="Wrap"
+                        Visibility="Collapsed" />
+                    <GridView
+                        x:Name="MixGrid"
+                        Margin="-4,0,0,0"
+                        Padding="4,6,0,0"
+                        IsItemClickEnabled="True"
+                        ItemClick="OnMixClick"
+                        ItemTemplate="{StaticResource MixCardTemplate}"
+                        ItemsSource="{x:Bind Mixes}"
+                        SelectionMode="None" />
+                </StackPanel>
+
+                <!-- Spotify's own top artists and songs, over the time range picked on the right. -->
+                <StackPanel x:Name="TopSection" Spacing="12">
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center" Spacing="2">
+                            <TextBlock Style="{StaticResource ResonateSectionTextStyle}" Text="Your top on Spotify" />
                             <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="As Spotify counts them, from all your listening. Updated daily." />
                         </StackPanel>
                         <SelectorBar
@@ -296,12 +621,19 @@
                         Style="{StaticResource ResonateSecondaryTextStyle}"
                         TextWrapping="Wrap"
                         Visibility="Collapsed" />
-                    <Grid x:Name="TopLists" ColumnSpacing="16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
+                    <StackPanel x:Name="TopLists" Spacing="12">
+                        <TextBlock Style="{StaticResource ResonateEyebrowTextStyle}" Text="TOP ARTISTS" />
+                        <GridView
+                            x:Name="TopArtistList"
+                            Margin="-4,0,0,0"
+                            Padding="0,6,0,0"
+                            IsItemClickEnabled="True"
+                            ItemClick="OnTopArtistClick"
+                            ItemTemplate="{StaticResource TopArtistTemplate}"
+                            ItemsSource="{x:Bind TopArtists}"
+                            SelectionMode="None" />
                         <Border
+                            x:Name="TopSongsCard"
                             Padding="8,14,8,8"
                             Background="{StaticResource ResonateSurfaceHoverBrush}"
                             BorderBrush="{StaticResource ResonateBorderBrush}"
@@ -310,42 +642,36 @@
                             <StackPanel Spacing="6">
                                 <TextBlock
                                     Margin="16,0"
-                                    CharacterSpacing="60"
-                                    Style="{StaticResource ResonateCaptionTextStyle}"
-                                    Text="TOP ARTISTS" />
-                                <ListView
-                                    x:Name="TopArtistList"
-                                    IsItemClickEnabled="True"
-                                    ItemClick="OnTopArtistClick"
-                                    ItemTemplate="{StaticResource TopArtistTemplate}"
-                                    ItemsSource="{x:Bind TopArtists}"
-                                    SelectionMode="None" />
-                            </StackPanel>
-                        </Border>
-                        <Border
-                            Grid.Column="1"
-                            Padding="8,14,8,8"
-                            Background="{StaticResource ResonateSurfaceHoverBrush}"
-                            BorderBrush="{StaticResource ResonateBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="{ThemeResource ResonateCornerLarge}">
-                            <StackPanel Spacing="6">
-                                <TextBlock
-                                    Margin="16,0"
-                                    CharacterSpacing="60"
-                                    Style="{StaticResource ResonateCaptionTextStyle}"
+                                    Style="{StaticResource ResonateEyebrowTextStyle}"
                                     Text="TOP SONGS" />
-                                <ListView
-                                    x:Name="TopSongList"
-                                    ContextRequested="OnTopSongContextRequested"
-                                    IsItemClickEnabled="True"
-                                    ItemClick="OnTopSongClick"
-                                    ItemTemplate="{StaticResource TopSongTemplate}"
-                                    ItemsSource="{x:Bind TopSongs}"
-                                    SelectionMode="None" />
+                                <!-- One list, or two side by side (1 to 5 and 6 to 10) on a wide window. -->
+                                <Grid x:Name="TopSongsGrid">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="0" />
+                                    </Grid.ColumnDefinitions>
+                                    <ListView
+                                        x:Name="TopSongList"
+                                        ContextRequested="OnTopSongContextRequested"
+                                        IsItemClickEnabled="True"
+                                        ItemClick="OnTopSongClick"
+                                        ItemTemplate="{StaticResource TopSongTemplate}"
+                                        ItemsSource="{x:Bind TopSongs}"
+                                        SelectionMode="None" />
+                                    <ListView
+                                        x:Name="TopSongListMore"
+                                        Grid.Column="1"
+                                        ContextRequested="OnTopSongMoreContextRequested"
+                                        IsItemClickEnabled="True"
+                                        ItemClick="OnTopSongClick"
+                                        ItemTemplate="{StaticResource TopSongTemplate}"
+                                        ItemsSource="{x:Bind TopSongsMore}"
+                                        SelectionMode="None"
+                                        Visibility="Collapsed" />
+                                </Grid>
                             </StackPanel>
                         </Border>
-                    </Grid>
+                    </StackPanel>
                     <Button
                         x:Name="TopMoreButton"
                         HorizontalAlignment="Left"
@@ -354,24 +680,26 @@
                         Style="{StaticResource ResonateSubtleButtonStyle}" />
                 </StackPanel>
 
-                <StackPanel Spacing="8">
-                    <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Daily mixes" />
-                    <TextBlock
-                        x:Name="MixesNote"
-                        Style="{StaticResource ResonateSecondaryTextStyle}"
-                        TextWrapping="Wrap"
-                        Visibility="Collapsed" />
-                    <GridView
-                        x:Name="MixGrid"
-                        IsItemClickEnabled="True"
-                        ItemClick="OnMixClick"
-                        ItemTemplate="{StaticResource MixCardTemplate}"
-                        ItemsSource="{x:Bind Mixes}"
-                        SelectionMode="None" />
-                </StackPanel>
-
-                <StackPanel Spacing="8">
-                    <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Recently played" />
+                <!-- The songs played lately, as many as fit in a row ("Show all" for the rest). -->
+                <StackPanel x:Name="RecentSection" Spacing="12">
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            Style="{StaticResource ResonateSectionTextStyle}"
+                            Text="Recently played" />
+                        <Button
+                            x:Name="RecentMoreButton"
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Click="OnRecentMoreClick"
+                            Content="Show all"
+                            Style="{StaticResource ResonateSubtleButtonStyle}"
+                            Visibility="Collapsed" />
+                    </Grid>
                     <TextBlock
                         x:Name="RecentNote"
                         Style="{StaticResource ResonateSecondaryTextStyle}"
@@ -379,6 +707,8 @@
                         Visibility="Collapsed" />
                     <GridView
                         x:Name="RecentGrid"
+                        Margin="-4,0,0,0"
+                        Padding="4,6,0,0"
                         ContextRequested="OnRecentContextRequested"
                         IsItemClickEnabled="True"
                         ItemClick="OnRecentClick"
@@ -387,6 +717,7 @@
                         SelectionMode="None" />
                 </StackPanel>
             </StackPanel>
+            <Border x:Name="PlayerSpace" Height="0" />
         </StackPanel>
     </ScrollViewer>
 </Page>

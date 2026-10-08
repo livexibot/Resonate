@@ -121,6 +121,7 @@ public sealed partial class ClassicPlayer : UserControl
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
         SizeChanged += OnSizeChanged;
+        ApplyPlacement();
     }
 
     /// <summary>
@@ -363,6 +364,7 @@ public sealed partial class ClassicPlayer : UserControl
         CoverFrame.Width = cover;
         CoverFrame.Height = cover;
         CoverHole.Width = CoverHole.Height = Math.Max(8, Math.Round(cover * 0.1));
+        ApplyPlacement();
 
         _drawn = null;
         _visSequence = -1;
@@ -378,7 +380,7 @@ public sealed partial class ClassicPlayer : UserControl
         }
 
         var doubled = ScaleFor(2);
-        var available = ActualWidth - PlayerFrame.Margin.Left - PlayerFrame.Margin.Right;
+        var available = ActualWidth - PlayerShell.Margin.Left - PlayerShell.Margin.Right;
         var height = (_skins.Shaded ? ClassicRenderer.ShadeHeight : ClassicRenderer.Height) * doubled / _raster;
         var needed = (ClassicRenderer.Width * doubled / _raster) + Math.Max(MinCoverSize, height) + RestOfRowWidth;
 
@@ -401,6 +403,11 @@ public sealed partial class ClassicPlayer : UserControl
             ApplyCoverLook();
             UpdateVisualiser();
             Invalidate();
+        }
+
+        if (e.NewSize.Width != e.PreviousSize.Width)
+        {
+            ApplyPlacement();
         }
     }
 
@@ -764,7 +771,32 @@ public sealed partial class ClassicPlayer : UserControl
         _coverSpin.Update(round && theme.AnimationsEnabled && _loaded, _shown.IsPlaying && _windowShown, (float)size);
     }
 
-    private void OnThemeChanged(object? sender, EventArgs e) => ApplyCoverLook();
+    private void OnThemeChanged(object? sender, EventArgs e)
+    {
+        ApplyCoverLook();
+        ApplyPlacement();
+    }
+
+    /// <summary>
+    /// Hovering over the page, the player hugs the cover, the skin and the
+    /// song and sits in the middle, like a Winamp window over the page;
+    /// otherwise it spans its row like the player bar. The control itself
+    /// always spans the row, so double size still sees the room there is.
+    /// </summary>
+    private void ApplyPlacement()
+    {
+        // Over a page too narrow for it (the queue open in a small window),
+        // it starts at the page's edge like the docked player, rather than
+        // being cut off on both sides.
+        var available = ActualWidth - PlayerShell.Margin.Left - PlayerShell.Margin.Right;
+        var needed = CoverFrame.Width + SkinView.Width + RestOfRowWidth;
+
+        // Before the first layout (or the skin's first picture) there is nothing to measure yet.
+        var fits = available <= 0 || double.IsNaN(needed) || needed <= available;
+        PlayerShell.HorizontalAlignment = fits && _services.Theme.Current.PlayerLayout == Resonate.Themes.PlayerLayout.Hovering
+            ? HorizontalAlignment.Center
+            : HorizontalAlignment.Stretch;
+    }
 
     /// <summary>The heart for the playing song (Spotify songs only).</summary>
     private void ShowLike(PlayerState state)

@@ -60,6 +60,12 @@ public enum PlayerLayout
 
     /// <summary>A rounded bar floating above the bottom edge.</summary>
     Floating,
+
+    /// <summary>
+    /// A centred pill hovering over the bottom of the page, which scrolls on
+    /// underneath it (pages leave room at their end, so nothing stays hidden).
+    /// </summary>
+    Hovering,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<ProgressStyle>))]

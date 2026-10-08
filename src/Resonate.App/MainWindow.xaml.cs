@@ -73,6 +73,7 @@ public sealed partial class MainWindow : Window
         _services = services;
         InitializeComponent();
 
+        SetMinimumSize();
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         BackButton.SizeChanged += (_, _) => UpdateTitleBarPassthrough();
@@ -86,7 +87,7 @@ public sealed partial class MainWindow : Window
         Content = null;
         var themeHost = new ThemeHost(content, services);
         Content = themeHost;
-        services.Theme.AttachWindow(this, themeHost, themeHost.Scene, themeHost.Overlay);
+        services.Theme.AttachWindow(this, themeHost);
         services.Theme.Changed += (_, _) => ApplyCaptionButtonColors();
         ApplyCaptionButtonColors();
 
@@ -120,6 +121,7 @@ public sealed partial class MainWindow : Window
         services.Plugins.Notified += (_, note) =>
             DispatcherQueue.TryEnqueue(() => ShowMessage($"{note.PluginName}: {note.Text}", InfoBarSeverity.Informational));
         PlayerBar.AttachPlugins(services.Plugins);
+        SetUpPlayerPlacement();
         AppWindow.Changed += OnAppWindowChanged;
         Closed += OnClosed;
 
@@ -463,6 +465,8 @@ public sealed partial class MainWindow : Window
 
     private void OnNavSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        // Also when the window chose the link itself (back, or a page opened elsewhere).
+        MoveNavPill(glide: true);
         if (_syncingSelection || NavList.SelectedItem is not NavItem item)
         {
             return;

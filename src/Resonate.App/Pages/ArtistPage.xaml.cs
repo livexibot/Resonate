@@ -18,14 +18,18 @@ public sealed partial class ArtistPage : Page
     /// <summary>The most releases shown, read ten at a time (all Spotify allows per request).</summary>
     private const int MaxReleases = 50;
 
+    private const int PortraitSize = 232;
+
     private readonly AppServices _services = App.Services;
     private readonly CancellationTokenSource _leaving = new();
+    private readonly CoverHero _hero;
     private string _artistId = string.Empty;
     private string _name = string.Empty;
 
     public ArtistPage()
     {
         InitializeComponent();
+        _hero = new CoverHero(Hero);
     }
 
     public ObservableCollection<CardItem> Albums { get; } = [];
@@ -40,10 +44,15 @@ public sealed partial class ArtistPage : Page
     {
         _artistId = e.Parameter as string ?? string.Empty;
         PortraitFrame.Background = Artwork.PlaceholderBrush(_artistId);
+        _hero.Attach();
         _ = LoadAsync();
     }
 
-    protected override void OnNavigatedFrom(NavigationEventArgs e) => _leaving.Cancel();
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        _hero.Detach();
+        _leaving.Cancel();
+    }
 
     private async Task LoadAsync()
     {
@@ -60,7 +69,9 @@ public sealed partial class ArtistPage : Page
             _name = artist.Name;
             NameText.Text = artist.Name;
             PortraitFrame.Background = Artwork.PlaceholderBrush(artist.Name);
-            PortraitImage.Source = Artwork.FromUrl(ImagePicker.Pick(artist.Images, 300), 184);
+            var portrait = ImagePicker.Pick(artist.Images, 300);
+            PortraitImage.Source = Artwork.FromUrl(portrait, PortraitSize);
+            _hero.Show(Artwork.PlaceholderColors(artist.Name).From, portrait);
             if (artist.Genres is { Count: > 0 } genres)
             {
                 GenresText.Text = string.Join(" · ", genres.Take(4));

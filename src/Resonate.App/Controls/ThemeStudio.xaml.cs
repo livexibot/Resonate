@@ -51,7 +51,7 @@ public sealed partial class ThemeStudio : UserControl
     {
         ["midnight"] = "Calm and dark, soft violet",
         ["daylight"] = "Bright and airy, floating player",
-        ["glass"] = "Frosted glass over the song's colours",
+        ["glass"] = "Frosted glass, hovering player",
         ["pure-black"] = "True black, sharp edges",
         ["synthwave"] = "Neon glow on a dusk gradient",
         ["paper"] = "Ink on paper, hard shadows",
@@ -239,6 +239,7 @@ public sealed partial class ThemeStudio : UserControl
     {
         SpinningCoverSwitch.IsOn = _theme.SpinningCover;
         BlurredCoverSwitch.IsOn = _theme.BlurredCoverBackground;
+        SidebarFullHeightSwitch.IsOn = _theme.SidebarFullHeight;
 
         var hint = _blurredCoverSwitchedOn && _theme.BlurredCoverBackground && look.Backdrop != WindowBackdrop.Artwork;
         BlurredCoverHint.Visibility = hint ? Visibility.Visible : Visibility.Collapsed;
@@ -412,7 +413,7 @@ public sealed partial class ThemeStudio : UserControl
     {
         if (!_loading && TransitionChoice.SelectedItem is ComboBoxItem { Tag: string tag })
         {
-            _theme.Transition = Enum.Parse<ThemeTransitionKind>(tag);
+            _theme.Transition = ThemeTransitionKindConverter.Parse(tag);
         }
     }
 
@@ -484,6 +485,15 @@ public sealed partial class ThemeStudio : UserControl
         {
             _blurredCoverSwitchedOn = BlurredCoverSwitch.IsOn;
             _theme.BlurredCoverBackground = BlurredCoverSwitch.IsOn;
+        }
+    }
+
+    // Like the cover art switches, the layout switch belongs to the user, not to a look.
+    private void OnSidebarFullHeightToggled(object sender, RoutedEventArgs e)
+    {
+        if (!_loading)
+        {
+            _theme.SidebarFullHeight = SidebarFullHeightSwitch.IsOn;
         }
     }
 

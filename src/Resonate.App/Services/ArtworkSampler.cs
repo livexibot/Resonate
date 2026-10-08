@@ -200,4 +200,88 @@ public sealed class ArtworkSampler : IDisposable
         Blurred = picture;
         Changed?.Invoke(this, EventArgs.Empty);
     }
+
+    // How far a light look's wash on Home is mixed towards its background.
+    private const double LightWash = 0.6;
+
+    // Home's greeting: the last cover it washed and the picture made from it,
+    // so going back to Home neither downloads nor paints it again.
+    private object? _washKey;
+    private byte[]? _washCover;
+    private (object Key, ThemeColor? Light, ImageSource Picture)? _lastWash;
+
+    /// <summary>
+    /// A soft wash of a cover's colours, for the greeting on Home: the cover
+    /// at <paramref name="url"/> or in <paramref name="image"/>, or the tile
+    /// colours of <paramref name="name"/> when it has none (or can not be
+    /// read), or the look's two accents when there is no song at all. With
+    /// <paramref name="light"/> (a light look's background) the wash is
+    /// mixed well towards it, so dark text reads over it. Works whatever the
+    /// look; a cover the backdrop has already read is not downloaded again.
+    /// Call on the interface thread.
+    /// </summary>
+    public async Task<ImageSource> GetWashAsync(string? url, byte[]? image, string? name, ThemeColor? light, CancellationToken cancellationToken)
+    {
+        var look = _theme.Current;
+        object key = url ?? (object?)image ?? (object?)name ?? (look.Accent.Opaque, look.Accent2.Opaque);
+        if (_lastWash is { } last && Equals(last.Key, key) && last.Light == light)
+        {
+            return last.Picture;
+        }
+
+        var pixels = Equals(key, _key) ? _pixels : Equals(key, _washKey) ? _washCover : null;
+        if (pixels is null)
+        {
+            try
+            {
+                if (url is not null)
+                {
+                    image = _covers is not null && CoverStore.Handles(url)
+                        ? await _covers.GetAsync(url).WaitAsync(cancellationToken)
+                        : await _http.GetByteArrayAsync(url, cancellationToken);
+                }
+
+                if (image is not null)
+                {
+                    pixels = await CoverDecoder.DecodeAsync(image, Size, cancellationToken);
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                // Offline, slow or an unreadable picture: the tile colours stand in.
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            if (pixels is null)
+            {
+                var (from, to) = name is not null ? Artwork.PlaceholderColors(name) : (look.Accent.Opaque, look.Accent2.Opaque);
+                pixels = ArtworkColors.Gradient(from, to, Size);
+            }
+
+            _washKey = key;
+            _washCover = pixels;
+        }
+
+        var wash = ArtworkColors.ColourWash(pixels, Size, Size, Size, Size);
+        if (light is { } background)
+        {
+            for (var i = 0; i < wash.Length; i += 4)
+            {
+                var colour = new ThemeColor(0xFF, wash[i + 2], wash[i + 1], wash[i]).Mix(background.Opaque, LightWash);
+                wash[i] = colour.B;
+                wash[i + 1] = colour.G;
+                wash[i + 2] = colour.R;
+            }
+        }
+
+        var picture = new WriteableBitmap(Size, Size);
+        wash.CopyTo(picture.PixelBuffer);
+        picture.Invalidate();
+        _lastWash = (key, light, picture);
+        return picture;
+    }
 }

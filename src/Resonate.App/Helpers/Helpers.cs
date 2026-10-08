@@ -67,9 +67,10 @@ public static class Artwork
     private static readonly Brush?[] PlaceholderBrushes = new Brush?[Palettes.Length];
 
     /// <summary>The same name always gets the same gradient. Call on the interface thread.</summary>
-    public static Brush PlaceholderBrush(string name)
+    public static Brush PlaceholderBrush(string name) => BrushAt(PaletteIndex(name));
+
+    private static Brush BrushAt(int index)
     {
-        var index = PaletteIndex(name);
         if (PlaceholderBrushes[index] is { } cached)
         {
             return cached;
@@ -89,6 +90,87 @@ public static class Artwork
 
     /// <summary>The two colours of <see cref="PlaceholderBrush"/>.</summary>
     public static (ThemeColor From, ThemeColor To) PlaceholderColors(string name) => ColorsAt(PaletteIndex(name));
+
+    /// <summary>
+    /// A placeholder for each name, as <see cref="PlaceholderBrush"/> gives,
+    /// except that a name whose gradient an earlier one already took moves on
+    /// to the next free one, so tiles side by side never match. Call on the
+    /// interface thread.
+    /// </summary>
+    public static Brush[] DistinctPlaceholders(IReadOnlyList<string> names)
+    {
+        var taken = new bool[Palettes.Length];
+        var brushes = new Brush[names.Count];
+        for (var i = 0; i < names.Count; i++)
+        {
+            var index = PaletteIndex(names[i]);
+            for (var step = 0; step < Palettes.Length && taken[index]; step++)
+            {
+                index = (index + 1) % Palettes.Length;
+            }
+
+            taken[index] = true;
+            brushes[i] = BrushAt(index);
+        }
+
+        return brushes;
+    }
+
+    // One scrim per gradient, shared like the placeholders.
+    private static readonly Brush?[] ScrimBrushes = new Brush?[Palettes.Length];
+
+    /// <summary>
+    /// A fade from clear into the deeper colour of <paramref name="name"/>'s
+    /// gradient over the lower part of a card, so white text on it reads
+    /// over any cover. Call on the interface thread.
+    /// </summary>
+    public static Brush ScrimBrush(string name)
+    {
+        var index = PaletteIndex(name);
+        if (ScrimBrushes[index] is { } cached)
+        {
+            return cached;
+        }
+
+        // Darkened, so white reads at 4.5:1 over every gradient's deeper colour.
+        var (_, to) = ColorsAt(index);
+        var deep = to.Mix(ThemeColor.Black, 0.35);
+        var brush = new LinearGradientBrush
+        {
+            StartPoint = new Point(0, 0),
+            EndPoint = new Point(0, 1),
+        };
+        brush.GradientStops.Add(new GradientStop { Color = deep.WithAlpha(0).ToColor(), Offset = 0.15 });
+        brush.GradientStops.Add(new GradientStop { Color = deep.WithAlpha(0.72).ToColor(), Offset = 0.45 });
+        brush.GradientStops.Add(new GradientStop { Color = deep.WithAlpha(0.94).ToColor(), Offset = 1 });
+        ScrimBrushes[index] = brush;
+        return brush;
+    }
+
+    // One text colour per gradient, shared like the placeholders.
+    private static readonly Brush?[] InitialsBrushes = new Brush?[Palettes.Length];
+
+    /// <summary>
+    /// White or near-black, whichever reads better over the middle of
+    /// <paramref name="name"/>'s gradient: for initials drawn on a
+    /// placeholder. Call on the interface thread.
+    /// </summary>
+    public static Brush InitialsBrush(string name)
+    {
+        var index = PaletteIndex(name);
+        if (InitialsBrushes[index] is { } cached)
+        {
+            return cached;
+        }
+
+        var (from, to) = ColorsAt(index);
+        var middle = from.Mix(to, 0.5);
+        var ink = ThemeColor.FromRgb(0x0B0B10);
+        var text = ThemeColor.ContrastRatio(ThemeColor.White, middle) >= ThemeColor.ContrastRatio(ink, middle) ? ThemeColor.White : ink;
+        var brush = new SolidColorBrush(text.ToColor());
+        InitialsBrushes[index] = brush;
+        return brush;
+    }
 
     private static int PaletteIndex(string name)
     {

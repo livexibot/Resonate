@@ -28,6 +28,9 @@ public sealed class AppSettings
     /// <summary>Looks with the song cover backdrop show the cover itself, blurred (off: only its colours).</summary>
     public bool BlurredCoverBackground { get; set; } = true;
 
+    /// <summary>The library sidebar runs to the bottom of the window, beside the player (off unless the user switches it on).</summary>
+    public bool SidebarFullHeight { get; set; }
+
     /// <summary>"modern" (Resonate's player bar) or "classic" (the skinnable player in the style of Winamp 2).</summary>
     public string PlayerStyle { get; set; } = "modern";
 

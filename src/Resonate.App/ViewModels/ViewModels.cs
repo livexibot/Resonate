@@ -2,9 +2,11 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
+using Resonate.App.Controls;
 using Resonate.App.Helpers;
 using Resonate.Spotify.History;
 using Resonate.Spotify.Library;
+using Resonate.Spotify.Playback;
 using Resonate.Spotify.WebApi;
 
 namespace Resonate.App.ViewModels;
@@ -286,48 +288,65 @@ public sealed partial class NavItem
     public string Label { get; }
 }
 
-/// <summary>Listening over one stretch of time (the past day or week), a card at the top of Home.</summary>
+/// <summary>
+/// Listening over one stretch of time (the past day or week), a card at the
+/// top of Home: the minutes, a bar chart of when, and the top artist and song.
+/// </summary>
 public sealed partial class StatCard : ObservableObject
 {
     private ImageSource? _artistImage;
     private ImageSource? _songImage;
 
-    public StatCard(string heading, ListeningSummary summary, string emptyText)
+    /// <param name="trend">A line comparing with the time before ("▲ 23% on the week before"), or null.</param>
+    public StatCard(string heading, ListeningSummary summary, BarSeries bars, string emptyText, string? trend = null)
     {
         Summary = summary;
+        Bars = bars;
         Heading = heading;
         var minutes = (int)Math.Round(summary.Listened.TotalMinutes);
         Minutes = minutes.ToString("N0", System.Globalization.CultureInfo.CurrentCulture);
-        MinutesLabel = minutes == 1 ? "minute" : "minutes";
-        Songs = summary.Songs.ToString("N0", System.Globalization.CultureInfo.CurrentCulture);
-        SongsLabel = summary.Songs == 1 ? "song" : "songs";
+        MinutesDetail = (minutes == 1 ? "minute" : "minutes") + " · " + Format.SongCount(summary.Songs);
         ArtistName = summary.TopArtist?.Name ?? string.Empty;
+        ArtistInitials = HomeText.Initials(ArtistName);
         ArtistDetail = "Top artist · " + Plays(summary.TopArtistPlays);
         SongTitle = summary.TopSong?.Title ?? string.Empty;
         SongDetail = "Top song · " + Plays(summary.TopSongPlays);
         ArtistPlaceholder = Artwork.PlaceholderBrush(ArtistName);
+        ArtistInitialsBrush = Artwork.InitialsBrush(ArtistName);
         SongPlaceholder = Artwork.PlaceholderBrush(summary.TopSong?.Album is { Length: > 0 } album ? album : SongTitle);
         EmptyText = emptyText;
+        Trend = trend ?? string.Empty;
+        TrendVisibility = trend is null ? Visibility.Collapsed : Visibility.Visible;
         TopVisibility = summary.Songs > 0 ? Visibility.Visible : Visibility.Collapsed;
         EmptyVisibility = summary.Songs > 0 ? Visibility.Collapsed : Visibility.Visible;
     }
 
     public ListeningSummary Summary { get; }
 
+    /// <summary>The chart: listening per hour or per day.</summary>
+    public BarSeries Bars { get; }
+
     public string Heading { get; }
 
+    /// <summary>The big number.</summary>
     public string Minutes { get; }
 
-    public string MinutesLabel { get; }
+    /// <summary>"minutes · 26 songs", beside the big number.</summary>
+    public string MinutesDetail { get; }
 
     /// <summary>Spotify reports which songs played, not for how long.</summary>
     public string MinutesNote => "About: Spotify counts a song once it has played for 30 seconds, and Resonate adds up the songs' full lengths.";
 
-    public string Songs { get; }
+    public string Trend { get; }
 
-    public string SongsLabel { get; }
+    public Visibility TrendVisibility { get; }
 
     public string ArtistName { get; }
+
+    /// <summary>Shown on the artist's colours until the picture arrives (or when there is none).</summary>
+    public string ArtistInitials { get; }
+
+    public Brush ArtistInitialsBrush { get; }
 
     public string ArtistDetail { get; }
 
@@ -359,20 +378,71 @@ public sealed partial class StatCard : ObservableObject
     private static string Plays(int count) => count == 1 ? "1 play" : $"{count:N0} plays";
 }
 
-/// <summary>A daily mix or "On repeat" on Home: a square of colour with the artist's picture.</summary>
-public sealed partial class MixCard
+/// <summary>One of the four album covers on a mix card, on its album's colours until it loads.</summary>
+public sealed partial class MosaicTile
 {
-    private readonly string? _imageUrl;
+    private readonly string? _url;
     private ImageSource? _image;
 
-    public MixCard(string key, string title, string subtitle, string? imageUrl, string glyph)
+    public MosaicTile(string? url, Brush placeholder)
+    {
+        _url = url;
+        Placeholder = placeholder;
+    }
+
+    public Brush Placeholder { get; }
+
+    public ImageSource? Image => _image ??= Artwork.FromUrl(_url, 88);
+}
+
+/// <summary>
+/// A daily mix or "On repeat" on Home: the covers of the four albums it
+/// draws on most (or the artist's picture, when it has fewer), fading into
+/// the mix's own colour under its number. A click opens it; the play button
+/// that shows under the pointer plays it straight away.
+/// </summary>
+public sealed partial class MixCard
+{
+    private const int TileCount = 4;
+
+    private readonly string? _portraitUrl;
+    private ImageSource? _portrait;
+
+    /// <param name="number">The mix's number, drawn large; null for a card with a symbol instead ("On repeat").</param>
+    /// <param name="portraitUrl">The artist the mix is built around, shown when it has too few albums for four covers.</param>
+    public MixCard(string key, string title, string subtitle, string eyebrow, string? number, string glyph, string? portraitUrl, IReadOnlyList<TrackInfo> tracks)
     {
         Key = key;
         Title = title;
         Subtitle = subtitle;
+        Eyebrow = eyebrow;
+        Numeral = number ?? string.Empty;
         Glyph = glyph;
-        _imageUrl = imageUrl;
+        Tracks = tracks;
         PlaceholderBrush = Artwork.PlaceholderBrush(title);
+        ScrimBrush = Artwork.ScrimBrush(title);
+
+        var albums = ListeningStats.MostFrequentAlbums(tracks, TileCount);
+        var mosaic = albums.Count >= TileCount || portraitUrl is null;
+        _portraitUrl = mosaic ? null : portraitUrl;
+
+        // A missing cover gets a colour of its own, so the square still reads as four.
+        var names = Enumerable.Range(0, TileCount).Select(i => i < albums.Count ? albums[i].Album : $"{title} {i}").ToList();
+        var colours = Artwork.DistinctPlaceholders(names);
+        var tiles = new MosaicTile[TileCount];
+        for (var i = 0; i < TileCount; i++)
+        {
+            tiles[i] = new MosaicTile(i < albums.Count ? albums[i].LargeImageUrl ?? albums[i].SmallImageUrl : null, colours[i]);
+        }
+
+        TopLeft = tiles[0];
+        TopRight = tiles[1];
+        BottomLeft = tiles[2];
+        BottomRight = tiles[3];
+        MosaicVisibility = mosaic ? Visibility.Visible : Visibility.Collapsed;
+        PortraitVisibility = mosaic ? Visibility.Collapsed : Visibility.Visible;
+        NumeralVisibility = number is null ? Visibility.Collapsed : Visibility.Visible;
+        GlyphVisibility = number is null ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>The song list it opens ("mix:1", "onrepeat").</summary>
@@ -382,21 +452,54 @@ public sealed partial class MixCard
 
     public string Subtitle { get; }
 
+    /// <summary>"DAILY MIX", small above the number.</summary>
+    public string Eyebrow { get; }
+
+    public string Numeral { get; }
+
     public string Glyph { get; }
+
+    public IReadOnlyList<TrackInfo> Tracks { get; }
 
     public Brush PlaceholderBrush { get; }
 
-    public ImageSource? Image => _image ??= Artwork.FromUrl(_imageUrl, 112);
+    public Brush ScrimBrush { get; }
 
-    public Visibility PortraitVisibility => _imageUrl is null ? Visibility.Collapsed : Visibility.Visible;
+    public MosaicTile TopLeft { get; }
 
-    public Visibility GlyphVisibility => _imageUrl is null ? Visibility.Visible : Visibility.Collapsed;
+    public MosaicTile TopRight { get; }
+
+    public MosaicTile BottomLeft { get; }
+
+    public MosaicTile BottomRight { get; }
+
+    public ImageSource? Portrait => _portrait ??= Artwork.FromUrl(_portraitUrl, 176);
+
+    public Visibility MosaicVisibility { get; }
+
+    public Visibility PortraitVisibility { get; }
+
+    public Visibility NumeralVisibility { get; }
+
+    public Visibility GlyphVisibility { get; }
+
+    /// <summary>What screen readers say for the play button.</summary>
+    public string PlayName => "Play " + Title;
+
+    /// <summary>The play button: the mix from the top (shuffled when shuffle is on), without opening it.</summary>
+    public void Play()
+    {
+        if (Tracks.Count > 0)
+        {
+            _ = App.Services.Player.PlayAsync(new PlayRequest(Tracks, -1, null, Title));
+        }
+    }
 
     /// <summary>What screen readers say for the card.</summary>
     public override string ToString() => $"{Title}, {Subtitle}";
 }
 
-/// <summary>A song in Home's "Recently played" row.</summary>
+/// <summary>A song in Home's "Recently played" row, with when it played.</summary>
 public sealed partial class RecentCard
 {
     private ImageSource? _image;
@@ -404,7 +507,8 @@ public sealed partial class RecentCard
     public RecentCard(TrackInfo track, DateTimeOffset playedAt, DateTimeOffset now)
     {
         Track = track;
-        Tooltip = $"{track.Title} · {track.Artists}\nPlayed {Format.DateAdded(playedAt, now)}";
+        Ago = Format.DateAdded(playedAt, now);
+        Tooltip = $"{track.Title} · {track.Artists}\nPlayed {Ago}";
         PlaceholderBrush = Artwork.PlaceholderBrush(track.Album.Length > 0 ? track.Album : track.Title);
     }
 
@@ -414,17 +518,20 @@ public sealed partial class RecentCard
 
     public string Artists => Track.Artists;
 
+    /// <summary>"2 hours ago".</summary>
+    public string Ago { get; }
+
     public string Tooltip { get; }
 
     public Brush PlaceholderBrush { get; }
 
-    public ImageSource? Image => _image ??= Artwork.FromUrl(Track.LargeImageUrl, 128);
+    public ImageSource? Image => _image ??= Artwork.FromUrl(Track.LargeImageUrl, 140);
 
     /// <summary>What screen readers say for the card.</summary>
-    public override string ToString() => $"{Title}, {Artists}";
+    public override string ToString() => $"{Title}, {Artists}, {Ago}";
 }
 
-/// <summary>One of the user's top artists on Spotify, on Home: its rank, portrait and name.</summary>
+/// <summary>One of the user's top artists on Spotify, on Home: a round portrait (initials until it loads) with its rank.</summary>
 public sealed partial class TopArtistRow
 {
     private ImageSource? _image;
@@ -433,7 +540,11 @@ public sealed partial class TopArtistRow
     {
         Artist = artist;
         Rank = rank.ToString(System.Globalization.CultureInfo.CurrentCulture);
+        Initials = HomeText.Initials(artist.Name);
         PlaceholderBrush = Artwork.PlaceholderBrush(artist.Name);
+        InitialsBrush = Artwork.InitialsBrush(artist.Name);
+        FirstVisibility = rank == 1 ? Visibility.Visible : Visibility.Collapsed;
+        OtherVisibility = rank == 1 ? Visibility.Collapsed : Visibility.Visible;
     }
 
     public TopArtist Artist { get; }
@@ -442,11 +553,20 @@ public sealed partial class TopArtistRow
 
     public string Name => Artist.Name;
 
+    public string Initials { get; }
+
+    public Brush InitialsBrush { get; }
+
     public Brush PlaceholderBrush { get; }
 
-    public ImageSource? Image => _image ??= Artwork.FromUrl(Artist.ImageUrl, 40);
+    /// <summary>Number one's rank is in the accent colour.</summary>
+    public Visibility FirstVisibility { get; }
 
-    /// <summary>What screen readers say for the row.</summary>
+    public Visibility OtherVisibility { get; }
+
+    public ImageSource? Image => _image ??= Artwork.FromUrl(Artist.ImageUrl, 104);
+
+    /// <summary>What screen readers say for the card.</summary>
     public override string ToString() => $"{Rank}. {Name}";
 }
 
@@ -460,6 +580,8 @@ public sealed partial class TopSongRow
         Track = track;
         Rank = rank.ToString(System.Globalization.CultureInfo.CurrentCulture);
         PlaceholderBrush = Artwork.PlaceholderBrush(track.Album.Length > 0 ? track.Album : track.Title);
+        FirstVisibility = rank == 1 ? Visibility.Visible : Visibility.Collapsed;
+        OtherVisibility = rank == 1 ? Visibility.Collapsed : Visibility.Visible;
     }
 
     public TrackInfo Track { get; }
@@ -472,7 +594,12 @@ public sealed partial class TopSongRow
 
     public Brush PlaceholderBrush { get; }
 
-    public ImageSource? Image => _image ??= Artwork.FromUrl(Track.SmallImageUrl ?? Track.LargeImageUrl, 40);
+    /// <summary>Number one's rank is in the accent colour.</summary>
+    public Visibility FirstVisibility { get; }
+
+    public Visibility OtherVisibility { get; }
+
+    public ImageSource? Image => _image ??= Artwork.FromUrl(Track.SmallImageUrl ?? Track.LargeImageUrl, 48);
 
     /// <summary>What screen readers say for the row.</summary>
     public override string ToString() => $"{Rank}. {Title}, {Artists}";

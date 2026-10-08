@@ -26,7 +26,9 @@ public sealed partial class TracksPage : Page
 {
     /// <summary>Below this list width the page uses its compact layout.</summary>
     private const double CompactWidth = 600;
-    private const double CompactTitleSize = 28;
+    private const double CompactTitleSize = 32;
+    private const int CoverSize = 232;
+    private const int CompactCoverSize = 128;
 
     private const string OpenInSpotifyLabel = "Open in Spotify";
     private const string UpGlyph = "";
@@ -36,6 +38,7 @@ public sealed partial class TracksPage : Page
     private readonly CancellationTokenSource _leaving = new();
     private readonly Dictionary<TrackInfo, TrackRow> _rowCache = new(ReferenceEqualityComparer.Instance);
     private readonly DispatcherQueueTimer _filterTimer;
+    private readonly CoverHero _hero;
     private TrackListSource _source = null!;
     private ListHeader _header = null!;
     private TrackColumns _columns = null!;
@@ -66,6 +69,7 @@ public sealed partial class TracksPage : Page
         _filterTimer = DispatcherQueue.CreateTimer();
         _filterTimer.Interval = TimeSpan.FromMilliseconds(150);
         _filterTimer.IsRepeating = false;
+        _hero = new CoverHero(Hero);
     }
 
     /// <summary>The list shown is in its own order, unfiltered (so it can play inside its Spotify context and be rearranged).</summary>
@@ -94,6 +98,7 @@ public sealed partial class TracksPage : Page
         _services.Player.StateChanged += OnPlayerStateChanged;
         _services.Likes.Changed += OnLikesChanged;
         _source.Attach(OnSourceChanged);
+        _hero.Attach();
         _ = LoadAsync();
     }
 
@@ -104,6 +109,7 @@ public sealed partial class TracksPage : Page
         _services.Likes.Changed -= OnLikesChanged;
         _filterTimer.Stop();
         _filterTimer.Tick -= OnFilterTick;
+        _hero.Detach();
         _leaving.Cancel();
     }
 
@@ -198,8 +204,10 @@ public sealed partial class TracksPage : Page
         CoverGlyph.Visibility = header.Glyph is null ? Visibility.Collapsed : Visibility.Visible;
         if (header.ImageUrl is not null)
         {
-            CoverImage.Source = Artwork.FromUrl(header.ImageUrl, 184);
+            CoverImage.Source = Artwork.FromUrl(header.ImageUrl, CoverSize);
         }
+
+        _hero.Show(Artwork.PlaceholderColors(header.PlaceholderName).From, header.ImageUrl);
 
         ArtistLinks.Children.Clear();
         foreach (var artist in header.Artists)
@@ -702,10 +710,12 @@ public sealed partial class TracksPage : Page
         }
 
         _compact = compact;
-        var cover = compact ? 128 : 184;
+        var cover = compact ? CompactCoverSize : CoverSize;
         CoverColumn.Width = new GridLength(cover);
         CoverFrame.Width = cover;
         CoverFrame.Height = cover;
+        CoverShadow.Width = cover;
+        CoverShadow.Height = cover;
 
         // A smaller title, so a long name still fits on its two lines.
         if (compact)

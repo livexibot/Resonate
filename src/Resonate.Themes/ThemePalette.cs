@@ -59,6 +59,13 @@ public sealed record ThemePalette
 
     public required ThemeColor Accent2 { get; init; }
 
+    /// <summary>
+    /// A soft wash of the accent behind the selected row of a list (and the
+    /// sidebar's selected link). It reads at least as well as the grey
+    /// highlight it replaces (see <see cref="SoftAccent"/>).
+    /// </summary>
+    public required ThemeColor AccentSoft { get; init; }
+
     /// <summary>The unplayed part of the progress and volume bars.</summary>
     public required ThemeColor Track { get; init; }
 
@@ -92,6 +99,14 @@ public sealed record ThemePalette
     /// <summary>The shadow under small things: covers and the play button.</summary>
     public required ShadowSpec ItemShadow { get; init; }
 
+    /// <summary>
+    /// The light behind the player's play button: a glow in the accent colour
+    /// for soft and deep shadows, neon for glowing looks, a hard offset copy
+    /// for printed looks, and nothing for looks without shadows or a plain
+    /// play button.
+    /// </summary>
+    public required ShadowSpec PlayButtonShadow { get; init; }
+
     public static ThemePalette From(ThemeDefinition theme, ThemeColor? accentOverride = null)
     {
         theme = theme.Normalize();
@@ -122,12 +137,19 @@ public sealed record ThemePalette
             _ => Math.Min(radius * 0.25, 3),
         };
 
+        var itemShadow = Shadow(theme.Shadow, isLight, accent, text, large: false);
+
         var (playBackground, playHover, playForeground, playBorder, playBorderWidth) = theme.PlayButton switch
         {
             PlayButtonStyle.Outline => (ThemeColor.Transparent, accent.WithAlpha(0.16), accent, accent, 1.5),
             PlayButtonStyle.Plain => (ThemeColor.Transparent, hover, text, ThemeColor.Transparent, 0.0),
             _ => (accent, AccentHoverFor(accent, isLight), onAccent, ThemeColor.Transparent, 0.0),
         };
+
+        var secondary = text.Mix(effectiveSurface, 0.33);
+        var tertiary = text.Mix(effectiveSurface, 0.55);
+        var shownSidebar = theme.Sidebar.Opaque.WithAlpha(panelOpacity).Over(background);
+        var accentSoft = SoftAccent(accent, isLight, pressed, [text, secondary, tertiary], [effectiveSurface, shownSidebar]);
 
         return new ThemePalette
         {
@@ -137,19 +159,20 @@ public sealed record ThemePalette
             BackdropTint = background.WithAlpha(theme.BackdropTint),
             Sidebar = theme.Sidebar.Opaque.WithAlpha(panelOpacity),
             Surface = surface,
-            Player = theme.Player.Opaque.WithAlpha(panelOpacity),
+            Player = PlayerFill(theme, effectiveSurface),
             Hover = hover,
             Pressed = pressed,
             Control = text.WithAlpha(isLight ? 0.04 : 0.06),
             Border = border,
             TextPrimary = text,
-            TextSecondary = text.Mix(effectiveSurface, 0.33),
-            TextTertiary = text.Mix(effectiveSurface, 0.55),
+            TextSecondary = secondary,
+            TextTertiary = tertiary,
             Accent = accent,
             AccentHover = AccentHoverFor(accent, isLight),
             AccentPressed = isLight ? accent.Mix(ThemeColor.Black, 0.18) : accent.Mix(ThemeColor.Black, 0.12),
             OnAccent = onAccent,
             Accent2 = accent2,
+            AccentSoft = accentSoft,
             Track = text.WithAlpha(isLight ? 0.16 : 0.18),
             PlayButtonBackground = playBackground,
             PlayButtonHover = playHover,
@@ -163,7 +186,45 @@ public sealed record ThemePalette
             PlayButtonBorderWidth = playBorderWidth,
             PanelGap = theme.PanelGap,
             PanelShadow = Shadow(theme.Shadow, isLight, accent, text, large: true),
-            ItemShadow = Shadow(theme.Shadow, isLight, accent, text, large: false),
+            ItemShadow = itemShadow,
+            PlayButtonShadow = PlayButtonGlow(theme, isLight, accent, itemShadow),
+        };
+    }
+
+    /// <summary>The lowest opacity of a hovering player, so rows scrolling underneath never get in the way of its text.</summary>
+    internal const double HoveringPlayerOpacity = 0.9;
+
+    /// <summary>
+    /// The player's fill. Docked and floating players are panels like the
+    /// others. A hovering player sits over the page while it scrolls, so it
+    /// is the panel as it looks over the background, made almost opaque:
+    /// glass looks get smoky glass instead of a see-through bar over text.
+    /// </summary>
+    private static ThemeColor PlayerFill(ThemeDefinition theme, ThemeColor effectiveSurface)
+    {
+        var panel = theme.Player.Opaque.WithAlpha(theme.PanelOpacity);
+        return theme.PlayerLayout == PlayerLayout.Hovering
+            ? panel.Over(effectiveSurface).WithAlpha(Math.Max(theme.PanelOpacity, HoveringPlayerOpacity))
+            : panel;
+    }
+
+    /// <summary>
+    /// The glow behind the play button. An outline button glows as a ring
+    /// (the window draws it so), so its glow sits straight behind it.
+    /// </summary>
+    private static ShadowSpec PlayButtonGlow(ThemeDefinition theme, bool isLight, ThemeColor accent, ShadowSpec itemShadow)
+    {
+        if (theme.PlayButton == PlayButtonStyle.Plain)
+        {
+            return ShadowSpec.None;
+        }
+
+        var drop = theme.PlayButton == PlayButtonStyle.Filled ? 4 : 0;
+        return theme.Shadow switch
+        {
+            ShadowStyle.Soft or ShadowStyle.Strong => new ShadowSpec(16, 0, drop, accent.WithAlpha(isLight ? 0.35 : 0.45)),
+            ShadowStyle.Glow or ShadowStyle.Hard => itemShadow,
+            _ => ShadowSpec.None,
         };
     }
 
@@ -172,6 +233,82 @@ public sealed record ThemePalette
 
     private static ThemeColor AccentHoverFor(ThemeColor accent, bool isLight) =>
         isLight ? accent.Mix(ThemeColor.Black, 0.08) : accent.Mix(ThemeColor.White, 0.14);
+
+    /// <summary>
+    /// The glow of a cover's colour behind a page's header (it fades to
+    /// nothing towards the list below). It starts strong on dark pages,
+    /// softer on light, glass and true-black ones, and is lowered until every
+    /// text on the page still reads over it as well as the presets promise:
+    /// main text 7:1, secondary 4.5:1, captions 2.5:1 and the accent 2.4:1.
+    /// Transparent when even a faint glow would make text harder to read.
+    /// </summary>
+    public ThemeColor HeroTint(ThemeColor source)
+    {
+        var page = Surface.Over(Background);
+        var strength = page == ThemeColor.Black ? 0.30
+            : Surface.A < 0xFF ? 0.25
+            : IsLight ? 0.24
+            : 0.42;
+
+        // Whole steps, so the same cover always gets the same glow.
+        for (var step = (int)Math.Round(strength * 100); step > 0; step -= 5)
+        {
+            var tint = source.Opaque.WithAlpha(step / 100.0);
+            var shown = tint.Over(page);
+            if (ThemeColor.ContrastRatio(TextPrimary, shown) >= 7
+                && ThemeColor.ContrastRatio(TextSecondary, shown) >= 4.5
+                && ThemeColor.ContrastRatio(TextTertiary, shown) >= 2.5
+                && ThemeColor.ContrastRatio(Accent, shown) >= 2.4)
+            {
+                return tint;
+            }
+        }
+
+        return source.Opaque.WithAlpha(0);
+    }
+
+    /// <summary>
+    /// The accent as a soft wash for selected rows, on the page and in the
+    /// sidebar. Each text over it keeps 7:1 (main), 4.5:1 (secondary) and
+    /// 2.5:1 (captions), or, where the grey highlight it replaces already
+    /// fell short of that, at least as much as over that grey; it is made
+    /// fainter until it does (transparent if nothing faint enough helps).
+    /// </summary>
+    private static ThemeColor SoftAccent(ThemeColor accent, bool isLight, ThemeColor grey, ThemeColor[] texts, ThemeColor[] panels)
+    {
+        // Main text, secondary text, captions: the bars of Every_preset_is_readable.
+        double[] bars = [7, 4.5, 2.5];
+
+        bool ReadsOver(ThemeColor tint)
+        {
+            foreach (var panel in panels)
+            {
+                var shown = tint.Over(panel);
+                var greyShown = grey.Over(panel);
+                for (var i = 0; i < texts.Length; i++)
+                {
+                    var bar = Math.Min(bars[i], ThemeColor.ContrastRatio(texts[i], greyShown));
+                    if (ThemeColor.ContrastRatio(texts[i], shown) < bar)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        for (var step = isLight ? 12 : 16; step > 0; step -= 2)
+        {
+            var tint = accent.WithAlpha(step / 100.0);
+            if (ReadsOver(tint))
+            {
+                return tint;
+            }
+        }
+
+        return accent.WithAlpha(0);
+    }
 
     private static ShadowSpec Shadow(ShadowStyle style, bool isLight, ThemeColor accent, ThemeColor text, bool large)
     {

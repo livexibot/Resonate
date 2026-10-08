@@ -36,12 +36,20 @@ visitors; keep it short and in step with this file.
   them in the installed app; on the owner's PC, check that Windows security
   software lets the downloaded helper run.
 - The classic player (a Winamp-style player chosen in Settings), the
-  opt-in spinning cover and Liquid Glass's blurred-cover background are
-  described under "Classic player and cover art". On the owner's PC,
+  opt-in spinning cover and Liquid Glass's blurred-cover background
+  (pull request #18, 8 October 2026) are described under "Classic player
+  and cover art". On the owner's PC,
   check that the skin stays sharp at their display scaling, that a
   downloaded `.wsz` skin imports, that the visualiser moves for Local
   Files, and the cost of the spinning cover and Liquid Glass's drift on
   their 165 Hz display.
+- The theme upgrades (8 October 2026: a hovering player, a sidebar that
+  reaches the bottom, smoother and longer look-switching animations, a
+  bolder look and a livelier Home) are described under "Look, layouts and
+  switching". On the owner's PC, judge what CI's pictures cannot show: the
+  soft shadows and the play button's glow, the smoothness of Spread from
+  the middle and Ripple at 5K and 165 Hz, and the header glows with real
+  covers.
 - The two oldest commits are authored "Claude". Fixing that needs a force
   push, which the permission system blocked. Ask the owner before trying.
 - Pull request #1 could not be squash-merged (GitHub answered with an empty
@@ -388,6 +396,80 @@ Classic player and cover art (checked 2026-10-08):
   in CI (demo covers are made-up gradients), so check Liquid Glass with
   real, dark covers on the owner's PC.
 
+Look, layouts and switching (checked 2026-10-08; the owner asked for a
+more modern look without bloat, a centred hovering player, a sidebar that
+reaches the bottom, switching animations of 1 to 2 s that ease in and out,
+a spread from the middle that is not a circle, a plain morph, a smoother
+Ripple, and a more interesting Home):
+- Switching looks: every kind but None lasts 1.2 to 1.6 s and eases in and
+  out (cubic Bézier with y1 = 0 and y2 = 1). Durations, curves and the
+  Random pool live in `Resonate.Themes/ThemeTransitionCatalog.cs` and are
+  tested. Kinds: Morph (shapes dissolve while colours flow on the same
+  curve), Cross-fade (`Fade`), Spread from the middle (`Grow`, a rounded
+  rectangle in the window's shape), Ripple from the click, Split, Blinds,
+  Wipe, Surprise me and None. Customize's quick edits cross-fade in 320 ms
+  on purpose. `ThemeTransitions` takes one picture of the whole
+  `ThemeHost` (a reused `RenderTargetBitmap`) and drives everything from
+  one progress value in a `CompositionPropertySet` through expression
+  animations, all stopped when the transition ends. Ripple and Spread put
+  the picture under the live window (`ThemeHost.Underlay`) and reveal the
+  new look through a composition `RectangleClip` scaled by the square root
+  of the progress, so the revealed area follows the curve; with Mica or
+  acrylic they cross-fade instead. Anything that changes with the look must
+  live inside `ThemeHost.Scene`. Switches apply at once while the window is
+  hidden or Windows animations are off. The kind is saved by name through
+  a tolerant converter (unknown values read as Morph), so never rename a
+  member; add new ones at the end. CI's tour holds Spread, Ripple and
+  Cross-fade halfway for screenshots (forcing animations on), and the speed
+  test reports each switch's first motion and end. Measure: the cost of the
+  rounded-rectangle clip at 5K and 165 Hz. Pictures lack the soft shadows,
+  so the old look's shadows vanish on the first frame of a switch.
+- Player layouts: a look's player is Docked, Floating or Hovering. Hovering
+  is a centred pill at most 912 wide over the bottom of the page, at least
+  0.9 opaque so text keeps 4.5:1 (`ThemePalette.PlayerFill`); Liquid Glass
+  uses it. A global switch, "Sidebar reaches the bottom"
+  (`SidebarFullHeight`, off at first), puts the player under the page
+  only. The player and the classic player live in one `PlayerSlot` inside
+  `ShellGrid`, moved only by attached properties
+  (`MainWindow.PlayerPlacement.cs`, maths in
+  `Resonate.Themes/PlayerPlacement.cs`), so the classic player is never
+  rebuilt. Pages with a list or a scroll end in
+  `<Border x:Name="PlayerSpace" Height="0" />` and implement
+  `IPlayerInset` (`Pages/*.PlayerInset.cs`); a new page must do the same.
+  The bar is Full from 912 wide, Compact below that (no volume slider; the
+  mouse wheel on the speaker button changes the volume) and Mini below
+  600. The play button's glow (`PlayButtonShadow`,
+  `ElevationLevel.PlayButton`) and the cover's shadow are composition
+  shadows that CI's screenshots cannot show.
+- The look refresh: Display text is 48 Bold set slightly tight;
+  `ResonateSectionTextStyle` (24 Bold) titles sections and
+  `ResonateEyebrowTextStyle` (12 SemiBold, spaced capitals, secondary
+  colour) labels them. Spacing tokens: `ResonatePagePadding` 32,
+  `ResonateSectionSpacing` 36, `ResonateSectionHeaderSpacing` 12. Pages
+  with a cover show a glow of its colour behind the header
+  (`Helpers/CoverHero`): the cover is read at 40 px off the interface
+  thread through the cover store, its colour kept in a 200-entry cache,
+  with the placeholder colour as fallback. Its strength is
+  `ThemePalette.HeroTint`, the strongest tint at which every text stays
+  readable; the DJ page uses the accent's (`ResonateHeroGradientBrush`).
+  Selected rows and the sidebar's gliding pill (`MainWindow.NavPill.cs`,
+  200 ms, placed from the list's height so no row is cast) use
+  `ThemePalette.AccentSoft`. Text fields are rounded
+  (`ResonateCornerInput`) and outlined in the accent while typing.
+- Home: a greeting card (first name, date, a line about today) beside what
+  plays or played last, on a wash of the cover's colours
+  (`ArtworkSampler.GetWashAsync`, cached, mixed towards the background on
+  light looks). The day and week cards have bar charts (`Controls/BarStrip`,
+  plain elements built in code, rising once on first load) from
+  `ListeningStats.Hourly` and `Daily` (local clock hours and calendar
+  days); the week compares with the week before (`ListeningStats.Change`,
+  only with two weeks of history). Mix cards are a 2x2 mosaic of the mix's
+  most frequent albums. Top artists are round portraits with rank pills.
+  Rows show the cards that fit, with "Show all", because a sideways
+  scroller would capture the mouse wheel. Cards rise under the pointer
+  (`Controls/HoverLift`, 160 ms, still when animations are off). Nothing
+  on Home moves by itself once it has settled.
+
 GitHub automation:
 - Releases and pull requests made with the default `GITHUB_TOKEN` do not
   start other workflows, so `release-please.yml` calls `release.yml`
@@ -723,7 +805,8 @@ Keep it obvious what is what:
 - `src/Resonate.App/` the WinUI 3 app: windows, pages, controls, the
   updater, demo mode, and the theme engine (`Themes/Tokens.xaml` holds every
   token, `ThemeService.cs` applies looks, `ThemeTransitions.cs` animates
-  switching, `Controls/ThemeStudio` is the Look section of Settings), and
+  switching, `Controls/ThemeStudio` is the Look section of Settings,
+  `MainWindow.PlayerPlacement.cs` places the player), and
   the classic player (`Controls/ClassicPlayer`, its Settings section
   `Controls/ClassicPlayerPanel`, and `Services/SkinLibrary.cs`). Both
   players share the plugin button (`Controls/PluginMenu.cs`).
@@ -734,8 +817,10 @@ Keep it obvious what is what:
   (`LocalFiles/`). Any OS.
 - `src/Resonate.Themes/` the theme model, independent of WinUI: the six
   presets, what a look can set, the palette worked out from it (readable
-  text guaranteed), saved looks, sharing a look as text, and picking colours
-  from a cover; and the classic player's skins (`Skins/`): reading `.wsz`
+  text guaranteed), saved looks, sharing a look as text, picking colours
+  from a cover, the switching animations' timing
+  (`ThemeTransitionCatalog`) and the player's placement
+  (`PlayerPlacement`); and the classic player's skins (`Skins/`): reading `.wsz`
   files safely, the built-in skin, drawing and hit-testing the main
   window, and the visualiser's analyser. Any OS, tested.
 - `src/Resonate.Windows/` the Windows side of the player: the media
@@ -851,11 +936,16 @@ when the work first needs them, then tick them off here.
   Black, Synthwave and Paper. Under them, Customize edits
   everything a look sets: colours, light, dark or black, backdrop
   (colour, gradient, song cover, Mica, acrylic), corners, button shape,
-  outlines, spacing, shadows, fonts, and the player (docked or floating,
-  progress bar style, play button, cover). Editing a preset makes a custom
-  copy; looks can be saved, renamed, and copied or pasted as text. Switching
-  looks animates (morph, ripple from the click, split, blinds, wipe, a
-  random one, or none; the owner asked for animated switching).
+  outlines, spacing, shadows, fonts, and the player (docked, floating or
+  hovering, progress bar style, play button, cover). Editing a preset makes
+  a custom copy; looks can be saved, renamed, and copied or pasted as text.
+  Switching looks animates (morph, cross-fade, spread from the middle,
+  ripple from the click, split, blinds, wipe, a random one, or none; the
+  owner asked for animated switching, then on 8 October 2026 for 1 to 2 s
+  animations that ease in and out). Defaults chosen for the 8 October
+  upgrades, reversible: the hovering player is a pill over the page (not a
+  separate window) and Liquid Glass uses it; "Sidebar reaches the bottom"
+  is a global setting, off at first.
 - Plugins (asked 7 October 2026): optional add-ons that are downloaded only
   when turned on in Settings and deleted when turned off. Default chosen
   while the owner's answer is open ("built-in extras only, or community

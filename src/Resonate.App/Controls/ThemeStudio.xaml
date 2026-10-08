@@ -59,6 +59,8 @@
                 Header="Switching animation"
                 SelectionChanged="OnTransitionChanged">
                 <ComboBoxItem Content="Morph" Tag="Morph" />
+                <ComboBoxItem Content="Cross-fade" Tag="Fade" />
+                <ComboBoxItem Content="Spread from the middle" Tag="Grow" />
                 <ComboBoxItem Content="Ripple from the click" Tag="Ripple" />
                 <ComboBoxItem Content="Split apart" Tag="Split" />
                 <ComboBoxItem Content="Blinds" Tag="Blinds" />
@@ -118,6 +120,20 @@
                 Style="{StaticResource ResonateCaptionTextStyle}"
                 TextWrapping="Wrap"
                 Visibility="Collapsed" />
+        </StackPanel>
+
+        <!-- Layout: the user's own window arrangement, kept whatever look is in use (not part of a look) -->
+        <StackPanel Spacing="6">
+            <TextBlock Style="{StaticResource StudioSectionTextStyle}" Text="LAYOUT" />
+            <controls:SettingRow Description="The playlists run the full height of the window, and the player sits beside them, under the page." Header="Sidebar reaches the bottom">
+                <ToggleSwitch
+                    x:Name="SidebarFullHeightSwitch"
+                    AutomationProperties.Name="Sidebar reaches the bottom"
+                    MinWidth="0"
+                    OffContent=""
+                    OnContent=""
+                    Toggled="OnSidebarFullHeightToggled" />
+            </controls:SettingRow>
         </StackPanel>
 
         <Expander
@@ -311,13 +327,14 @@
 
                 <!-- Player -->
                 <TextBlock Style="{StaticResource StudioSectionTextStyle}" Text="PLAYER" />
-                <controls:SettingRow Description="Along the bottom edge, or a card floating above it." Header="Layout">
+                <controls:SettingRow Description="Along the bottom edge, a card floating above it, or a centred player hovering over the page." Header="Layout">
                     <ComboBox
                         x:Name="LayoutChoice"
                         SelectionChanged="OnChoiceChanged"
                         Style="{StaticResource StudioComboStyle}">
                         <ComboBoxItem Content="Docked" Tag="Docked" />
                         <ComboBoxItem Content="Floating" Tag="Floating" />
+                        <ComboBoxItem Content="Hovering" Tag="Hovering" />
                     </ComboBox>
                 </controls:SettingRow>
                 <controls:SettingRow Description="How the song's progress and the volume are drawn." Header="Progress bar">

@@ -2,6 +2,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Resonate.App.Helpers;
 using Resonate.App.Services;
@@ -16,19 +17,20 @@ namespace Resonate.App.Controls;
 /// Now playing, play and pause, skip, seek and volume. Every control acts on
 /// the player at once (the player is optimistic), so the bar never waits for
 /// Spotify. The look decides the bar's shape, its progress bar and how the
-/// cover is drawn; the user decides whether the cover spins.
+/// cover is drawn; the user decides whether the cover spins; the width it
+/// is given decides how much of it shows.
 /// </summary>
 public sealed partial class PlayerBar : UserControl
 {
-    private const string PlayGlyph = "";
-    private const string PauseGlyph = "";
-    private const string VolumeGlyph = "";
-    private const string MutedGlyph = "";
+    private const string PlayGlyph = "\uF5B0";
+    private const string PauseGlyph = "\uF8AE";
+    private const string VolumeGlyph = "\uE767";
+    private const string MutedGlyph = "\uE74F";
     private const string RepeatAllGlyph = "\uE8EE";
     private const string RepeatOneGlyph = "\uE8ED";
     private const string HeartGlyph = "\uEB51";
     private const string HeartFilledGlyph = "\uEB52";
-    private const float ArtworkSize = 56;
+    private const double VolumeWheelStep = 0.05;
 
     // The clock moves the progress bar on about one screen pixel a tick: at
     // least four ticks a second, so the time never lags a second change by
@@ -50,6 +52,8 @@ public sealed partial class PlayerBar : UserControl
     private int _pluginsQueued;
     private string? _positionLabel;
     private string? _durationLabel;
+    private PlayerWidthClass _widthClass = PlayerWidthClass.Full;
+    private float _artworkSize = 56;
 
     public PlayerBar()
     {
@@ -205,7 +209,7 @@ public sealed partial class PlayerBar : UserControl
         UpdateSpin();
     }
 
-    /// <summary>The look's progress bar and cover style.</summary>
+    /// <summary>The look's progress bar, cover style and corners.</summary>
     private void ApplyLook()
     {
         var theme = App.Services.Theme;
@@ -215,14 +219,85 @@ public sealed partial class PlayerBar : UserControl
         // A rolling wave makes no sense for volume; it gets the plain line.
         VolumeBar.BarStyle = look.Progress == ProgressStyle.Wave ? ProgressStyle.Line : look.Progress;
 
+        // A pill when it hovers in a look with round buttons: the corners
+        // follow the bar's height, which is lower for the mini bar.
+        var corner = new CornerRadius(PlayerPlacement.Corner(look.PlayerLayout, look.Buttons, theme.Palette.CornerLarge, Bar.Height));
+        Bar.CornerRadius = corner;
+        BarHost.CornerRadius = corner;
+
         // A record for the vinyl style, and for every look while the user
         // lets covers spin; otherwise the look's own shape.
         var record = theme.CoverIsRecord;
-        ArtworkFrame.CornerRadius = new CornerRadius(record
-            ? ArtworkSize / 2
+        var artworkCorner = new CornerRadius(record
+            ? _artworkSize / 2
             : look.Cover == CoverStyle.Square ? 0 : theme.Palette.CornerMedium);
+        ArtworkFrame.CornerRadius = artworkCorner;
+        ArtworkShadow.CornerRadius = artworkCorner;
         VinylCentre.Visibility = record ? Visibility.Visible : Visibility.Collapsed;
         UpdateSpin();
+    }
+
+    /// <summary>The bar's width comes from the window, never from what it shows, so changing what it shows cannot change the width back.</summary>
+    private void OnBarSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (e.NewSize.Width >= 1)
+        {
+            ShowWidthClass(PlayerPlacement.WidthClassFor(e.NewSize.Width));
+        }
+    }
+
+    /// <summary>
+    /// Everything on a wide bar; without the volume slider (the wheel on the
+    /// speaker button still sets it) and with tighter spacing when it is
+    /// narrower; and a shorter mini bar with the song, previous, play, next,
+    /// the progress and the queue when it is narrower still. Only a change of
+    /// class touches the layout, never each pixel of a resize.
+    /// </summary>
+    private void ShowWidthClass(PlayerWidthClass widthClass)
+    {
+        if (widthClass == _widthClass)
+        {
+            return;
+        }
+
+        _widthClass = widthClass;
+        var full = widthClass == PlayerWidthClass.Full;
+        var mini = widthClass == PlayerWidthClass.Mini;
+        var shown = mini ? Visibility.Collapsed : Visibility.Visible;
+
+        Bar.Height = PlayerPlacement.HeightFor(widthClass);
+        var padding = full ? 20 : mini ? 14 : 16;
+        Bar.Padding = new Thickness(padding, 0, padding, 0);
+        Bar.ColumnSpacing = full ? 24 : mini ? 12 : 16;
+
+        // Full and compact keep the controls in the middle; the mini bar gives the song what is left.
+        NowPlayingColumn.Width = new GridLength(mini ? 1 : 3, GridUnitType.Star);
+        NowPlayingColumn.MinWidth = full ? 220 : mini ? 0 : 150;
+        ControlsColumn.Width = mini ? GridLength.Auto : new GridLength(4, GridUnitType.Star);
+        ControlsColumn.MinWidth = full ? 320 : mini ? 0 : 216;
+        VolumeColumn.Width = mini ? GridLength.Auto : new GridLength(3, GridUnitType.Star);
+        // Room for all four buttons (plugins, device, queue, speaker) and, in full, the slider.
+        VolumeColumn.MinWidth = full ? 272 : mini ? 0 : 156;
+
+        TransportButtons.Spacing = full ? 14 : 8;
+        Transport.Spacing = mini ? 0 : 2;
+        ShuffleButton.Visibility = shown;
+        RepeatButton.Visibility = shown;
+        PositionText.Visibility = shown;
+        DurationText.Visibility = shown;
+        PositionColumn.Width = new GridLength(mini ? 0 : 44);
+        DurationColumn.Width = new GridLength(mini ? 0 : 44);
+        SeekRow.ColumnSpacing = mini ? 0 : 10;
+        SeekRow.MinWidth = mini ? 150 : 0;
+        MuteButton.Visibility = shown;
+        VolumeBar.Visibility = full ? Visibility.Visible : Visibility.Collapsed;
+
+        _artworkSize = mini ? 48 : 56;
+        NowPlaying.ColumnSpacing = mini ? 10 : 14;
+        ArtworkColumn.Width = new GridLength(_artworkSize);
+        ArtworkFrame.Width = _artworkSize;
+        ArtworkFrame.Height = _artworkSize;
+        ApplyLook();
     }
 
     /// <summary>Whether a spinning cover turns right now: while the shown song plays and the window can be seen.</summary>
@@ -233,7 +308,7 @@ public sealed partial class PlayerBar : UserControl
     /// cover on (and Windows allows animations), and stops where it is when
     /// the music does. Without the switch nothing turns, not even vinyl.
     /// </summary>
-    private void UpdateSpin() => _spin.Update(App.Services.Theme.CoverMaySpin, CoverMoving, ArtworkSize);
+    private void UpdateSpin() => _spin.Update(App.Services.Theme.CoverMaySpin, CoverMoving, _artworkSize);
 
     /// <summary>Shuffle and repeat are lit (the look's toggle style) while on.</summary>
     private void ShowModes(PlayerState state)
@@ -490,6 +565,20 @@ public sealed partial class PlayerBar : UserControl
         }
 
         _ = _player?.SetVolumeAsync(e.NewValue / 100);
+    }
+
+    /// <summary>The mouse wheel over the speaker button sets the volume, a step a notch (the slider may be left out).</summary>
+    private void OnMuteWheelChanged(object sender, PointerRoutedEventArgs e)
+    {
+        var delta = e.GetCurrentPoint(MuteButton).Properties.MouseWheelDelta;
+        if (_player is null || delta == 0)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        var volume = Math.Clamp(_player.State.Volume + (Math.Sign(delta) * VolumeWheelStep), 0, 1);
+        _ = _player.SetVolumeAsync(Math.Round(volume, 2));
     }
 
     private void OnMuteClick(object sender, RoutedEventArgs e)

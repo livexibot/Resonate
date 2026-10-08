@@ -1,0 +1,223 @@
+namespace Resonate.Themes.Tests;
+
+public sealed class PlayerLayoutTests
+{
+    private static ThemeDefinition Hovering(ThemeDefinition look) => look with { PlayerLayout = PlayerLayout.Hovering };
+
+    [Fact]
+    public void A_hovering_look_survives_being_copied_as_text()
+    {
+        var look = Hovering(ThemePresets.Midnight);
+        var text = ThemeJson.Export(look);
+
+        Assert.Contains("\"playerLayout\": \"Hovering\"", text, StringComparison.Ordinal);
+        Assert.Equal(look, ThemeJson.Import(text));
+    }
+
+    [Fact]
+    public void An_unknown_layout_number_becomes_docked() =>
+        Assert.Equal(PlayerLayout.Docked, (ThemePresets.Midnight with { PlayerLayout = (PlayerLayout)99 }).Normalize().PlayerLayout);
+
+    [Fact]
+    public void An_unknown_layout_name_is_refused() =>
+        Assert.Null(ThemeJson.Import("{\"resonateLook\": 1, \"look\": {\"accent\": \"#FFFFFF\", \"playerLayout\": \"Sideways\"}}"));
+
+    [Fact]
+    public void Hovering_is_a_change_of_structure()
+    {
+        Assert.False(ThemePresets.Midnight.HasSameStructure(Hovering(ThemePresets.Midnight)));
+        Assert.False((ThemePresets.Midnight with { PlayerLayout = PlayerLayout.Floating }).HasSameStructure(Hovering(ThemePresets.Midnight)));
+    }
+
+    [Fact]
+    public void Liquid_glass_shows_the_hovering_player() =>
+        Assert.Equal(PlayerLayout.Hovering, ThemePresets.Glass.PlayerLayout);
+
+    [Theory]
+    [MemberData(nameof(PresetTests.PresetIds), MemberType = typeof(PresetTests))]
+    public void A_hovering_player_stays_readable_over_anything_scrolling_under_it(string id)
+    {
+        var palette = ThemePalette.From(Hovering(ThemePresets.Find(id)!));
+        var page = palette.Surface.Over(palette.Background);
+
+        Assert.True(palette.Player.Opacity >= ThemePalette.HoveringPlayerOpacity - 0.005, $"fill is {palette.Player.Opacity:0.00} opaque");
+        foreach (var under in new[] { ThemeColor.Black, ThemeColor.White, page, palette.TextPrimary, palette.Accent })
+        {
+            var seen = palette.Player.Over(under);
+            Assert.True(ThemeColor.ContrastRatio(palette.TextPrimary, seen) >= 4.5, $"main text over {under}");
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(PresetTests.PresetIds), MemberType = typeof(PresetTests))]
+    public void Docked_and_floating_players_keep_the_look_s_own_fill(string id)
+    {
+        var preset = ThemePresets.Find(id)!;
+        foreach (var layout in new[] { PlayerLayout.Docked, PlayerLayout.Floating })
+        {
+            var look = preset with { PlayerLayout = layout };
+            Assert.Equal(look.Player.Opaque.WithAlpha(look.PanelOpacity), ThemePalette.From(look).Player);
+        }
+    }
+
+    [Fact]
+    public void A_solid_hovering_player_stays_its_own_colour()
+    {
+        var look = Hovering(ThemePresets.Daylight);
+        Assert.Equal(look.Player, ThemePalette.From(look).Player);
+    }
+
+    [Theory]
+    [InlineData(5120, PlayerWidthClass.Full)]
+    [InlineData(912, PlayerWidthClass.Full)]
+    [InlineData(911.6, PlayerWidthClass.Full)]
+    [InlineData(911, PlayerWidthClass.Compact)]
+    [InlineData(612, PlayerWidthClass.Compact)]
+    [InlineData(600, PlayerWidthClass.Compact)]
+    [InlineData(599, PlayerWidthClass.Mini)]
+    [InlineData(380, PlayerWidthClass.Mini)]
+    public void The_bar_s_width_picks_how_much_it_shows(double width, PlayerWidthClass expected) =>
+        Assert.Equal(expected, PlayerPlacement.WidthClassFor(width));
+
+    [Fact]
+    public void A_hovering_player_at_its_widest_shows_everything() =>
+        Assert.Equal(PlayerWidthClass.Full, PlayerPlacement.WidthClassFor(PlayerPlacement.HoveringMaxWidth));
+
+    [Fact]
+    public void Only_the_mini_bar_is_shorter()
+    {
+        Assert.Equal(PlayerPlacement.BarHeight, PlayerPlacement.HeightFor(PlayerWidthClass.Full));
+        Assert.Equal(PlayerPlacement.BarHeight, PlayerPlacement.HeightFor(PlayerWidthClass.Compact));
+        Assert.True(PlayerPlacement.HeightFor(PlayerWidthClass.Mini) < PlayerPlacement.BarHeight);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(8)]
+    [InlineData(24)]
+    public void A_docked_player_reaches_the_window_s_edges(double gap)
+    {
+        var slot = PlayerPlacement.Slot(PlayerLayout.Docked, gap, sidebarFullHeight: false);
+        var player = PlayerPlacement.Margin(PlayerLayout.Docked, gap);
+
+        Assert.Equal(1, slot.Row);
+        Assert.False(slot.StartsAtContent);
+        Assert.True(slot.SpansFollowingColumns);
+
+        // The shell's padding is the gap on the left, right and bottom.
+        Assert.Equal(-gap, slot.Margin.Left + player.Left);
+        Assert.Equal(-gap, slot.Margin.Right + player.Right);
+        Assert.Equal(-gap, slot.Margin.Bottom + player.Bottom);
+
+        // As far below the panels as they are apart, as before.
+        Assert.Equal(gap, slot.Margin.Top + player.Top);
+    }
+
+    [Theory]
+    [InlineData(8)]
+    [InlineData(10)]
+    [InlineData(12)]
+    public void A_floating_player_lines_up_with_the_panels(double gap)
+    {
+        var slot = PlayerPlacement.Slot(PlayerLayout.Floating, gap, sidebarFullHeight: false);
+        var player = PlayerPlacement.Margin(PlayerLayout.Floating, gap);
+
+        Assert.Equal(0, slot.Margin.Left + player.Left);
+        Assert.Equal(0, slot.Margin.Right + player.Right);
+        Assert.Equal(0, slot.Margin.Bottom + player.Bottom);
+    }
+
+    [Fact]
+    public void A_floating_player_keeps_off_the_edge_even_without_gaps() =>
+        Assert.Equal(8, PlayerPlacement.Margin(PlayerLayout.Floating, 0).Left);
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(12, false)]
+    [InlineData(24, true)]
+    public void A_hovering_player_stays_inside_the_page_s_column(double gap, bool sidebarFullHeight)
+    {
+        var slot = PlayerPlacement.Slot(PlayerLayout.Hovering, gap, sidebarFullHeight);
+        var player = PlayerPlacement.Margin(PlayerLayout.Hovering, gap);
+
+        Assert.Equal(0, slot.Row);
+        Assert.True(slot.StartsAtContent);
+        Assert.False(slot.SpansFollowingColumns);
+        Assert.True(slot.AlignBottom);
+        Assert.Equal(EdgeInsets.Zero, slot.Margin);
+        Assert.True(player.Left >= 12 && player.Right >= 12 && player.Bottom >= 12);
+        Assert.True(player.Left >= gap);
+    }
+
+    [Theory]
+    [InlineData(PlayerLayout.Docked, 0)]
+    [InlineData(PlayerLayout.Floating, 0)]
+    public void With_the_sidebar_reaching_the_bottom_the_player_sits_under_the_page(PlayerLayout layout, double expectedLeft)
+    {
+        const double Gap = 10;
+        var normal = PlayerPlacement.Slot(layout, Gap, sidebarFullHeight: false);
+        var slot = PlayerPlacement.Slot(layout, Gap, sidebarFullHeight: true);
+        var player = PlayerPlacement.Margin(layout, Gap);
+
+        Assert.Equal(2, slot.SidebarRowSpan);
+        Assert.Equal(1, normal.SidebarRowSpan);
+        Assert.Equal(1, slot.Row);
+        Assert.True(slot.StartsAtContent);
+
+        // Under the page and the queue: it starts where the page starts...
+        Assert.True(slot.SpansFollowingColumns);
+        Assert.Equal(expectedLeft, slot.Margin.Left + player.Left);
+
+        // ...and the other edges are where they always were.
+        Assert.Equal(normal.Margin.Right, slot.Margin.Right);
+        Assert.Equal(normal.Margin.Bottom, slot.Margin.Bottom);
+        Assert.Equal(normal.Margin.Top, slot.Margin.Top);
+    }
+
+    [Fact]
+    public void Each_layout_has_its_own_outline()
+    {
+        Assert.Equal(new EdgeInsets(0, 1.5, 0, 0), PlayerPlacement.Outline(PlayerLayout.Docked, 1.5));
+        Assert.Equal(EdgeInsets.All(1.5), PlayerPlacement.Outline(PlayerLayout.Floating, 1.5));
+        Assert.Equal(EdgeInsets.All(0), PlayerPlacement.Outline(PlayerLayout.Floating, 0));
+
+        // Over the page, a hairline at least, so it has an edge in looks without shadows.
+        Assert.Equal(EdgeInsets.All(1), PlayerPlacement.Outline(PlayerLayout.Hovering, 0));
+        Assert.Equal(EdgeInsets.All(2), PlayerPlacement.Outline(PlayerLayout.Hovering, 2));
+    }
+
+    [Theory]
+    [InlineData(ButtonShape.Round, 16, 88, 44)]
+    [InlineData(ButtonShape.Round, 16, 72, 36)]
+    [InlineData(ButtonShape.Rounded, 16, 88, 24)]
+    [InlineData(ButtonShape.Rounded, 32, 88, 44)]
+    [InlineData(ButtonShape.Rounded, 32, 72, 36)]
+    [InlineData(ButtonShape.Square, 0, 88, 0)]
+    public void A_hovering_player_is_a_pill_with_round_buttons_and_never_an_oval(ButtonShape buttons, double cornerLarge, double height, double expected) =>
+        Assert.Equal(expected, PlayerPlacement.Corner(PlayerLayout.Hovering, buttons, cornerLarge, height));
+
+    [Fact]
+    public void Docked_players_are_square_and_floating_ones_follow_the_panels()
+    {
+        Assert.Equal(0, PlayerPlacement.Corner(PlayerLayout.Docked, ButtonShape.Round, 16, 88));
+        Assert.Equal(16, PlayerPlacement.Corner(PlayerLayout.Floating, ButtonShape.Round, 16, 88));
+        Assert.Equal(4, PlayerPlacement.Corner(PlayerLayout.Floating, ButtonShape.Square, 0, 88));
+    }
+
+    [Fact]
+    public void Only_a_hovering_player_has_a_width_limit()
+    {
+        Assert.Equal(PlayerPlacement.HoveringMaxWidth, PlayerPlacement.MaxWidth(PlayerLayout.Hovering));
+        Assert.True(double.IsPositiveInfinity(PlayerPlacement.MaxWidth(PlayerLayout.Docked)));
+        Assert.True(double.IsPositiveInfinity(PlayerPlacement.MaxWidth(PlayerLayout.Floating)));
+    }
+
+    [Fact]
+    public void Pages_leave_room_only_under_a_hovering_player()
+    {
+        Assert.Equal(108, PlayerPlacement.PageInset(PlayerLayout.Hovering, 99.6));
+        Assert.Equal(0, PlayerPlacement.PageInset(PlayerLayout.Hovering, 0));
+        Assert.Equal(0, PlayerPlacement.PageInset(PlayerLayout.Docked, 96));
+        Assert.Equal(0, PlayerPlacement.PageInset(PlayerLayout.Floating, 104));
+    }
+}

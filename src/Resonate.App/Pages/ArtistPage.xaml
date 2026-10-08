@@ -3,6 +3,7 @@
     x:Class="Resonate.App.Pages.ArtistPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Resonate.App.Controls"
     xmlns:vm="using:Resonate.App.ViewModels"
     Background="{StaticResource ResonateTransparentBrush}">
 
@@ -30,27 +31,39 @@
 
     <Grid>
         <ScrollViewer>
-            <StackPanel Padding="28,36,28,28" Spacing="28">
+            <StackPanel Padding="{StaticResource ResonatePagePadding}" Spacing="{StaticResource ResonateSectionSpacing}">
                 <Grid ColumnSpacing="28">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="184" />
+                        <ColumnDefinition Width="232" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
+                    <!--
+                      The picture's colour, fading towards the releases (Helpers/CoverHero.cs).
+                      It reaches past the page's padding to the panel's edges.
+                    -->
+                    <Border
+                        x:Name="Hero"
+                        Grid.ColumnSpan="2"
+                        Margin="-32,-32,-32,-36"
+                        CornerRadius="{ThemeResource ResonateCornerLarge}"
+                        IsHitTestVisible="False" />
+                    <controls:Elevation
+                        Width="232"
+                        Height="232"
+                        CornerRadius="116"
+                        Level="Item" />
                     <Grid
                         x:Name="PortraitFrame"
-                        Width="184"
-                        Height="184"
-                        CornerRadius="92">
+                        Width="232"
+                        Height="232"
+                        CornerRadius="116">
                         <Image x:Name="PortraitImage" Stretch="UniformToFill" />
                     </Grid>
                     <StackPanel
                         Grid.Column="1"
                         VerticalAlignment="Bottom"
                         Spacing="8">
-                        <TextBlock
-                            CharacterSpacing="60"
-                            Style="{StaticResource ResonateCaptionTextStyle}"
-                            Text="ARTIST" />
+                        <TextBlock Style="{StaticResource ResonateEyebrowTextStyle}" Text="ARTIST" />
                         <TextBlock
                             x:Name="NameText"
                             Style="{StaticResource ResonateDisplayTextStyle}"
@@ -68,7 +81,7 @@
                                     <FontIcon
                                         FontFamily="{StaticResource ResonateIconFont}"
                                         FontSize="14"
-                                        Glyph="&#xE768;" />
+                                        Glyph="&#xF5B0;" />
                                     <TextBlock Text="Play" />
                                 </StackPanel>
                             </Button>
@@ -84,8 +97,11 @@
                     </StackPanel>
                 </Grid>
 
-                <StackPanel x:Name="AlbumsSection" Spacing="6" Visibility="Collapsed">
-                    <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Albums" />
+                <StackPanel
+                    x:Name="AlbumsSection"
+                    Spacing="{StaticResource ResonateSectionHeaderSpacing}"
+                    Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource ResonateSectionTextStyle}" Text="Albums" />
                     <GridView
                         IsItemClickEnabled="True"
                         ItemClick="OnAlbumClick"
@@ -94,8 +110,11 @@
                         SelectionMode="None" />
                 </StackPanel>
 
-                <StackPanel x:Name="SinglesSection" Spacing="6" Visibility="Collapsed">
-                    <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Singles and EPs" />
+                <StackPanel
+                    x:Name="SinglesSection"
+                    Spacing="{StaticResource ResonateSectionHeaderSpacing}"
+                    Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource ResonateSectionTextStyle}" Text="Singles and EPs" />
                     <GridView
                         IsItemClickEnabled="True"
                         ItemClick="OnAlbumClick"
@@ -104,8 +123,11 @@
                         SelectionMode="None" />
                 </StackPanel>
 
-                <StackPanel x:Name="CompilationsSection" Spacing="6" Visibility="Collapsed">
-                    <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Compilations" />
+                <StackPanel
+                    x:Name="CompilationsSection"
+                    Spacing="{StaticResource ResonateSectionHeaderSpacing}"
+                    Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource ResonateSectionTextStyle}" Text="Compilations" />
                     <GridView
                         IsItemClickEnabled="True"
                         ItemClick="OnAlbumClick"
@@ -113,6 +135,9 @@
                         ItemsSource="{x:Bind Compilations}"
                         SelectionMode="None" />
                 </StackPanel>
+
+                <!-- Room for a player hovering over the page (see IPlayerInset). -->
+                <Border x:Name="PlayerSpace" Height="0" />
             </StackPanel>
         </ScrollViewer>
 
