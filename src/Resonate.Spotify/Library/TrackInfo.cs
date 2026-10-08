@@ -48,6 +48,9 @@ public sealed record TrackInfo(
 
     public int? DiscNumber { get; init; }
 
+    /// <summary>The cover at about 640 pixels, for the large now-playing views; null when Spotify has none that big.</summary>
+    public string? FullImageUrl { get; init; }
+
     /// <summary>The first artist's name, for grouping and statistics.</summary>
     public string PrimaryArtist => ArtistRefs.Count > 0 ? ArtistRefs[0].Name : Artists;
 
@@ -86,6 +89,7 @@ public sealed record TrackInfo(
             AlbumId = album?.Id,
             TrackNumber = item.TrackNumber,
             DiscNumber = item.DiscNumber,
+            FullImageUrl = ImagePicker.Pick(images, 640),
         };
     }
 

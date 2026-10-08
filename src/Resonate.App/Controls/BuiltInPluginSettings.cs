@@ -16,10 +16,10 @@ internal static class BuiltInPluginSettings
         BuiltInPlugins.Lyrics => null,
 
         // Home stage
-        BuiltInPlugins.HomeStage => null,
+        BuiltInPlugins.HomeStage => StageSettings.HomeStage(services),
 
         // Away screen
-        BuiltInPlugins.AwayScreen => null,
+        BuiltInPlugins.AwayScreen => StageSettings.AwayScreen(services),
 
         // Rediscover
         BuiltInPlugins.Rediscover => null,

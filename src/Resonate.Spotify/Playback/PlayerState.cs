@@ -27,6 +27,9 @@ public sealed record PlayerState
 
     public byte[]? ArtworkBytes { get; init; }
 
+    /// <summary>The cover at about 640 pixels (Spotify's largest), for the large now-playing views; null until known.</summary>
+    public string? FullArtworkUrl { get; init; }
+
     /// <summary>The position at <see cref="PositionTimestamp"/>; use <see cref="PositionAt"/>.</summary>
     public TimeSpan Position { get; init; }
 

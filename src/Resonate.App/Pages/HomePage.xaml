@@ -368,12 +368,15 @@
         </DataTemplate>
     </Page.Resources>
 
-    <ScrollViewer>
+    <ScrollViewer x:Name="Scroller">
         <StackPanel
             x:Name="Body"
             Padding="28,28,28,28"
             SizeChanged="OnBodySizeChanged"
             Spacing="40">
+            <!-- The Home stage, a built-in plugin (HomePage.Stage.cs): shown only while it is on. -->
+            <Border x:Name="StageSlot" Visibility="Collapsed" />
+
             <StackPanel Spacing="12">
                 <!--
                   The greeting with what plays (or played last), on a wash of

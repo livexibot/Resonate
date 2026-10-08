@@ -196,6 +196,9 @@ public sealed partial class HomePage : Page
 
     partial void OnStageNavigatedFrom();
 
+    /// <summary>After the greeting's card shows what plays: the Home stage, when on, shows it instead.</summary>
+    partial void OnStageNowPlayingShown();
+
     partial void OnRediscoverNavigatedTo();
 
     partial void OnRediscoverNavigatedFrom();
@@ -538,6 +541,7 @@ public sealed partial class HomePage : Page
             ShowWash(null, null, null);
         }
 
+        OnStageNowPlayingShown();
         HeroContent.RowSpacing = _heroSideBySide || NowPlaying.Visibility == Visibility.Collapsed ? 0 : 22;
     }
 

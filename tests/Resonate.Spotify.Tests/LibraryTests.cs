@@ -87,7 +87,7 @@ public sealed class LibraryTests : IDisposable
     }
 
     [Fact]
-    public void Track_info_picks_a_small_and_a_large_cover()
+    public void Track_info_picks_a_small_a_large_and_a_full_size_cover()
     {
         var info = TrackInfo.From(new PlayableItem
         {
@@ -105,6 +105,7 @@ public sealed class LibraryTests : IDisposable
         Assert.Equal("A, B", info.Artists);
         Assert.Equal("64", info.SmallImageUrl);
         Assert.Equal("300", info.LargeImageUrl);
+        Assert.Equal("640", info.FullImageUrl);
         Assert.True(info.IsPlayable);
     }
 
