@@ -310,27 +310,7 @@ public sealed class SpotifyEqualizerSync
         }
 
         var path = SpotifyPrefsFile.FindNewest(_spotifyFolders);
-        if (path is null)
-        {
-            return null;
-        }
-
-        try
-        {
-            var watcher = new FileSystemWatcher(Path.GetDirectoryName(path)!, Path.GetFileName(path))
-            {
-                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName | NotifyFilters.CreationTime,
-            };
-            watcher.Changed += (_, _) => changed();
-            watcher.Created += (_, _) => changed();
-            watcher.Renamed += (_, _) => changed();
-            watcher.EnableRaisingEvents = true;
-            return watcher;
-        }
-        catch (Exception ex) when (ex is IOException or ArgumentException or PlatformNotSupportedException or UnauthorizedAccessException)
-        {
-            return null;
-        }
+        return path is null ? null : SpotifyPrefsFile.Watch(path, changed);
     }
 
     /// <summary>The status line for an equalizer change.</summary>
