@@ -34,6 +34,8 @@
             <Thickness x:Key="ResonatePlayerMargin">0</Thickness>
             <Thickness x:Key="ResonatePlayerBorderThickness">0</Thickness>
             <CornerRadius x:Key="ResonatePlayerCorner">0</CornerRadius>
+            <!-- No limit unless the player hovers over the page (a large number, since XAML has no infinity). -->
+            <x:Double x:Key="ResonatePlayerMaxWidth">100000</x:Double>
 
             <!-- Type tokens -->
             <FontFamily x:Key="ResonateDisplayFont">Segoe UI Variable Display</FontFamily>
@@ -42,6 +44,12 @@
             <!-- Built-in controls (text boxes, menus, list rows) follow the theme's corners. -->
             <CornerRadius x:Key="ControlCornerRadius">4.8</CornerRadius>
             <CornerRadius x:Key="OverlayCornerRadius">7.9</CornerRadius>
+            <CornerRadius x:Key="ListViewItemCornerRadius">7.9</CornerRadius>
+            <CornerRadius x:Key="GridViewItemCornerRadius">12</CornerRadius>
+            <!-- Text fields 40 high (filter, search): a pill in round looks, square in square ones. -->
+            <CornerRadius x:Key="ResonateCornerInput">20</CornerRadius>
+            <!-- A focused field gets an accent outline all round, not Windows' thicker underline. -->
+            <Thickness x:Key="TextControlBorderThemeThicknessFocused">1</Thickness>
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
@@ -72,10 +80,21 @@
     <SolidColorBrush x:Key="ResonateAccentHoverBrush" Color="#9B8EFF" />
     <SolidColorBrush x:Key="ResonateAccentPressedBrush" Color="#7A6DE0" />
     <SolidColorBrush x:Key="ResonateOnAccentBrush" Color="#0B0B10" />
+    <!-- The selected row: a soft wash of the accent (ThemePalette.AccentSoft). -->
+    <SolidColorBrush x:Key="ResonateAccentSoftBrush" Color="#298B7CFF" />
     <SolidColorBrush x:Key="ResonateAccent2Brush" Color="#5CC8FF" />
     <LinearGradientBrush x:Key="ResonateAccentGradientBrush" StartPoint="0,0.5" EndPoint="1,0.5">
         <GradientStop Offset="0" Color="#8B7CFF" />
         <GradientStop Offset="1" Color="#5CC8FF" />
+    </LinearGradientBrush>
+    <!--
+      A glow of the accent at the top of a page, fading to nothing (as strong
+      as text allows, see ThemePalette.HeroTint). Pages with a cover make
+      their own from the cover's colour (Helpers/CoverHero.cs).
+    -->
+    <LinearGradientBrush x:Key="ResonateHeroGradientBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Offset="0" Color="#528B7CFF" />
+        <GradientStop Offset="1" Color="#008B7CFF" />
     </LinearGradientBrush>
 
     <!-- Colour tokens: the player -->
@@ -87,12 +106,20 @@
 
     <FontFamily x:Key="ResonateIconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
 
+    <!--
+      Page rhythm, the same in every look: the room around a page's content,
+      between its sections, and between a section's title and what it holds.
+    -->
+    <Thickness x:Key="ResonatePagePadding">32</Thickness>
+    <x:Double x:Key="ResonateSectionSpacing">36</x:Double>
+    <x:Double x:Key="ResonateSectionHeaderSpacing">12</x:Double>
+
     <!-- Built-in controls take their accent and hover colours from the tokens (lightweight styling). -->
     <StaticResource x:Key="ListViewItemBackgroundPointerOver" ResourceKey="ResonateSurfaceHoverBrush" />
     <StaticResource x:Key="ListViewItemBackgroundPressed" ResourceKey="ResonateSurfacePressedBrush" />
-    <StaticResource x:Key="ListViewItemBackgroundSelected" ResourceKey="ResonateSurfacePressedBrush" />
-    <StaticResource x:Key="ListViewItemBackgroundSelectedPointerOver" ResourceKey="ResonateSurfacePressedBrush" />
-    <StaticResource x:Key="ListViewItemBackgroundSelectedPressed" ResourceKey="ResonateSurfacePressedBrush" />
+    <StaticResource x:Key="ListViewItemBackgroundSelected" ResourceKey="ResonateAccentSoftBrush" />
+    <StaticResource x:Key="ListViewItemBackgroundSelectedPointerOver" ResourceKey="ResonateAccentSoftBrush" />
+    <StaticResource x:Key="ListViewItemBackgroundSelectedPressed" ResourceKey="ResonateAccentSoftBrush" />
     <StaticResource x:Key="ListViewItemSelectionIndicatorBrush" ResourceKey="ResonateAccentBrush" />
     <StaticResource x:Key="ListViewItemSelectionIndicatorPointerOverBrush" ResourceKey="ResonateAccentBrush" />
     <StaticResource x:Key="ListViewItemSelectionIndicatorPressedBrush" ResourceKey="ResonateAccentBrush" />
@@ -116,13 +143,52 @@
     <StaticResource x:Key="HyperlinkButtonForeground" ResourceKey="ResonateAccentBrush" />
     <StaticResource x:Key="HyperlinkButtonForegroundPointerOver" ResourceKey="ResonateAccentHoverBrush" />
     <StaticResource x:Key="HyperlinkButtonForegroundPressed" ResourceKey="ResonateAccentPressedBrush" />
+    <!-- Text fields: the look's quiet fill and outline, its text colours, and an accent outline while typing. -->
+    <StaticResource x:Key="TextControlBackground" ResourceKey="ResonateControlBrush" />
+    <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="ResonateSurfaceHoverBrush" />
+    <StaticResource x:Key="TextControlBackgroundFocused" ResourceKey="ResonateControlBrush" />
+    <StaticResource x:Key="TextControlBorderBrush" ResourceKey="ResonateBorderBrush" />
+    <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="ResonateBorderBrush" />
+    <StaticResource x:Key="TextControlBorderBrushFocused" ResourceKey="ResonateAccentBrush" />
+    <StaticResource x:Key="TextControlForeground" ResourceKey="ResonateTextPrimaryBrush" />
+    <StaticResource x:Key="TextControlForegroundPointerOver" ResourceKey="ResonateTextPrimaryBrush" />
+    <StaticResource x:Key="TextControlForegroundFocused" ResourceKey="ResonateTextPrimaryBrush" />
+    <StaticResource x:Key="TextControlPlaceholderForeground" ResourceKey="ResonateTextSecondaryBrush" />
+    <StaticResource x:Key="TextControlPlaceholderForegroundPointerOver" ResourceKey="ResonateTextSecondaryBrush" />
+    <StaticResource x:Key="TextControlPlaceholderForegroundFocused" ResourceKey="ResonateTextSecondaryBrush" />
 
-    <!-- Text styles -->
+    <!-- Text styles: a bold display title, section titles, card titles, body, secondary, captions and small labels. -->
     <Style x:Key="ResonateDisplayTextStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{ThemeResource ResonateDisplayFont}" />
-        <Setter Property="FontSize" Value="40" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="48" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <!-- Large bold type reads better set a touch tighter. -->
+        <Setter Property="CharacterSpacing" Value="-10" />
         <Setter Property="Foreground" Value="{StaticResource ResonateTextPrimaryBrush}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+    </Style>
+
+    <!-- The title of a section of a page (Albums, Songs, Daily mixes). -->
+    <Style x:Key="ResonateSectionTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{ThemeResource ResonateDisplayFont}" />
+        <Setter Property="FontSize" Value="24" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{StaticResource ResonateTextPrimaryBrush}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+    </Style>
+
+    <!--
+      A small spaced-out label above a title or a list (PLAYLIST, NOW PLAYING).
+      Write its text in capitals. Secondary colour, so it keeps 4.5:1.
+    -->
+    <Style x:Key="ResonateEyebrowTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{ThemeResource ResonateTextFont}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="CharacterSpacing" Value="80" />
+        <Setter Property="Foreground" Value="{StaticResource ResonateTextSecondaryBrush}" />
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         <Setter Property="TextWrapping" Value="NoWrap" />
     </Style>

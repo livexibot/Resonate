@@ -51,37 +51,41 @@
         </DataTemplate>
     </Page.Resources>
 
-    <Grid Padding="28,28,28,0" RowSpacing="20">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Grid>
+        <!-- The box stays put; the results scroll under it, with the scroll bar at the panel's edge. -->
+        <Grid Margin="32,32,32,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" MaxWidth="560" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBox
                 x:Name="QueryBox"
+                MinHeight="40"
+                Padding="18,9,18,9"
                 AutomationProperties.Name="Search"
-                CornerRadius="22"
+                CornerRadius="{ThemeResource ResonateCornerInput}"
                 FontSize="15"
-                Padding="18,11,18,11"
                 PlaceholderText="What do you want to listen to?"
                 TextChanged="OnQueryChanged" />
         </Grid>
 
         <ScrollViewer Grid.Row="1">
-            <StackPanel Padding="0,0,0,28" Spacing="12">
+            <StackPanel Padding="{StaticResource ResonatePagePadding}" Spacing="{StaticResource ResonateSectionSpacing}">
                 <TextBlock
                     x:Name="HintText"
-                    Margin="0,8,0,0"
                     Style="{StaticResource ResonateSecondaryTextStyle}"
                     Text="Search for songs, artists, albums and playlists. Double-click a song to play it." />
 
-                <StackPanel x:Name="SongsSection" Spacing="6" Visibility="Collapsed">
-                    <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Songs" />
+                <StackPanel
+                    x:Name="SongsSection"
+                    Spacing="{StaticResource ResonateSectionHeaderSpacing}"
+                    Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource ResonateSectionTextStyle}" Text="Songs" />
                     <ListView
                         x:Name="SongList"
                         ContextRequested="OnSongContextRequested"
@@ -135,8 +139,11 @@
                     </ListView>
                 </StackPanel>
 
-                <StackPanel x:Name="ArtistsSection" Spacing="6" Visibility="Collapsed">
-                    <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Artists" />
+                <StackPanel
+                    x:Name="ArtistsSection"
+                    Spacing="{StaticResource ResonateSectionHeaderSpacing}"
+                    Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource ResonateSectionTextStyle}" Text="Artists" />
                     <GridView
                         IsItemClickEnabled="True"
                         ItemClick="OnArtistClick"
@@ -145,8 +152,11 @@
                         SelectionMode="None" />
                 </StackPanel>
 
-                <StackPanel x:Name="PlaylistsSection" Spacing="6" Visibility="Collapsed">
-                    <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Playlists" />
+                <StackPanel
+                    x:Name="PlaylistsSection"
+                    Spacing="{StaticResource ResonateSectionHeaderSpacing}"
+                    Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource ResonateSectionTextStyle}" Text="Playlists" />
                     <GridView
                         IsItemClickEnabled="True"
                         ItemClick="OnPlaylistClick"
@@ -155,8 +165,11 @@
                         SelectionMode="None" />
                 </StackPanel>
 
-                <StackPanel x:Name="AlbumsSection" Spacing="6" Visibility="Collapsed">
-                    <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Albums" />
+                <StackPanel
+                    x:Name="AlbumsSection"
+                    Spacing="{StaticResource ResonateSectionHeaderSpacing}"
+                    Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource ResonateSectionTextStyle}" Text="Albums" />
                     <GridView
                         IsItemClickEnabled="True"
                         ItemClick="OnAlbumClick"
@@ -164,6 +177,9 @@
                         ItemsSource="{x:Bind AlbumCards}"
                         SelectionMode="None" />
                 </StackPanel>
+
+                <!-- Room for a player hovering over the page (see IPlayerInset). -->
+                <Border x:Name="PlayerSpace" Height="0" />
             </StackPanel>
         </ScrollViewer>
 

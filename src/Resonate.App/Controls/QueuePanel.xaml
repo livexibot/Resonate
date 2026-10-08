@@ -18,7 +18,7 @@
             </Grid.ColumnDefinitions>
             <TextBlock
                 VerticalAlignment="Center"
-                Style="{StaticResource ResonateTitleTextStyle}"
+                Style="{StaticResource ResonateSectionTextStyle}"
                 Text="Queue" />
             <Button
                 x:Name="CloseButton"
@@ -38,10 +38,7 @@
             SelectionMode="None">
             <ListView.Header>
                 <StackPanel Padding="12,6,12,0" Spacing="8">
-                    <TextBlock
-                        CharacterSpacing="60"
-                        Style="{StaticResource ResonateCaptionTextStyle}"
-                        Text="NOW PLAYING" />
+                    <TextBlock Style="{StaticResource ResonateEyebrowTextStyle}" Text="NOW PLAYING" />
                     <Grid
                         x:Name="NowRow"
                         Height="56"
@@ -89,8 +86,7 @@
                         Visibility="Collapsed" />
                     <TextBlock
                         Margin="0,14,0,0"
-                        CharacterSpacing="60"
-                        Style="{StaticResource ResonateCaptionTextStyle}"
+                        Style="{StaticResource ResonateEyebrowTextStyle}"
                         Text="NEXT UP" />
                 </StackPanel>
             </ListView.Header>

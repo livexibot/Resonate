@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
@@ -156,6 +157,14 @@ internal sealed partial class PerformanceTour
             {
                 _scrolls.Add(await ScrollAsync("Liked Songs, steady (2 rows a frame)", songs, rowsPerFrame: 2, frames: 300));
                 _scrolls.Add(await ScrollAsync("Liked Songs, fast (25 rows a frame)", songs, rowsPerFrame: 25, frames: 300));
+
+                // Under the hovering player, whose shadow is drawn again as rows pass beneath it.
+                theme.Edit(look => look with { PlayerLayout = PlayerLayout.Hovering });
+                await SettleAsync();
+                _scrolls.Add(await ScrollAsync("Liked Songs, under the hovering player (2 rows a frame)", songs, rowsPerFrame: 2, frames: 300));
+                theme.Select(ThemePresets.Default.Id, transition: ThemeTransitionKind.None);
+                theme.Delete(ThemeLibrary.CustomId);
+                await SettleAsync();
             }
             else
             {
@@ -164,7 +173,8 @@ internal sealed partial class PerformanceTour
 
             _memory.Add(("After scrolling 10,000 songs", await SampleMemoryAsync()));
 
-            // Each switching animation once, each to the next preset, from a playlist.
+            // Each switching animation once, each to the next preset, from a
+            // playlist. Each plays to its end before the next one starts.
             Checkpoint("switching looks");
             _window.Open("focus");
             await SettleAsync();
@@ -173,7 +183,13 @@ internal sealed partial class PerformanceTour
             foreach (var kind in Enum.GetValues<ThemeTransitionKind>().Where(k => k is not ThemeTransitionKind.Random))
             {
                 var preset = presets[next++ % presets.Count];
-                _looks.Add(await MeasureAsync($"{preset.Name} ({kind})", () => theme.Select(preset.Id, transition: kind)));
+                _looks.Add(await SwitchAsync($"{preset.Name} ({kind})", () => theme.Select(preset.Id, transition: kind)));
+            }
+
+            // Not a limit: an animation that could not be built at all is a bug.
+            if (theme.TransitionFailure is { } failure)
+            {
+                _errors.Add($"A switching animation failed, so the look changed without it: {failure}");
             }
 
             theme.Select(ThemePresets.Default.Id, transition: ThemeTransitionKind.None);
@@ -205,22 +221,28 @@ internal sealed partial class PerformanceTour
     /// Visits every page <see cref="LeakRounds"/> more times. Afterwards no page
     /// left behind may still be alive, and memory should stay where it was.
     /// </summary>
+    /// <remarks>
+    /// Memory is read on Search, which shows no pictures. Read on Home, it also
+    /// counted 17 to 28 MB that was given back as soon as another page opened
+    /// (CI, 8 October 2026), so a round could seem to grow while nothing was
+    /// kept. A leak stays whichever page shows.
+    /// </remarks>
     private async Task FindLeaksAsync()
     {
-        _window.Open(MainWindow.HomeKey);
+        _window.Open(MainWindow.SearchKey);
         await SettleAsync();
         var before = await SampleMemoryAsync();
         _memory.Add(("Before visiting every page 4 more times", before));
 
-        var visited = new List<(string Name, WeakReference Page)>();
-        for (var round = 0; round < LeakRounds; round++)
+        var visited = new List<Visit>();
+        for (var round = 1; round <= LeakRounds; round++)
         {
             foreach (var (name, key) in Pages)
             {
                 _window.Open(key);
-                if (_window.CurrentPage is { } page)
+                if (_window.CurrentPage is FrameworkElement page)
                 {
-                    visited.Add((name, new WeakReference(page)));
+                    visited.Add(Visit.Of(name, round, page));
                 }
 
                 await SettleAsync(TimeSpan.FromSeconds(3));
@@ -234,27 +256,75 @@ internal sealed partial class PerformanceTour
             _window.OpenSettings();
             if (_window.SettingsPage is { } settings)
             {
-                visited.Add(("Settings", new WeakReference(settings)));
+                visited.Add(Visit.Of("Settings", round, settings));
             }
 
             await SettleAsync(TimeSpan.FromSeconds(3));
             _window.CloseSettings();
 
             // Memory that keeps climbing round after round is a leak; caches level off.
-            _window.Open(MainWindow.HomeKey);
+            _window.Open(MainWindow.SearchKey);
             await SettleAsync(TimeSpan.FromSeconds(3));
             _privateMbAfterRound.Add((await SampleMemoryAsync()).PrivateMb);
         }
 
-        _window.Open(MainWindow.SearchKey);
-        await SettleAsync();
         var current = _window.CurrentPage;
         _memory.Add(("After visiting every page 4 more times", await SampleMemoryAsync()));
-        _leftAlive.AddRange(visited
-            .Where(v => v.Page.Target is { } page && !ReferenceEquals(page, current))
-            .GroupBy(v => v.Name)
-            .Select(g => $"{g.Key} ×{g.Count()}"));
+
+        // Only weak references are kept here, so the check itself holds no page.
+        var alive = visited.Where(v => v.IsAlive(current)).ToList();
+
+        // Still alive: whatever lets go of it says what holds it. Each step
+        // fails CI like a page kept for good, naming the step.
+        foreach (var (step, act) in Nudges())
+        {
+            if (alive.Count == 0)
+            {
+                break;
+            }
+
+            await act();
+            await SettleAsync(TimeSpan.FromSeconds(2));
+            await SampleMemoryAsync();
+            var gone = alive.Where(v => !v.IsAlive(null)).ToList();
+            if (gone.Count > 0)
+            {
+                _leftAlive.AddRange(Describe(gone).Select(d => $"{d} until {step}"));
+                alive = alive.Except(gone).ToList();
+            }
+        }
+
+        _leftAlive.AddRange(Describe(alive));
     }
+
+    /// <summary>What a page still alive at the check is given next, in turn.</summary>
+    private (string Step, Func<Task> Act)[] Nudges() =>
+    [
+        ("Home opened", () => OpenPage(MainWindow.HomeKey)),
+        ("Search opened again", () => OpenPage(MainWindow.SearchKey)),
+        ("Settings opened and closed again", ReopenSettingsAsync),
+    ];
+
+    private Task OpenPage(string key)
+    {
+        _window.Open(key);
+        return Task.CompletedTask;
+    }
+
+    private async Task ReopenSettingsAsync()
+    {
+        _window.OpenSettings();
+        await SettleAsync(TimeSpan.FromSeconds(2));
+        _window.CloseSettings();
+    }
+
+    /// <summary>
+    /// "Settings ×1 (round 4, never unloaded)": how many of a page, from which
+    /// rounds, and whether WinUI said it left (its Unloaded event).
+    /// </summary>
+    private static IEnumerable<string> Describe(IEnumerable<Visit> visits) => visits
+        .GroupBy(v => v.Name)
+        .Select(g => $"{g.Key} ×{g.Count()} (round {string.Join(", ", g.Select(v => v.Round + (v.Unloaded.Value ? string.Empty : ", never unloaded")))})");
 
     /// <summary>Anything over its limit is an error, so CI fails and shows it.</summary>
     private void CheckLimits()
@@ -338,6 +408,43 @@ internal sealed partial class PerformanceTour
             (GC.GetTotalAllocatedBytes() - allocated) / Megabyte);
     }
 
+    /// <summary>
+    /// Times one switch of looks like <see cref="MeasureAsync"/>, and also
+    /// when its animation first moved on screen and when it ended. It waits
+    /// for the end, so one switch never cuts the next one short.
+    /// </summary>
+    private async Task<StepResult> SwitchAsync(string name, Action action)
+    {
+        var theme = App.Services.Theme;
+        using var frames = new FrameRecorder();
+        using var layout = new LayoutWatcher(_root);
+        var allocated = GC.GetTotalAllocatedBytes();
+        var start = Stopwatch.GetTimestamp();
+        frames.Start(start);
+        layout.Start(start);
+
+        action();
+        var held = Stopwatch.GetElapsedTime(start);
+        var started = theme.TransitionStarted;
+        var animation = theme.TransitionTask;
+        var firstFrame = await frames.WhenFrameAsync(2, SettleLimit);
+        await Task.WhenAny(started, Task.Delay(SettleLimit));
+        var moved = started.IsCompletedSuccessfully ? Stopwatch.GetElapsedTime(start, started.Result) : SettleLimit;
+        await Task.WhenAny(animation, Task.Delay(SettleLimit));
+        var finished = Stopwatch.GetElapsedTime(start);
+        var settled = await layout.WhenQuietAsync(Quiet, SettleLimit);
+
+        return new StepResult(
+            name,
+            held.TotalMilliseconds,
+            firstFrame.TotalMilliseconds,
+            settled.TotalMilliseconds,
+            frames.LongestGapMilliseconds,
+            (GC.GetTotalAllocatedBytes() - allocated) / Megabyte,
+            moved.TotalMilliseconds,
+            finished.TotalMilliseconds);
+    }
+
     private async Task SettleAsync(TimeSpan? limit = null)
     {
         using var layout = new LayoutWatcher(_root);
@@ -418,8 +525,14 @@ internal sealed partial class PerformanceTour
                 GC.Collect();
             });
 
-            // WinUI lets go of what it held for collected objects on a later tick.
-            await Task.Delay(300);
+            // WinUI lets go of what it held for collected objects on a later
+            // frame, and an idle window draws none, so the page closed last
+            // could stay alive through any number of collections (CI, 8
+            // October 2026). Asking for frames makes the window draw them.
+            using var frames = new FrameRecorder();
+            frames.Start(Stopwatch.GetTimestamp());
+            await frames.WhenFrameAsync(2, TimeSpan.FromSeconds(1));
+            await Task.Delay(100);
         }
 
         using var process = Process.GetCurrentProcess();
@@ -575,6 +688,12 @@ internal sealed partial class PerformanceTour
             json.WriteNumber("settledMs", Round(step.SettledMs));
             json.WriteNumber("longestFrameMs", Round(step.LongestFrameMs));
             json.WriteNumber("allocatedMb", Round(step.AllocatedMb));
+            if (step.FirstMotionMs is { } moved && step.FinishedMs is { } finished)
+            {
+                json.WriteNumber("firstMotionMs", Round(moved));
+                json.WriteNumber("finishedMs", Round(finished));
+            }
+
             json.WriteEndObject();
         }
 
@@ -612,7 +731,7 @@ internal sealed partial class PerformanceTour
         md.AppendLine();
         AppendSteps(md, "Page", _pages);
         md.AppendLine();
-        AppendSteps(md, "Switching looks", _looks);
+        AppendSwitches(md, _looks);
         md.AppendLine();
 
         md.AppendLine("| Scrolling | Frames | Median frame | 95th percentile | Longest | Frames over 33 ms | Allocated |");
@@ -632,6 +751,7 @@ internal sealed partial class PerformanceTour
         md.AppendLine(_leftAlive.Count == 0
             ? "Pages kept in memory after leaving them: **none**."
             : $"Pages kept in memory after leaving them: **{string.Join(", ", _leftAlive)}**.");
+
         if (_errors.Count > 0)
         {
             md.AppendLine();
@@ -651,6 +771,17 @@ internal sealed partial class PerformanceTour
         }
     }
 
+    /// <summary>Switching looks: when the animation first moved and when it ended, both from the click (for information; no limits).</summary>
+    private static void AppendSwitches(StringBuilder md, List<StepResult> steps)
+    {
+        md.AppendLine("| Switching looks | Held the interface | First frame | First motion | Animation ended | Settled | Longest frame | Allocated |");
+        md.AppendLine("|---|---:|---:|---:|---:|---:|---:|---:|");
+        foreach (var s in steps)
+        {
+            md.AppendLine(CultureInfo.InvariantCulture, $"| {s.Name} | {s.HeldMs:N0} ms | {s.FirstFrameMs:N0} ms | {s.FirstMotionMs:N0} ms | {s.FinishedMs:N0} ms | {s.SettledMs:N0} ms | {s.LongestFrameMs:N0} ms | {s.AllocatedMb:N1} MB |");
+        }
+    }
+
     private static double Round(double value) => Math.Round(value, 1);
 
     private const int ShowMinimized = 6;
@@ -667,7 +798,21 @@ internal sealed partial class PerformanceTour
 
     private sealed record MemorySample(double WorkingSetMb, double PrivateMb, double ManagedMb, int Handles, int Threads, uint GdiObjects, uint UserObjects);
 
-    private sealed record StepResult(string Name, double HeldMs, double FirstFrameMs, double SettledMs, double LongestFrameMs, double AllocatedMb);
+    /// <summary>A page visited in the leak rounds, held only weakly.</summary>
+    private sealed record Visit(string Name, int Round, WeakReference Page, StrongBox<bool> Unloaded)
+    {
+        public static Visit Of(string name, int round, FrameworkElement page)
+        {
+            // The page holds the handler, and the handler only the box.
+            var unloaded = new StrongBox<bool>();
+            page.Unloaded += (_, _) => unloaded.Value = true;
+            return new Visit(name, round, new WeakReference(page), unloaded);
+        }
+
+        public bool IsAlive(object? current) => Page.Target is { } page && !ReferenceEquals(page, current);
+    }
+
+    private sealed record StepResult(string Name, double HeldMs, double FirstFrameMs, double SettledMs, double LongestFrameMs, double AllocatedMb, double? FirstMotionMs = null, double? FinishedMs = null);
 
     private sealed record ScrollResult(string Name, List<double> Gaps, double AllocatedMb)
     {

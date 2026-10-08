@@ -11,7 +11,8 @@ namespace Resonate.App.Controls;
 /// <summary>
 /// A miniature of a look, drawn in its own colours and shapes: the
 /// backdrop, the sidebar, a page and the player bar with its progress bar,
-/// play button and cover. Used for the theme cards in Settings.
+/// play button and cover (docked, floating, or a pill hovering over the
+/// page). Used for the theme cards in Settings.
 /// </summary>
 internal sealed partial class LookPreview : Grid
 {
@@ -36,6 +37,7 @@ internal sealed partial class LookPreview : Grid
 
         var gap = _palette.PanelGap <= 0 ? 0 : Math.Round(Math.Clamp(2 + (_palette.PanelGap * MiniatureScale), 3, 8));
         var floating = look.PlayerLayout == PlayerLayout.Floating;
+        var hovering = look.PlayerLayout == PlayerLayout.Hovering;
         RowDefinitions.Add(new RowDefinition { Height = new GridLength(9) });
         RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -56,6 +58,16 @@ internal sealed partial class LookPreview : Grid
         SetColumn(page, 1);
         shell.Children.Add(page);
         Children.Add(shell);
+
+        if (hovering)
+        {
+            // The panels reach the bottom, and the player hovers over the page.
+            SetRowSpan(shell, 2);
+            var pill = HoveringPlayer();
+            SetColumn(pill, 1);
+            shell.Children.Add(pill);
+            return;
+        }
 
         var playerGap = floating ? Math.Max(gap, 4) : 0;
         var player = Panel(
@@ -227,9 +239,36 @@ internal sealed partial class LookPreview : Grid
         return player;
     }
 
-    private Border Cover()
+    /// <summary>A small pill over the bottom of the page: the cover, the play button and a short progress bar.</summary>
+    private FrameworkElement HoveringPlayer()
     {
-        var size = 14.0;
+        const double PillHeight = 16;
+        var content = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Padding = new Thickness(4, 0, 7, 0),
+            Spacing = 5,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        content.Children.Add(Cover(10));
+        var play = PlayButton();
+        play.VerticalAlignment = VerticalAlignment.Center;
+        content.Children.Add(play);
+        var progress = Progress(40);
+        progress.VerticalAlignment = VerticalAlignment.Center;
+        content.Children.Add(progress);
+
+        var corner = PlayerPlacement.Corner(PlayerLayout.Hovering, _look.Buttons, PanelCorner.TopLeft, PillHeight);
+        var pill = Panel(_palette.Player, content, new CornerRadius(corner), new Thickness(1));
+        pill.Height = PillHeight;
+        pill.HorizontalAlignment = HorizontalAlignment.Center;
+        pill.VerticalAlignment = VerticalAlignment.Bottom;
+        pill.Margin = new Thickness(0, 0, 0, 4);
+        return pill;
+    }
+
+    private Border Cover(double size = 14)
+    {
         return new Border
         {
             Width = size,

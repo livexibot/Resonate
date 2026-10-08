@@ -5,201 +5,227 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Resonate.App.Controls">
 
-    <!-- Docked along the bottom, or floating as a card (the look decides; see ThemeService). -->
-    <Grid
-        Height="88"
+    <!--
+      Docked along the bottom, floating as a card, or hovering over the page as
+      a centred pill (the look decides; see ThemeService and
+      MainWindow.PlayerPlacement.cs), with the look's shadow behind it. A
+      narrow bar leaves out the volume slider, then shrinks to the essentials
+      (see ShowWidthClass). Its corners are set in code, as they follow its
+      height.
+    -->
+    <controls:Elevation
+        x:Name="BarHost"
+        MaxWidth="{ThemeResource ResonatePlayerMaxWidth}"
         Margin="{ThemeResource ResonatePlayerMargin}"
-        Padding="20,0"
-        Background="{StaticResource ResonatePlayerBrush}"
-        BorderBrush="{StaticResource ResonateBorderBrush}"
-        BorderThickness="{ThemeResource ResonatePlayerBorderThickness}"
-        ColumnSpacing="24"
-        CornerRadius="{ThemeResource ResonatePlayerCorner}">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="3*" MinWidth="220" />
-            <ColumnDefinition Width="4*" MinWidth="320" />
-            <ColumnDefinition Width="3*" MinWidth="180" />
-        </Grid.ColumnDefinitions>
-
-        <!-- Now playing -->
-        <Grid VerticalAlignment="Center" ColumnSpacing="14">
+        Level="Player">
+        <Grid
+            x:Name="Bar"
+            Height="88"
+            Padding="20,0"
+            Background="{StaticResource ResonatePlayerBrush}"
+            BorderBrush="{StaticResource ResonateBorderBrush}"
+            BorderThickness="{ThemeResource ResonatePlayerBorderThickness}"
+            ColumnSpacing="24"
+            SizeChanged="OnBarSizeChanged">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="56" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="NowPlayingColumn" Width="3*" MinWidth="220" />
+                <ColumnDefinition x:Name="ControlsColumn" Width="4*" MinWidth="320" />
+                <ColumnDefinition x:Name="VolumeColumn" Width="3*" MinWidth="180" />
             </Grid.ColumnDefinitions>
+
+            <!-- Now playing -->
             <Grid
-                x:Name="ArtworkFrame"
-                Width="56"
-                Height="56"
-                Background="{StaticResource ResonateSurfaceHoverBrush}"
-                CornerRadius="{ThemeResource ResonateCornerMedium}">
-                <FontIcon
-                    x:Name="ArtworkGlyph"
-                    FontFamily="{StaticResource ResonateIconFont}"
-                    FontSize="20"
-                    Foreground="{StaticResource ResonateTextTertiaryBrush}"
-                    Glyph="&#xEC4F;" />
-                <Image
-                    x:Name="ArtworkImage"
-                    ImageOpened="OnArtworkOpened"
-                    Opacity="0"
-                    Stretch="UniformToFill" />
-                <!-- A record's centre (the vinyl cover style, or any cover while Spinning cover is on): a groove and the spindle hole. -->
-                <Grid x:Name="VinylCentre" Visibility="Collapsed">
-                    <Ellipse
-                        Width="22"
-                        Height="22"
-                        Stroke="{StaticResource ResonateBorderBrush}"
-                        StrokeThickness="1" />
-                    <Ellipse
-                        Width="10"
-                        Height="10"
-                        Fill="{StaticResource ResonatePlayerBrush}"
-                        Stroke="{StaticResource ResonateBorderBrush}"
-                        StrokeThickness="1" />
-                </Grid>
+                x:Name="NowPlaying"
+                VerticalAlignment="Center"
+                ColumnSpacing="14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition x:Name="ArtworkColumn" Width="56" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <!-- The cover, with the look's shadow under it (it stays still while the cover spins). -->
+                <controls:Elevation x:Name="ArtworkShadow" Level="Item">
+                    <Grid
+                        x:Name="ArtworkFrame"
+                        Width="56"
+                        Height="56"
+                        Background="{StaticResource ResonateSurfaceHoverBrush}"
+                        CornerRadius="{ThemeResource ResonateCornerMedium}">
+                        <FontIcon
+                            x:Name="ArtworkGlyph"
+                            FontFamily="{StaticResource ResonateIconFont}"
+                            FontSize="20"
+                            Foreground="{StaticResource ResonateTextTertiaryBrush}"
+                            Glyph="&#xEC4F;" />
+                        <Image
+                            x:Name="ArtworkImage"
+                            ImageOpened="OnArtworkOpened"
+                            Opacity="0"
+                            Stretch="UniformToFill" />
+                        <!-- A record's centre (the vinyl cover style, or any cover while Spinning cover is on): a groove and the spindle hole. -->
+                        <Grid x:Name="VinylCentre" Visibility="Collapsed">
+                            <Ellipse
+                                Width="22"
+                                Height="22"
+                                Stroke="{StaticResource ResonateBorderBrush}"
+                                StrokeThickness="1" />
+                            <Ellipse
+                                Width="10"
+                                Height="10"
+                                Fill="{StaticResource ResonatePlayerBrush}"
+                                Stroke="{StaticResource ResonateBorderBrush}"
+                                StrokeThickness="1" />
+                        </Grid>
+                    </Grid>
+                </controls:Elevation>
+                <StackPanel
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Spacing="2">
+                    <TextBlock
+                        x:Name="TitleText"
+                        FontWeight="SemiBold"
+                        PointerEntered="OnTitlePointerEntered"
+                        PointerExited="OnTitlePointerExited"
+                        Style="{StaticResource ResonateBodyTextStyle}"
+                        Tapped="OnTitleTapped"
+                        Text="Nothing playing" />
+                    <TextBlock
+                        x:Name="ArtistText"
+                        Style="{StaticResource ResonateSecondaryTextStyle}"
+                        Text="Pick a song to start" />
+                </StackPanel>
             </Grid>
+
+            <!-- Transport controls and the seek bar -->
             <StackPanel
+                x:Name="Transport"
                 Grid.Column="1"
                 VerticalAlignment="Center"
                 Spacing="2">
-                <TextBlock
-                    x:Name="TitleText"
-                    FontWeight="SemiBold"
-                    PointerEntered="OnTitlePointerEntered"
-                    PointerExited="OnTitlePointerExited"
-                    Style="{StaticResource ResonateBodyTextStyle}"
-                    Tapped="OnTitleTapped"
-                    Text="Nothing playing" />
-                <TextBlock
-                    x:Name="ArtistText"
-                    Style="{StaticResource ResonateSecondaryTextStyle}"
-                    Text="Pick a song to start" />
+                <StackPanel
+                    x:Name="TransportButtons"
+                    HorizontalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="14">
+                    <ToggleButton
+                        x:Name="ShuffleButton"
+                        AutomationProperties.Name="Shuffle"
+                        Click="OnShuffleClick"
+                        Content="&#xE8B1;"
+                        Style="{StaticResource ResonateToggleIconButtonStyle}"
+                        ToolTipService.ToolTip="Shuffle, truly random (Ctrl+S)" />
+                    <Button
+                        x:Name="PreviousButton"
+                        AutomationProperties.Name="Previous"
+                        Click="OnPreviousClick"
+                        Content="&#xE892;"
+                        Style="{StaticResource ResonateIconButtonStyle}"
+                        ToolTipService.ToolTip="Previous (Ctrl+Left)" />
+                    <!-- The play button, glowing in the accent (or as the look's shadows go; see Elevation). -->
+                    <controls:Elevation CornerRadius="{ThemeResource ResonatePlayButtonCorner}" Level="PlayButton">
+                        <Button
+                            x:Name="PlayPauseButton"
+                            AutomationProperties.Name="Play"
+                            Click="OnPlayPauseClick"
+                            Content="&#xF5B0;"
+                            Style="{StaticResource ResonatePlayButtonStyle}"
+                            ToolTipService.ToolTip="Play or pause (Space)" />
+                    </controls:Elevation>
+                    <Button
+                        x:Name="NextButton"
+                        AutomationProperties.Name="Next"
+                        Click="OnNextClick"
+                        Content="&#xE893;"
+                        Style="{StaticResource ResonateIconButtonStyle}"
+                        ToolTipService.ToolTip="Next (Ctrl+Right)" />
+                    <ToggleButton
+                        x:Name="RepeatButton"
+                        AutomationProperties.Name="Repeat"
+                        Click="OnRepeatClick"
+                        Content="&#xE8EE;"
+                        Style="{StaticResource ResonateToggleIconButtonStyle}"
+                        ToolTipService.ToolTip="Repeat (Ctrl+R)" />
+                </StackPanel>
+                <Grid x:Name="SeekRow" ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition x:Name="PositionColumn" Width="44" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition x:Name="DurationColumn" Width="44" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        x:Name="PositionText"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource ResonateCaptionTextStyle}"
+                        Text="0:00"
+                        TextAlignment="Right" />
+                    <controls:SeekBar
+                        x:Name="PositionBar"
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="Position"
+                        Maximum="1"
+                        Minimum="0"
+                        ValueChanged="OnSeekValueChanged" />
+                    <TextBlock
+                        x:Name="DurationText"
+                        Grid.Column="2"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource ResonateCaptionTextStyle}"
+                        Text="0:00" />
+                </Grid>
+            </StackPanel>
+
+            <!-- Plugins, the queue and the volume -->
+            <StackPanel
+                Grid.Column="2"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="4">
+                <!-- Commands from plugins that are on, such as the sleep timer (see PluginManager). -->
+                <Button
+                    x:Name="PluginsButton"
+                    AutomationProperties.Name="Plugins"
+                    Click="OnPluginsClick"
+                    Content="&#xEA86;"
+                    Style="{StaticResource ResonateIconButtonStyle}"
+                    ToolTipService.ToolTip="Plugins"
+                    Visibility="Collapsed" />
+                <!-- Spotify Connect devices, with Spotify Web API only (see PlayerBar.Devices.cs). -->
+                <Button
+                    x:Name="DeviceButton"
+                    AutomationProperties.Name="Play on a device"
+                    Click="OnDeviceClick"
+                    Content="&#xE772;"
+                    Style="{StaticResource ResonateIconButtonStyle}"
+                    ToolTipService.ToolTip="Play on a device"
+                    Visibility="Collapsed" />
+                <Button
+                    x:Name="QueueButton"
+                    AutomationProperties.Name="Queue"
+                    Click="OnQueueClick"
+                    Content="&#xE8FD;"
+                    Style="{StaticResource ResonateIconButtonStyle}"
+                    ToolTipService.ToolTip="Queue" />
+                <!-- The mouse wheel over it sets the volume, also while the slider is left out. -->
+                <Button
+                    x:Name="MuteButton"
+                    AutomationProperties.Name="Mute"
+                    Click="OnMuteClick"
+                    Content="&#xE767;"
+                    PointerWheelChanged="OnMuteWheelChanged"
+                    Style="{StaticResource ResonateIconButtonStyle}"
+                    ToolTipService.ToolTip="Mute (scroll to change the volume)" />
+                <controls:SeekBar
+                    x:Name="VolumeBar"
+                    Width="112"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="Volume"
+                    Maximum="100"
+                    Minimum="0"
+                    ValueChanged="OnVolumeValueChanged"
+                    WheelStep="5" />
             </StackPanel>
         </Grid>
-
-        <!-- Transport controls and the seek bar -->
-        <StackPanel
-            Grid.Column="1"
-            VerticalAlignment="Center"
-            Spacing="2">
-            <StackPanel
-                HorizontalAlignment="Center"
-                Orientation="Horizontal"
-                Spacing="14">
-                <ToggleButton
-                    x:Name="ShuffleButton"
-                    AutomationProperties.Name="Shuffle"
-                    Click="OnShuffleClick"
-                    Content="&#xE8B1;"
-                    Style="{StaticResource ResonateToggleIconButtonStyle}"
-                    ToolTipService.ToolTip="Shuffle, truly random (Ctrl+S)" />
-                <Button
-                    x:Name="PreviousButton"
-                    AutomationProperties.Name="Previous"
-                    Click="OnPreviousClick"
-                    Content="&#xE892;"
-                    Style="{StaticResource ResonateIconButtonStyle}"
-                    ToolTipService.ToolTip="Previous (Ctrl+Left)" />
-                <Button
-                    x:Name="PlayPauseButton"
-                    AutomationProperties.Name="Play"
-                    Click="OnPlayPauseClick"
-                    Content="&#xE768;"
-                    Style="{StaticResource ResonatePlayButtonStyle}"
-                    ToolTipService.ToolTip="Play or pause (Space)" />
-                <Button
-                    x:Name="NextButton"
-                    AutomationProperties.Name="Next"
-                    Click="OnNextClick"
-                    Content="&#xE893;"
-                    Style="{StaticResource ResonateIconButtonStyle}"
-                    ToolTipService.ToolTip="Next (Ctrl+Right)" />
-                <ToggleButton
-                    x:Name="RepeatButton"
-                    AutomationProperties.Name="Repeat"
-                    Click="OnRepeatClick"
-                    Content="&#xE8EE;"
-                    Style="{StaticResource ResonateToggleIconButtonStyle}"
-                    ToolTipService.ToolTip="Repeat (Ctrl+R)" />
-            </StackPanel>
-            <Grid ColumnSpacing="10">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="44" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="44" />
-                </Grid.ColumnDefinitions>
-                <TextBlock
-                    x:Name="PositionText"
-                    VerticalAlignment="Center"
-                    Style="{StaticResource ResonateCaptionTextStyle}"
-                    Text="0:00"
-                    TextAlignment="Right" />
-                <controls:SeekBar
-                    x:Name="PositionBar"
-                    Grid.Column="1"
-                    VerticalAlignment="Center"
-                    AutomationProperties.Name="Position"
-                    Maximum="1"
-                    Minimum="0"
-                    ValueChanged="OnSeekValueChanged" />
-                <TextBlock
-                    x:Name="DurationText"
-                    Grid.Column="2"
-                    VerticalAlignment="Center"
-                    Style="{StaticResource ResonateCaptionTextStyle}"
-                    Text="0:00" />
-            </Grid>
-        </StackPanel>
-
-        <!-- Volume -->
-        <StackPanel
-            Grid.Column="2"
-            HorizontalAlignment="Right"
-            VerticalAlignment="Center"
-            Orientation="Horizontal"
-            Spacing="6">
-            <!-- Commands from plugins that are on, such as the sleep timer (see PluginManager). -->
-            <Button
-                x:Name="PluginsButton"
-                AutomationProperties.Name="Plugins"
-                Click="OnPluginsClick"
-                Content="&#xEA86;"
-                Style="{StaticResource ResonateIconButtonStyle}"
-                ToolTipService.ToolTip="Plugins"
-                Visibility="Collapsed" />
-            <!-- Spotify Connect devices, with Spotify Web API only (see PlayerBar.Devices.cs). -->
-            <Button
-                x:Name="DeviceButton"
-                AutomationProperties.Name="Play on a device"
-                Click="OnDeviceClick"
-                Content="&#xE772;"
-                Style="{StaticResource ResonateIconButtonStyle}"
-                ToolTipService.ToolTip="Play on a device"
-                Visibility="Collapsed" />
-            <Button
-                x:Name="QueueButton"
-                AutomationProperties.Name="Queue"
-                Click="OnQueueClick"
-                Content="&#xE8FD;"
-                Style="{StaticResource ResonateIconButtonStyle}"
-                ToolTipService.ToolTip="Queue" />
-            <Button
-                x:Name="MuteButton"
-                AutomationProperties.Name="Mute"
-                Click="OnMuteClick"
-                Content="&#xE767;"
-                Style="{StaticResource ResonateIconButtonStyle}"
-                ToolTipService.ToolTip="Mute" />
-            <controls:SeekBar
-                x:Name="VolumeBar"
-                Width="128"
-                VerticalAlignment="Center"
-                AutomationProperties.Name="Volume"
-                Maximum="100"
-                Minimum="0"
-                ValueChanged="OnVolumeValueChanged"
-                WheelStep="5" />
-        </StackPanel>
-    </Grid>
+    </controls:Elevation>
 </UserControl>

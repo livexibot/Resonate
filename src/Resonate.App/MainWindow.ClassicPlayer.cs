@@ -62,25 +62,23 @@ public sealed partial class MainWindow
         var shell = ShellGrid.Visibility == Visibility.Visible;
         var classic = shell && _services.Skins.UsesClassicPlayer;
         PlayerBar.Visibility = shell && !classic ? Visibility.Visible : Visibility.Collapsed;
-        ClassicElevation.Visibility = classic ? Visibility.Visible : Visibility.Collapsed;
 
         if (classic && _classicPlayer is null)
         {
+            // In the player's slot, which stays put when layouts change, so it is never rebuilt for that.
             _classicPlayer = new ClassicPlayer();
             _classicPlayer.SetWindowActive(_windowActive);
             _classicPlayer.SetWindowShown(IsShown);
-            Grid.SetRow(_classicPlayer, 2);
-
-            // Above its shadow, like the player bar above its own.
-            RootGrid.Children.Insert(RootGrid.Children.IndexOf(ClassicElevation) + 1, _classicPlayer);
+            PlayerSlot.Children.Add(_classicPlayer);
         }
         else if (!classic && _classicPlayer is not null)
         {
-            RootGrid.Children.Remove(_classicPlayer);
+            PlayerSlot.Children.Remove(_classicPlayer);
             _classicPlayer = null;
         }
 
         TellPlayersShown();
+        ApplyPlayerPlacement();
     }
 
     /// <summary>

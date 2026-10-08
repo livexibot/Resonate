@@ -19,6 +19,10 @@ public sealed partial class MainWindow
     /// <summary>At least this much of the window stays on its screen, so it can always be grabbed.</summary>
     private const int KeepOnScreen = 120;
 
+    /// <summary>The smallest window, in pixels at 100 % scaling: room for the page beside the sidebar and a mini player.</summary>
+    private const int MinimumWidth = 760;
+    private const int MinimumHeight = 540;
+
     private const int SwMaximize = 3;
 
     /// <summary>Moving or resizing sends many changes; the place is saved once the window settles.</summary>
@@ -27,6 +31,23 @@ public sealed partial class MainWindow
     private DispatcherQueueTimer? _placementTimer;
 
     private nint Hwnd => WinRT.Interop.WindowNative.GetWindowHandle(this);
+
+    /// <summary>
+    /// Keeps the window from being made smaller than <see cref="MinimumWidth"/>
+    /// by <see cref="MinimumHeight"/>. Called first thing, before the title
+    /// bar is set up and the window is placed, so nothing set later is lost.
+    /// </summary>
+    private void SetMinimumSize()
+    {
+        var scale = GetDpiForWindow(Hwnd) / 96.0;
+
+        // A presenter of its own, rather than a cast of the current one, which
+        // Native AOT may not recognise (see CLAUDE.md); it is the same kind.
+        var presenter = OverlappedPresenter.Create();
+        presenter.PreferredMinimumWidth = (int)Math.Round(MinimumWidth * scale);
+        presenter.PreferredMinimumHeight = (int)Math.Round(MinimumHeight * scale);
+        AppWindow.SetPresenter(presenter);
+    }
 
     /// <summary>Puts the window where it was left (before it is first shown).</summary>
     private void RestorePlacement()

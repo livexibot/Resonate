@@ -14,7 +14,6 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="44" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <Grid.KeyboardAccelerators>
             <KeyboardAccelerator
@@ -103,8 +102,14 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
+            <!-- The panels, then the player's row (empty while the player hovers over the page). -->
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
             <!-- The panels' shadows, behind them -->
-            <controls:Elevation CornerRadius="{ThemeResource ResonateCornerLarge}" />
+            <controls:Elevation x:Name="SidebarElevation" CornerRadius="{ThemeResource ResonateCornerLarge}" />
             <controls:Elevation Grid.Column="1" CornerRadius="{ThemeResource ResonateCornerLarge}" />
 
             <Grid
@@ -121,11 +126,36 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
+                <!-- The selected link's pill: it glides behind the links to the one chosen (MainWindow.NavPill.cs). -->
+                <Border
+                    x:Name="NavPill"
+                    Height="36"
+                    Margin="4,2,4,0"
+                    VerticalAlignment="Top"
+                    Background="{StaticResource ResonateAccentSoftBrush}"
+                    CornerRadius="{ThemeResource ListViewItemCornerRadius}"
+                    IsHitTestVisible="False"
+                    Opacity="0">
+                    <Border
+                        Width="3"
+                        Height="16"
+                        HorizontalAlignment="Left"
+                        Background="{StaticResource ResonateAccentBrush}"
+                        CornerRadius="{ThemeResource ListViewItemSelectionIndicatorCornerRadius}" />
+                </Border>
                 <ListView
                     x:Name="NavList"
                     ItemsSource="{x:Bind NavItems}"
                     SelectionChanged="OnNavSelectionChanged"
-                    SelectionMode="Single">
+                    SelectionMode="Single"
+                    SizeChanged="OnNavListSizeChanged">
+                    <ListView.Resources>
+                        <!-- The pill shows which link is chosen, so the rows draw no selection of their own. -->
+                        <x:Boolean x:Key="ListViewItemSelectionIndicatorVisualEnabled">False</x:Boolean>
+                        <StaticResource x:Key="ListViewItemBackgroundSelected" ResourceKey="ResonateTransparentBrush" />
+                        <StaticResource x:Key="ListViewItemBackgroundSelectedPointerOver" ResourceKey="ResonateSurfaceHoverBrush" />
+                        <StaticResource x:Key="ListViewItemBackgroundSelectedPressed" ResourceKey="ResonateSurfacePressedBrush" />
+                    </ListView.Resources>
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="vm:NavItem">
                             <StackPanel
@@ -160,8 +190,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock
                         VerticalAlignment="Center"
-                        CharacterSpacing="60"
-                        Style="{StaticResource ResonateCaptionTextStyle}"
+                        Style="{StaticResource ResonateEyebrowTextStyle}"
                         Text="PLAYLISTS" />
                     <Button
                         x:Name="PlaylistSortButton"
@@ -266,7 +295,7 @@
             </Grid>
 
             <Grid
-                x:Name="PageArea"
+                x:Name="ContentPanel"
                 Grid.Column="1"
                 Background="{StaticResource ResonateSurfaceBrush}"
                 BorderBrush="{StaticResource ResonateBorderBrush}"
@@ -284,9 +313,11 @@
                 <!--
                     A new version downloading, then ready to install (see ShowUpdateProgress); its
                     width follows the page. The InfoBar's own fill is see-through, so it sits on the
-                    panel colour to stay readable over the page.
+                    panel colour to stay readable over the page. A hovering player lifts it (see
+                    UpdatePlayerInset).
                 -->
                 <Border
+                    x:Name="UpdateBarHost"
                     Margin="16"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Bottom"
@@ -322,6 +353,21 @@
                 Grid.Column="2"
                 Visibility="Collapsed" />
 
+            <!--
+              The player, or the classic player in its place (added in code,
+              see MainWindow.ClassicPlayer.cs). It stays in this slot whatever
+              the layout; only where the slot sits changes (see
+              MainWindow.PlayerPlacement.cs). The slot has no background, so
+              clicks beside a hovering player reach the page.
+            -->
+            <Grid
+                x:Name="PlayerSlot"
+                Grid.Row="1"
+                Grid.ColumnSpan="99"
+                SizeChanged="OnPlayerSlotSizeChanged">
+                <controls:PlayerBar x:Name="PlayerBar" />
+            </Grid>
+
             <!-- Grips in the gaps between the panels, above them (placed by PlaceSplitters). -->
             <controls:PaneSplitter x:Name="SidebarSplitter" HorizontalAlignment="Right" />
             <controls:PaneSplitter
@@ -335,24 +381,6 @@
         <Frame
             x:Name="SignInFrame"
             Grid.Row="1"
-            Grid.RowSpan="2"
-            Visibility="Collapsed" />
-
-        <controls:Elevation
-            Grid.Row="2"
-            Margin="{ThemeResource ResonatePlayerMargin}"
-            CornerRadius="{ThemeResource ResonatePlayerCorner}"
-            Level="Player"
-            Visibility="{x:Bind PlayerBar.Visibility, Mode=OneWay}" />
-        <controls:PlayerBar x:Name="PlayerBar" Grid.Row="2" />
-
-        <!-- The classic player's shadow; the player itself is added above it while it is chosen (MainWindow.ClassicPlayer.cs). -->
-        <controls:Elevation
-            x:Name="ClassicElevation"
-            Grid.Row="2"
-            Margin="{ThemeResource ResonatePlayerMargin}"
-            CornerRadius="{ThemeResource ResonatePlayerCorner}"
-            Level="Player"
             Visibility="Collapsed" />
     </Grid>
 </Window>

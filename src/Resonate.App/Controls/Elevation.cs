@@ -18,11 +18,18 @@ public enum ElevationLevel
     /// <summary>A large panel (the sidebar, the page, a floating player).</summary>
     Panel,
 
-    /// <summary>A small item (a cover, the play button).</summary>
+    /// <summary>A small item (a cover).</summary>
     Item,
 
-    /// <summary>The player bar: a panel's shadow when it floats, none when it is docked.</summary>
+    /// <summary>The player bar: a panel's shadow when it floats or hovers, none when it is docked.</summary>
     Player,
+
+    /// <summary>
+    /// The player's play button: a glow in the accent colour, neon, or a hard
+    /// copy (see <see cref="ThemePalette.PlayButtonShadow"/>). An outline
+    /// button glows as a ring, so the glow never fills it.
+    /// </summary>
+    PlayButton,
 }
 
 /// <summary>
@@ -110,15 +117,30 @@ public sealed partial class Elevation : ContentControl
         {
             ElevationLevel.Panel => palette.PanelShadow,
             ElevationLevel.Item => palette.ItemShadow,
-            ElevationLevel.Player when theme.Current.PlayerLayout == PlayerLayout.Floating => palette.PanelShadow,
+            ElevationLevel.Player when theme.Current.PlayerLayout is PlayerLayout.Floating or PlayerLayout.Hovering => palette.PanelShadow,
+            ElevationLevel.PlayButton => palette.PlayButtonShadow,
             _ => ShadowSpec.None,
         };
+
+        // An outline play button is see-through: a filled shadow would show
+        // through it, so it casts the shape of its outline instead.
+        var ring = Level == ElevationLevel.PlayButton && theme.Current.PlayButton == PlayButtonStyle.Outline
+            ? Math.Max(palette.PlayButtonBorderWidth, 1)
+            : 0;
 
         // A hard shadow is a solid copy of the shape, offset; it needs no blur.
         var hard = theme.Current.Shadow == ShadowStyle.Hard && spec.IsVisible;
         if (_hardShadow is not null)
         {
             _hardShadow.Visibility = hard ? Visibility.Visible : Visibility.Collapsed;
+            if (hard)
+            {
+                var brush = theme.GetBrush("ResonateShadowBrush");
+                _hardShadow.BorderThickness = new Thickness(ring);
+                _hardShadow.Background = ring > 0 ? null : brush;
+                _hardShadow.BorderBrush = ring > 0 ? brush : null;
+            }
+
             if (_hardShadowOffset is not null)
             {
                 _hardShadowOffset.X = spec.OffsetX;
@@ -135,7 +157,7 @@ public sealed partial class Elevation : ContentControl
 
         _shadow ??= new ShadowVisual(_shadowHost);
         var radius = (float)Math.Min(CornerRadius.TopLeft, Math.Min(size.X, size.Y) / 2);
-        _shadow.Show(size, radius, spec, animate && theme.AnimationsEnabled);
+        _shadow.Show(size, radius, (float)ring, spec, animate && theme.AnimationsEnabled);
     }
 
     /// <summary>
@@ -148,6 +170,8 @@ public sealed partial class Elevation : ContentControl
         private readonly SpriteVisual _sprite;
         private readonly DropShadow _shadow;
         private readonly CompositionRoundedRectangleGeometry _shape;
+        private readonly CompositionColorBrush _ink;
+        private readonly CompositionSpriteShape _fill;
         private readonly ShapeVisual _shapeVisual;
         private readonly CompositionVisualSurface _surface;
         private readonly UIElement _host;
@@ -158,10 +182,11 @@ public sealed partial class Elevation : ContentControl
             _compositor = ElementCompositionPreview.GetElementVisual(host).Compositor;
 
             _shape = _compositor.CreateRoundedRectangleGeometry();
-            var fill = _compositor.CreateSpriteShape(_shape);
-            fill.FillBrush = _compositor.CreateColorBrush(Microsoft.UI.Colors.Black);
+            _ink = _compositor.CreateColorBrush(Microsoft.UI.Colors.Black);
+            _fill = _compositor.CreateSpriteShape(_shape);
+            _fill.FillBrush = _ink;
             _shapeVisual = _compositor.CreateShapeVisual();
-            _shapeVisual.Shapes.Add(fill);
+            _shapeVisual.Shapes.Add(_fill);
 
             _surface = _compositor.CreateVisualSurface();
             _surface.SourceVisual = _shapeVisual;
@@ -174,10 +199,17 @@ public sealed partial class Elevation : ContentControl
             ElementCompositionPreview.SetElementChildVisual(host, _sprite);
         }
 
-        public void Show(Vector2 size, float radius, ShadowSpec spec, bool animate)
+        /// <summary>The shadow of the filled shape, or only of its outline when <paramref name="ring"/> (the outline's width) is above 0.</summary>
+        public void Show(Vector2 size, float radius, float ring, ShadowSpec spec, bool animate)
         {
-            _shape.Size = size;
-            _shape.CornerRadius = new Vector2(radius);
+            // An outline is stroked along its middle, so its shape lies half a stroke inside.
+            var inset = ring / 2;
+            _shape.Offset = new Vector2(inset);
+            _shape.Size = Vector2.Max(size - new Vector2(ring), Vector2.Zero);
+            _shape.CornerRadius = new Vector2(Math.Max(radius - inset, 0));
+            _fill.FillBrush = ring > 0 ? null : _ink;
+            _fill.StrokeBrush = ring > 0 ? _ink : null;
+            _fill.StrokeThickness = ring;
             _shapeVisual.Size = size;
             _surface.SourceSize = size;
             _sprite.Size = size;
@@ -211,6 +243,8 @@ public sealed partial class Elevation : ContentControl
             _shadow.Dispose();
             _surface.Dispose();
             _shapeVisual.Dispose();
+            _fill.Dispose();
+            _ink.Dispose();
             _shape.Dispose();
         }
     }

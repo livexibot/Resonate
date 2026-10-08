@@ -49,7 +49,8 @@ public static class ThemePresets
 
     /// <summary>
     /// Frosted glass panes over the playing song's colours (or its blurred
-    /// cover, when the user allows it); the accent follows the cover.
+    /// cover, when the user allows it), with the player hovering over the
+    /// page as a smoky glass pill; the accent follows the cover.
     /// </summary>
     public static ThemeDefinition Glass { get; } = new()
     {
@@ -72,7 +73,7 @@ public static class ThemePresets
         BorderWidth = 1,
         PanelGap = 12,
         Shadow = ShadowStyle.Soft,
-        PlayerLayout = PlayerLayout.Floating,
+        PlayerLayout = PlayerLayout.Hovering,
         Progress = ProgressStyle.Line,
     };
 

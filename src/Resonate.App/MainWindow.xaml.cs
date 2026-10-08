@@ -82,6 +82,7 @@ public sealed partial class MainWindow : Window
         _services = services;
         InitializeComponent();
 
+        SetMinimumSize();
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         BackButton.SizeChanged += (_, _) => UpdateTitleBarPassthrough();
@@ -95,7 +96,7 @@ public sealed partial class MainWindow : Window
         Content = null;
         var themeHost = new ThemeHost(content, services);
         Content = themeHost;
-        services.Theme.AttachWindow(this, themeHost, themeHost.Scene, themeHost.Overlay);
+        services.Theme.AttachWindow(this, themeHost);
         services.Theme.Changed += (_, _) => ApplyCaptionButtonColors();
         ApplyCaptionButtonColors();
 
@@ -131,6 +132,7 @@ public sealed partial class MainWindow : Window
         services.Plugins.Notified += (_, note) =>
             DispatcherQueue.TryEnqueue(() => ShowMessage($"{note.PluginName}: {note.Text}", InfoBarSeverity.Informational));
         PlayerBar.AttachPlugins(services.Plugins);
+        SetUpPlayerPlacement();
         AppWindow.Changed += OnAppWindowChanged;
         Closed += OnClosed;
 
@@ -208,9 +210,9 @@ public sealed partial class MainWindow : Window
 
         // The update bar stays inside a page narrowed by Settings or the queue
         // (16 px from each edge, inside the page's outline).
-        PageArea.SizeChanged += (_, e) =>
+        ContentPanel.SizeChanged += (_, e) =>
         {
-            var outline = PageArea.BorderThickness.Left + PageArea.BorderThickness.Right;
+            var outline = ContentPanel.BorderThickness.Left + ContentPanel.BorderThickness.Right;
             UpdateBar.Width = Math.Clamp(e.NewSize.Width - outline - 32, 0, UpdateBarWidth);
         };
     }
@@ -389,7 +391,11 @@ public sealed partial class MainWindow : Window
     {
         var settings = _services.Settings;
         var gap = ShellGrid.ColumnSpacing;
-        var room = ShellGrid.ActualWidth - ShellGrid.Padding.Left - ShellGrid.Padding.Right;
+
+        // Before the first layout there is no room to measure: only the limits apply.
+        var room = ShellGrid.ActualWidth > 0
+            ? ShellGrid.ActualWidth - ShellGrid.Padding.Left - ShellGrid.Padding.Right
+            : double.PositiveInfinity;
         var paneOpen = QueuePane.IsOpen || SettingsPane.IsOpen;
         var (paneMin, paneMax, paneWanted) = SettingsPane.IsOpen
             ? (SettingsPane.MinimumWidth, SettingsMaxWidth, settings.SettingsPaneWidth ?? SettingsPane.DefaultWidth)
@@ -411,9 +417,9 @@ public sealed partial class MainWindow : Window
         SetWidth(SidebarColumn, sidebarWidth);
         SetWidth(_paneColumn, paneWidth);
 
-        // Before the first layout there is no room to measure: only the limits apply.
+        // A window too small for everything gives each panel its least, so the page keeps what it can.
         static double Fit(double wanted, double min, double max, double room) =>
-            Math.Round(Math.Clamp(wanted, min, room > 0 ? Math.Clamp(room, min, max) : max));
+            Math.Round(Math.Clamp(wanted, min, Math.Clamp(room, min, max)));
 
         static void SetWidth(ColumnDefinition column, double width)
         {
@@ -587,6 +593,8 @@ public sealed partial class MainWindow : Window
 
     private void OnNavSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        // Also when the window chose the link itself (back, or a page opened elsewhere).
+        MoveNavPill(glide: true);
         if (_syncingSelection || NavList.SelectedItem is not NavItem item)
         {
             return;
