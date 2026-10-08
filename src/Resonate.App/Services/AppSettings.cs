@@ -158,7 +158,13 @@ public sealed class AppSettings
 
     // Window shapes
 
+    /// <summary>The strip window shape stays above other windows.</summary>
+    public bool WindowShapesPinned { get; set; }
+
     // Summon bar
+
+    /// <summary>The keys that open the summon bar from any app, such as "Ctrl+Shift+K"; null for none (nothing is taken until the user picks).</summary>
+    public string? SummonBarShortcut { get; set; }
 
     // Signal path
 

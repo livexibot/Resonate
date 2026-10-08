@@ -37,7 +37,7 @@ internal static class BuiltInPluginSettings
         BuiltInPlugins.WindowShapes => null,
 
         // Summon bar
-        BuiltInPlugins.SummonBar => null,
+        BuiltInPlugins.SummonBar => SummonBarSettings.Create(services),
 
         // Signal path
         BuiltInPlugins.SignalPath => null,

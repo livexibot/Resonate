@@ -30,6 +30,9 @@ public sealed partial class MainWindow
 
     private DispatcherQueueTimer? _placementTimer;
 
+    /// <summary>The window's presenter, kept so it is never cast back from AppWindow.Presenter (see SetMinimumSize).</summary>
+    private OverlappedPresenter _presenter = null!;
+
     private nint Hwnd => WinRT.Interop.WindowNative.GetWindowHandle(this);
 
     /// <summary>
@@ -47,6 +50,7 @@ public sealed partial class MainWindow
         presenter.PreferredMinimumWidth = (int)Math.Round(MinimumWidth * scale);
         presenter.PreferredMinimumHeight = (int)Math.Round(MinimumHeight * scale);
         AppWindow.SetPresenter(presenter);
+        _presenter = presenter;
     }
 
     /// <summary>Puts the window where it was left (before it is first shown).</summary>

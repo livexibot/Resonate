@@ -1113,17 +1113,34 @@ public sealed partial class MainWindow : Window
     private void UpdateTitleBarPassthrough()
     {
         var input = InputNonClientPointerSource.GetForWindowId(AppWindow.Id);
-        if (BackButton.Visibility != Visibility.Visible || BackButton.ActualWidth == 0 || BackButton.XamlRoot is not { } root)
+        var rects = new List<RectInt32>(2);
+        AddPassthrough(BackButton, rects);
+
+        // The window shapes button (Window shapes plugin), while it is there.
+        if (_shapeButton is not null)
+        {
+            AddPassthrough(_shapeButton, rects);
+        }
+
+        if (rects.Count == 0)
         {
             input.ClearRegionRects(NonClientRegionKind.Passthrough);
             return;
         }
 
+        input.SetRegionRects(NonClientRegionKind.Passthrough, [.. rects]);
+    }
+
+    private static void AddPassthrough(FrameworkElement button, List<RectInt32> rects)
+    {
+        if (button.Visibility != Visibility.Visible || button.ActualWidth == 0 || button.XamlRoot is not { } root)
+        {
+            return;
+        }
+
         var scale = root.RasterizationScale;
-        var box = BackButton.TransformToVisual(null).TransformBounds(new global::Windows.Foundation.Rect(0, 0, BackButton.ActualWidth, BackButton.ActualHeight));
-        input.SetRegionRects(
-            NonClientRegionKind.Passthrough,
-            [new RectInt32((int)Math.Round(box.X * scale), (int)Math.Round(box.Y * scale), (int)Math.Round(box.Width * scale), (int)Math.Round(box.Height * scale))]);
+        var box = button.TransformToVisual(null).TransformBounds(new global::Windows.Foundation.Rect(0, 0, button.ActualWidth, button.ActualHeight));
+        rects.Add(new RectInt32((int)Math.Round(box.X * scale), (int)Math.Round(box.Y * scale), (int)Math.Round(box.Width * scale), (int)Math.Round(box.Height * scale)));
     }
 
     /// <summary>Sizes the window in device-independent pixels and centres it on its screen.</summary>
