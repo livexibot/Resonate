@@ -33,12 +33,15 @@ internal enum StageKind
 /// known, the smaller one or the media session's until then), the title in
 /// big type, the artists, where it plays from and what comes next, over
 /// slowly drifting clouds in the cover's colours (<see cref="CloudField"/>)
-/// and, if the user chose it, the cover blurred. Shared by the Home stage
+/// and, if the user chose it, the cover blurred, with the visualizer's bars
+/// (<see cref="StageVisualizer"/>) in the room under the cover and the
+/// words, unless the user turned them off. Shared by the Home stage
 /// and the away screen (built-in plugins). A new song's cover fades in
 /// where the old one was, and the clouds take its colours over a second.
-/// The clouds only drift while music plays, the window shows, the stage is
-/// on screen, Windows' animations are on, and no full-screen game, video,
-/// presentation, lock screen or dark display has the screen. Built in code.
+/// The clouds drift and the bars move only while music plays, the window
+/// shows, the stage is on screen, Windows' animations are on, and no
+/// full-screen game, video, presentation, lock screen or dark display has
+/// the screen. Built in code.
 /// </summary>
 internal sealed partial class NowPlayingStage : Grid
 {
@@ -52,6 +55,9 @@ internal sealed partial class NowPlayingStage : Grid
     private const string PlayGlyph = "";
     private const string PauseGlyph = "";
 
+    // Space kept between the words (or the cover) and the visualizer's tallest bar.
+    private const double BarGap = 28;
+
     private static readonly TimeSpan CoverFade = TimeSpan.FromMilliseconds(400);
     private static readonly TimeSpan ScreenCheck = TimeSpan.FromSeconds(5);
 
@@ -62,6 +68,7 @@ internal sealed partial class NowPlayingStage : Grid
     private readonly StageKind _kind;
     private readonly Image _blur = new() { Stretch = Stretch.UniformToFill, Visibility = Visibility.Collapsed, IsHitTestVisible = false };
     private readonly CloudField _clouds = new();
+    private readonly StageVisualizer _visualizer;
     private readonly Grid _coverBox = new() { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
     private readonly Grid _cover = new() { CornerRadius = new CornerRadius(CoverCorner) };
     private readonly Image _coverBack = new() { Stretch = Stretch.UniformToFill };
@@ -100,6 +107,8 @@ internal sealed partial class NowPlayingStage : Grid
     private bool _upNextStale;
     private CancellationTokenSource? _upNextLoading;
     private bool _wide = true;
+    private ThemeColor _page;
+    private bool _barRoomQueued;
 
     public NowPlayingStage(AppServices services, StageKind kind)
     {
@@ -202,8 +211,11 @@ internal sealed partial class NowPlayingStage : Grid
             Children = { _coverBox, _text },
         };
 
+        _visualizer = new StageVisualizer(services.Visualiser);
+
         Children.Add(_blur);
         Children.Add(_clouds);
+        Children.Add(_visualizer);
         Children.Add(Body);
 
         _screenTimer = DispatcherQueue.GetForCurrentThread().CreateTimer();
@@ -233,6 +245,10 @@ internal sealed partial class NowPlayingStage : Grid
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
         SizeChanged += (_, e) => Fit(e.NewSize);
+
+        // The bars keep below the cover and the words, wherever those end up.
+        _text.SizeChanged += (_, _) => QueueBarRoom();
+        _coverBox.SizeChanged += (_, _) => QueueBarRoom();
     }
 
     /// <summary>Raised (static) when a stage option changes in Settings, so every stage shown follows at once.</summary>
@@ -288,6 +304,7 @@ internal sealed partial class NowPlayingStage : Grid
         _services.Player.StateChanged += OnPlayerChanged;
         _services.Player.QueueChanged += OnQueueChanged;
         _services.Theme.Changed += OnThemeChanged;
+        _services.Visualiser.LiveChanged += OnLiveChanged;
         OptionsChanged += OnOptionsChanged;
         if (App.MainWindow is { } window)
         {
@@ -296,6 +313,7 @@ internal sealed partial class NowPlayingStage : Grid
 
         ApplyLook();
         Show();
+        QueueBarRoom();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
@@ -309,6 +327,7 @@ internal sealed partial class NowPlayingStage : Grid
         _services.Player.StateChanged -= OnPlayerChanged;
         _services.Player.QueueChanged -= OnQueueChanged;
         _services.Theme.Changed -= OnThemeChanged;
+        _services.Visualiser.LiveChanged -= OnLiveChanged;
         OptionsChanged -= OnOptionsChanged;
         if (App.MainWindow is { } window)
         {
@@ -352,6 +371,9 @@ internal sealed partial class NowPlayingStage : Grid
 
     private void OnShownChanged(object? sender, EventArgs e) => UpdateRunning();
 
+    // A local file started or stopped playing: the bars follow its sound, or sway on their own.
+    private void OnLiveChanged(object? sender, EventArgs e) => UpdateRunning();
+
     private void OnThemeChanged(object? sender, EventArgs e)
     {
         ApplyLook();
@@ -370,6 +392,7 @@ internal sealed partial class NowPlayingStage : Grid
         var palette = _services.Theme.Palette;
         var home = _kind == StageKind.Home;
         var page = home ? palette.Surface.Over(palette.Background).Opaque : palette.Background.Opaque;
+        _page = page;
         Background = new SolidColorBrush(page.ToColor());
         var corner = home ? palette.CornerLarge : 0;
         CornerRadius = new CornerRadius(corner);
@@ -646,6 +669,9 @@ internal sealed partial class NowPlayingStage : Grid
         }
 
         _clouds.SetColours(safe, strength, animate && _services.Theme.AnimationsEnabled);
+
+        // The bars never sit under text, so they keep the cover's own colours, made to stand out from the page.
+        _visualizer.SetColours(raw.Select(c => StageColours.ForBars(c, _page)).ToList(), animate && _services.Theme.AnimationsEnabled);
     }
 
     /// <summary>The cover blurred, made vivid and then safe for the text, as one tiny picture the GPU stretches (if the user chose it).</summary>
@@ -822,7 +848,13 @@ internal sealed partial class NowPlayingStage : Grid
             _screenTimer.Stop();
         }
 
-        _clouds.SetRunning(playing && !_screenTaken, _services.Theme.AnimationsEnabled);
+        var animate = _services.Theme.AnimationsEnabled;
+        _clouds.SetRunning(playing && !_screenTaken, animate);
+
+        // With Windows' animations off the bars could only stand still, so they are not shown.
+        var bars = _services.Settings.HomeStageVisualizer && animate;
+        _visualizer.Visibility = bars ? Visibility.Visible : Visibility.Collapsed;
+        _visualizer.SetRunning(bars && playing && !_screenTaken, _services.Visualiser.IsLive, animate);
         if (Seen && _upNextStale)
         {
             ShowUpNext(_services.Player.State);
@@ -868,6 +900,7 @@ internal sealed partial class NowPlayingStage : Grid
         // The away screen keeps the top for its clock.
         var top = away ? 160 : pad;
         Body.Margin = new Thickness(pad, top, pad, pad);
+        _visualizer.Margin = new Thickness(pad, 0, pad, 0);
         var innerWidth = Math.Max(0, size.Width - (2 * pad));
         var innerHeight = Math.Max(0, size.Height - top - pad);
         _wide = innerWidth >= 600;
@@ -897,6 +930,55 @@ internal sealed partial class NowPlayingStage : Grid
                 ? Visibility.Visible
                 : Visibility.Collapsed;
         }
+
+        QueueBarRoom();
+    }
+
+    /// <summary>Works out the room under the cover and the words once layout has settled (many changes, one look).</summary>
+    private void QueueBarRoom()
+    {
+        if (_barRoomQueued)
+        {
+            return;
+        }
+
+        _barRoomQueued = true;
+        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
+        {
+            _barRoomQueued = false;
+            FitBars();
+        });
+    }
+
+    /// <summary>The bars may grow up to a little below whichever of the cover and the words ends lower.</summary>
+    private void FitBars()
+    {
+        if (!_attached || ActualHeight <= 0)
+        {
+            return;
+        }
+
+        var bottom = 0.0;
+        foreach (FrameworkElement part in (FrameworkElement[])[_coverBox, _text])
+        {
+            if (part.ActualHeight <= 0)
+            {
+                continue;
+            }
+
+            try
+            {
+                var box = part.TransformToVisual(this).TransformBounds(new global::Windows.Foundation.Rect(0, 0, part.ActualWidth, part.ActualHeight));
+                bottom = Math.Max(bottom, box.Bottom);
+            }
+            catch (ArgumentException)
+            {
+                // Not laid out in this stage yet: the next change looks again.
+                return;
+            }
+        }
+
+        _visualizer.SetRoom(ActualHeight - bottom - BarGap);
     }
 
     private void OnPlayClick(object sender, RoutedEventArgs e)

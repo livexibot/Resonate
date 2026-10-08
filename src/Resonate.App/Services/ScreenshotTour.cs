@@ -219,6 +219,23 @@ internal sealed class ScreenshotTour
         _window.Open(MainWindow.HomeKey);
         await Task.Delay(2000);
         await CaptureAsync("6d-home-stage.png");
+
+        // Pictures cannot tell a cloud mask that never loaded, or bars whose motion the compositor refused.
+        var mask = CloudField.CheckMaskAsync();
+        if (await Task.WhenAny(mask, Task.Delay(10_000)) != mask)
+        {
+            Record("The Home stage's cloud mask did not load within 10 seconds.");
+        }
+        else if (await mask is { } maskError)
+        {
+            Record("The Home stage's cloud mask did not load: " + maskError);
+        }
+
+        if (StageVisualizer.CheckMotion(Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(_root).Compositor) is { } motionError)
+        {
+            Record("The Home stage's visualizer could not move: " + motionError);
+        }
+
         if (_window.CurrentPage is HomePage home)
         {
             home.ScrollTo(HomeSection.Mixes);
