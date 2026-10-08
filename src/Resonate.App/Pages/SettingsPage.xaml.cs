@@ -14,10 +14,38 @@ public enum SettingsSection
 {
     Equalizer,
     ClassicPlayer,
+    Plugins,
+}
+
+/// <summary>The tabs along the top of Settings.</summary>
+public enum SettingsTab
+{
+    Themes,
+    Layout,
+    Plugins,
+    Misc,
+    About,
 }
 
 public sealed partial class SettingsPage : Page
 {
+    /// <summary>The keyboard shortcuts listed under Help: the keys, then what they do.</summary>
+    private static readonly (string Keys, string Action)[] Shortcuts =
+    [
+        ("Space", "Play or pause"),
+        ("Ctrl+Right, Ctrl+Left", "Next or previous song"),
+        ("Ctrl+Up, Ctrl+Down", "Volume up or down"),
+        ("Ctrl+S", "Shuffle"),
+        ("Ctrl+R", "Repeat"),
+        ("Ctrl+F", "Search"),
+        ("Ctrl+N", "New playlist"),
+        ("Ctrl+M", "Mini player"),
+        ("Ctrl+Plus, Ctrl+Minus", "App size"),
+        ("Ctrl+0", "Usual app size"),
+        ("Alt+Left", "Back"),
+        ("Ctrl+K", "Summon bar (its plugin on)"),
+    ];
+
     private readonly AppServices _services = App.Services;
     private SettingsSection? _pendingSection;
     private bool _animateSection;
@@ -26,6 +54,8 @@ public sealed partial class SettingsPage : Page
     {
         InitializeComponent();
         PluginsHost.Children.Add(new PluginsPanel(_services.Plugins, _services));
+        AddShortcuts();
+        ShowTab(LastTab);
         Loaded += OnLoaded;
 
         // Only while on show, so the updater and the player never keep a closed page alive.
@@ -42,26 +72,130 @@ public sealed partial class SettingsPage : Page
     private int _updateProgressQueued;
 
     private bool _loading;
+    private bool _choosingTab;
 
-    /// <summary>Scrolls to the theme customizer, opening it.</summary>
-    internal void ShowCustomize() => Studio.ShowCustomize();
+    /// <summary>The tab Settings opens on: the one used last while Resonate runs.</summary>
+    public static SettingsTab LastTab { get; private set; } = SettingsTab.Themes;
 
-    /// <summary>Scrolls to the plugins.</summary>
-    internal void ShowPlugins() =>
-        PluginsHost.StartBringIntoView(new BringIntoViewOptions { VerticalAlignmentRatio = 0, AnimationDesired = false });
+    /// <summary>The tab on show.</summary>
+    public SettingsTab Tab { get; private set; } = SettingsTab.Themes;
 
-    /// <summary>Scrolls to the updates.</summary>
-    internal void ShowUpdates() =>
-        UpdatesSection.StartBringIntoView(new BringIntoViewOptions { VerticalAlignmentRatio = 0, AnimationDesired = false });
-
-    /// <summary>Scrolls to a section, near the top of the page (once the page is laid out, if it is still opening).</summary>
-    internal void ShowSection(SettingsSection section, bool animate = false)
+    /// <summary>Opens the Themes tab at the theme customizer, opening it.</summary>
+    internal void ShowCustomize()
     {
-        _pendingSection = section;
-        _animateSection = animate;
+        ShowTab(SettingsTab.Themes);
         if (IsLoaded)
         {
-            BringSectionIntoView();
+            // After this turn's layout, so the tab's settings have their heights.
+            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, Studio.ShowCustomize);
+        }
+        else
+        {
+            Studio.ShowCustomize();
+        }
+    }
+
+    /// <summary>Opens the Plugins tab.</summary>
+    internal void ShowPlugins() => ShowTab(SettingsTab.Plugins);
+
+    /// <summary>Opens the About tab, where the updates are.</summary>
+    internal void ShowUpdates() => ShowTab(SettingsTab.About);
+
+    /// <summary>Opens a section's tab and scrolls to the section, near the top (once the page is laid out, if it is still opening).</summary>
+    internal void ShowSection(SettingsSection section, bool animate = false)
+    {
+        var tab = TabOf(section);
+        var switching = tab != Tab;
+        ShowTab(tab);
+        if (section == SettingsSection.Plugins)
+        {
+            return;
+        }
+
+        _pendingSection = section;
+
+        // A tab that just came into view has nothing to glide from.
+        _animateSection = animate && !switching;
+        if (IsLoaded)
+        {
+            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, BringSectionIntoView);
+        }
+    }
+
+    private static SettingsTab TabOf(SettingsSection section) => section switch
+    {
+        SettingsSection.Equalizer => SettingsTab.Misc,
+        SettingsSection.Plugins => SettingsTab.Plugins,
+        _ => SettingsTab.Themes,
+    };
+
+    /// <summary>Shows one tab's settings, from the top, and lights its tab.</summary>
+    public void ShowTab(SettingsTab tab)
+    {
+        var changed = tab != Tab;
+        Tab = tab;
+        LastTab = tab;
+        ThemesPanel.Visibility = tab == SettingsTab.Themes ? Visibility.Visible : Visibility.Collapsed;
+        LayoutPanel.Visibility = tab == SettingsTab.Layout ? Visibility.Visible : Visibility.Collapsed;
+        PluginsHost.Visibility = tab == SettingsTab.Plugins ? Visibility.Visible : Visibility.Collapsed;
+        MiscPanel.Visibility = tab == SettingsTab.Misc ? Visibility.Visible : Visibility.Collapsed;
+        AboutPanel.Visibility = tab == SettingsTab.About ? Visibility.Visible : Visibility.Collapsed;
+
+        _choosingTab = true;
+        try
+        {
+            ThemesTab.IsChecked = tab == SettingsTab.Themes;
+            LayoutTab.IsChecked = tab == SettingsTab.Layout;
+            PluginsTab.IsChecked = tab == SettingsTab.Plugins;
+            MiscTab.IsChecked = tab == SettingsTab.Misc;
+            AboutTab.IsChecked = tab == SettingsTab.About;
+        }
+        finally
+        {
+            _choosingTab = false;
+        }
+
+        if (changed)
+        {
+            Scroller.ChangeView(null, 0, null, disableAnimation: true);
+        }
+    }
+
+    private void OnTabChecked(object sender, RoutedEventArgs e)
+    {
+        if (_choosingTab)
+        {
+            return;
+        }
+
+        SettingsTab? tab = ReferenceEquals(sender, ThemesTab) ? SettingsTab.Themes
+            : ReferenceEquals(sender, LayoutTab) ? SettingsTab.Layout
+            : ReferenceEquals(sender, PluginsTab) ? SettingsTab.Plugins
+            : ReferenceEquals(sender, MiscTab) ? SettingsTab.Misc
+            : ReferenceEquals(sender, AboutTab) ? SettingsTab.About
+            : null;
+        if (tab is { } chosen)
+        {
+            ShowTab(chosen);
+        }
+    }
+
+    /// <summary>The keyboard shortcuts under Help, two columns: the keys and what they do.</summary>
+    private void AddShortcuts()
+    {
+        var resources = Application.Current.Resources;
+        var keysStyle = (Style)resources["ResonateBodyTextStyle"];
+        var actionStyle = (Style)resources["ResonateSecondaryTextStyle"];
+        for (var i = 0; i < Shortcuts.Length; i++)
+        {
+            ShortcutsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            var keys = new TextBlock { Text = Shortcuts[i].Keys, Style = keysStyle, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
+            var action = new TextBlock { Text = Shortcuts[i].Action, Style = actionStyle, TextWrapping = TextWrapping.Wrap };
+            Grid.SetRow(keys, i);
+            Grid.SetRow(action, i);
+            Grid.SetColumn(action, 1);
+            ShortcutsGrid.Children.Add(keys);
+            ShortcutsGrid.Children.Add(action);
         }
     }
 
@@ -91,6 +225,12 @@ public sealed partial class SettingsPage : Page
         }
 
         _pendingSection = null;
+        if (TabOf(section) != Tab)
+        {
+            // Another tab was chosen meanwhile.
+            return;
+        }
+
         FrameworkElement target = section switch
         {
             SettingsSection.Equalizer => EqualizerSection,
@@ -111,16 +251,16 @@ public sealed partial class SettingsPage : Page
         _loading = false;
 
         var user = _services.Library.Snapshot?.User;
-        AccountText.Text = _services.IsDemo
-            ? "Demo mode: made-up music, nothing is sent to Spotify."
+        AccountRow.Header = _services.IsDemo
+            ? "Demo mode"
             : user is null
-                ? "Signed in."
-                : $"Signed in as {user.DisplayName ?? user.Id}.";
+                ? "Signed in"
+                : $"Signed in as {user.DisplayName ?? user.Id}";
+        AccountRow.Description = _services.IsDemo ? "Made-up music, nothing is sent to Spotify." : string.Empty;
         SignOutButton.IsEnabled = !_services.IsDemo;
 
-        VersionText.Text = _services.Updates.IsInstalled
-            ? $"Resonate {AppInfo.Version}"
-            : $"Resonate {AppInfo.Version}. Not installed, so it does not update itself.";
+        VersionRow.Header = $"Resonate {AppInfo.Version}";
+        VersionRow.Description = _services.Updates.IsInstalled ? string.Empty : "Not installed, so it does not update itself.";
         CheckUpdatesButton.IsEnabled = _services.Updates.IsInstalled;
         RestartButton.Visibility = _services.Updates.PendingVersion is null ? Visibility.Collapsed : Visibility.Visible;
 

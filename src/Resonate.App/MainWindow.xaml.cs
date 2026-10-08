@@ -88,7 +88,7 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         BackButton.SizeChanged += (_, _) => UpdateTitleBarPassthrough();
-        MiniPlayerButton.SizeChanged += (_, _) => UpdateTitleBarPassthrough();
+        TitleBarButtons.SizeChanged += (_, _) => UpdateTitleBarPassthrough();
         AppTitleBar.SizeChanged += (_, _) => UpdateTitleBarPassthrough();
         AppWindow.Title = AppName;
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Resonate.ico"));
@@ -178,7 +178,7 @@ public sealed partial class MainWindow : Window
         SignInFrame.Visibility = Visibility.Collapsed;
         SignInFrame.Content = null;
         ShellGrid.Visibility = Visibility.Visible;
-        MiniPlayerButton.Visibility = Visibility.Visible;
+        ShowTitleBarButtons();
         ApplyPlayerStyle();
 
         ShowPlaylists(_services.Library.Snapshot);
@@ -203,13 +203,25 @@ public sealed partial class MainWindow : Window
     /// <summary>Opens the queue pane next to the pages, or closes it (the player bar's queue button).</summary>
     public void ToggleQueue() => ShowQueue(!QueuePane.IsOpen);
 
-    /// <summary>Opens Settings in the pane on the right, or closes it (the gear in the sidebar).</summary>
+    /// <summary>Opens Settings in the pane on the right, or closes it (the gear in the title bar).</summary>
     public void ToggleSettings() => ShowSettings(!SettingsPane.IsOpen);
 
     public void CloseSettings() => ShowSettings(false);
 
     /// <summary>The Settings page while the Settings pane is open.</summary>
     internal SettingsPage? SettingsPage => SettingsPane.Page;
+
+    /// <summary>
+    /// Settings and the mini player button in the title bar, while the library
+    /// shows; the mini player button only while the user keeps it (Settings, Layout).
+    /// </summary>
+    internal void ShowTitleBarButtons()
+    {
+        var shell = ShellGrid.Visibility == Visibility.Visible;
+        SettingsButton.Visibility = shell ? Visibility.Visible : Visibility.Collapsed;
+        MiniPlayerButton.Visibility = shell && _services.Settings.ShowMiniPlayerButton ? Visibility.Visible : Visibility.Collapsed;
+        UpdateTitleBarPassthrough();
+    }
 
     private void SetUpSettingsPane()
     {
@@ -460,11 +472,11 @@ public sealed partial class MainWindow : Window
     public void ShowSignIn()
     {
         LeaveMiniPlayer();
-        MiniPlayerButton.Visibility = Visibility.Collapsed;
         ShowQueue(false);
         ShowSettings(false);
         ShowLyrics(false);
         ShellGrid.Visibility = Visibility.Collapsed;
+        ShowTitleBarButtons();
         ApplyPlayerStyle();
         SignInFrame.Visibility = Visibility.Visible;
         SignInFrame.Navigate(typeof(SignInPage), null, new SuppressNavigationTransitionInfo());
@@ -1271,29 +1283,33 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// The title bar drags the window, so clicks only reach the back and mini
-    /// player buttons through "passthrough" areas, kept in step with where the
-    /// buttons are. The mini player button keeps clear of the window's own buttons.
+    /// The title bar drags the window, so clicks only reach its buttons (back,
+    /// and Settings and the mini player on the right) through "passthrough"
+    /// areas, kept in step with where the buttons are. The buttons on the right
+    /// keep clear of the window's own buttons.
     /// </summary>
     private void UpdateTitleBarPassthrough()
     {
         if (AppTitleBar.XamlRoot is { RasterizationScale: > 0 } titleRoot)
         {
             var margin = new Thickness(0, 0, (AppWindow.TitleBar.RightInset / titleRoot.RasterizationScale) + 4, 0);
-            if (!MiniPlayerButton.Margin.Equals(margin))
+            if (!TitleBarButtons.Margin.Equals(margin))
             {
-                MiniPlayerButton.Margin = margin;
+                TitleBarButtons.Margin = margin;
+
+                // The buttons move once laid out; their areas follow then.
+                DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, UpdateTitleBarPassthrough);
             }
         }
 
-        var rects = new List<RectInt32>(3);
+        var rects = new List<RectInt32>(4);
         AddPassthrough(BackButton, rects);
+        AddPassthrough(SettingsButton, rects);
         AddPassthrough(MiniPlayerButton, rects);
 
-        // The window shapes button (Window shapes plugin), while it is there, left of the mini player button.
+        // The window shapes button (Window shapes plugin), while it is there, left of Settings.
         if (_shapeButton is not null)
         {
-            PlaceShapeButton();
             AddPassthrough(_shapeButton, rects);
         }
 

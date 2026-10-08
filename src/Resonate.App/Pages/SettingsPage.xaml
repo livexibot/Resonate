@@ -6,144 +6,361 @@
     xmlns:controls="using:Resonate.App.Controls"
     Background="{StaticResource ResonateTransparentBrush}">
 
+    <Page.Resources>
+        <!--
+            A tab along the top: an icon over its name. The chosen one sits on
+            the accent's soft fill, like the sidebar's chosen link; the hover
+            fill is a layer of its own so it never hides the chosen fill.
+        -->
+        <Style x:Key="SettingsTabStyle" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{StaticResource ResonateTextSecondaryBrush}" />
+            <Setter Property="Background" Value="{StaticResource ResonateTransparentBrush}" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Padding" Value="2,8,2,7" />
+            <Setter Property="CornerRadius" Value="{ThemeResource ResonateCornerMedium}" />
+            <Setter Property="UseSystemFocusVisuals" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid
+                            x:Name="Fill"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="Hover.Background" Value="{StaticResource ResonateSurfaceHoverBrush}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="Hover.Background" Value="{StaticResource ResonateSurfacePressedBrush}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled" />
+                                </VisualStateGroup>
+                                <VisualStateGroup x:Name="CheckStates">
+                                    <VisualState x:Name="Checked">
+                                        <VisualState.Setters>
+                                            <Setter Target="Fill.Background" Value="{StaticResource ResonateAccentSoftBrush}" />
+                                            <Setter Target="Presenter.Foreground" Value="{StaticResource ResonateTextPrimaryBrush}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Unchecked" />
+                                    <VisualState x:Name="Indeterminate" />
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <Border
+                                x:Name="Hover"
+                                Background="{StaticResource ResonateTransparentBrush}"
+                                CornerRadius="{TemplateBinding CornerRadius}" />
+                            <ContentPresenter
+                                x:Name="Presenter"
+                                Padding="{TemplateBinding Padding}"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                Content="{TemplateBinding Content}"
+                                Foreground="{TemplateBinding Foreground}" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="SettingsTabTextStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{ThemeResource ResonateTextFont}" />
+            <Setter Property="FontSize" Value="{ThemeResource ResonateFontSize12}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+        </Style>
+    </Page.Resources>
+
     <!-- Shown in the Settings pane on the right of the window (see Controls/SettingsPane). -->
-    <ScrollViewer>
-        <StackPanel Padding="24,8,24,40" Spacing="28">
-            <!-- Look: presets, your own looks and the customizer -->
-            <controls:ThemeStudio x:Name="Studio" />
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-            <!-- Classic player: the skinnable Winamp 2 style player -->
-            <controls:ClassicPlayerPanel x:Name="ClassicPlayerSection" />
+        <!-- The tabs, which stay put while the settings under them scroll -->
+        <Grid Margin="16,2,16,8" ColumnSpacing="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <RadioButton
+                x:Name="ThemesTab"
+                AutomationProperties.Name="Themes"
+                Checked="OnTabChecked"
+                GroupName="SettingsTabs"
+                Style="{StaticResource SettingsTabStyle}">
+                <StackPanel Spacing="4">
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        FontSize="16"
+                        Glyph="&#xE790;" />
+                    <TextBlock Style="{StaticResource SettingsTabTextStyle}" Text="Themes" />
+                </StackPanel>
+            </RadioButton>
+            <RadioButton
+                x:Name="LayoutTab"
+                Grid.Column="1"
+                AutomationProperties.Name="Layout"
+                Checked="OnTabChecked"
+                GroupName="SettingsTabs"
+                Style="{StaticResource SettingsTabStyle}">
+                <StackPanel Spacing="4">
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        FontSize="16"
+                        Glyph="&#xE80A;" />
+                    <TextBlock Style="{StaticResource SettingsTabTextStyle}" Text="Layout" />
+                </StackPanel>
+            </RadioButton>
+            <RadioButton
+                x:Name="PluginsTab"
+                Grid.Column="2"
+                AutomationProperties.Name="Plugins"
+                Checked="OnTabChecked"
+                GroupName="SettingsTabs"
+                Style="{StaticResource SettingsTabStyle}">
+                <StackPanel Spacing="4">
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        FontSize="16"
+                        Glyph="&#xEA86;" />
+                    <TextBlock Style="{StaticResource SettingsTabTextStyle}" Text="Plugins" />
+                </StackPanel>
+            </RadioButton>
+            <RadioButton
+                x:Name="MiscTab"
+                Grid.Column="3"
+                AutomationProperties.Name="Misc"
+                Checked="OnTabChecked"
+                GroupName="SettingsTabs"
+                Style="{StaticResource SettingsTabStyle}"
+                ToolTipService.ToolTip="Playback, equalizer and Local Files">
+                <StackPanel Spacing="4">
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        FontSize="16"
+                        Glyph="&#xE712;" />
+                    <TextBlock Style="{StaticResource SettingsTabTextStyle}" Text="Misc" />
+                </StackPanel>
+            </RadioButton>
+            <RadioButton
+                x:Name="AboutTab"
+                Grid.Column="4"
+                AutomationProperties.Name="About"
+                Checked="OnTabChecked"
+                GroupName="SettingsTabs"
+                Style="{StaticResource SettingsTabStyle}"
+                ToolTipService.ToolTip="Updates, account and help">
+                <StackPanel Spacing="4">
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        FontSize="16"
+                        Glyph="&#xE946;" />
+                    <TextBlock Style="{StaticResource SettingsTabTextStyle}" Text="About" />
+                </StackPanel>
+            </RadioButton>
+        </Grid>
 
-            <!-- Playback and the Spotify app -->
-            <StackPanel Spacing="12">
-                <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Playback" />
-                <RadioButtons x:Name="ChannelChoice" SelectionChanged="OnChannelChanged">
-                    <RadioButton Content="Windows media controls (fastest)" />
-                    <RadioButton Content="Spotify Web API only" />
-                </RadioButtons>
+        <!-- One tab's settings at a time; the others are collapsed, so they cost no layout. -->
+        <ScrollViewer x:Name="Scroller" Grid.Row="1">
+            <Grid Padding="24,8,24,40">
+
+                <!-- Themes: presets, your own looks, the customizer, cover art and the classic player -->
+                <StackPanel x:Name="ThemesPanel" Spacing="28">
+                    <controls:ThemeStudio x:Name="Studio" />
+                    <controls:ClassicPlayerPanel x:Name="ClassicPlayerSection" />
+                </StackPanel>
+
+                <!-- Layout: where the player sits, what the sidebar and title bar show, and sizes -->
+                <controls:LayoutSettings x:Name="LayoutPanel" Visibility="Collapsed" />
+
+                <!-- Plugins: optional extras, built in or downloaded only when turned on (built in code, see PluginsPanel.cs) -->
+                <StackPanel x:Name="PluginsHost" Visibility="Collapsed" />
+
+                <!-- Misc: playback and the Spotify app, the equalizer, Local Files -->
                 <StackPanel
-                    x:Name="WebApiOptions"
-                    Spacing="12"
+                    x:Name="MiscPanel"
+                    Spacing="28"
                     Visibility="Collapsed">
-                    <TextBlock
-                        Style="{StaticResource ResonateCaptionTextStyle}"
-                        Text="Closes the Spotify app. Music plays here through Spotify's web player (256 kbps, not Lossless), or on the device picked with the button next to the volume. Lossless, Spotify's equalizer and DJ need Windows media controls."
-                        TextWrapping="Wrap" />
-                    <ToggleSwitch
-                        x:Name="PlayHereSwitch"
-                        Header="Play on this PC"
-                        OffContent="Off"
-                        OnContent="On"
-                        Toggled="OnPlayHereToggled" />
-                    <TextBlock
-                        x:Name="PlayHereStatus"
-                        Style="{StaticResource ResonateCaptionTextStyle}"
-                        TextWrapping="Wrap" />
+                    <StackPanel Spacing="12">
+                        <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Playback" />
+                        <RadioButtons x:Name="ChannelChoice" SelectionChanged="OnChannelChanged">
+                            <RadioButton Content="Windows media controls (fastest)" />
+                            <RadioButton Content="Spotify Web API only" />
+                        </RadioButtons>
+                        <StackPanel
+                            x:Name="WebApiOptions"
+                            Spacing="6"
+                            Visibility="Collapsed">
+                            <TextBlock
+                                Margin="0,0,0,6"
+                                Style="{StaticResource ResonateCaptionTextStyle}"
+                                Text="Closes the Spotify app. Plays through Spotify's web player (256 kbps, not Lossless)."
+                                TextWrapping="Wrap" />
+                            <controls:SettingRow Header="Play on this PC">
+                                <ToggleSwitch
+                                    x:Name="PlayHereSwitch"
+                                    MinWidth="0"
+                                    AutomationProperties.Name="Play on this PC"
+                                    OffContent=""
+                                    OnContent=""
+                                    Toggled="OnPlayHereToggled" />
+                            </controls:SettingRow>
+                            <TextBlock
+                                x:Name="PlayHereStatus"
+                                Margin="16,0,16,0"
+                                Style="{StaticResource ResonateCaptionTextStyle}"
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="SpotifyAppOptions" Spacing="6">
+                            <controls:SettingRow Header="Keep the Spotify app hidden">
+                                <ToggleSwitch
+                                    x:Name="KeepHiddenSwitch"
+                                    MinWidth="0"
+                                    AutomationProperties.Name="Keep the Spotify app hidden"
+                                    OffContent=""
+                                    OnContent=""
+                                    Toggled="OnKeepHiddenToggled" />
+                            </controls:SettingRow>
+                            <controls:SettingRow Header="Save power while it is hidden">
+                                <ToggleSwitch
+                                    x:Name="SaveResourcesSwitch"
+                                    MinWidth="0"
+                                    AutomationProperties.Name="Save power while Spotify is hidden"
+                                    OffContent=""
+                                    OnContent=""
+                                    Toggled="OnSaveResourcesToggled" />
+                            </controls:SettingRow>
+                            <Button
+                                Margin="0,6,0,0"
+                                Click="OnShowSpotifyClick"
+                                Content="Show the Spotify app"
+                                Style="{StaticResource ResonateSubtleButtonStyle}"
+                                ToolTipService.ToolTip="It hides again when you switch away" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Equalizer: the Spotify app's own, and the same setting for local files -->
+                    <controls:EqualizerPanel x:Name="EqualizerSection" />
+
+                    <!-- Local Files -->
+                    <controls:LocalFoldersPanel />
                 </StackPanel>
 
-                <StackPanel x:Name="SpotifyAppOptions" Spacing="12">
-                    <ToggleSwitch
-                        x:Name="KeepHiddenSwitch"
-                        Header="Keep the Spotify app hidden"
-                        OffContent="Off"
-                        OnContent="On"
-                        Toggled="OnKeepHiddenToggled" />
-                    <ToggleSwitch
-                        x:Name="SaveResourcesSwitch"
-                        Header="Save power while Spotify is hidden"
-                        OffContent="Off"
-                        OnContent="On"
-                        Toggled="OnSaveResourcesToggled" />
-                    <Button
-                        Click="OnShowSpotifyClick"
-                        Content="Show the Spotify app"
-                        Style="{StaticResource ResonateSubtleButtonStyle}"
-                        ToolTipService.ToolTip="It hides again when you switch away" />
-                </StackPanel>
-            </StackPanel>
-
-            <!-- Equalizer: the Spotify app's own, and the same setting for local files -->
-            <controls:EqualizerPanel x:Name="EqualizerSection" />
-
-            <!-- Local Files -->
-            <controls:LocalFoldersPanel />
-
-            <!-- Plugins: optional extras, built in or downloaded only when turned on (built in code, see PluginsPanel.cs) -->
-            <StackPanel x:Name="PluginsHost" />
-
-            <!-- Account -->
-            <StackPanel Spacing="12">
-                <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Spotify account" />
-                <TextBlock
-                    x:Name="AccountText"
-                    Style="{StaticResource ResonateSecondaryTextStyle}"
-                    TextWrapping="Wrap" />
-                <Button
-                    x:Name="SignOutButton"
-                    Click="OnSignOutClick"
-                    Content="Sign out"
-                    Style="{StaticResource ResonateSubtleButtonStyle}" />
-            </StackPanel>
-
-            <!-- Updates -->
-            <StackPanel x:Name="UpdatesSection" Spacing="12">
-                <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Updates" />
-                <TextBlock
-                    x:Name="VersionText"
-                    Style="{StaticResource ResonateSecondaryTextStyle}"
-                    TextWrapping="Wrap" />
-                <StackPanel Orientation="Horizontal" Spacing="12">
-                    <Button
-                        x:Name="CheckUpdatesButton"
-                        Click="OnCheckUpdatesClick"
-                        Content="Check for updates"
-                        Style="{StaticResource ResonateSubtleButtonStyle}" />
-                    <Button
-                        x:Name="RestartButton"
-                        Click="OnRestartClick"
-                        Content="Restart to update"
-                        Style="{StaticResource ResonateAccentButtonStyle}"
-                        Visibility="Collapsed" />
-                </StackPanel>
-                <!-- While a new version downloads (see UpdateService.Progress) -->
+                <!-- About: updates, the Spotify account, help, and the credits -->
                 <StackPanel
-                    x:Name="UpdateProgressPanel"
-                    Spacing="6"
+                    x:Name="AboutPanel"
+                    Spacing="28"
                     Visibility="Collapsed">
-                    <ProgressBar x:Name="UpdateProgressBar" Maximum="1" />
-                    <TextBlock
-                        x:Name="UpdateProgressText"
-                        Style="{StaticResource ResonateCaptionTextStyle}"
-                        TextWrapping="Wrap" />
-                </StackPanel>
-                <TextBlock
-                    x:Name="UpdateStatusText"
-                    Style="{StaticResource ResonateCaptionTextStyle}"
-                    TextWrapping="Wrap" />
-            </StackPanel>
+                    <!-- Updates -->
+                    <StackPanel x:Name="UpdatesSection" Spacing="12">
+                        <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Updates" />
+                        <controls:SettingRow x:Name="VersionRow">
+                            <Button
+                                x:Name="CheckUpdatesButton"
+                                Click="OnCheckUpdatesClick"
+                                Content="Check for updates"
+                                Style="{StaticResource ResonateSubtleButtonStyle}" />
+                        </controls:SettingRow>
+                        <Button
+                            x:Name="RestartButton"
+                            Click="OnRestartClick"
+                            Content="Restart to update"
+                            Style="{StaticResource ResonateAccentButtonStyle}"
+                            Visibility="Collapsed" />
+                        <!-- While a new version downloads (see UpdateService.Progress) -->
+                        <StackPanel
+                            x:Name="UpdateProgressPanel"
+                            Spacing="6"
+                            Visibility="Collapsed">
+                            <ProgressBar x:Name="UpdateProgressBar" Maximum="1" />
+                            <TextBlock
+                                x:Name="UpdateProgressText"
+                                Style="{StaticResource ResonateCaptionTextStyle}"
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                        <TextBlock
+                            x:Name="UpdateStatusText"
+                            Style="{StaticResource ResonateCaptionTextStyle}"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
 
-            <!-- About -->
-            <StackPanel Spacing="8">
-                <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="About" />
-                <TextBlock
-                    x:Name="StartupText"
-                    Style="{StaticResource ResonateSecondaryTextStyle}"
-                    TextWrapping="Wrap" />
-                <!-- Spotify's terms ask apps to credit Spotify for its content; this is that credit. -->
-                <TextBlock
-                    Style="{StaticResource ResonateSecondaryTextStyle}"
-                    Text="Songs, covers and details come from Spotify. Resonate is not affiliated with Spotify."
-                    TextWrapping="Wrap" />
-                <HyperlinkButton
-                    Padding="0"
-                    Content="Spotify"
-                    NavigateUri="https://www.spotify.com" />
-                <HyperlinkButton
-                    Padding="0"
-                    Content="Resonate on GitHub"
-                    NavigateUri="https://github.com/livexibot/Resonate" />
-            </StackPanel>
-        </StackPanel>
-    </ScrollViewer>
+                    <!-- Account -->
+                    <StackPanel Spacing="12">
+                        <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Spotify account" />
+                        <controls:SettingRow x:Name="AccountRow">
+                            <Button
+                                x:Name="SignOutButton"
+                                Click="OnSignOutClick"
+                                Content="Sign out"
+                                Style="{StaticResource ResonateSubtleButtonStyle}" />
+                        </controls:SettingRow>
+                    </StackPanel>
+
+                    <!-- Help: the keyboard shortcuts (filled in code) and the guides -->
+                    <StackPanel Spacing="12">
+                        <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Help" />
+                        <Expander
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            Header="Keyboard shortcuts">
+                            <Grid
+                                x:Name="ShortcutsGrid"
+                                ColumnSpacing="16"
+                                RowSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                            </Grid>
+                        </Expander>
+                        <HyperlinkButton
+                            Padding="0"
+                            Content="Guide on GitHub"
+                            NavigateUri="https://github.com/livexibot/Resonate#readme" />
+                        <HyperlinkButton
+                            Padding="0"
+                            Content="About plugins"
+                            NavigateUri="https://github.com/livexibot/Resonate/blob/main/docs/plugins.md" />
+                    </StackPanel>
+
+                    <!-- About -->
+                    <StackPanel Spacing="8">
+                        <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="About" />
+                        <!-- Spotify's terms ask apps to credit Spotify for its content; this is that credit. -->
+                        <TextBlock
+                            Style="{StaticResource ResonateSecondaryTextStyle}"
+                            Text="Songs, covers and details come from Spotify. Resonate is not affiliated with Spotify."
+                            TextWrapping="Wrap" />
+                        <TextBlock
+                            x:Name="StartupText"
+                            Style="{StaticResource ResonateCaptionTextStyle}"
+                            TextWrapping="Wrap" />
+                        <HyperlinkButton
+                            Padding="0"
+                            Content="Spotify"
+                            NavigateUri="https://www.spotify.com" />
+                        <HyperlinkButton
+                            Padding="0"
+                            Content="Resonate on GitHub"
+                            NavigateUri="https://github.com/livexibot/Resonate" />
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+    </Grid>
 </Page>

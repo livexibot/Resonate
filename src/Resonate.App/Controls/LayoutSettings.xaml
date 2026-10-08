@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Layout tab of Settings: where the player sits, which links and
+  buttons show, and how large everything is drawn. See LayoutSettings.xaml.cs.
+-->
+<UserControl
+    x:Class="Resonate.App.Controls.LayoutSettings"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Resonate.App.Controls">
+
+    <StackPanel Spacing="28">
+        <!-- The player -->
+        <StackPanel Spacing="6">
+            <TextBlock
+                Margin="0,0,0,6"
+                Style="{StaticResource ResonateTitleTextStyle}"
+                Text="Player" />
+            <controls:SettingRow Description="Kept with the look." Header="Player position">
+                <ComboBox
+                    x:Name="PlayerPositionChoice"
+                    MinWidth="150"
+                    AutomationProperties.Name="Player position"
+                    SelectionChanged="OnPlayerPositionChanged">
+                    <ComboBoxItem Content="Docked" Tag="Docked" />
+                    <ComboBoxItem Content="Floating" Tag="Floating" />
+                    <ComboBoxItem Content="Hovering" Tag="Hovering" />
+                </ComboBox>
+            </controls:SettingRow>
+            <controls:SettingRow Description="The player sits beside it, under the page." Header="Sidebar reaches the bottom">
+                <ToggleSwitch
+                    x:Name="SidebarFullHeightSwitch"
+                    MinWidth="0"
+                    AutomationProperties.Name="Sidebar reaches the bottom"
+                    OffContent=""
+                    OnContent=""
+                    Toggled="OnSidebarFullHeightToggled" />
+            </controls:SettingRow>
+        </StackPanel>
+
+        <!-- Links in the sidebar and buttons in the title bar (Home and Settings always show) -->
+        <StackPanel Spacing="6">
+            <TextBlock
+                Margin="0,0,0,6"
+                Style="{StaticResource ResonateTitleTextStyle}"
+                Text="Sidebar and buttons" />
+            <controls:SettingRow Header="Search">
+                <ToggleSwitch
+                    x:Name="SearchLinkSwitch"
+                    MinWidth="0"
+                    AutomationProperties.Name="Search in the sidebar"
+                    OffContent=""
+                    OnContent=""
+                    Toggled="OnLinkToggled" />
+            </controls:SettingRow>
+            <controls:SettingRow Header="Liked Songs">
+                <ToggleSwitch
+                    x:Name="LikedLinkSwitch"
+                    MinWidth="0"
+                    AutomationProperties.Name="Liked Songs in the sidebar"
+                    OffContent=""
+                    OnContent=""
+                    Toggled="OnLinkToggled" />
+            </controls:SettingRow>
+            <controls:SettingRow Header="Local Files">
+                <ToggleSwitch
+                    x:Name="LocalFilesLinkSwitch"
+                    MinWidth="0"
+                    AutomationProperties.Name="Local Files in the sidebar"
+                    OffContent=""
+                    OnContent=""
+                    Toggled="OnLinkToggled" />
+            </controls:SettingRow>
+            <controls:SettingRow Header="DJ">
+                <ToggleSwitch
+                    x:Name="DjLinkSwitch"
+                    MinWidth="0"
+                    AutomationProperties.Name="DJ in the sidebar"
+                    OffContent=""
+                    OnContent=""
+                    Toggled="OnLinkToggled" />
+            </controls:SettingRow>
+            <controls:SettingRow Description="Ctrl+M opens it either way." Header="Mini player button">
+                <ToggleSwitch
+                    x:Name="MiniPlayerButtonSwitch"
+                    MinWidth="0"
+                    AutomationProperties.Name="Mini player button"
+                    OffContent=""
+                    OnContent=""
+                    Toggled="OnMiniPlayerButtonToggled" />
+            </controls:SettingRow>
+        </StackPanel>
+
+        <!-- Size: the user's own, kept whatever look is in use (not part of a look); steps from AppScale -->
+        <StackPanel Spacing="6">
+            <TextBlock
+                Margin="0,0,0,6"
+                Style="{StaticResource ResonateTitleTextStyle}"
+                Text="Size" />
+            <controls:SettingRow Description="Ctrl+Plus, Ctrl+Minus, Ctrl+0" Header="App size">
+                <ComboBox
+                    x:Name="AppSizeChoice"
+                    MinWidth="100"
+                    AutomationProperties.Name="App size"
+                    SelectionChanged="OnAppSizeChanged" />
+            </controls:SettingRow>
+            <controls:SettingRow Header="Text size">
+                <ComboBox
+                    x:Name="TextSizeChoice"
+                    MinWidth="100"
+                    AutomationProperties.Name="Text size"
+                    SelectionChanged="OnTextSizeChanged" />
+            </controls:SettingRow>
+        </StackPanel>
+    </StackPanel>
+</UserControl>

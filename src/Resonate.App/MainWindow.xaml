@@ -89,21 +89,42 @@
                     Style="{StaticResource ResonateCaptionTextStyle}"
                     Text="Resonate" />
             </StackPanel>
-            <!-- Beside the window's own buttons (its margin keeps it clear of them; see UpdateTitleBarPassthrough). -->
-            <Button
-                x:Name="MiniPlayerButton"
-                Width="40"
-                Height="32"
+            <!--
+                Settings and the mini player, beside the window's own buttons (the
+                margin keeps them clear; see UpdateTitleBarPassthrough). The Window
+                shapes plugin puts its button first.
+            -->
+            <StackPanel
+                x:Name="TitleBarButtons"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Center"
-                AutomationProperties.Name="Mini player"
-                Click="OnMiniPlayerClick"
-                Content="&#xE8A7;"
-                CornerRadius="{ThemeResource ResonateCornerSmall}"
-                FontSize="13"
-                Style="{StaticResource ResonateIconButtonStyle}"
-                ToolTipService.ToolTip="Mini player (Ctrl+M)"
-                Visibility="Collapsed" />
+                Orientation="Horizontal"
+                Spacing="4">
+                <Button
+                    x:Name="SettingsButton"
+                    Width="40"
+                    Height="32"
+                    AutomationProperties.Name="Settings"
+                    Click="OnSettingsClick"
+                    Content="&#xE713;"
+                    CornerRadius="{ThemeResource ResonateCornerSmall}"
+                    FontSize="14"
+                    Style="{StaticResource ResonateIconButtonStyle}"
+                    ToolTipService.ToolTip="Settings"
+                    Visibility="Collapsed" />
+                <Button
+                    x:Name="MiniPlayerButton"
+                    Width="40"
+                    Height="32"
+                    AutomationProperties.Name="Mini player"
+                    Click="OnMiniPlayerClick"
+                    Content="&#xE8A7;"
+                    CornerRadius="{ThemeResource ResonateCornerSmall}"
+                    FontSize="13"
+                    Style="{StaticResource ResonateIconButtonStyle}"
+                    ToolTipService.ToolTip="Mini player (Ctrl+M)"
+                    Visibility="Collapsed" />
+            </StackPanel>
         </Grid>
 
         <!--
@@ -147,7 +168,6 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <!-- The selected link's pill: it glides behind the links to the one chosen (MainWindow.NavPill.cs). -->
@@ -298,24 +318,6 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
-
-                    <Grid
-                        Grid.Row="3"
-                        Margin="10,8,6,0"
-                        ColumnSpacing="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Button
-                            x:Name="SettingsButton"
-                            Grid.Column="1"
-                            AutomationProperties.Name="Settings"
-                            Click="OnSettingsClick"
-                            Content="&#xE713;"
-                            Style="{StaticResource ResonateIconButtonStyle}"
-                            ToolTipService.ToolTip="Settings" />
-                    </Grid>
                 </Grid>
 
                 <Grid

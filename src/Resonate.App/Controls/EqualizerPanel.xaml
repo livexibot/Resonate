@@ -14,7 +14,7 @@
         <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Equalizer" />
         <TextBlock
             Style="{StaticResource ResonateSecondaryTextStyle}"
-            Text="For Spotify and your own music files. Double-click a slider to reset it."
+            Text="For Spotify and Local Files. Double-click a slider to reset it."
             TextWrapping="Wrap" />
 
         <InfoBar

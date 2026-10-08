@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The Look section of Settings: six presets, the user's own looks, and a
-  customizer for everything a look sets. Changes show at once; see
-  ThemeStudio.xaml.cs.
+  The Themes tab of Settings: six presets, the user's own looks, a
+  customizer for everything a look sets, and the effects. Changes show at
+  once; see ThemeStudio.xaml.cs.
 -->
 <UserControl
     x:Class="Resonate.App.Controls.ThemeStudio"
@@ -38,37 +38,7 @@
     </UserControl.Resources>
 
     <StackPanel Spacing="14">
-        <!-- Heading and the switching animation -->
-        <Grid ColumnSpacing="16">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <StackPanel VerticalAlignment="Bottom" Spacing="4">
-                <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Look" />
-                <TextBlock
-                    Style="{StaticResource ResonateSecondaryTextStyle}"
-                    Text="Pick a preset, or make it your own under Customize. Every change shows at once."
-                    TextWrapping="Wrap" />
-            </StackPanel>
-            <ComboBox
-                x:Name="TransitionChoice"
-                Grid.Column="1"
-                MinWidth="170"
-                VerticalAlignment="Bottom"
-                Header="Switching animation"
-                SelectionChanged="OnTransitionChanged">
-                <ComboBoxItem Content="Morph" Tag="Morph" />
-                <ComboBoxItem Content="Cross-fade" Tag="Fade" />
-                <ComboBoxItem Content="Spread from the middle" Tag="Grow" />
-                <ComboBoxItem Content="Ripple from the click" Tag="Ripple" />
-                <ComboBoxItem Content="Split apart" Tag="Split" />
-                <ComboBoxItem Content="Blinds" Tag="Blinds" />
-                <ComboBoxItem Content="Wipe" Tag="Wipe" />
-                <ComboBoxItem Content="Surprise me" Tag="Random" />
-                <ComboBoxItem Content="None" Tag="None" />
-            </ComboBox>
-        </Grid>
+        <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Look" />
 
         <!-- The six presets (the page scrolls, not the grid) -->
         <GridView
@@ -93,10 +63,27 @@
                 SelectionMode="Single" />
         </StackPanel>
 
-        <!-- Cover art: the user's own choices, kept whatever look is in use (not part of a look) -->
+        <!-- Effects: the user's own choices, kept whatever look is in use (not part of a look) -->
         <StackPanel Spacing="6">
-            <TextBlock Style="{StaticResource StudioSectionTextStyle}" Text="COVER ART" />
-            <controls:SettingRow Description="The cover becomes a round record in every look and turns while a song plays." Header="Spinning cover">
+            <TextBlock Style="{StaticResource StudioSectionTextStyle}" Text="EFFECTS" />
+            <controls:SettingRow Header="Switching animation">
+                <ComboBox
+                    x:Name="TransitionChoice"
+                    MinWidth="170"
+                    AutomationProperties.Name="Switching animation"
+                    SelectionChanged="OnTransitionChanged">
+                    <ComboBoxItem Content="Morph" Tag="Morph" />
+                    <ComboBoxItem Content="Cross-fade" Tag="Fade" />
+                    <ComboBoxItem Content="Spread from the middle" Tag="Grow" />
+                    <ComboBoxItem Content="Ripple from the click" Tag="Ripple" />
+                    <ComboBoxItem Content="Split apart" Tag="Split" />
+                    <ComboBoxItem Content="Blinds" Tag="Blinds" />
+                    <ComboBoxItem Content="Wipe" Tag="Wipe" />
+                    <ComboBoxItem Content="Surprise me" Tag="Random" />
+                    <ComboBoxItem Content="None" Tag="None" />
+                </ComboBox>
+            </controls:SettingRow>
+            <controls:SettingRow Description="Turns like a record while a song plays." Header="Spinning cover">
                 <ToggleSwitch
                     x:Name="SpinningCoverSwitch"
                     AutomationProperties.Name="Spinning cover"
@@ -105,7 +92,7 @@
                     OnContent=""
                     Toggled="OnSpinningCoverToggled" />
             </controls:SettingRow>
-            <controls:SettingRow Description="Looks with the song cover as their background, like Liquid Glass, show the cover itself, blurred. When off, they use only its colours." Header="Blurred cover background">
+            <controls:SettingRow Description="Behind looks like Liquid Glass." Header="Blurred cover background">
                 <ToggleSwitch
                     x:Name="BlurredCoverSwitch"
                     AutomationProperties.Name="Blurred cover background"
@@ -120,39 +107,6 @@
                 Style="{StaticResource ResonateCaptionTextStyle}"
                 TextWrapping="Wrap"
                 Visibility="Collapsed" />
-        </StackPanel>
-
-        <!-- Layout: the user's own window arrangement, kept whatever look is in use (not part of a look) -->
-        <StackPanel Spacing="6">
-            <TextBlock Style="{StaticResource StudioSectionTextStyle}" Text="LAYOUT" />
-            <controls:SettingRow Description="The playlists run the full height of the window, and the player sits beside them, under the page." Header="Sidebar reaches the bottom">
-                <ToggleSwitch
-                    x:Name="SidebarFullHeightSwitch"
-                    AutomationProperties.Name="Sidebar reaches the bottom"
-                    MinWidth="0"
-                    OffContent=""
-                    OnContent=""
-                    Toggled="OnSidebarFullHeightToggled" />
-            </controls:SettingRow>
-        </StackPanel>
-
-        <!-- Size: the user's own, kept whatever look is in use (not part of a look); steps from AppScale -->
-        <StackPanel Spacing="6">
-            <TextBlock Style="{StaticResource StudioSectionTextStyle}" Text="SIZE" />
-            <controls:SettingRow Description="Everything in the window. Ctrl+Plus, Ctrl+Minus and Ctrl+0 work too." Header="App size">
-                <ComboBox
-                    x:Name="AppSizeChoice"
-                    MinWidth="100"
-                    AutomationProperties.Name="App size"
-                    SelectionChanged="OnAppSizeChanged" />
-            </controls:SettingRow>
-            <controls:SettingRow Description="Text only, everything else keeps its size." Header="Text size">
-                <ComboBox
-                    x:Name="TextSizeChoice"
-                    MinWidth="100"
-                    AutomationProperties.Name="Text size"
-                    SelectionChanged="OnTextSizeChanged" />
-            </controls:SettingRow>
         </StackPanel>
 
         <Expander
@@ -174,7 +128,7 @@
             <StackPanel Spacing="6">
                 <!-- Colours -->
                 <TextBlock Style="{StaticResource StudioSectionTextStyle}" Text="COLOURS" />
-                <controls:SettingRow Description="Start the colours from light, dark or true black." Header="Mode">
+                <controls:SettingRow Header="Mode">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <Button
                             Click="OnBaseClick"
@@ -198,7 +152,7 @@
                     ItemHeight="52"
                     ItemWidth="164"
                     Orientation="Horizontal" />
-                <controls:SettingRow Description="The accent takes the most striking colour of the song that is playing." Header="Accent follows the cover">
+                <controls:SettingRow Description="Takes its colour from the song." Header="Accent follows the cover">
                     <ToggleSwitch
                         x:Name="AdaptiveAccentSwitch"
                         MinWidth="0"
@@ -209,7 +163,7 @@
 
                 <!-- Background and materials -->
                 <TextBlock Style="{StaticResource StudioSectionTextStyle}" Text="BACKGROUND" />
-                <controls:SettingRow Description="What shows behind the panels." Header="Backdrop">
+                <controls:SettingRow Header="Backdrop">
                     <ComboBox
                         x:Name="BackdropChoice"
                         SelectionChanged="OnChoiceChanged"
@@ -223,7 +177,6 @@
                 </controls:SettingRow>
                 <controls:SettingRow
                     x:Name="GradientAngleRow"
-                    Description="The direction the gradient runs, from the background colour to the gradient end."
                     Header="Gradient angle">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Slider
@@ -238,7 +191,6 @@
                 </controls:SettingRow>
                 <controls:SettingRow
                     x:Name="TintRow"
-                    Description="How much of the background colour lies over the cover or the Windows material."
                     Header="Tint">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Slider
@@ -251,7 +203,7 @@
                         <TextBlock x:Name="TintText" Style="{StaticResource StudioValueTextStyle}" />
                     </StackPanel>
                 </controls:SettingRow>
-                <controls:SettingRow Description="Lower it for see-through, glass-like panels." Header="Panel opacity">
+                <controls:SettingRow Description="Lower for glass." Header="Panel opacity">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Slider
                             x:Name="PanelOpacitySlider"
@@ -266,7 +218,7 @@
 
                 <!-- Shape -->
                 <TextBlock Style="{StaticResource StudioSectionTextStyle}" Text="SHAPE" />
-                <controls:SettingRow Description="How round panels, covers and menus are." Header="Corners">
+                <controls:SettingRow Header="Corners">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Slider
                             x:Name="CornerSlider"
@@ -278,7 +230,7 @@
                         <TextBlock x:Name="CornerText" Style="{StaticResource StudioValueTextStyle}" />
                     </StackPanel>
                 </controls:SettingRow>
-                <controls:SettingRow Description="The shape of buttons, including play." Header="Buttons">
+                <controls:SettingRow Header="Buttons">
                     <ComboBox
                         x:Name="ButtonsChoice"
                         SelectionChanged="OnChoiceChanged"
@@ -288,7 +240,7 @@
                         <ComboBoxItem Content="Square" Tag="Square" />
                     </ComboBox>
                 </controls:SettingRow>
-                <controls:SettingRow Description="A line around each panel." Header="Outlines">
+                <controls:SettingRow Header="Outlines">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Slider
                             x:Name="BorderSlider"
@@ -300,7 +252,7 @@
                         <TextBlock x:Name="BorderText" Style="{StaticResource StudioValueTextStyle}" />
                     </StackPanel>
                 </controls:SettingRow>
-                <controls:SettingRow Description="The space between panels and around the window." Header="Spacing">
+                <controls:SettingRow Header="Spacing">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Slider
                             x:Name="GapSlider"
@@ -312,7 +264,7 @@
                         <TextBlock x:Name="GapText" Style="{StaticResource StudioValueTextStyle}" />
                     </StackPanel>
                 </controls:SettingRow>
-                <controls:SettingRow Description="Depth behind panels, covers and the floating player." Header="Shadows">
+                <controls:SettingRow Header="Shadows">
                     <ComboBox
                         x:Name="ShadowChoice"
                         SelectionChanged="OnChoiceChanged"
@@ -327,7 +279,7 @@
 
                 <!-- Text -->
                 <TextBlock Style="{StaticResource StudioSectionTextStyle}" Text="TEXT" />
-                <controls:SettingRow Description="Page titles and names. Pick one or type any installed font." Header="Headings">
+                <controls:SettingRow Description="Or type any installed font." Header="Headings">
                     <ComboBox
                         x:Name="DisplayFontChoice"
                         IsEditable="True"
@@ -335,7 +287,7 @@
                         Style="{StaticResource StudioComboStyle}"
                         TextSubmitted="OnFontTextSubmitted" />
                 </controls:SettingRow>
-                <controls:SettingRow Description="Everything else: lists, buttons and settings." Header="Body text">
+                <controls:SettingRow Header="Body text">
                     <ComboBox
                         x:Name="TextFontChoice"
                         IsEditable="True"
@@ -346,17 +298,7 @@
 
                 <!-- Player -->
                 <TextBlock Style="{StaticResource StudioSectionTextStyle}" Text="PLAYER" />
-                <controls:SettingRow Description="Along the bottom edge, a card floating above it, or a centred player hovering over the page." Header="Layout">
-                    <ComboBox
-                        x:Name="LayoutChoice"
-                        SelectionChanged="OnChoiceChanged"
-                        Style="{StaticResource StudioComboStyle}">
-                        <ComboBoxItem Content="Docked" Tag="Docked" />
-                        <ComboBoxItem Content="Floating" Tag="Floating" />
-                        <ComboBoxItem Content="Hovering" Tag="Hovering" />
-                    </ComboBox>
-                </controls:SettingRow>
-                <controls:SettingRow Description="How the song's progress and the volume are drawn." Header="Progress bar">
+                <controls:SettingRow Header="Progress bar">
                     <StackPanel Spacing="10">
                         <ComboBox
                             x:Name="ProgressChoice"
@@ -378,7 +320,7 @@
                             Value="240" />
                     </StackPanel>
                 </controls:SettingRow>
-                <controls:SettingRow Description="A filled button, an outline, or just the symbol." Header="Play button">
+                <controls:SettingRow Header="Play button">
                     <ComboBox
                         x:Name="PlayButtonChoice"
                         SelectionChanged="OnChoiceChanged"
@@ -388,7 +330,7 @@
                         <ComboBoxItem Content="Symbol only" Tag="Plain" />
                     </ComboBox>
                 </controls:SettingRow>
-                <controls:SettingRow Description="Vinyl draws the cover as a still record. While Spinning cover is on, every cover is a turning record." Header="Cover">
+                <controls:SettingRow Header="Cover">
                     <ComboBox
                         x:Name="CoverChoice"
                         SelectionChanged="OnChoiceChanged"

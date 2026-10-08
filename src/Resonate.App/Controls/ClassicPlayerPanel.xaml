@@ -10,7 +10,7 @@
         <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Classic player" />
         <TextBlock
             Style="{StaticResource ResonateSecondaryTextStyle}"
-            Text="A skinnable player in the style of Winamp 2."
+            Text="A Winamp-style player with skins."
             TextWrapping="Wrap" />
 
         <StackPanel Spacing="6">
@@ -23,14 +23,14 @@
                     OnContent=""
                     Toggled="OnUseToggled" />
             </controls:SettingRow>
-            <controls:SettingRow Description="Resonate Classic is built in." Header="Skin">
+            <controls:SettingRow Header="Skin">
                 <ComboBox
                     x:Name="SkinList"
                     MinWidth="190"
                     AutomationProperties.Name="Skin"
                     SelectionChanged="OnSkinChanged" />
             </controls:SettingRow>
-            <controls:SettingRow Description="When the window has room." Header="Double size">
+            <controls:SettingRow Header="Double size">
                 <ToggleSwitch
                     x:Name="DoubleSizeSwitch"
                     MinWidth="0"
@@ -39,7 +39,7 @@
                     OnContent=""
                     Toggled="OnDoubleSizeToggled" />
             </controls:SettingRow>
-            <controls:SettingRow Description="Its own small window, with the equalizer and playlist. Ctrl+M." Header="Mini player">
+            <controls:SettingRow Description="Ctrl+M" Header="Mini player">
                 <Button
                     x:Name="OpenMiniButton"
                     Click="OnMiniPlayerClick"
@@ -57,7 +57,7 @@
                     <ComboBoxItem Content="4x" />
                 </ComboBox>
             </controls:SettingRow>
-            <controls:SettingRow Description="Above other windows." Header="Mini player on top">
+            <controls:SettingRow Header="Mini player on top">
                 <ToggleSwitch
                     x:Name="MiniOnTopSwitch"
                     MinWidth="0"
@@ -66,7 +66,7 @@
                     OnContent=""
                     Toggled="OnMiniOnTopToggled" />
             </controls:SettingRow>
-            <controls:SettingRow Description="Moves for your own music files only." Header="Visualiser">
+            <controls:SettingRow Description="Moves for Local Files only." Header="Visualiser">
                 <ComboBox
                     x:Name="VisualiserChoice"
                     MinWidth="190"
@@ -93,7 +93,7 @@
         </StackPanel>
         <TextBlock
             Style="{StaticResource ResonateCaptionTextStyle}"
-            Text="Winamp 2 skins (.wsz). Resonate keeps its own copy."
+            Text="Winamp 2 skins (.wsz)."
             TextWrapping="Wrap" />
     </StackPanel>
 </UserControl>

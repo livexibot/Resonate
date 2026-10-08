@@ -26,7 +26,13 @@ public sealed partial class SettingRow : ContentControl
         nameof(Description),
         typeof(string),
         typeof(SettingRow),
-        new PropertyMetadata(string.Empty));
+        new PropertyMetadata(string.Empty, (row, _) => ((SettingRow)row).ShowDescription()));
+
+    public static readonly DependencyProperty DescriptionVisibilityProperty = DependencyProperty.Register(
+        nameof(DescriptionVisibility),
+        typeof(Visibility),
+        typeof(SettingRow),
+        new PropertyMetadata(Visibility.Collapsed));
 
     public string Header
     {
@@ -38,6 +44,13 @@ public sealed partial class SettingRow : ContentControl
     {
         get => (string)GetValue(DescriptionProperty);
         set => SetValue(DescriptionProperty, value);
+    }
+
+    /// <summary>The explanation shows only when there is one, so a row without it centres its name.</summary>
+    public Visibility DescriptionVisibility
+    {
+        get => (Visibility)GetValue(DescriptionVisibilityProperty);
+        private set => SetValue(DescriptionVisibilityProperty, value);
     }
 
     /// <summary>Puts the control under the name, across the whole card.</summary>
@@ -52,6 +65,9 @@ public sealed partial class SettingRow : ContentControl
         base.OnApplyTemplate();
         PlaceContent();
     }
+
+    private void ShowDescription() =>
+        DescriptionVisibility = string.IsNullOrEmpty(Description) ? Visibility.Collapsed : Visibility.Visible;
 
     private void PlaceContent() => VisualStateManager.GoToState(this, ContentBelow ? "Below" : "Beside", false);
 }
