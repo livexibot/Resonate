@@ -16,7 +16,17 @@ public sealed partial class SettingsPage : Page
     {
         InitializeComponent();
         PluginsHost.Children.Add(new PluginsPanel(_services.Plugins));
+
+        // Only while on show, so the updater never keeps a closed page alive.
+        Loaded += (_, _) =>
+        {
+            _services.Updates.ProgressChanged += OnUpdateProgressChanged;
+            ShowUpdateProgress();
+        };
+        Unloaded += (_, _) => _services.Updates.ProgressChanged -= OnUpdateProgressChanged;
     }
+
+    private int _updateProgressQueued;
 
     private bool _loading;
 
@@ -40,17 +50,17 @@ public sealed partial class SettingsPage : Page
             ? "Demo mode: made-up music, nothing is sent to Spotify."
             : user is null
                 ? "Signed in."
-                : $"Signed in as {user.DisplayName ?? user.Id}, through your Spotify app {_services.Settings.ClientId}.";
+                : $"Signed in as {user.DisplayName ?? user.Id}.";
         SignOutButton.IsEnabled = !_services.IsDemo;
 
         VersionText.Text = _services.Updates.IsInstalled
-            ? $"Resonate {AppInfo.Version}. New versions download in the background; you choose when to restart."
-            : $"Resonate {AppInfo.Version}. This copy was not installed with the installer, so it does not update itself.";
+            ? $"Resonate {AppInfo.Version}"
+            : $"Resonate {AppInfo.Version}. Not installed, so it does not update itself.";
         CheckUpdatesButton.IsEnabled = _services.Updates.IsInstalled;
         RestartButton.Visibility = _services.Updates.PendingVersion is null ? Visibility.Collapsed : Visibility.Visible;
 
         StartupText.Text = _services.Settings.LastStartupMilliseconds is { } ms
-            ? $"Last start: {ms.ToString("N0", CultureInfo.CurrentCulture)} ms from launch to the first frame."
+            ? $"Last start: {ms.ToString("N0", CultureInfo.CurrentCulture)} ms"
             : string.Empty;
     }
 
@@ -116,7 +126,18 @@ public sealed partial class SettingsPage : Page
     {
         CheckUpdatesButton.IsEnabled = false;
         UpdateStatusText.Text = "Checking…";
-        var status = await Task.Run(() => _services.Updates.CheckAndDownloadAsync(CancellationToken.None));
+        UpdateStatus status;
+        try
+        {
+            // Joins the background check if one is already downloading.
+            status = await Task.Run(() => _services.Updates.CheckAndDownloadAsync(CancellationToken.None));
+        }
+        catch (OperationCanceledException)
+        {
+            // Resonate is closing.
+            return;
+        }
+
         UpdateStatusText.Text = status switch
         {
             UpdateStatus.UpToDate => "Resonate is up to date.",
@@ -129,4 +150,38 @@ public sealed partial class SettingsPage : Page
     }
 
     private void OnRestartClick(object sender, RoutedEventArgs e) => _services.Updates.RestartToUpdate();
+
+    private void OnUpdateProgressChanged(object? sender, EventArgs e)
+    {
+        // Reported on a background thread; draw the newest progress once.
+        if (Interlocked.Exchange(ref _updateProgressQueued, 1) == 0)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                Interlocked.Exchange(ref _updateProgressQueued, 0);
+                ShowUpdateProgress();
+            });
+        }
+    }
+
+    /// <summary>A new version downloading: a progress bar, the speed and the time left.</summary>
+    private void ShowUpdateProgress()
+    {
+        if (_services.Updates.PendingVersion is not null)
+        {
+            RestartButton.Visibility = Visibility.Visible;
+        }
+
+        if (_services.Updates.Progress is not { } progress)
+        {
+            UpdateProgressPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        UpdateProgressPanel.Visibility = Visibility.Visible;
+        UpdateStatusText.Text = string.Empty;
+        UpdateProgressBar.IsIndeterminate = progress.Preparing;
+        UpdateProgressBar.Value = progress.Fraction;
+        UpdateProgressText.Text = $"Downloading Resonate {progress.Version}: {progress.Describe()}";
+    }
 }

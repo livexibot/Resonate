@@ -38,6 +38,9 @@ public sealed partial class MainWindow : Window
 
     private const int HistoryLimit = 50;
 
+    /// <summary>The narrowest the page gets while the Settings pane is open beside it.</summary>
+    private const double MinPageWidth = 360;
+
     /// <summary>
     /// How often the listening history is saved while Resonate is open.
     /// Spotify only shares the last 50 songs played (at least 100 minutes
@@ -50,10 +53,14 @@ public sealed partial class MainWindow : Window
     private readonly DispatcherQueueTimer _messageTimer;
     private readonly List<string> _history = [];
     private readonly ColumnDefinition _queueColumn = new() { Width = new GridLength(Controls.QueuePanel.PaneWidth) };
+    private readonly ColumnDefinition _settingsColumn = new();
     private string? _currentKey;
     private bool _syncingSelection;
     private bool _backgroundStarted;
     private bool _firstFrameSeen;
+    private double _settingsDragStart;
+    private bool _updateBarDismissed;
+    private int _updateProgressQueued;
 
     public MainWindow(AppServices services)
     {
@@ -93,6 +100,8 @@ public sealed partial class MainWindow : Window
         BuildPlaylistSortMenu();
         services.Account.SignedOut += (_, _) => DispatcherQueue.TryEnqueue(ShowSignIn);
         services.Updates.UpdateReady += (_, _) => DispatcherQueue.TryEnqueue(ShowUpdateReady);
+        services.Updates.ProgressChanged += OnUpdateProgressChanged;
+        SetUpSettingsPane();
         services.Plugins.Notified += (_, note) =>
             DispatcherQueue.TryEnqueue(() => ShowMessage($"{note.PluginName}: {note.Text}", InfoBarSeverity.Informational));
         PlayerBar.AttachPlugins(services.Plugins);
@@ -156,7 +165,101 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>Opens the queue pane next to the pages, or closes it (the player bar's queue button).</summary>
-    public void ToggleQueue() => ShowQueue(!QueuePane.IsOpen);
+    public void ToggleQueue()
+    {
+        // One pane at a time on the right, so the page keeps its room.
+        if (!QueuePane.IsOpen)
+        {
+            ShowSettings(false);
+        }
+
+        ShowQueue(!QueuePane.IsOpen);
+    }
+
+    /// <summary>Opens Settings in the pane on the right, or closes it (the gear in the sidebar).</summary>
+    public void ToggleSettings() => ShowSettings(!SettingsPane.IsOpen);
+
+    public void CloseSettings() => ShowSettings(false);
+
+    /// <summary>The Settings page while the Settings pane is open.</summary>
+    internal SettingsPage? SettingsPage => SettingsPane.Page;
+
+    private void SetUpSettingsPane()
+    {
+        SettingsPane.CloseRequested += (_, _) => ShowSettings(false);
+        SettingsPane.ResizeStarted += (_, _) => _settingsDragStart = _settingsColumn.Width.Value;
+
+        // The pane is on the right: dragging its edge left makes it wider.
+        SettingsPane.Resizing += (_, distance) =>
+            _settingsColumn.Width = new GridLength(FitSettingsWidth(_settingsDragStart - distance));
+        SettingsPane.ResizeCompleted += (_, _) =>
+        {
+            _services.Settings.SettingsPaneWidth = Math.Round(_settingsColumn.Width.Value);
+            _services.SaveSettings();
+        };
+        SettingsPane.ResetRequested += (_, _) =>
+        {
+            _services.Settings.SettingsPaneWidth = SettingsPane.DefaultWidth;
+            _services.SaveSettings();
+            _settingsColumn.Width = new GridLength(FitSettingsWidth(SettingsPane.DefaultWidth));
+        };
+
+        // A smaller window narrows the pane before the page; a larger one gives back the chosen width.
+        ShellGrid.SizeChanged += (_, _) =>
+        {
+            if (SettingsPane.IsOpen)
+            {
+                _settingsColumn.Width = new GridLength(FitSettingsWidth(_services.Settings.SettingsPaneWidth));
+            }
+        };
+    }
+
+    private void ShowSettings(bool open)
+    {
+        if (open == SettingsPane.IsOpen)
+        {
+            return;
+        }
+
+        // Like the queue's, the pane's column exists only while it is open.
+        if (open)
+        {
+            ShowQueue(false);
+            _settingsColumn.Width = new GridLength(FitSettingsWidth(_services.Settings.SettingsPaneWidth));
+            ShellGrid.ColumnDefinitions.Add(_settingsColumn);
+            SettingsPane.Visibility = Visibility.Visible;
+            SettingsPane.Open();
+        }
+        else
+        {
+            SettingsPane.Visibility = Visibility.Collapsed;
+            ShellGrid.ColumnDefinitions.Remove(_settingsColumn);
+            SettingsPane.Close();
+        }
+    }
+
+    /// <summary>
+    /// The Settings pane's width within its limits: no narrower than its
+    /// controls need, and leaving the page at least <see cref="MinPageWidth"/>.
+    /// </summary>
+    private double FitSettingsWidth(double width)
+    {
+        if (!double.IsFinite(width) || width <= 0)
+        {
+            width = SettingsPane.DefaultWidth;
+        }
+
+        var available = ShellGrid.ActualWidth - ShellGrid.Padding.Left - ShellGrid.Padding.Right;
+        if (available <= 0)
+        {
+            // Not laid out yet; SizeChanged fits it once it is.
+            return Math.Max(SettingsPane.MinimumWidth, width);
+        }
+
+        var sidebar = ShellGrid.ColumnDefinitions.Count > 0 ? ShellGrid.ColumnDefinitions[0].ActualWidth : 0;
+        var widest = available - sidebar - (2 * ShellGrid.ColumnSpacing) - MinPageWidth;
+        return Math.Clamp(width, SettingsPane.MinimumWidth, Math.Max(SettingsPane.MinimumWidth, widest));
+    }
 
     private void ShowQueue(bool open)
     {
@@ -183,6 +286,7 @@ public sealed partial class MainWindow : Window
     public void ShowSignIn()
     {
         ShowQueue(false);
+        ShowSettings(false);
         ShellGrid.Visibility = Visibility.Collapsed;
         PlayerBar.Visibility = Visibility.Collapsed;
         SignInFrame.Visibility = Visibility.Visible;
@@ -202,13 +306,20 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public void Open(string key)
     {
+        if (key == SettingsKey)
+        {
+            // Settings is a pane next to the page, not a page.
+            ShowSettings(true);
+            return;
+        }
+
         SelectNav(key);
         Navigate(key, remember: true);
     }
 
     public void OpenPlaylist(string playlistId) => Open(playlistId);
 
-    public void OpenSettings() => Open(SettingsKey);
+    public void OpenSettings() => ShowSettings(true);
 
     public void OpenSearch() => Open(SearchKey);
 
@@ -226,7 +337,7 @@ public sealed partial class MainWindow : Window
         Navigate(key, remember: false);
     }
 
-    /// <summary>The page on show, such as a <see cref="SettingsPage"/>.</summary>
+    /// <summary>The page on show, such as a <see cref="HomePage"/>.</summary>
     internal object? CurrentPage => ContentFrame.Content;
 
     /// <summary>A list was played; remembered for the "Recently played" playlist order.</summary>
@@ -291,9 +402,6 @@ public sealed partial class MainWindow : Window
             case DjKey:
                 ContentFrame.Navigate(typeof(DjPage), null, transition);
                 break;
-            case SettingsKey:
-                ContentFrame.Navigate(typeof(SettingsPage), null, transition);
-                break;
             case not null when key.StartsWith(ArtistPrefix, StringComparison.Ordinal):
                 ContentFrame.Navigate(typeof(ArtistPage), key[ArtistPrefix.Length..], transition);
                 break;
@@ -337,7 +445,7 @@ public sealed partial class MainWindow : Window
         Open(item.Id);
     }
 
-    private void OnSettingsClick(object sender, RoutedEventArgs e) => Open(SettingsKey);
+    private void OnSettingsClick(object sender, RoutedEventArgs e) => ToggleSettings();
 
     private void OnBackClick(object sender, RoutedEventArgs e) => GoBack();
 
@@ -547,18 +655,61 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void OnUpdateProgressChanged(object? sender, EventArgs e)
+    {
+        // Reported on a background thread; draw the newest progress once.
+        if (Interlocked.Exchange(ref _updateProgressQueued, 1) == 0)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                Interlocked.Exchange(ref _updateProgressQueued, 0);
+                ShowUpdateProgress();
+            });
+        }
+    }
+
+    /// <summary>A new version downloading: a progress bar with the speed and the time left, in the corner.</summary>
+    private void ShowUpdateProgress()
+    {
+        if (_services.Updates.PendingVersion is not null)
+        {
+            // Downloaded: the bar says so (ShowUpdateReady).
+            return;
+        }
+
+        if (_services.Updates.Progress is not { } progress)
+        {
+            UpdateBar.IsOpen = false;
+            _updateBarDismissed = false;
+            return;
+        }
+
+        UpdateBar.Title = $"Downloading Resonate {progress.Version}";
+        UpdateBar.Message = string.Empty;
+        UpdateBar.Severity = InfoBarSeverity.Informational;
+        UpdateBar.ActionButton = null;
+        UpdateBarProgress.Visibility = Visibility.Visible;
+        UpdateProgressBar.IsIndeterminate = progress.Preparing;
+        UpdateProgressBar.Value = progress.Fraction;
+        UpdateProgressText.Text = progress.Describe();
+        UpdateBar.IsOpen = !_updateBarDismissed;
+    }
+
     private void ShowUpdateReady()
     {
         var restart = new Button { Content = "Restart now" };
         restart.Click += (_, _) => _services.Updates.RestartToUpdate();
-        MessageBar.Title = "Update ready";
-        MessageBar.Message = $"Resonate {_services.Updates.PendingVersion} is downloaded. Restart to start using it.";
-        MessageBar.Severity = InfoBarSeverity.Success;
-        MessageBar.ActionButton = restart;
-        MessageBar.IsClosable = true;
-        MessageBar.IsOpen = true;
-        _messageTimer.Stop();
+        UpdateBar.Title = "Update ready";
+        UpdateBar.Message = $"Resonate {_services.Updates.PendingVersion} is downloaded.";
+        UpdateBar.Severity = InfoBarSeverity.Success;
+        UpdateBar.ActionButton = restart;
+        UpdateBarProgress.Visibility = Visibility.Collapsed;
+        UpdateProgressBar.IsIndeterminate = false;
+        UpdateBar.IsOpen = true;
     }
+
+    /// <summary>Closing the download's bar hides it until the download is done; Settings still shows it.</summary>
+    private void OnUpdateBarCloseClick(InfoBar sender, object args) => _updateBarDismissed = true;
 
     private void OnRootPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {

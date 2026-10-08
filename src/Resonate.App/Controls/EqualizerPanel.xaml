@@ -14,7 +14,7 @@
         <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Equalizer" />
         <TextBlock
             Style="{StaticResource ResonateSecondaryTextStyle}"
-            Text="One equalizer for everything you play: the Spotify app's own for Spotify's songs, and the same setting for your own music files. Double-click a slider to set it back to 0 dB."
+            Text="For Spotify and your own music files. Double-click a slider to reset it."
             TextWrapping="Wrap" />
 
         <InfoBar
@@ -32,6 +32,7 @@
         <StackPanel Orientation="Horizontal" Spacing="12">
             <ToggleSwitch
                 x:Name="EnabledSwitch"
+                MinWidth="0"
                 VerticalAlignment="Center"
                 AutomationProperties.Name="Equalizer"
                 OffContent="Off"
@@ -39,7 +40,7 @@
                 Toggled="OnEnabledToggled" />
             <ComboBox
                 x:Name="PresetBox"
-                Width="200"
+                Width="180"
                 VerticalAlignment="Center"
                 AutomationProperties.Name="Preset"
                 SelectionChanged="OnPresetChanged" />

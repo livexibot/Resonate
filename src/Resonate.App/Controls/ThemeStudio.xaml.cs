@@ -21,11 +21,9 @@ namespace Resonate.App.Controls;
 /// </summary>
 public sealed partial class ThemeStudio : UserControl
 {
-    /// <summary>Fonts that come with Windows 10 and 11, each shown in itself. Any other installed font can be typed.</summary>
-    private static readonly string[] Fonts =
+    /// <summary>Fonts that come with Windows 10 and 11, besides Segoe UI Variable.</summary>
+    private static readonly string[] WindowsFonts =
     [
-        "Segoe UI Variable Display",
-        "Segoe UI Variable Text",
         "Segoe UI",
         "Bahnschrift",
         "Sitka Display, Georgia",
@@ -44,6 +42,21 @@ public sealed partial class ThemeStudio : UserControl
         "Ink Free",
         "Segoe Print",
         "Gabriola",
+    ];
+
+    /// <summary>
+    /// The fonts offered, each shown in itself: Windows' default first, then
+    /// Windows' others and the fonts that come with Resonate
+    /// (<see cref="BundledFonts"/>) in alphabetical order. Any other
+    /// installed font can be typed.
+    /// </summary>
+    private static readonly string[] Fonts =
+    [
+        ThemeDefinition.DefaultDisplayFont,
+        ThemeDefinition.DefaultTextFont,
+        .. WindowsFonts
+            .Concat(BundledFonts.All.Select(font => font.Name))
+            .OrderBy(font => font.Split(',')[0], StringComparer.OrdinalIgnoreCase),
     ];
 
     private static readonly Dictionary<string, string> PresetBlurbs = new()
@@ -325,7 +338,7 @@ public sealed partial class ThemeStudio : UserControl
     {
         Content = font.Split(',')[0],
         Tag = font,
-        FontFamily = new FontFamily(font),
+        FontFamily = new FontFamily(BundledFonts.Resolve(font)),
     };
 
     private void AddSwatch(string label, Func<ThemeDefinition, ThemeColor> get, Func<ThemeDefinition, ThemeColor, ThemeDefinition> set, bool allowsAlpha = false)

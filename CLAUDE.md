@@ -140,8 +140,10 @@ Spotify Web API (these changed a lot; re-check before relying on them):
   public (see open questions).
 - Design guidelines: Spotify content (names, covers, playback) must be
   attributed to Spotify with its logo and link back to Spotify. "Spotify"
-  must not be in the app's name. Resonate currently shows a text credit and
-  "Open in Spotify"; the official logo is not added yet (open question).
+  must not be in the app's name. Resonate credits Spotify in words in
+  Settings, About, and offers "Open in Spotify"; the official logo is not
+  added yet (open question). The owner asked (8 October 2026) to drop the
+  caption under the sidebar, so keep the credit in About.
 
 Windows:
 - Resonate keeps the Spotify app in the background (owner's request,
@@ -456,7 +458,8 @@ playback is unchanged.
   official Spotify product, never put "Spotify" in its name or icon, and say
   "for Spotify". Spotify's design guidelines require their logo as the
   credit next to Spotify content; whether to add it is an open question
-  for the owner (until then Resonate credits Spotify in words).
+  for the owner (until then Resonate credits Spotify in words, in
+  Settings, About).
 
 ## Suggested technology
 
@@ -642,6 +645,8 @@ Keep it obvious what is what:
   `docs/plugins.md` explains them and the API.
 - `tools/Resonate.PluginPack/` packs the plugins and the helper and writes
   the catalog the app is built with (`-p:PluginCatalog=<file>`).
+- `tools/fonts/` rebuilds the fonts in `src/Resonate.App/Assets/Fonts`
+  from Google Fonts' sources (see its README).
 - `tests/` automated tests (`dotnet test`, run on Linux and Windows).
 - `docs/` user-facing guides (`plugins.md`).
 - `.github/workflows/` `ci.yml` (every pull request: format, tests, the
@@ -744,6 +749,27 @@ when the work first needs them, then tick them off here.
   playback and change the volume, each only with its permission, and
   Resonate rate-limits all of it. No network, file or Spotify Web API
   access for plugins yet; adding any is a decision for the owner.
+- Decided (8 October 2026, the owner's requests): Settings opens in a
+  pane on the right of the window beside the page, not in place of it.
+  Its left edge drags to resize it (`Controls/PaneResizer.cs`; the width
+  is kept in `SettingsPaneWidth`, a double-click resets it), and it shares
+  the right side with the queue: opening one closes the other. The player
+  bar has no like button (songs are still liked from lists and menus).
+  Setting descriptions stay short: the owner found them too wordy, for
+  example the plugins' permission line, which is gone. A downloading
+  update shows a progress bar with the size, speed and time left, in the
+  corner and in Settings, Updates (`UpdateProgress.cs`).
+- Fonts (asked 8 October 2026, "no wacky fonts"): 18 open-licence (SIL
+  OFL, no Reserved Font Name) families ship in `Assets/Fonts`, each one
+  `.ttc` with the Regular, SemiBold and Bold weights, next to its licence.
+  `tools/fonts/build_fonts.py` rebuilds them byte for byte from a pinned
+  google/fonts commit, checking each file's SHA-256 (Lora, Playfair
+  Display, Merriweather and Lexend reserve their names, so they are left
+  out); `BundledFonts` (in
+  `Resonate.Themes`) lists them and turns a look's font name into the
+  `ms-appx:///Assets/Fonts/<file>#<name>` address XAML loads. Looks store
+  plain names, so a shared look falls back to Windows' font elsewhere.
+  CI's screenshots draw every bundled font and fail if one does not load.
 - History: this repository was reset to a single commit. The earlier
   librespot-based client is not kept here; it was a fork of
   https://github.com/crmne/spotifast, which can be read for ideas such as

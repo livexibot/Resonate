@@ -179,7 +179,7 @@ internal sealed partial class LookPreview : Grid
         page.Children.Add(new TextBlock
         {
             Text = "Aa",
-            FontFamily = new FontFamily(_look.DisplayFont),
+            FontFamily = new FontFamily(BundledFonts.Resolve(_look.DisplayFont)),
             FontSize = 15,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
             Foreground = _palette.TextPrimary.ToBrush(),

@@ -22,7 +22,8 @@ you theme every part of it.
 Six looks to start from (Midnight, Daylight, Liquid Glass, Pure Black,
 Synthwave and Paper), and a customizer for everything: colours, light or
 dark, the backdrop (even the playing song's cover, blurred), corners,
-shadows, fonts, and how the player, its progress bar and buttons look. Save
+shadows, fonts (Windows' own plus 18 open-licence fonts that come with
+Resonate), and how the player, its progress bar and buttons look. Save
 your own looks, share them as text, and pick how switching animates.
 
 ## Plugins

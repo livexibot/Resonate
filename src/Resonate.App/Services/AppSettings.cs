@@ -83,6 +83,9 @@ public sealed class AppSettings
     /// <summary>The time range of "Your top on Spotify" on Home.</summary>
     public Resonate.Spotify.WebApi.TopRange HomeTopRange { get; set; } = Resonate.Spotify.WebApi.TopRange.ShortTerm;
 
+    /// <summary>The width of the Settings pane on the right, as the user last dragged it.</summary>
+    public double SettingsPaneWidth { get; set; } = Controls.SettingsPane.DefaultWidth;
+
     /// <summary>The folders Local Files looks in; null for the user's Music and Downloads folders.</summary>
     public List<string>? LocalFolders { get; set; }
 

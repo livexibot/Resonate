@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.Json.Nodes;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Text;
@@ -12,8 +11,7 @@ namespace Resonate.App.Controls;
 /// <summary>
 /// The Plugins section of Settings: every plugin this release offers, a
 /// switch that downloads and starts it (or stops it and deletes its files),
-/// what it is allowed to do, and its own settings, drawn from its
-/// plugin.json. Built in code, like the theme cards, so Native AOT never has
+/// and its own settings, drawn from its plugin.json. Built in code, like the theme cards, so Native AOT never has
 /// to look up a XAML-created type.
 /// </summary>
 internal sealed partial class PluginsPanel : StackPanel
@@ -73,14 +71,9 @@ internal sealed partial class PluginsPanel : StackPanel
         }
 
         return plugins.IsPreview
-            ? "Demo mode: turning a plugin on shows its settings, but nothing is downloaded or run."
-            : "Optional extras. A plugin downloads only when you turn it on, and its files are deleted when you turn it off. "
-                + "Plugins come from Resonate's own releases, run in a separate helper program, and can only do what each one lists.";
+            ? "Demo mode: nothing is downloaded or run."
+            : "Optional extras, downloaded only when turned on.";
     }
-
-    private static string Size(long bytes) => bytes >= 1024 * 1024
-        ? (bytes / (1024.0 * 1024)).ToString("0.0", CultureInfo.CurrentCulture) + " MB"
-        : Math.Max(1, (int)Math.Round(bytes / 1024.0)).ToString(CultureInfo.CurrentCulture) + " KB";
 
     private StackPanel Build(Card card)
     {
@@ -95,9 +88,6 @@ internal sealed partial class PluginsPanel : StackPanel
         panel.Children.Add(new SettingRow { Header = manifest.Name, Description = manifest.Description, Content = card.Switch });
 
         var details = new StackPanel { Spacing = 6, Padding = new Thickness(16, 0, 16, 0) };
-        card.Details.Style = (Style)resources["ResonateCaptionTextStyle"];
-        card.Details.TextWrapping = TextWrapping.Wrap;
-        details.Children.Add(card.Details);
         card.Progress.Maximum = 1;
         details.Children.Add(card.Progress);
         card.Status.Style = (Style)resources["ResonateCaptionTextStyle"];
@@ -358,10 +348,6 @@ internal sealed partial class PluginsPanel : StackPanel
         {
             card.Switch.IsOn = view.IsOn;
 
-            var can = "It can " + PluginPermissions.Describe(view.Manifest.Permissions) + ".";
-            var size = view.IsOn || _plugins.IsPreview ? 0 : _plugins.DownloadSize(view.Manifest.Id);
-            card.Details.Text = size > 0 ? $"{can} Turning it on downloads {Size(size)}." : can;
-
             card.Progress.Visibility = view.Status == PluginStatus.Downloading ? Visibility.Visible : Visibility.Collapsed;
             card.Progress.Value = view.Progress;
 
@@ -400,8 +386,6 @@ internal sealed partial class PluginsPanel : StackPanel
         public PluginManifest Manifest { get; } = manifest;
 
         public ToggleSwitch Switch { get; } = new();
-
-        public TextBlock Details { get; } = new();
 
         public ProgressBar Progress { get; } = new();
 
