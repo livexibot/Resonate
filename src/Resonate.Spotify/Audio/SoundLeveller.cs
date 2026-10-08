@@ -59,7 +59,7 @@ public sealed class SoundLeveller
             }
         }
 
-        // Not a number (a broken sample) never sticks in the remembered peak.
+        // A broken sample never sticks in the remembered peak: an infinite one is skipped here, and one that is not a number is never the loudest.
         if (float.IsFinite(loudest))
         {
             var seconds = channels > 0 && sampleRate > 0 ? input.Length / channels / (float)sampleRate : 0.01f;

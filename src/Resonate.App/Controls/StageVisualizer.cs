@@ -174,9 +174,10 @@ internal sealed partial class StageVisualizer : Grid
 
     /// <summary>
     /// Whether the bars move (<paramref name="running"/>: music plays and the
-    /// stage is seen), whether they follow the local files player's sound
-    /// (<paramref name="live"/>) or sway on their own, and whether anything
-    /// may animate (<paramref name="animate"/>: Windows' animations are on).
+    /// stage is seen), whether they follow sound (<paramref name="live"/>: a
+    /// local file's, or Spotify's as heard) or sway on their own, and whether
+    /// anything may animate (<paramref name="animate"/>: Windows' animations
+    /// are on).
     /// </summary>
     public void SetRunning(bool running, bool live, bool animate)
     {

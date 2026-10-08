@@ -129,7 +129,7 @@ public static class SignalPath
     public const int LocalPlayerMaxRate = 48_000;
 
     /// <summary>The line under every chain.</summary>
-    public const string Disclaimer = "Best estimate from Spotify's settings and Windows. Resonate can't hear the stream itself.";
+    public const string Disclaimer = "Best estimate from Spotify's settings and Windows. Resonate can't read Spotify's stream itself.";
 
     private const string QualityTip = "In Spotify, Settings, Audio quality: choose Lossless.";
     private const string VolumeTip = "Below 100 %, the sound is turned down digitally. Set it to 100 % and use Windows' or your speakers' volume instead.";

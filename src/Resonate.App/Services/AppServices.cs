@@ -382,17 +382,25 @@ public sealed class AppServices : IDisposable
     /// <summary>
     /// The process that plays Spotify's sound on this PC, for the Home stage's
     /// visualizer: the Spotify app, or with "Spotify Web API only" Resonate's
-    /// own player (its hidden WebView2), else a Spotify app the user opened
-    /// again. Null when neither runs. Called off the interface thread.
+    /// own player (its hidden WebView2) unless Spotify says another device
+    /// plays, then a Spotify app the user opened again. Null when neither
+    /// runs. Called off the interface thread.
     /// </summary>
     private int? FindSpotifySound()
     {
-        if (!UsesSpotifyApp && WebPlayerPage.BrowserProcessId is > 0 and var page)
+        var page = WebPlayerPage.BrowserProcessId;
+        if (UsesSpotifyApp || page <= 0)
+        {
+            return AppSoundCapture.FindSpotify();
+        }
+
+        var device = Player.Spotify.State.DeviceName;
+        if (device is null || string.Equals(device, OwnPlayer?.Name ?? OwnPlayer.DefaultName, StringComparison.Ordinal))
         {
             return page;
         }
 
-        return AppSoundCapture.FindSpotify();
+        return AppSoundCapture.FindSpotify() ?? page;
     }
 
     /// <summary>"Play on this PC" with "Spotify Web API only": Resonate's own player on or off.</summary>

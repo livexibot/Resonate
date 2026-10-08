@@ -22,7 +22,7 @@ public sealed class SpotifySoundListener : ISoundSink, IDisposable
     /// <summary>While nothing is heard, the program to hear is looked for again this often (Spotify restarted, the own player started).</summary>
     public static readonly TimeSpan LookAgainAfter = TimeSpan.FromSeconds(3);
 
-    /// <summary>After Windows refused or the capture stopped by itself, it is tried again no sooner than this.</summary>
+    /// <summary>After Windows refused or the capture stopped by itself, it is tried again this much later.</summary>
     public static readonly TimeSpan RetryAfterFailure = TimeSpan.FromSeconds(10);
 
     /// <summary>A sample this loud or louder counts as sound (about -72 dB); digital silence and dither do not.</summary>
@@ -36,10 +36,14 @@ public sealed class SpotifySoundListener : ISoundSink, IDisposable
     private readonly Action<Action> _schedule;
     private readonly Lock _gate = new();
     private readonly SoundLeveller _leveller = new();
+    private readonly ITimer _retry;
+    private readonly Action _update;
+
+    // Set from any thread without waiting; read under _gate.
+    private volatile bool _wanted;
+    private volatile bool _enabled = true;
 
     // Under _gate.
-    private bool _wanted;
-    private bool _enabled = true;
     private bool _disposed;
     private int? _program;
     private long _retryAt;
@@ -76,6 +80,8 @@ public sealed class SpotifySoundListener : ISoundSink, IDisposable
         _time = time ?? TimeProvider.System;
         _schedule = schedule ?? (work => ThreadPool.UnsafeQueueUserWorkItem(static w => w(), work, preferLocal: false));
         _lookedAt = _time.GetTimestamp();
+        _update = RunUpdate;
+        _retry = _time.CreateTimer(static state => ((SpotifySoundListener)state!).OnRetry(), this, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         player.StateChanged += OnStateChanged;
         capture.Failed += OnCaptureFailed;
     }
@@ -83,57 +89,31 @@ public sealed class SpotifySoundListener : ISoundSink, IDisposable
     /// <summary>Raised on any thread when <see cref="HearsSound"/> changes.</summary>
     public event EventHandler? HearingChanged;
 
-    /// <summary>The bars show and want sound. May be set from any thread; the work happens elsewhere.</summary>
+    /// <summary>The bars show and want sound. May be set from any thread and never waits; the work happens elsewhere.</summary>
     public bool Wanted
     {
-        get
-        {
-            lock (_gate)
-            {
-                return _wanted;
-            }
-        }
-
+        get => _wanted;
         set
         {
-            lock (_gate)
+            if (_wanted != value)
             {
-                if (_wanted == value)
-                {
-                    return;
-                }
-
                 _wanted = value;
+                QueueUpdate();
             }
-
-            QueueUpdate();
         }
     }
 
-    /// <summary>The user's switch ("Listen to Spotify"). May be set from any thread.</summary>
+    /// <summary>The user's switch ("Listen to Spotify"). May be set from any thread and never waits.</summary>
     public bool Enabled
     {
-        get
-        {
-            lock (_gate)
-            {
-                return _enabled;
-            }
-        }
-
+        get => _enabled;
         set
         {
-            lock (_gate)
+            if (_enabled != value)
             {
-                if (_enabled == value)
-                {
-                    return;
-                }
-
                 _enabled = value;
+                QueueUpdate();
             }
-
-            QueueUpdate();
         }
     }
 
@@ -169,6 +149,7 @@ public sealed class SpotifySoundListener : ISoundSink, IDisposable
         lock (_gate)
         {
             _disposed = true;
+            _retry.Dispose();
             Update();
         }
     }
@@ -257,10 +238,30 @@ public sealed class SpotifySoundListener : ISoundSink, IDisposable
 
             _listening = false;
             _program = null;
-            _retryAt = _time.GetTimestamp() + (long)(RetryAfterFailure.TotalSeconds * _time.TimestampFrequency);
+            WaitBeforeRetry();
         }
 
         SetHearing(false);
+    }
+
+    // Under _gate. A song that just plays on brings no news to wake the listener, so a timer does.
+    private void WaitBeforeRetry()
+    {
+        _retryAt = _time.GetTimestamp() + (long)(RetryAfterFailure.TotalSeconds * _time.TimestampFrequency);
+        if (!_disposed)
+        {
+            _retry.Change(RetryAfterFailure, Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    private void OnRetry()
+    {
+        lock (_gate)
+        {
+            _retryAt = 0;
+        }
+
+        QueueUpdate();
     }
 
     // State changes come often and from several threads; the newest state is looked at once.
@@ -268,14 +269,35 @@ public sealed class SpotifySoundListener : ISoundSink, IDisposable
     {
         if (Interlocked.Exchange(ref _updateQueued, 1) == 0)
         {
-            _schedule(() =>
+            _schedule(_update);
+        }
+    }
+
+    private void RunUpdate()
+    {
+        lock (_gate)
+        {
+            // Cleared under the lock: a change during this update queues the next one.
+            Volatile.Write(ref _updateQueued, 0);
+            try
             {
-                Volatile.Write(ref _updateQueued, 0);
-                lock (_gate)
+                Update();
+            }
+            catch (Exception)
+            {
+                // Looking for the program or starting the capture failed (a thread pool thread: nothing may escape).
+                // The bars sway on their own, and it is tried again later.
+                var listening = _listening;
+                _listening = false;
+                _program = null;
+                if (listening)
                 {
-                    Update();
+                    _capture.Stop();
                 }
-            });
+
+                SetHearing(false);
+                WaitBeforeRetry();
+            }
         }
     }
 

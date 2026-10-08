@@ -24,6 +24,7 @@ public sealed class VisualiserFeed : ILocalAudioSink, IDisposable
     private readonly HashSet<object> _stageViewers = [];
     private volatile bool _classicWanted;
     private volatile bool _stageWanted;
+    private volatile int _localLag;
     private int _updateQueued;
 
     /// <summary>Call on the interface thread.</summary>
@@ -37,7 +38,7 @@ public sealed class VisualiserFeed : ILocalAudioSink, IDisposable
         _listener = new LocalAudioListener(player, this);
         if (capture is not null && findSpotifySound is not null)
         {
-            _heard = new SpotifySoundListener(player, capture, findSpotifySound, new StageInput(Stage));
+            _heard = new SpotifySoundListener(player, capture, findSpotifySound, new StageInput(Stage, player));
             _heard.HearingChanged += OnStateChanged;
         }
 
@@ -92,7 +93,7 @@ public sealed class VisualiserFeed : ILocalAudioSink, IDisposable
         _classicWanted = classic;
         _stageWanted = staged;
         _listener.Wanted = classic || staged;
-        if (_heard is not null)
+        if (_heard is not null && _heard.Wanted != staged)
         {
             _heard.Wanted = staged;
         }
@@ -127,6 +128,7 @@ public sealed class VisualiserFeed : ILocalAudioSink, IDisposable
     // The engine, from a background thread, when it connects to a graph.
     void ILocalAudioSink.Start(int latencySamples)
     {
+        _localLag = latencySamples;
         Analyser.LagSamples = latencySamples;
         Analyser.Reset();
         Stage.LagSamples = latencySamples;
@@ -143,6 +145,13 @@ public sealed class VisualiserFeed : ILocalAudioSink, IDisposable
 
         if (_stageWanted)
         {
+            // Spotify's heard sound, which has no graph latency, may have played in between.
+            var lag = _localLag;
+            if (Stage.LagSamples != lag)
+            {
+                Stage.LagSamples = lag;
+            }
+
             Stage.Process(interleaved, channels, sampleRate);
         }
     }
@@ -187,13 +196,20 @@ public sealed class VisualiserFeed : ILocalAudioSink, IDisposable
     }
 
     /// <summary>
-    /// Spotify's heard sound goes to the stage's analyser only. It is heard as
-    /// Windows mixes it, so there is no graph latency to look back over.
+    /// Spotify's heard sound goes to the stage's analyser only, and only while
+    /// a Spotify song is the player bar's (the local files player feeds it
+    /// otherwise). It is heard as Windows mixes it, so there is no graph
+    /// latency to look back over.
     /// </summary>
-    private sealed class StageInput(SpectrumAnalyser stage) : ISoundSink
+    private sealed class StageInput(SpectrumAnalyser stage, PlayerRouter player) : ISoundSink
     {
         public void Write(ReadOnlySpan<float> interleaved, int channels, int sampleRate)
         {
+            if (player.ActiveSource != PlaybackSource.Spotify)
+            {
+                return;
+            }
+
             if (stage.LagSamples != 0)
             {
                 stage.LagSamples = 0;

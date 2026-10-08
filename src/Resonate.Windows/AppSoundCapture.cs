@@ -142,6 +142,12 @@ public sealed partial class AppSoundCapture : IAppSoundCapture, IDisposable
             var failed = true;
             try
             {
+                if (_stopping)
+                {
+                    // Replaced before the thread began: nothing to ask Windows for.
+                    return;
+                }
+
                 client = Activate(processId);
                 if (client == 0 || _stopping)
                 {

@@ -379,7 +379,7 @@ only the owner's PC can tell):
   `%APPDATA%\Spotify\prefs` (it holds sign-in data) and never log either
   file. `audio.play_bitrate_enumeration=5` means Lossless (4 is Very high);
   Spotify leaves the key out while at its default. Measure all of these.
-- Windows has no per-app equalizer, and processing Spotify's audio is
+- Windows has no per-app equalizer, and changing Spotify's audio is
   forbidden here, so the Spotify app's own equalizer is the only one for
   Spotify songs.
 - `/me/player/recently-played` returns at most the last 50 plays, so the
@@ -528,16 +528,19 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   process tree, Windows 10 build 20348 or later; older Windows keeps the
   sway) of the Spotify app's main process (the one without `--type`), or
   with Web API only of the own player's WebView2 browser process
-  (`WebPlayerPage.BrowserProcessId`). No other app and no microphone is
+  (`WebPlayerPage.BrowserProcessId`), unless Spotify reports another
+  device playing, when a Spotify app the user opened again is heard
+  instead (`AppServices.FindSpotifySound`). No other app and no microphone is
   heard; Windows copies the sound as it mixes it, so playback and
   Lossless are untouched. It is read as 16-bit stereo at 48 kHz on a
   thread of its own when Windows signals a packet, levelled for the bars
   only (`SoundLeveller`: gain 1 to 8 towards 0.8 of full scale, 3 s
   release, since the copy may come after the mixer volume), and dropped
   once the analyser has its bands. No sound for 2 s means not heard (the
-  bars sway); silence for 3 s looks for the program again (Spotify
-  restarted, the own player started), and a capture Windows refused is
-  tried again after 10 s. The classic player's visualiser does not use
+  bars sway); while nothing is heard it looks for the program again
+  every 3 s (Spotify restarted, the own player started), and a capture
+  that Windows refused or that stopped is tried again 10 s later (a
+  timer, since a paused song brings no other news). The classic player's visualiser does not use
   it. Measure: that the bars follow the music with the Spotify app and
   the own player, that the copy comes after the mixer volume or not, no
   microphone icon, and the cost while listening. With animations off they are
@@ -934,7 +937,8 @@ default) closes the Spotify app instead. Then Spotify's official web
 player, the Web Playback SDK, plays on this PC, hidden inside Resonate
 (see "Resonate's own player" under verified facts). Spotify's own code
 still does the playback, at the web player's quality rather than Lossless,
-and Resonate never sees the audio.
+and Resonate never reads its stream; only the Home stage's visualizer
+hears what Windows mixes, as for the Spotify app.
 
 ## Requirements and limits
 

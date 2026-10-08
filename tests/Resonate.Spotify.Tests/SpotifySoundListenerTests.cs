@@ -23,6 +23,7 @@ public sealed class SpotifySoundListenerTests : IDisposable
     private readonly PlayerRouter _router;
     private readonly SpotifySoundListener _listener;
     private int? _program = 42;
+    private bool _throwOnLookup;
     private int _lookups;
     private int _hearingChanges;
 
@@ -282,10 +283,32 @@ public sealed class SpotifySoundListenerTests : IDisposable
         ReportSpotify(playing: true);
         Assert.Equal([42], _capture.Starts);
 
-        _time.Advance(SpotifySoundListener.RetryAfterFailure);
-        ReportSpotify(playing: true);
+        // Nothing else happens meanwhile (the song just plays on): the wait itself brings the retry.
+        _time.Advance(SpotifySoundListener.RetryAfterFailure - TimeSpan.FromMilliseconds(1));
+        Assert.Equal([42], _capture.Starts);
+        _time.Advance(TimeSpan.FromMilliseconds(1));
 
         Assert.Equal([42, 42], _capture.Starts);
+        Assert.True(_listener.IsListening);
+    }
+
+    [Fact]
+    public async Task Trouble_finding_the_program_is_tried_again_later()
+    {
+        _throwOnLookup = true;
+        _listener.Wanted = true;
+        await StartSpotifyPlaying();
+
+        Assert.False(_listener.IsListening);
+        Assert.Empty(_capture.Starts);
+
+        _throwOnLookup = false;
+        ReportSpotify(playing: true);
+        Assert.Empty(_capture.Starts);
+
+        _time.Advance(SpotifySoundListener.RetryAfterFailure);
+
+        Assert.Equal([42], _capture.Starts);
         Assert.True(_listener.IsListening);
     }
 
@@ -321,7 +344,7 @@ public sealed class SpotifySoundListenerTests : IDisposable
     private int? FindProgram()
     {
         _lookups++;
-        return _program;
+        return _throwOnLookup ? throw new InvalidOperationException("The process list could not be read.") : _program;
     }
 
     private async Task StartSpotifyPlaying()
@@ -456,7 +479,7 @@ public sealed class SoundLevellerTests
     public void A_broken_sample_does_not_stick()
     {
         var broken = new float[960];
-        broken[3] = float.NaN;
+        broken[3] = float.PositiveInfinity;
         _leveller.Apply(broken, new float[960], 2, Rate);
 
         Level(0.4f);
