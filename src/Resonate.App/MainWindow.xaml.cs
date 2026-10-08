@@ -100,6 +100,7 @@ public sealed partial class MainWindow : Window
         services.Theme.AttachWindow(this, themeHost);
         services.Theme.Changed += (_, _) => ApplyCaptionButtonColors();
         ApplyCaptionButtonColors();
+        SetUpAppSize();
 
         _messageTimer = DispatcherQueue.CreateTimer();
         _messageTimer.Interval = TimeSpan.FromSeconds(7);
@@ -1191,6 +1192,7 @@ public sealed partial class MainWindow : Window
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
     {
         NotePlacement(args);
+        NoteScreen(args);
         var shown = sender.IsVisible && !IsIconic(Hwnd);
         if (shown != IsShown)
         {

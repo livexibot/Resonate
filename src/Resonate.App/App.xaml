@@ -12,6 +12,24 @@
                 <ResourceDictionary Source="ms-appx:///Themes/Tokens.xaml" />
                 <ResourceDictionary Source="ms-appx:///Themes/Controls.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <!--
+              Menus open outside the window's content, where App size does not
+              reach, so their text takes ResonateMenuFontSize: both of the
+              user's sizes (see ThemeService.ApplyTextSize).
+            -->
+            <Style BasedOn="{StaticResource DefaultMenuFlyoutItemStyle}" TargetType="MenuFlyoutItem">
+                <Setter Property="FontSize" Value="{ThemeResource ResonateMenuFontSize}" />
+            </Style>
+            <Style BasedOn="{StaticResource DefaultToggleMenuFlyoutItemStyle}" TargetType="ToggleMenuFlyoutItem">
+                <Setter Property="FontSize" Value="{ThemeResource ResonateMenuFontSize}" />
+            </Style>
+            <Style BasedOn="{StaticResource DefaultMenuFlyoutSubItemStyle}" TargetType="MenuFlyoutSubItem">
+                <Setter Property="FontSize" Value="{ThemeResource ResonateMenuFontSize}" />
+            </Style>
+            <Style BasedOn="{StaticResource DefaultRadioMenuFlyoutItemStyle}" TargetType="RadioMenuFlyoutItem">
+                <Setter Property="FontSize" Value="{ThemeResource ResonateMenuFontSize}" />
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

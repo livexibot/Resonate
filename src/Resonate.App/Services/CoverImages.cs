@@ -21,6 +21,13 @@ public sealed class CoverImages
     private readonly Dictionary<(string Url, int Width), LinkedListNode<Entry>> _index = [];
     private readonly LinkedList<Entry> _recent = new();
 
+    /// <summary>
+    /// The user's App size as a factor (MainWindow.ApplyAppSize): a cover shown
+    /// at a given width covers that many more screen pixels, so it is decoded
+    /// larger to stay sharp.
+    /// </summary>
+    public static double Scale { get; set; } = 1;
+
     /// <param name="store">Where the bytes come from; null lets Windows load every address itself (demo mode).</param>
     public CoverImages(CoverStore? store) => Store = store;
 
@@ -57,7 +64,7 @@ public sealed class CoverImages
     /// </summary>
     public static async Task<(ImageSource? Image, bool Loaded)> FromBytesAsync(byte[] bytes, int displayWidth)
     {
-        var bitmap = new BitmapImage { DecodePixelWidth = displayWidth, DecodePixelType = DecodePixelType.Logical };
+        var bitmap = new BitmapImage { DecodePixelWidth = DecodeWidth(displayWidth), DecodePixelType = DecodePixelType.Logical };
         try
         {
             using var stream = await ImageStreams.FromBytesAsync(bytes);
@@ -71,6 +78,9 @@ public sealed class CoverImages
         }
     }
 
+    /// <summary>The width to decode a cover shown <paramref name="displayWidth"/> wide at, at the user's App size.</summary>
+    public static int DecodeWidth(int displayWidth) => (int)Math.Ceiling(displayWidth * Scale);
+
     private Entry? Find(string? url, int displayWidth)
     {
         if (string.IsNullOrEmpty(url) || !Uri.TryCreate(url, UriKind.Absolute, out var uri))
@@ -78,7 +88,7 @@ public sealed class CoverImages
             return null;
         }
 
-        var key = (url, displayWidth);
+        (string Url, int Width) key = (url, DecodeWidth(displayWidth));
         if (_index.TryGetValue(key, out var node))
         {
             _recent.Remove(node);
@@ -86,7 +96,7 @@ public sealed class CoverImages
             return node.Value;
         }
 
-        var bitmap = new BitmapImage { DecodePixelWidth = displayWidth, DecodePixelType = DecodePixelType.Logical };
+        var bitmap = new BitmapImage { DecodePixelWidth = key.Width, DecodePixelType = DecodePixelType.Logical };
         Task<bool> ready;
         if (Store is null || !CoverStore.Handles(url))
         {

@@ -41,7 +41,7 @@
                     <TextBlock Style="{StaticResource ResonateEyebrowTextStyle}" Text="NOW PLAYING" />
                     <Grid
                         x:Name="NowRow"
-                        Height="56"
+                        MinHeight="56"
                         Background="{StaticResource ResonateTransparentBrush}"
                         ColumnSpacing="12"
                         ContextRequested="OnNowContextRequested">
@@ -129,7 +129,7 @@
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="vm:TrackRow">
                     <Grid
-                        Height="56"
+                        MinHeight="56"
                         Background="{StaticResource ResonateTransparentBrush}"
                         ColumnSpacing="12"
                         Opacity="{x:Bind RowOpacity}"

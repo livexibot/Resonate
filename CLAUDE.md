@@ -64,6 +64,10 @@ visitors; keep it short and in step with this file.
   soft shadows and the play button's glow, the smoothness of Spread from
   the middle and Ripple at 5K and 165 Hz, and the header glows with real
   covers.
+- App size and Text size (8 October 2026) are described under "Size". On
+  the owner's PC, check sharpness at 125 to 200 %, 150 % text with Paper
+  and the wider fonts, Ctrl+Plus on their keyboard, and the window growing
+  when App size needs more room.
 - The two oldest commits are authored "Claude". Fixing that needs a force
   push, which the permission system blocked. Ask the owner before trying.
 - Pull request #1 could not be squash-merged (GitHub answered with an empty
@@ -470,7 +474,8 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   when a resize ends (`Resonate.Themes/WindowShapes.cs`: Strip under 200
   px tall, Column under 640 wide or tall and narrow, Compact under 1100
   wide) or from a title-bar button beside the mini player button. While
-  on, the window may shrink to 360x64. Summon bar: a global shortcut the
+  on, the window may shrink to 360x64, whatever the App size
+  (`UpdateMinimumSize` gives way to it). Summon bar: a global shortcut the
   user records (none by default; RegisterHotKey) and Ctrl+K open a small
   search window (library first via `QuickSearch`, then Spotify search
   after 250 ms); Enter plays, Shift+Enter queues, Esc returns focus.
@@ -638,6 +643,50 @@ Ripple, and a more interesting Home):
   scroller would capture the mouse wheel. Cards rise under the pointer
   (`Controls/HoverLift`, 160 ms, still when animations are off). Nothing
   on Home moves by itself once it has settled.
+
+Size (checked 2026-10-08; the owner asked for a setting to scale the whole
+app and make text bigger):
+- Settings, Look, Size has App size (80 to 200 %, also Ctrl+Plus, Ctrl+Minus
+  and Ctrl+0) and Text size (90 to 150 %). Both belong to the user, not to
+  a look; the steps live in `Resonate.Themes/AppScale.cs` and are tested.
+- App size: `Controls/ScaleBox` lays out everything under the title bar at
+  1/size and draws it that much larger with a `ScaleTransform`
+  (`MainWindow.AppSize.cs`). The title bar keeps Windows' size, like the
+  caption buttons beside it. Pages see a narrower window, so their compact
+  layouts and the Compact and Mini player take over sooner, and the
+  window's minimum size grows with App size (within its screen, worked out
+  again when the window moves to another screen). Code that compares
+  positions must use the content's units (a panel's coordinates), never
+  the window's (`GetCurrentPoint(null)`, `TransformToVisual(null)`);
+  covers decode at `CoverImages.DecodeWidth`, and pixel-exact drawing
+  (the classic skin, the seek bar) multiplies `RasterizationScale` by
+  `ThemeService.Scale` (not in the mini player, whose window App size
+  does not reach). The classic skin is only pixel-exact when display
+  scaling times App size is a whole number (100 % at 200 % App size, for
+  example). Menus, tooltips and dialogs open outside the content: menus'
+  and tooltips' text takes both sizes (`ResonateMenuFontSize`,
+  `ToolTipContentThemeFontSize`), dialog text, drop-down lists and the
+  colour picker follow Text size only, and InfoBar text and dialog titles
+  keep Windows' size. A menu already built keeps its old size until it is
+  built again (the sidebar's sort menu is rebuilt on `SizeChanged`).
+- Text size: XAML never gives text a plain `FontSize`; it uses a
+  `ResonateFontSize{n}` token from `Tokens.xaml` (the list is
+  `AppScale.FontSizes`, and a test fails on a plain size or an unknown
+  token). `ThemeService.ApplyTextSize` writes n x Text size into the theme
+  dictionary and re-reads theme resources. Icons keep their sizes. Text
+  built in code takes a text style. Room for text that lines up in
+  columns (song numbers, ranks, times) is a width token
+  (`ResonateTrackNumberWidth` and the like), rows use `MinHeight`, and
+  width thresholds for text (compact pages, song list columns) are
+  multiplied by `ThemeService.TextScale`; pages that use them refit on
+  `ThemeService.SizeChanged`.
+- CI's tour checks, without a picture, that the page fills the window and
+  the hovering player clears the last song at 150 % App size and 125 %
+  text (`CheckContentFills`).
+- Measure on the owner's PC: that text and icons stay sharp at 125 to
+  200 % on the 5K display, that 150 % text fits rows and cards with Paper
+  and the wider bundled fonts, that Ctrl+Plus works on their keyboard
+  layout, and that the window grows when App size needs more room.
 
 GitHub automation:
 - Releases and pull requests made with the default `GITHUB_TOKEN` do not
@@ -866,7 +915,8 @@ Built in pull request #9 (themes and the look are a separate pull request):
 5. The equalizer in Settings (Spotify's own, plus local files).
 6. Back navigation (title bar, Alt+Left, the mouse's back button) and
    keyboard shortcuts (Ctrl+S shuffle, Ctrl+R repeat, Ctrl+Up/Down volume,
-   Ctrl+N new playlist).
+   Ctrl+N new playlist; later Ctrl+Plus, Ctrl+Minus and Ctrl+0 for App
+   size).
 
 To check on the owner's PC: Home after signing in again (two new
 permissions), that DJ starts, the equalizer reaching Spotify (and "Restart
@@ -986,7 +1036,8 @@ Keep it obvious what is what:
   updater, demo mode, and the theme engine (`Themes/Tokens.xaml` holds every
   token, `ThemeService.cs` applies looks, `ThemeTransitions.cs` animates
   switching, `Controls/ThemeStudio` is the Look section of Settings,
-  `MainWindow.PlayerPlacement.cs` places the player), and
+  `MainWindow.PlayerPlacement.cs` places the player, `MainWindow.AppSize.cs`
+  and `Controls/ScaleBox.cs` apply App size), and
   the classic player (`Controls/ClassicPlayer`, its Settings section
   `Controls/ClassicPlayerPanel`, and `Services/SkinLibrary.cs`) and the
   mini player (`MiniPlayerWindow.cs`, `MainWindow.MiniPlayer.cs`, with
@@ -1001,8 +1052,8 @@ Keep it obvious what is what:
   presets, what a look can set, the palette worked out from it (readable
   text guaranteed), saved looks, sharing a look as text, picking colours
   from a cover, the switching animations' timing
-  (`ThemeTransitionCatalog`) and the player's placement
-  (`PlayerPlacement`); and the classic player's skins (`Skins/`): reading `.wsz`
+  (`ThemeTransitionCatalog`), the player's placement
+  (`PlayerPlacement`) and the App and Text size steps (`AppScale`); and the classic player's skins (`Skins/`): reading `.wsz`
   files safely, the built-in skin, drawing and hit-testing the main
   window, the equalizer and playlist windows (`EqualizerWindow.cs`,
   `PlaylistWindow.cs`) and how the mini player stacks them
@@ -1178,6 +1229,9 @@ when the work first needs them, then tick them off here.
   example the plugins' permission line, which is gone. A downloading
   update shows a progress bar with the size, speed and time left, in the
   corner and in Settings, Updates (`UpdateProgress.cs`).
+- Decided (8 October 2026, the owner's request): App size and Text size
+  are the user's own, not part of a look; the title bar keeps Windows'
+  size; Ctrl+Plus, Ctrl+Minus and Ctrl+0 change App size as in a browser.
 - Fonts (asked 8 October 2026, "no wacky fonts"): 18 open-licence (SIL
   OFL, no Reserved Font Name) families ship in `Assets/Fonts`, each one
   `.ttc` with the Regular, SemiBold and Bold weights, next to its licence.

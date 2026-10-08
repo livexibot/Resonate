@@ -22,6 +22,9 @@ namespace Resonate.App.Controls;
 /// </summary>
 public sealed partial class ThemeStudio : UserControl
 {
+    /// <summary>The room each colour button takes at the usual Text size.</summary>
+    private const double SwatchWidth = 164;
+
     /// <summary>Fonts that come with Windows 10 and 11, besides Segoe UI Variable.</summary>
     private static readonly string[] WindowsFonts =
     [
@@ -142,6 +145,16 @@ public sealed partial class ThemeStudio : UserControl
             PresetGrid.Items.Add(Card(preset, PresetBlurbs.GetValueOrDefault(preset.Id, string.Empty), menu: null));
         }
 
+        foreach (var size in AppScale.AppSizes)
+        {
+            AppSizeChoice.Items.Add(AppScale.Label(size));
+        }
+
+        foreach (var size in AppScale.TextSizes)
+        {
+            TextSizeChoice.Items.Add(AppScale.Label(size));
+        }
+
         _looksTimer = DispatcherQueue.CreateTimer();
         _looksTimer.Interval = TimeSpan.FromMilliseconds(250);
         _looksTimer.IsRepeating = false;
@@ -169,6 +182,7 @@ public sealed partial class ThemeStudio : UserControl
         _looksTimer.Tick -= OnLooksTick;
         _looksTimer.Tick += OnLooksTick;
         _theme.Changed += OnThemeChanged;
+        _theme.SizeChanged += OnThemeChanged;
         ShowYourLooks();
         Refresh();
     }
@@ -176,6 +190,7 @@ public sealed partial class ThemeStudio : UserControl
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         _theme.Changed -= OnThemeChanged;
+        _theme.SizeChanged -= OnThemeChanged;
         _looksTimer.Stop();
         _looksTimer.Tick -= OnLooksTick;
     }
@@ -191,6 +206,8 @@ public sealed partial class ThemeStudio : UserControl
         _loading = true;
         try
         {
+            // Room for the colours' names at the user's Text size.
+            SwatchGrid.ItemWidth = SwatchWidth * _theme.TextScale;
             Select(TransitionChoice, _theme.Transition.ToString());
             Select(BackdropChoice, look.Backdrop.ToString());
             Select(ButtonsChoice, look.Buttons.ToString());
@@ -253,6 +270,8 @@ public sealed partial class ThemeStudio : UserControl
         SpinningCoverSwitch.IsOn = _theme.SpinningCover;
         BlurredCoverSwitch.IsOn = _theme.BlurredCoverBackground;
         SidebarFullHeightSwitch.IsOn = _theme.SidebarFullHeight;
+        AppSizeChoice.SelectedIndex = IndexOf(AppScale.AppSizes, _theme.AppSize);
+        TextSizeChoice.SelectedIndex = IndexOf(AppScale.TextSizes, _theme.TextSize);
 
         var hint = _blurredCoverSwitchedOn && _theme.BlurredCoverBackground && look.Backdrop != WindowBackdrop.Artwork;
         BlurredCoverHint.Visibility = hint ? Visibility.Visible : Visibility.Collapsed;
@@ -382,8 +401,9 @@ public sealed partial class ThemeStudio : UserControl
         var button = new Button
         {
             Content = content,
-            Width = 156,
             Height = 44,
+            Margin = new Thickness(0, 0, 8, 0),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             Padding = new Thickness(10, 0, 10, 0),
             HorizontalContentAlignment = HorizontalAlignment.Left,
             Style = (Style)Application.Current.Resources["ResonateSubtleButtonStyle"],
@@ -508,6 +528,36 @@ public sealed partial class ThemeStudio : UserControl
         {
             _theme.SidebarFullHeight = SidebarFullHeightSwitch.IsOn;
         }
+    }
+
+    // Like the layout switch, the sizes belong to the user, not to a look.
+    private void OnAppSizeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_loading && AppSizeChoice.SelectedIndex >= 0)
+        {
+            _theme.AppSize = AppScale.AppSizes[AppSizeChoice.SelectedIndex];
+        }
+    }
+
+    private void OnTextSizeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_loading && TextSizeChoice.SelectedIndex >= 0)
+        {
+            _theme.TextSize = AppScale.TextSizes[TextSizeChoice.SelectedIndex];
+        }
+    }
+
+    private static int IndexOf(IReadOnlyList<int> steps, int step)
+    {
+        for (var i = 0; i < steps.Count; i++)
+        {
+            if (steps[i] == step)
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     private void OnFontChanged(object sender, SelectionChangedEventArgs e)

@@ -106,306 +106,309 @@
                 Visibility="Collapsed" />
         </Grid>
 
-        <!-- Library sidebar and pages -->
-        <Grid
-            x:Name="ShellGrid"
-            Grid.Row="1"
-            Padding="{ThemeResource ResonateShellPadding}"
-            ColumnSpacing="{ThemeResource ResonatePanelGap}">
-            <!--
-                A third column for the queue pane is added while it is open (see ShowQueue).
-                The sidebar and the queue can be dragged wider or narrower (see LayOutPanes).
-            -->
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition x:Name="SidebarColumn" Width="272" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-
-            <!-- The panels, then the player's row (empty while the player hovers over the page). -->
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-
-            <!-- The panels' shadows, behind them -->
-            <controls:Elevation x:Name="SidebarElevation" CornerRadius="{ThemeResource ResonateCornerLarge}" />
-            <controls:Elevation Grid.Column="1" CornerRadius="{ThemeResource ResonateCornerLarge}" />
-
+        <!--
+            Everything under the title bar, drawn at the user's App size (see
+            ApplyAppSize). The title bar keeps its size, like Windows' own
+            buttons beside it.
+        -->
+        <controls:ScaleBox x:Name="ContentScale" Grid.Row="1">
+            <!-- Library sidebar and pages -->
             <Grid
-                x:Name="Sidebar"
-                Padding="6,10,6,8"
-                Background="{StaticResource ResonateSidebarBrush}"
-                BorderBrush="{StaticResource ResonateBorderBrush}"
-                BorderThickness="{ThemeResource ResonatePanelBorderThickness}"
-                CornerRadius="{ThemeResource ResonateCornerLarge}">
+                x:Name="ShellGrid"
+                Padding="{ThemeResource ResonateShellPadding}"
+                ColumnSpacing="{ThemeResource ResonatePanelGap}">
+                <!--
+                    A third column for the queue pane is added while it is open (see ShowQueue).
+                    The sidebar and the queue can be dragged wider or narrower (see LayOutPanes).
+                -->
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition x:Name="SidebarColumn" Width="272" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- The panels, then the player's row (empty while the player hovers over the page). -->
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- The selected link's pill: it glides behind the links to the one chosen (MainWindow.NavPill.cs). -->
-                <Border
-                    x:Name="NavPill"
-                    Height="36"
-                    Margin="4,2,4,0"
-                    VerticalAlignment="Top"
-                    Background="{StaticResource ResonateAccentSoftBrush}"
-                    CornerRadius="{ThemeResource ListViewItemCornerRadius}"
-                    IsHitTestVisible="False"
-                    Opacity="0">
+                <!-- The panels' shadows, behind them -->
+                <controls:Elevation x:Name="SidebarElevation" CornerRadius="{ThemeResource ResonateCornerLarge}" />
+                <controls:Elevation Grid.Column="1" CornerRadius="{ThemeResource ResonateCornerLarge}" />
+
+                <Grid
+                    x:Name="Sidebar"
+                    Padding="6,10,6,8"
+                    Background="{StaticResource ResonateSidebarBrush}"
+                    BorderBrush="{StaticResource ResonateBorderBrush}"
+                    BorderThickness="{ThemeResource ResonatePanelBorderThickness}"
+                    CornerRadius="{ThemeResource ResonateCornerLarge}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- The selected link's pill: it glides behind the links to the one chosen (MainWindow.NavPill.cs). -->
                     <Border
-                        Width="3"
-                        Height="16"
-                        HorizontalAlignment="Left"
-                        Background="{StaticResource ResonateAccentBrush}"
-                        CornerRadius="{ThemeResource ListViewItemSelectionIndicatorCornerRadius}" />
-                </Border>
-                <ListView
-                    x:Name="NavList"
-                    ItemsSource="{x:Bind NavItems}"
-                    SelectionChanged="OnNavSelectionChanged"
-                    SelectionMode="Single"
-                    SizeChanged="OnNavListSizeChanged">
-                    <ListView.Resources>
-                        <!-- The pill shows which link is chosen, so the rows draw no selection of their own. -->
-                        <x:Boolean x:Key="ListViewItemSelectionIndicatorVisualEnabled">False</x:Boolean>
-                        <StaticResource x:Key="ListViewItemBackgroundSelected" ResourceKey="ResonateTransparentBrush" />
-                        <StaticResource x:Key="ListViewItemBackgroundSelectedPointerOver" ResourceKey="ResonateSurfaceHoverBrush" />
-                        <StaticResource x:Key="ListViewItemBackgroundSelectedPressed" ResourceKey="ResonateSurfacePressedBrush" />
-                    </ListView.Resources>
-                    <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="vm:NavItem">
-                            <StackPanel
-                                Height="40"
-                                Background="{StaticResource ResonateTransparentBrush}"
-                                Orientation="Horizontal"
-                                Spacing="14">
-                                <FontIcon
-                                    VerticalAlignment="Center"
-                                    FontFamily="{StaticResource ResonateIconFont}"
-                                    FontSize="16"
-                                    Foreground="{StaticResource ResonateTextSecondaryBrush}"
-                                    Glyph="{x:Bind Glyph}" />
-                                <TextBlock
-                                    VerticalAlignment="Center"
-                                    FontWeight="SemiBold"
-                                    Style="{StaticResource ResonateBodyTextStyle}"
-                                    Text="{x:Bind Label}" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-
-                <Grid
-                    Grid.Row="1"
-                    Margin="16,14,8,4"
-                    ColumnSpacing="2">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock
-                        VerticalAlignment="Center"
-                        Style="{StaticResource ResonateEyebrowTextStyle}"
-                        Text="PLAYLISTS" />
-                    <Button
-                        x:Name="PlaylistSortButton"
-                        Grid.Column="1"
-                        Width="30"
-                        Height="30"
-                        AutomationProperties.Name="Sort playlists"
-                        Content="&#xE8CB;"
-                        FontSize="13"
-                        Style="{StaticResource ResonateIconButtonStyle}"
-                        ToolTipService.ToolTip="Sort playlists">
-                        <Button.Flyout>
-                            <MenuFlyout x:Name="PlaylistSortMenu" Placement="BottomEdgeAlignedRight" />
-                        </Button.Flyout>
-                    </Button>
-                    <Button
-                        Grid.Column="2"
-                        Width="30"
-                        Height="30"
-                        AutomationProperties.Name="New playlist"
-                        Click="OnNewPlaylistClick"
-                        Content="&#xE710;"
-                        FontSize="13"
-                        Style="{StaticResource ResonateIconButtonStyle}"
-                        ToolTipService.ToolTip="New playlist (Ctrl+N)" />
-                </Grid>
-
-                <ListView
-                    x:Name="PlaylistList"
-                    Grid.Row="2"
-                    AllowDrop="True"
-                    CanDragItems="True"
-                    CanReorderItems="True"
-                    ContextRequested="OnPlaylistContextRequested"
-                    DoubleTapped="OnPlaylistDoubleTapped"
-                    DragItemsCompleted="OnPlaylistDragCompleted"
-                    ItemsSource="{x:Bind Playlists}"
-                    PointerExited="OnPlaylistPointerExited"
-                    PointerMoved="OnPlaylistPointerMoved"
-                    SelectionChanged="OnPlaylistSelectionChanged"
-                    SelectionMode="Single">
-                    <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="vm:PlaylistNavItem">
-                            <Grid
-                                Height="54"
-                                Background="{StaticResource ResonateTransparentBrush}"
-                                ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="40" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <Grid
-                                    Width="40"
-                                    Height="40"
-                                    Background="{x:Bind PlaceholderBrush}"
-                                    CornerRadius="{ThemeResource ResonateCornerSmall}">
-                                    <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
-                                </Grid>
+                        x:Name="NavPill"
+                        Height="36"
+                        Margin="4,2,4,0"
+                        VerticalAlignment="Top"
+                        Background="{StaticResource ResonateAccentSoftBrush}"
+                        CornerRadius="{ThemeResource ListViewItemCornerRadius}"
+                        IsHitTestVisible="False"
+                        Opacity="0">
+                        <Border
+                            Width="3"
+                            Height="16"
+                            HorizontalAlignment="Left"
+                            Background="{StaticResource ResonateAccentBrush}"
+                            CornerRadius="{ThemeResource ListViewItemSelectionIndicatorCornerRadius}" />
+                    </Border>
+                    <ListView
+                        x:Name="NavList"
+                        ItemsSource="{x:Bind NavItems}"
+                        SelectionChanged="OnNavSelectionChanged"
+                        SelectionMode="Single"
+                        SizeChanged="OnNavListSizeChanged">
+                        <ListView.Resources>
+                            <!-- The pill shows which link is chosen, so the rows draw no selection of their own. -->
+                            <x:Boolean x:Key="ListViewItemSelectionIndicatorVisualEnabled">False</x:Boolean>
+                            <StaticResource x:Key="ListViewItemBackgroundSelected" ResourceKey="ResonateTransparentBrush" />
+                            <StaticResource x:Key="ListViewItemBackgroundSelectedPointerOver" ResourceKey="ResonateSurfaceHoverBrush" />
+                            <StaticResource x:Key="ListViewItemBackgroundSelectedPressed" ResourceKey="ResonateSurfacePressedBrush" />
+                        </ListView.Resources>
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:NavItem">
                                 <StackPanel
-                                    Grid.Column="1"
-                                    VerticalAlignment="Center"
-                                    Spacing="1">
+                                    Height="40"
+                                    Background="{StaticResource ResonateTransparentBrush}"
+                                    Orientation="Horizontal"
+                                    Spacing="14">
+                                    <FontIcon
+                                        VerticalAlignment="Center"
+                                        FontFamily="{StaticResource ResonateIconFont}"
+                                        FontSize="16"
+                                        Foreground="{StaticResource ResonateTextSecondaryBrush}"
+                                        Glyph="{x:Bind Glyph}" />
                                     <TextBlock
-                                        Foreground="{x:Bind NameBrush, Mode=OneWay}"
+                                        VerticalAlignment="Center"
+                                        FontWeight="SemiBold"
                                         Style="{StaticResource ResonateBodyTextStyle}"
-                                        Text="{x:Bind Name}" />
-                                    <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="{x:Bind Details}" />
+                                        Text="{x:Bind Label}" />
                                 </StackPanel>
-                                <FontIcon
-                                    Grid.Column="2"
-                                    Margin="0,0,6,0"
-                                    VerticalAlignment="Center"
-                                    AutomationProperties.Name="Playing"
-                                    FontFamily="{StaticResource ResonateIconFont}"
-                                    FontSize="14"
-                                    Foreground="{StaticResource ResonateAccentBrush}"
-                                    Glyph="&#xE767;"
-                                    Visibility="{x:Bind SpeakerVisibility, Mode=OneWay}" />
-                            </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <Grid
+                        Grid.Row="1"
+                        Margin="16,14,8,4"
+                        ColumnSpacing="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            Style="{StaticResource ResonateEyebrowTextStyle}"
+                            Text="PLAYLISTS" />
+                        <Button
+                            x:Name="PlaylistSortButton"
+                            Grid.Column="1"
+                            Width="30"
+                            Height="30"
+                            AutomationProperties.Name="Sort playlists"
+                            Content="&#xE8CB;"
+                            FontSize="13"
+                            Style="{StaticResource ResonateIconButtonStyle}"
+                            ToolTipService.ToolTip="Sort playlists">
+                            <Button.Flyout>
+                                <MenuFlyout x:Name="PlaylistSortMenu" Placement="BottomEdgeAlignedRight" />
+                            </Button.Flyout>
+                        </Button>
+                        <Button
+                            Grid.Column="2"
+                            Width="30"
+                            Height="30"
+                            AutomationProperties.Name="New playlist"
+                            Click="OnNewPlaylistClick"
+                            Content="&#xE710;"
+                            FontSize="13"
+                            Style="{StaticResource ResonateIconButtonStyle}"
+                            ToolTipService.ToolTip="New playlist (Ctrl+N)" />
+                    </Grid>
+
+                    <ListView
+                        x:Name="PlaylistList"
+                        Grid.Row="2"
+                        AllowDrop="True"
+                        CanDragItems="True"
+                        CanReorderItems="True"
+                        ContextRequested="OnPlaylistContextRequested"
+                        DoubleTapped="OnPlaylistDoubleTapped"
+                        DragItemsCompleted="OnPlaylistDragCompleted"
+                        ItemsSource="{x:Bind Playlists}"
+                        PointerExited="OnPlaylistPointerExited"
+                        PointerMoved="OnPlaylistPointerMoved"
+                        SelectionChanged="OnPlaylistSelectionChanged"
+                        SelectionMode="Single">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:PlaylistNavItem">
+                                <Grid
+                                    MinHeight="54"
+                                    Background="{StaticResource ResonateTransparentBrush}"
+                                    ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="40" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid
+                                        Width="40"
+                                        Height="40"
+                                        Background="{x:Bind PlaceholderBrush}"
+                                        CornerRadius="{ThemeResource ResonateCornerSmall}">
+                                        <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
+                                    </Grid>
+                                    <StackPanel
+                                        Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        Spacing="1">
+                                        <TextBlock
+                                            Foreground="{x:Bind NameBrush, Mode=OneWay}"
+                                            Style="{StaticResource ResonateBodyTextStyle}"
+                                            Text="{x:Bind Name}" />
+                                        <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="{x:Bind Details}" />
+                                    </StackPanel>
+                                    <FontIcon
+                                        Grid.Column="2"
+                                        Margin="0,0,6,0"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.Name="Playing"
+                                        FontFamily="{StaticResource ResonateIconFont}"
+                                        FontSize="14"
+                                        Foreground="{StaticResource ResonateAccentBrush}"
+                                        Glyph="&#xE767;"
+                                        Visibility="{x:Bind SpeakerVisibility, Mode=OneWay}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <Grid
+                        Grid.Row="3"
+                        Margin="10,8,6,0"
+                        ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Button
+                            x:Name="SettingsButton"
+                            Grid.Column="1"
+                            AutomationProperties.Name="Settings"
+                            Click="OnSettingsClick"
+                            Content="&#xE713;"
+                            Style="{StaticResource ResonateIconButtonStyle}"
+                            ToolTipService.ToolTip="Settings" />
+                    </Grid>
+                </Grid>
 
                 <Grid
-                    Grid.Row="3"
-                    Margin="10,8,6,0"
-                    ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <Button
-                        x:Name="SettingsButton"
-                        Grid.Column="1"
-                        AutomationProperties.Name="Settings"
-                        Click="OnSettingsClick"
-                        Content="&#xE713;"
-                        Style="{StaticResource ResonateIconButtonStyle}"
-                        ToolTipService.ToolTip="Settings" />
-                </Grid>
-            </Grid>
+                    x:Name="ContentPanel"
+                    Grid.Column="1"
+                    Background="{StaticResource ResonateSurfaceBrush}"
+                    BorderBrush="{StaticResource ResonateBorderBrush}"
+                    BorderThickness="{ThemeResource ResonatePanelBorderThickness}"
+                    CornerRadius="{ThemeResource ResonateCornerLarge}">
+                    <!-- Back goes through the window's own history; the frame keeps none. -->
+                    <Frame x:Name="ContentFrame" IsNavigationStackEnabled="False" />
+                    <InfoBar
+                        x:Name="MessageBar"
+                        MaxWidth="720"
+                        Margin="16"
+                        VerticalAlignment="Top"
+                        IsOpen="False" />
 
-            <Grid
-                x:Name="ContentPanel"
-                Grid.Column="1"
-                Background="{StaticResource ResonateSurfaceBrush}"
-                BorderBrush="{StaticResource ResonateBorderBrush}"
-                BorderThickness="{ThemeResource ResonatePanelBorderThickness}"
-                CornerRadius="{ThemeResource ResonateCornerLarge}">
-                <!-- Back goes through the window's own history; the frame keeps none. -->
-                <Frame x:Name="ContentFrame" IsNavigationStackEnabled="False" />
-                <InfoBar
-                    x:Name="MessageBar"
-                    MaxWidth="720"
-                    Margin="16"
-                    VerticalAlignment="Top"
-                    IsOpen="False" />
+                    <!--
+                        A new version downloading, then ready to install (see ShowUpdateProgress); its
+                        width follows the page. The InfoBar's own fill is see-through, so it sits on the
+                        panel colour to stay readable over the page. A hovering player lifts it (see
+                        UpdatePlayerInset).
+                    -->
+                    <Border
+                        x:Name="UpdateBarHost"
+                        Margin="16"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Bottom"
+                        Background="{StaticResource ResonateSurfaceBrush}"
+                        CornerRadius="{ThemeResource ResonateCornerMedium}">
+                        <InfoBar
+                            x:Name="UpdateBar"
+                            CloseButtonClick="OnUpdateBarCloseClick"
+                            CornerRadius="{ThemeResource ResonateCornerMedium}"
+                            IsOpen="False">
+                            <StackPanel
+                                x:Name="UpdateBarProgress"
+                                Margin="0,0,0,14"
+                                Spacing="6">
+                                <ProgressBar x:Name="UpdateProgressBar" Maximum="1" />
+                                <TextBlock
+                                    x:Name="UpdateProgressText"
+                                    Style="{StaticResource ResonateCaptionTextStyle}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </InfoBar>
+                    </Border>
+                </Grid>
+
+                <controls:QueuePanel
+                    x:Name="QueuePane"
+                    Grid.Column="2"
+                    Visibility="Collapsed" />
+
+                <!-- Settings, next to the page in the queue's place (see ShowSettings). -->
+                <controls:SettingsPane
+                    x:Name="SettingsPane"
+                    Grid.Column="2"
+                    Visibility="Collapsed" />
+
+                <!-- Lyrics, a built-in plugin, in the same place (see MainWindow.Lyrics.cs). -->
+                <controls:LyricsPane
+                    x:Name="LyricsPane"
+                    Grid.Column="2"
+                    Visibility="Collapsed" />
 
                 <!--
-                    A new version downloading, then ready to install (see ShowUpdateProgress); its
-                    width follows the page. The InfoBar's own fill is see-through, so it sits on the
-                    panel colour to stay readable over the page. A hovering player lifts it (see
-                    UpdatePlayerInset).
+                  The player, or the classic player in its place (added in code,
+                  see MainWindow.ClassicPlayer.cs). It stays in this slot whatever
+                  the layout; only where the slot sits changes (see
+                  MainWindow.PlayerPlacement.cs). The slot has no background, so
+                  clicks beside a hovering player reach the page.
                 -->
-                <Border
-                    x:Name="UpdateBarHost"
-                    Margin="16"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Bottom"
-                    Background="{StaticResource ResonateSurfaceBrush}"
-                    CornerRadius="{ThemeResource ResonateCornerMedium}">
-                    <InfoBar
-                        x:Name="UpdateBar"
-                        CloseButtonClick="OnUpdateBarCloseClick"
-                        CornerRadius="{ThemeResource ResonateCornerMedium}"
-                        IsOpen="False">
-                        <StackPanel
-                            x:Name="UpdateBarProgress"
-                            Margin="0,0,0,14"
-                            Spacing="6">
-                            <ProgressBar x:Name="UpdateProgressBar" Maximum="1" />
-                            <TextBlock
-                                x:Name="UpdateProgressText"
-                                Style="{StaticResource ResonateCaptionTextStyle}"
-                                TextWrapping="Wrap" />
-                        </StackPanel>
-                    </InfoBar>
-                </Border>
+                <Grid
+                    x:Name="PlayerSlot"
+                    Grid.Row="1"
+                    Grid.ColumnSpan="99"
+                    SizeChanged="OnPlayerSlotSizeChanged">
+                    <controls:PlayerBar x:Name="PlayerBar" />
+                </Grid>
+
+                <!-- Grips in the gaps between the panels, above them (placed by PlaceSplitters). -->
+                <controls:PaneSplitter x:Name="SidebarSplitter" HorizontalAlignment="Right" />
+                <controls:PaneSplitter
+                    x:Name="RightSplitter"
+                    Grid.Column="2"
+                    HorizontalAlignment="Left"
+                    Visibility="Collapsed" />
             </Grid>
 
-            <controls:QueuePanel
-                x:Name="QueuePane"
-                Grid.Column="2"
-                Visibility="Collapsed" />
-
-            <!-- Settings, next to the page in the queue's place (see ShowSettings). -->
-            <controls:SettingsPane
-                x:Name="SettingsPane"
-                Grid.Column="2"
-                Visibility="Collapsed" />
-
-            <!-- Lyrics, a built-in plugin, in the same place (see MainWindow.Lyrics.cs). -->
-            <controls:LyricsPane
-                x:Name="LyricsPane"
-                Grid.Column="2"
-                Visibility="Collapsed" />
-
-            <!--
-              The player, or the classic player in its place (added in code,
-              see MainWindow.ClassicPlayer.cs). It stays in this slot whatever
-              the layout; only where the slot sits changes (see
-              MainWindow.PlayerPlacement.cs). The slot has no background, so
-              clicks beside a hovering player reach the page.
-            -->
-            <Grid
-                x:Name="PlayerSlot"
-                Grid.Row="1"
-                Grid.ColumnSpan="99"
-                SizeChanged="OnPlayerSlotSizeChanged">
-                <controls:PlayerBar x:Name="PlayerBar" />
-            </Grid>
-
-            <!-- Grips in the gaps between the panels, above them (placed by PlaceSplitters). -->
-            <controls:PaneSplitter x:Name="SidebarSplitter" HorizontalAlignment="Right" />
-            <controls:PaneSplitter
-                x:Name="RightSplitter"
-                Grid.Column="2"
-                HorizontalAlignment="Left"
-                Visibility="Collapsed" />
-        </Grid>
-
-        <!-- First run: connect to Spotify -->
-        <Frame
-            x:Name="SignInFrame"
-            Grid.Row="1"
-            Visibility="Collapsed" />
+            <!-- First run: connect to Spotify -->
+            <Frame x:Name="SignInFrame" Visibility="Collapsed" />
+        </controls:ScaleBox>
     </Grid>
 </Window>

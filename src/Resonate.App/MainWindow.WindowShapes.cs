@@ -119,7 +119,7 @@ public sealed partial class MainWindow
             ResizeWindow(WindowShapes.PickedSize(WindowShape.Full, ScreenSize(), _fullSize));
         }
 
-        SetShapeMinimumSize(MinimumWidth, MinimumHeight);
+        UpdateMinimumSize(grow: false);
     }
 
     // ---- When the shape changes ----
@@ -393,8 +393,8 @@ public sealed partial class MainWindow
         RootGrid.RowDefinitions[0].Height = new GridLength(0);
 
         // The strip's own buttons take the place of the caption buttons.
-        _presenter.SetBorderAndTitleBar(true, false);
-        _presenter.IsAlwaysOnTop = _services.Settings.WindowShapesPinned;
+        _presenter?.SetBorderAndTitleBar(true, false);
+        _presenter?.IsAlwaysOnTop = _services.Settings.WindowShapesPinned;
 
         _stripControls = BuildStripControls();
         PlayerSlot.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -416,8 +416,8 @@ public sealed partial class MainWindow
         }
 
         RootGrid.RowDefinitions[0].Height = _titleRowHeight;
-        _presenter.IsAlwaysOnTop = false;
-        _presenter.SetBorderAndTitleBar(true, true);
+        _presenter?.IsAlwaysOnTop = false;
+        _presenter?.SetBorderAndTitleBar(true, true);
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         ApplyCaptionButtonColors();
@@ -437,7 +437,7 @@ public sealed partial class MainWindow
         {
             _services.Settings.WindowShapesPinned = !_services.Settings.WindowShapesPinned;
             _services.SaveSettings();
-            _presenter.IsAlwaysOnTop = _services.Settings.WindowShapesPinned;
+            _presenter?.IsAlwaysOnTop = _services.Settings.WindowShapesPinned;
             ShowPin();
         };
         ShowPin();
@@ -674,6 +674,11 @@ public sealed partial class MainWindow
     /// <summary>How small the window may be made, in device-independent pixels.</summary>
     private void SetShapeMinimumSize(double width, double height)
     {
+        if (_presenter is null)
+        {
+            return;
+        }
+
         var scale = GetDpiForWindow(Hwnd) / 96.0;
         _presenter.PreferredMinimumWidth = (int)Math.Round(width * scale);
         _presenter.PreferredMinimumHeight = (int)Math.Round(height * scale);

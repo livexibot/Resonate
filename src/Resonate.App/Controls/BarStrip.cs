@@ -111,7 +111,7 @@ public sealed partial class BarStrip : Grid
         var empty = theme.GetBrush("ResonateTrackBrush");
         var clear = theme.GetBrush("ResonateTransparentBrush");
         var strong = theme.GetBrush("ResonateTextPrimaryBrush");
-        var caption = Application.Current.Resources.TryGetValue("ResonateCaptionTextStyle", out var found) && found is Style style ? style : null;
+        var caption = Application.Current.Resources.TryGetValue("ResonateChartLabelTextStyle", out var found) && found is Style style ? style : null;
 
         _bars.Clear();
         Children.Clear();
@@ -157,7 +157,6 @@ public sealed partial class BarStrip : Grid
                 var text = new TextBlock
                 {
                     Text = label,
-                    FontSize = 11,
                     HorizontalAlignment = series.LabelSpan == 1 ? HorizontalAlignment.Center : ending ? HorizontalAlignment.Right : HorizontalAlignment.Left,
                     TextTrimming = TextTrimming.None,
                 };

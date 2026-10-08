@@ -13,7 +13,7 @@
     <UserControl.Resources>
         <Style x:Key="StudioSectionTextStyle" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{ThemeResource ResonateTextFont}" />
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="{ThemeResource ResonateFontSize12}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="CharacterSpacing" Value="60" />
             <Setter Property="Foreground" Value="{StaticResource ResonateTextSecondaryBrush}" />
@@ -21,7 +21,7 @@
         </Style>
         <Style x:Key="StudioValueTextStyle" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{ThemeResource ResonateTextFont}" />
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{ThemeResource ResonateFontSize13}" />
             <Setter Property="Foreground" Value="{StaticResource ResonateTextSecondaryBrush}" />
             <Setter Property="MinWidth" Value="44" />
             <Setter Property="TextAlignment" Value="Right" />
@@ -133,6 +133,25 @@
                     OffContent=""
                     OnContent=""
                     Toggled="OnSidebarFullHeightToggled" />
+            </controls:SettingRow>
+        </StackPanel>
+
+        <!-- Size: the user's own, kept whatever look is in use (not part of a look); steps from AppScale -->
+        <StackPanel Spacing="6">
+            <TextBlock Style="{StaticResource StudioSectionTextStyle}" Text="SIZE" />
+            <controls:SettingRow Description="Everything in the window. Ctrl+Plus, Ctrl+Minus and Ctrl+0 work too." Header="App size">
+                <ComboBox
+                    x:Name="AppSizeChoice"
+                    MinWidth="100"
+                    AutomationProperties.Name="App size"
+                    SelectionChanged="OnAppSizeChanged" />
+            </controls:SettingRow>
+            <controls:SettingRow Description="Text only, everything else keeps its size." Header="Text size">
+                <ComboBox
+                    x:Name="TextSizeChoice"
+                    MinWidth="100"
+                    AutomationProperties.Name="Text size"
+                    SelectionChanged="OnTextSizeChanged" />
             </controls:SettingRow>
         </StackPanel>
 
