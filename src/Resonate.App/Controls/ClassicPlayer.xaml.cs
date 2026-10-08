@@ -592,7 +592,7 @@ public sealed partial class ClassicPlayer : UserControl
         if (wanted != _wanted)
         {
             _wanted = wanted;
-            feed.Wanted = wanted;
+            feed.SetWanted(this, wanted);
         }
 
         // Keyed on the song, not on whether sound flows: a paused local file keeps its last picture.

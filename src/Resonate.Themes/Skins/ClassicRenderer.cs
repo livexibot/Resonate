@@ -201,9 +201,6 @@ public static class ClassicRenderer
             case ClassicControl.ClutterOptions:
                 target.Draw(skin, SkinSprites.ClutterOptionsLit, ClutterOptions.X, ClutterOptions.Y);
                 break;
-            case ClassicControl.ClutterAlwaysOnTop:
-                target.Draw(skin, SkinSprites.ClutterAlwaysOnTopLit, ClutterAlwaysOnTop.X, ClutterAlwaysOnTop.Y);
-                break;
             case ClassicControl.ClutterInfo:
                 target.Draw(skin, SkinSprites.ClutterInfoLit, ClutterInfo.X, ClutterInfo.Y);
                 break;
@@ -214,7 +211,12 @@ public static class ClassicRenderer
                 break;
         }
 
-        // D stays lit while the window is doubled, as well as while it is held.
+        // A and D stay lit while they are on, as well as while they are held.
+        if (view.AlwaysOnTop || view.Pressed == ClassicControl.ClutterAlwaysOnTop)
+        {
+            target.Draw(skin, SkinSprites.ClutterAlwaysOnTopLit, ClutterAlwaysOnTop.X, ClutterAlwaysOnTop.Y);
+        }
+
         if (view.DoubleSize || view.Pressed == ClassicControl.ClutterDoubleSize)
         {
             target.Draw(skin, SkinSprites.ClutterDoubleSizeLit, ClutterDoubleSize.X, ClutterDoubleSize.Y);
