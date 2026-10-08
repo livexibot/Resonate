@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/livexibot/Resonate/compare/v0.8.0...v0.9.0) (2026-10-08)
+
+
+### New features
+
+* the 8 October bundle tried on the owner's PC ([#41](https://github.com/livexibot/Resonate/issues/41)) ([4463d4e](https://github.com/livexibot/Resonate/commit/4463d4e8d346b72ca327b4353d9e359fb3e611fe))
+
 ## [0.8.0](https://github.com/livexibot/Resonate/compare/v0.7.0...v0.8.0) (2026-10-08)
 
 
