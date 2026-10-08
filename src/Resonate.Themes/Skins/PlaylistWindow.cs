@@ -86,7 +86,7 @@ public static class PlaylistLayout
     internal const int TileHeight = 29;
     internal const int ScrollX = 260;
     internal const int ScrollHandleWidth = 8;
-    internal const int ScrollHandleHeight = 18;
+    public const int ScrollHandleHeight = 18;
     internal const int GripSize = 20;
     internal const int ShadeTimeRight = 30;
 
@@ -163,7 +163,7 @@ public static class PlaylistLayout
     }
 
     /// <summary>The scroll handle's top for a scroll of 0 to 1.</summary>
-    internal static int ScrollHandleTop(int height, double scroll)
+    public static int ScrollHandleTop(int height, double scroll)
     {
         var travel = Math.Max(ListArea(height).Height - ScrollHandleHeight, 0);
         return TitleHeight + ClassicLayout.RoundHalfUp(Math.Clamp(double.IsFinite(scroll) ? scroll : 0, 0, 1) * travel);

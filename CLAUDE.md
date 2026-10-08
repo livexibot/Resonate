@@ -43,6 +43,12 @@ visitors; keep it short and in step with this file.
   downloaded `.wsz` skin imports, that the visualiser moves for Local
   Files, and the cost of the spinning cover and Liquid Glass's drift on
   their 165 Hz display.
+- The mini player (8 October 2026, the owner asked for a Winamp player
+  "like Spotifast does") is described under "Classic player and cover
+  art". On the owner's PC, check that it moves and snaps smoothly, stays
+  on top, stays sharp at 1x to 4x and when moved to another display, that
+  its keys work once clicked, and that Ctrl+M and its close button bring
+  the full window back where it was.
 - The theme upgrades (8 October 2026: a hovering player, a sidebar that
   reaches the bottom, smoother and longer look-switching animations, a
   bolder look and a livelier Home) are described under "Look, layouts and
@@ -405,6 +411,39 @@ Classic player and cover art (checked 2026-10-08):
   the GPU, so nothing is blurred per frame. Real covers are never decoded
   in CI (demo covers are made-up gradients), so check Liquid Glass with
   real, dark covers on the owner's PC.
+- The mini player (`MiniPlayerWindow`, Ctrl+M, the button beside the
+  window's caption buttons, the classic player's menu, or Settings) follows
+  Spotifast's: the full window hides (`AppWindow.Hide`, so everything there
+  rests) and a borderless window of its own (`OverlappedPresenter` without
+  border or title bar, square corners through DWM) shows the classic player
+  with Winamp's equalizer (`eqmain.bmp`, `eq_ex.bmp`) and playlist
+  (`pledit.bmp`) windows docked under it, opened by its EQ and PL buttons.
+  The cover stays beside the main window (cover, song and artist always
+  visible), so the windows under it are indented by the cover's width and
+  the strip below the cover is black. Sizes are 1x to 4x of the display
+  scale, whole screen pixels per skin pixel, and the window is sized to the
+  pixel (`ClassicStack.Arrange`; CI's tour checks it). It moves by any part
+  that is not a control (`GetCursorPos` and `AppWindow.Move`, not the
+  caption drag, so double-clicks still roll windows up), snaps to the
+  screen's edges within 10 px (`WindowSnap`), and opens where it was left
+  (`MiniPlayerPlace`). The clutter bar's A is always on top (on at first),
+  D is 2x. Close, the logo, Esc, Ctrl+M, Alt+F4 and anything that needs the
+  full window (search, a page, Settings, a new playlist) go back to it;
+  "Exit Resonate" in its menu quits. Keys: Z X C V B, space, arrows.
+  Options live in `SkinLibrary` (`Mini*`, raising `MiniOptionsChanged`).
+- Winamp's ten EQ sliders drive Spotify's six bands (60 Hz, 150, 400, 1 k,
+  2.4 k, 15 k): each slider moves the nearest band, so sliders that share
+  one move together (`EqualizerSliders`). The preamp shows Resonate's
+  automatic preamp and cannot be dragged; AUTO lays the bands flat (a
+  default chosen here, Spotifast-like); PRESETS lists Spotify's presets and
+  "Restart Spotify to hear it" when a change waits for Spotify. The
+  playlist window is the queue (the song playing first, as the queue pane
+  reads it), drawn in the skin's `pledit.txt` font and colours as XAML text
+  over the skin's frame; it can only be read and added to, so REM and SEL
+  do nothing, ADD opens Search, and a song's menu is on right-click. A
+  closed EQ or playlist window leaves the tree, so it reads nothing.
+  Dropping a `.wsz` on either player adds and uses it (`SkinDrop`, by path
+  only, no casts).
 
 Look, layouts and switching (checked 2026-10-08; the owner asked for a
 more modern look without bloat, a centred hovering player, a sidebar that
@@ -822,7 +861,9 @@ Keep it obvious what is what:
   switching, `Controls/ThemeStudio` is the Look section of Settings,
   `MainWindow.PlayerPlacement.cs` places the player), and
   the classic player (`Controls/ClassicPlayer`, its Settings section
-  `Controls/ClassicPlayerPanel`, and `Services/SkinLibrary.cs`). Both
+  `Controls/ClassicPlayerPanel`, and `Services/SkinLibrary.cs`) and the
+  mini player (`MiniPlayerWindow.cs`, `MainWindow.MiniPlayer.cs`, with
+  `Controls/ClassicEqualizer.cs` and `Controls/ClassicPlaylist.cs`). Both
   players share the plugin button (`Controls/PluginMenu.cs`).
 - `src/Resonate.Spotify/` everything about Spotify that is not Windows:
   sign-in, the Web API client, the library, the player logic, listening
@@ -836,7 +877,9 @@ Keep it obvious what is what:
   (`ThemeTransitionCatalog`) and the player's placement
   (`PlayerPlacement`); and the classic player's skins (`Skins/`): reading `.wsz`
   files safely, the built-in skin, drawing and hit-testing the main
-  window, and the visualiser's analyser. Any OS, tested.
+  window, the equalizer and playlist windows (`EqualizerWindow.cs`,
+  `PlaylistWindow.cs`) and how the mini player stacks them
+  (`ClassicStack.cs`), and the visualiser's analyser. Any OS, tested.
 - `src/Resonate.Windows/` the Windows side of the player: the media
   session, the mixer volume, starting and restarting Spotify, the local
   files player (`LocalAudio/`), the Credential Manager.
@@ -903,8 +946,9 @@ when the work first needs them, then tick them off here.
 - Keyboard shortcuts for everything, and a command palette.
 - A mini player, a Now Playing view, and tray and taskbar-thumbnail
   controls. (The sleep timer is a plugin. Lyrics are declined, below.)
-- The classic player's own equalizer and playlist windows. For now its EQ
-  button opens Settings at the equalizer and PL opens the queue.
+- Equalizer and playlist windows for the classic player in the full window
+  too. For now only the mini player has them; in the full window EQ opens
+  Settings at the equalizer and PL opens the queue.
 - Queue editing (Spotify's queue can only be read and added to).
 
 ## Decisions and open questions

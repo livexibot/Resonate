@@ -7,7 +7,7 @@ namespace Resonate.App.Controls;
 
 /// <summary>
 /// Settings, Classic player: use it or the player bar, pick, add and remove
-/// skins, double size and the visualiser. Opening Settings does no skin work:
+/// skins, double size, the mini player and the visualiser. Opening Settings does no skin work:
 /// only the skins folder is listed, in the background.
 /// </summary>
 public sealed partial class ClassicPlayerPanel : UserControl
@@ -31,6 +31,7 @@ public sealed partial class ClassicPlayerPanel : UserControl
     {
         _skins.Changed += OnSkinsChanged;
         _skins.OptionsChanged += OnOptionsChanged;
+        _skins.MiniOptionsChanged += OnOptionsChanged;
         AddSkinButton.IsEnabled = !App.Services.IsDemo;
         ShowOptions();
         ShowSkins();
@@ -41,6 +42,7 @@ public sealed partial class ClassicPlayerPanel : UserControl
     {
         _skins.Changed -= OnSkinsChanged;
         _skins.OptionsChanged -= OnOptionsChanged;
+        _skins.MiniOptionsChanged -= OnOptionsChanged;
     }
 
     private void OnSkinsChanged(object? sender, EventArgs e) => ShowSkins();
@@ -54,6 +56,8 @@ public sealed partial class ClassicPlayerPanel : UserControl
         {
             UseSwitch.IsOn = _skins.UsesClassicPlayer;
             DoubleSizeSwitch.IsOn = _skins.DoubleSize;
+            MiniSizeChoice.SelectedIndex = _skins.MiniSize - 1;
+            MiniOnTopSwitch.IsOn = _skins.MiniOnTop;
             VisualiserChoice.SelectedIndex = _skins.Visualiser switch
             {
                 VisualiserMode.Oscilloscope => 1,
@@ -121,6 +125,24 @@ public sealed partial class ClassicPlayerPanel : UserControl
         if (!_loading)
         {
             _skins.DoubleSize = DoubleSizeSwitch.IsOn;
+        }
+    }
+
+    private void OnMiniPlayerClick(object sender, RoutedEventArgs e) => App.MainWindow?.ShowMiniPlayer();
+
+    private void OnMiniSizeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_loading && MiniSizeChoice.SelectedIndex >= 0)
+        {
+            _skins.MiniSize = MiniSizeChoice.SelectedIndex + 1;
+        }
+    }
+
+    private void OnMiniOnTopToggled(object sender, RoutedEventArgs e)
+    {
+        if (!_loading)
+        {
+            _skins.MiniOnTop = MiniOnTopSwitch.IsOn;
         }
     }
 

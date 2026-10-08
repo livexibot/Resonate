@@ -100,7 +100,7 @@ public static class EqualizerLayout
     public const double RangeDb = 12;
 
     /// <summary>A slider's thumb is 11 pixels tall in a track of 63.</summary>
-    internal const int ThumbSize = 11;
+    public const int ThumbSize = 11;
     internal const int SliderTravel = 63 - ThumbSize;
     internal const int SliderTop = 38;
 
