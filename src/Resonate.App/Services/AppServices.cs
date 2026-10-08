@@ -69,6 +69,8 @@ public sealed class AppServices : IDisposable
         player.Spotify.Channel = settings.ParsedControlChannel;
         player.Spotify.PreferredDeviceName = settings.WebApiDeviceName;
         spotifyWindow.Enabled = UsesSpotifyApp;
+        SpotifyApp = new SpotifyAppKeeper(launcher, spotifyWindow, () => player.Spotify.Channel);
+        _owned.Add(SpotifyApp);
         spotifyWindow.KeepHidden = settings.KeepSpotifyHidden;
         spotifyWindow.SaveResources = settings.SaveSpotifyResources;
         LocalFiles = localFiles;
@@ -105,10 +107,14 @@ public sealed class AppServices : IDisposable
     /// <summary>The Spotify app's window: hidden in the background, shown on request.</summary>
     public ISpotifyAppWindow SpotifyWindow { get; }
 
+    /// <summary>Starts the Spotify app hidden, or closes it with "Spotify Web API only".</summary>
+    public SpotifyAppKeeper SpotifyApp { get; }
+
     /// <summary>
     /// Whether Resonate works with the Spotify app on this computer (Windows'
     /// media controls, the default). False with "Spotify Web API only": then
-    /// Resonate never starts, hides, reads or restarts the Spotify app.
+    /// Resonate closes the Spotify app (see <see cref="SpotifyApp"/>) and
+    /// otherwise never starts, hides, reads or restarts it.
     /// </summary>
     public bool UsesSpotifyApp => Player.Spotify.Channel == ControlChannel.Local;
 
@@ -282,8 +288,9 @@ public sealed class AppServices : IDisposable
     /// <summary>
     /// Switches how Resonate talks to Spotify, at once and without a
     /// restart: the player starts or stops listening to Spotify's media
-    /// session, the Spotify app's window is looked after or given back, and
-    /// the equalizer follows.
+    /// session, and the equalizer follows. The Spotify app is started or
+    /// closed by whoever handles <see cref="ControlChannelChanged"/>
+    /// (through <see cref="SpotifyApp"/>, so it can say when that failed).
     /// </summary>
     public void SetControlChannel(ControlChannel channel)
     {
@@ -295,7 +302,6 @@ public sealed class AppServices : IDisposable
         Settings.ControlChannel = channel == ControlChannel.WebApi ? "webapi" : "local";
         SaveSettings();
         Player.Spotify.Channel = channel;
-        SpotifyWindow.Enabled = UsesSpotifyApp;
         Equalizer.OnChannelChanged();
         ControlChannelChanged?.Invoke(this, EventArgs.Empty);
     }

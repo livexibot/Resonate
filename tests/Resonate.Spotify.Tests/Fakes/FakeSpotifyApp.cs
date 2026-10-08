@@ -34,9 +34,17 @@ internal sealed class FakeSpotifyApp : ISpotifyAppLauncher, ISpotifyAppRestarter
 
     public List<string> Events { get; } = [];
 
+    /// <summary>Whether Spotify is installed, so it can be started.</summary>
+    public bool Installed { get; set; } = true;
+
     public Task<SpotifyAppStatus> EnsureRunningAsync(CancellationToken cancellationToken)
     {
         EnsureRunningCalls++;
+        if (!Installed)
+        {
+            return Task.FromResult(SpotifyAppStatus.NotInstalled);
+        }
+
         if (_running)
         {
             return Task.FromResult(SpotifyAppStatus.Running);
@@ -44,6 +52,28 @@ internal sealed class FakeSpotifyApp : ISpotifyAppLauncher, ISpotifyAppRestarter
 
         Start();
         return Task.FromResult(SpotifyAppStatus.Started);
+    }
+
+    /// <summary>How often Resonate asked for Spotify to be closed.</summary>
+    public int CloseCalls { get; private set; }
+
+    public Task<bool> CloseAsync(CancellationToken cancellationToken)
+    {
+        CloseCalls++;
+        if (!_running)
+        {
+            return Task.FromResult(true);
+        }
+
+        if (!Closes)
+        {
+            Events.Add("refused to close");
+            return Task.FromResult(false);
+        }
+
+        _running = false;
+        Events.Add("closed");
+        return Task.FromResult(true);
     }
 
     public Task<SpotifyRestartStatus> RestartAsync(Action whileClosed, CancellationToken cancellationToken)

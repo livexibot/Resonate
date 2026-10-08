@@ -7,8 +7,8 @@ namespace Resonate.Windows;
 
 /// <summary>
 /// Finds the Spotify desktop app (installer or Microsoft Store version),
-/// starts it in the background when it is not running, and restarts it for
-/// settings it only reads when it starts.
+/// starts it in the background when it is not running, closes it, and
+/// restarts it for settings it only reads when it starts.
 /// </summary>
 public sealed class SpotifyAppLauncher : ISpotifyAppLauncher, ISpotifyAppRestarter, IDisposable
 {
@@ -90,7 +90,7 @@ public sealed class SpotifyAppLauncher : ISpotifyAppLauncher, ISpotifyAppRestart
         await _launching.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (!await CloseAsync(cancellationToken).ConfigureAwait(false))
+            if (!await CloseLockedAsync(cancellationToken).ConfigureAwait(false))
             {
                 return SpotifyRestartStatus.CouldNotClose;
             }
@@ -102,6 +102,19 @@ public sealed class SpotifyAppLauncher : ISpotifyAppLauncher, ISpotifyAppRestart
                 SpotifyAppStatus.NotInstalled => SpotifyRestartStatus.NotInstalled,
                 _ => SpotifyRestartStatus.CouldNotStart,
             };
+        }
+        finally
+        {
+            _launching.Release();
+        }
+    }
+
+    public async Task<bool> CloseAsync(CancellationToken cancellationToken)
+    {
+        await _launching.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await CloseLockedAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -214,9 +227,10 @@ public sealed class SpotifyAppLauncher : ISpotifyAppLauncher, ISpotifyAppRestart
     /// Asks Spotify to close, as its window's close button would, and ends
     /// its processes if they are still there after a few seconds (for example
     /// when Spotify is set to minimise to the tray when closed). True once
-    /// every Spotify process of this Windows session is gone.
+    /// every Spotify process of this Windows session is gone. Only while
+    /// holding <see cref="_launching"/>.
     /// </summary>
-    private static async Task<bool> CloseAsync(CancellationToken cancellationToken)
+    private static async Task<bool> CloseLockedAsync(CancellationToken cancellationToken)
     {
         var running = SessionProcessIds();
         if (running.Count == 0)

@@ -185,20 +185,33 @@ Windows:
   Web API and the player polls `/me/player` (every 2 s while playing, 6 s
   paused, and 0.7 s after each command) instead of using the media session
   and the mixer. Mind the development-mode quota. The owner asked
-  (8 October 2026) that this mode never touch the Spotify app: Resonate
-  then does not start, hide, slow down or restart it, does not listen to
-  its media session, read its mixer volume or write its settings file
-  (the equalizer waits and reaches local files only), and "Open in
-  Spotify" opens open.spotify.com. Music plays on whatever Spotify Connect
-  device Spotify lists: the one already playing, else the one picked last
-  with the player bar's devices button, else this PC's Spotify if it is
-  online, else the only device; with several unknown devices it does not
-  guess (`WebDeviceResolver`). A skip or seek with nothing active wakes
-  that device first. Switching modes takes effect at once, without a
-  restart. Still needs a Spotify device: something must play the music,
-  Lossless depends on that device, DJ only starts in a Spotify app, and
-  media keys come from Spotify's own media session. Measure: switching
-  modes while music plays, and playing with the desktop app closed.
+  (8 October 2026) that this mode close the Spotify app: `SpotifyAppKeeper`
+  closes it when the mode is switched on and when Resonate starts in it
+  (asking first, ending it after 6 s, like the equalizer's restart; its
+  window stays hidden meanwhile so it does not flash onto the taskbar), and
+  switching back to Windows media controls starts it hidden at once.
+  Otherwise the mode leaves the app alone: Resonate does not start, hide,
+  slow down or restart it, does not listen to its media session, read its
+  mixer volume or write its settings file (the equalizer waits and reaches
+  local files only), and "Open in Spotify" opens open.spotify.com. A
+  Spotify the user opens again is not closed. Music plays on whatever
+  Spotify Connect device Spotify lists: the one already playing, else the
+  one picked last with the player bar's devices button, else this PC's
+  Spotify if the user opened it again, else the only device; with several
+  unknown devices it does not guess (`WebDeviceResolver`). A skip or seek
+  with nothing active wakes that device first. Switching modes takes
+  effect at once, without a restart. So nothing on this PC plays Spotify's
+  songs in this mode: the Web API only sends commands, something must
+  play the music, Lossless depends on that device, DJ only starts in a
+  Spotify app, and media keys come from Spotify's own media session. This
+  is why the owner heard nothing in Web API only (since v0.5.0 it never
+  started Spotify). Spotifast has sound there because it bundles
+  librespot, signed in with Spotify's own desktop client ID
+  (`65b708073fc0480ea92a077233ca87bd`), at most 320 kbps; that works
+  around Spotify's copy protection and stays out (hard rules). Spotify's
+  Web Playback SDK needs Widevine, which fails in embedded browsers
+  (Electron reports), so it is no way out either. Measure: switching
+  modes while music plays, and that Spotify closes.
 - The system media controls (SMTC) can play, pause, skip, seek (when the app
   allows it) and report the song, cover and timeline. They have no volume.
   Resonate uses Spotify's per-app volume in the Windows mixer (Core Audio),
@@ -972,6 +985,14 @@ when the work first needs them, then tick them off here.
   playback and change the volume, each only with its permission, and
   Resonate rate-limits all of it. No network, file or Spotify Web API
   access for plugins yet; adding any is a decision for the owner.
+- Decided (8 October 2026): "Spotify Web API only" closes the Spotify
+  app and plays on the user's other Spotify devices; Windows media
+  controls is the mode with Lossless sound on this PC. The owner then
+  asked for Resonate's own Spotify player in that mode, like Spotifast's;
+  Claude declined (it means librespot with Spotify's own client ID, which
+  works around Spotify's copy protection, see the hard rules) and offered
+  a "hidden engine" instead: Spotify running invisibly only while
+  Resonate is open. Open: the owner's answer to that offer.
 - Decided (8 October 2026, the owner's requests): Settings opens in a
   pane on the right of the window beside the page, not in place of it.
   It shares the queue's column and grip (`MainWindow.LayOutPanes`; its
