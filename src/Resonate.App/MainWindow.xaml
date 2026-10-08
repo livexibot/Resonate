@@ -164,6 +164,7 @@
                     Grid.Row="1"
                     CornerRadius="{ThemeResource ResonateCornerLarge}" />
                 <controls:Elevation
+                    x:Name="ContentElevation"
                     Grid.Row="1"
                     Grid.Column="1"
                     CornerRadius="{ThemeResource ResonateCornerLarge}" />

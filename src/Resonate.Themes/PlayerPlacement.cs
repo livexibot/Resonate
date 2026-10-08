@@ -122,10 +122,22 @@ public static class PlayerPlacement
     public static bool IsAtTop(PlayerLayout layout) => layout is PlayerLayout.Top or PlayerLayout.FloatingTop;
 
     /// <summary>Whether the player hovers over the page (in the middle or in its corner), which scrolls on under it.</summary>
-    public static bool HoversOverPage(PlayerLayout layout) => layout is PlayerLayout.Hovering or PlayerLayout.Corner;
+    public static bool HoversOverPage(PlayerLayout layout) => layout is PlayerLayout.Hovering or PlayerLayout.Corner or PlayerLayout.HoveringTop or PlayerLayout.CornerLeft;
+
+    /// <summary>Whether the player is a column beside the page (left or right) rather than a bar.</summary>
+    public static bool IsSide(PlayerLayout layout) => layout is PlayerLayout.Left or PlayerLayout.Right or PlayerLayout.InsetLeft or PlayerLayout.InsetRight;
+
+    /// <summary>Whether a side column is on the left of the page.</summary>
+    public static bool IsLeftSide(PlayerLayout layout) => layout is PlayerLayout.Left or PlayerLayout.InsetLeft;
+
+    /// <summary>Whether a hovering player keeps to the top of the page instead of the bottom.</summary>
+    public static bool HoversAtTop(PlayerLayout layout) => layout == PlayerLayout.HoveringTop;
+
+    /// <summary>A column beside the page: wide enough for the mini bar.</summary>
+    public const double SideWidth = 360;
 
     /// <summary>Whether the player is a card of its own (corners, outline all round and the look's shadow) rather than a bar along an edge.</summary>
-    public static bool Floats(PlayerLayout layout) => layout is not (PlayerLayout.Docked or PlayerLayout.Top);
+    public static bool Floats(PlayerLayout layout) => layout is not (PlayerLayout.Docked or PlayerLayout.Top or PlayerLayout.Left or PlayerLayout.Right);
 
     /// <summary>
     /// Which version of the player bar fits <paramref name="width"/> (its
@@ -151,7 +163,8 @@ public static class PlayerPlacement
 
             // Right under the title bar, where the panels start otherwise; the slot keeps the gap below it.
             PlayerLayout.FloatingTop => new EdgeInsets(Math.Max(gap, FloatingGap), 0, Math.Max(gap, FloatingGap), 0),
-            PlayerLayout.Hovering or PlayerLayout.Corner => Around(Math.Max(gap, HoveringGap)),
+            PlayerLayout.Hovering or PlayerLayout.Corner or PlayerLayout.CornerLeft => Around(Math.Max(gap, HoveringGap)),
+            PlayerLayout.HoveringTop => new EdgeInsets(Math.Max(gap, HoveringGap), Math.Max(gap, HoveringGap), Math.Max(gap, HoveringGap), 0),
             _ => EdgeInsets.Zero,
         };
 
@@ -166,8 +179,8 @@ public static class PlayerPlacement
     /// </summary>
     public static EdgeInsets Outline(PlayerLayout layout, double borderWidth) => layout switch
     {
-        PlayerLayout.Floating or PlayerLayout.FloatingTop => EdgeInsets.All(borderWidth),
-        PlayerLayout.Hovering or PlayerLayout.Corner => EdgeInsets.All(Math.Max(borderWidth, 1)),
+        PlayerLayout.Floating or PlayerLayout.FloatingTop or PlayerLayout.Left or PlayerLayout.Right or PlayerLayout.InsetLeft or PlayerLayout.InsetRight => EdgeInsets.All(borderWidth),
+        PlayerLayout.Hovering or PlayerLayout.Corner or PlayerLayout.HoveringTop or PlayerLayout.CornerLeft => EdgeInsets.All(Math.Max(borderWidth, 1)),
         PlayerLayout.Top => new EdgeInsets(0, 0, 0, borderWidth),
         _ => new EdgeInsets(0, borderWidth, 0, 0),
     };
@@ -180,17 +193,18 @@ public static class PlayerPlacement
     /// </summary>
     public static double Corner(PlayerLayout layout, ButtonShape buttons, double cornerLarge, double height) => layout switch
     {
-        PlayerLayout.Floating or PlayerLayout.FloatingTop => Math.Min(Math.Max(cornerLarge, 4), height / 2),
-        PlayerLayout.Hovering or PlayerLayout.Corner when buttons == ButtonShape.Round => height / 2,
-        PlayerLayout.Hovering or PlayerLayout.Corner => Math.Min(Math.Min(cornerLarge * 1.5, HoveringCornerLimit), height / 2),
+        PlayerLayout.Floating or PlayerLayout.FloatingTop or PlayerLayout.Left or PlayerLayout.Right or PlayerLayout.InsetLeft or PlayerLayout.InsetRight
+            => Math.Min(Math.Max(cornerLarge, 4), height / 2),
+        PlayerLayout.Hovering or PlayerLayout.Corner or PlayerLayout.HoveringTop or PlayerLayout.CornerLeft when buttons == ButtonShape.Round => height / 2,
+        PlayerLayout.Hovering or PlayerLayout.Corner or PlayerLayout.HoveringTop or PlayerLayout.CornerLeft => Math.Min(Math.Min(cornerLarge * 1.5, HoveringCornerLimit), height / 2),
         _ => 0,
     };
 
     /// <summary>How wide the player may grow: a hovering player stays a centred pill, one in the corner a small one.</summary>
     public static double MaxWidth(PlayerLayout layout) => layout switch
     {
-        PlayerLayout.Hovering => HoveringMaxWidth,
-        PlayerLayout.Corner => CornerWidth,
+        PlayerLayout.Hovering or PlayerLayout.HoveringTop => HoveringMaxWidth,
+        PlayerLayout.Corner or PlayerLayout.CornerLeft => CornerWidth,
         _ => double.PositiveInfinity,
     };
 
@@ -249,5 +263,5 @@ public static class PlayerPlacement
     /// other layouts, which never cover the page).
     /// </summary>
     public static double PageInset(PlayerLayout layout, double slotHeight) =>
-        HoversOverPage(layout) && slotHeight > 0 ? Math.Ceiling(slotHeight) + HoverClearance : 0;
+        HoversOverPage(layout) && !HoversAtTop(layout) && slotHeight > 0 ? Math.Ceiling(slotHeight) + HoverClearance : 0;
 }

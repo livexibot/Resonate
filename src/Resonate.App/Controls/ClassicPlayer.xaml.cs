@@ -898,8 +898,9 @@ public sealed partial class ClassicPlayer : UserControl
             ? HorizontalAlignment.Stretch
             : _services.Theme.Current.PlayerLayout switch
             {
-                Resonate.Themes.PlayerLayout.Hovering => HorizontalAlignment.Center,
+                Resonate.Themes.PlayerLayout.Hovering or Resonate.Themes.PlayerLayout.HoveringTop => HorizontalAlignment.Center,
                 Resonate.Themes.PlayerLayout.Corner => HorizontalAlignment.Right,
+                Resonate.Themes.PlayerLayout.CornerLeft => HorizontalAlignment.Left,
                 _ => HorizontalAlignment.Stretch,
             };
     }

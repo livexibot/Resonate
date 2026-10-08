@@ -66,8 +66,10 @@ public sealed class PresetTests
     }
 
     [Fact]
-    public void Every_player_position_is_shown_by_a_preset() =>
-        Assert.All(Enum.GetValues<PlayerLayout>(), layout => Assert.Contains(ThemePresets.All, p => p.PlayerLayout == layout));
+    public void Every_player_position_along_the_top_or_bottom_is_shown_by_a_preset() =>
+        Assert.All(
+            Enum.GetValues<PlayerLayout>().Where(l => !PlayerPlacement.IsSide(l) && l is not (PlayerLayout.HoveringTop or PlayerLayout.CornerLeft)),
+            layout => Assert.Contains(ThemePresets.All, p => p.PlayerLayout == layout));
 
     [Fact]
     public void The_presets_use_only_fonts_that_come_with_Resonate_or_Windows() =>

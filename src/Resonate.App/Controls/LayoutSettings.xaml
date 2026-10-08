@@ -13,20 +13,88 @@
         <!-- The player -->
         <controls:SettingsGroup Header="Player">
             <StackPanel Spacing="6">
-                <controls:SettingRow Description="Kept with the look." Header="Player position">
+                <controls:SettingRow Description="Kept with the look." Header="Placement">
                     <ComboBox
-                        x:Name="PlayerPositionChoice"
+                        x:Name="PlayerEdgeChoice"
                         MinWidth="170"
-                        AutomationProperties.Name="Player position"
-                        SelectionChanged="OnPlayerPositionChanged">
-                        <ComboBoxItem Content="Docked at the bottom" Tag="Docked" />
-                        <ComboBoxItem Content="Floating at the bottom" Tag="Floating" />
-                        <ComboBoxItem Content="Hovering over the page" Tag="Hovering" />
-                        <ComboBoxItem Content="In the page's corner" Tag="Corner" />
-                        <ComboBoxItem Content="Docked at the top" Tag="Top" />
-                        <ComboBoxItem Content="Floating at the top" Tag="FloatingTop" />
+                        AutomationProperties.Name="Player placement"
+                        SelectionChanged="OnPlayerLayoutChanged">
+                        <ComboBoxItem Content="Top" Tag="Top" />
+                        <ComboBoxItem Content="Bottom" Tag="Bottom" />
+                        <ComboBoxItem Content="Left" Tag="Left" />
+                        <ComboBoxItem Content="Right" Tag="Right" />
                     </ComboBox>
                 </controls:SettingRow>
+                <controls:SettingRow Description="Floating sits over the page; move it anywhere under Advanced." Header="Player type">
+                    <ComboBox
+                        x:Name="PlayerTypeChoice"
+                        MinWidth="170"
+                        AutomationProperties.Name="Player type"
+                        SelectionChanged="OnPlayerLayoutChanged">
+                        <ComboBoxItem Content="Docked" Tag="Docked" />
+                        <ComboBoxItem Content="Inset" Tag="Inset" />
+                        <ComboBoxItem Content="Floating" Tag="Floating" />
+                    </ComboBox>
+                </controls:SettingRow>
+                <Expander
+                    x:Name="PlayerAdvancedExpander"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    Header="Advanced"
+                    IsExpanded="False">
+                    <StackPanel Spacing="6">
+                        <controls:SettingRow Description="Empty for automatic." Header="Width">
+                            <NumberBox
+                                x:Name="PlayerWidthBox"
+                                MinWidth="120"
+                                AutomationProperties.Name="Player width"
+                                Maximum="4000"
+                                Minimum="200"
+                                PlaceholderText="Auto"
+                                SpinButtonPlacementMode="Compact"
+                                ValueChanged="OnPlayerAdvancedChanged" />
+                        </controls:SettingRow>
+                        <controls:SettingRow Description="Empty for automatic." Header="Height">
+                            <NumberBox
+                                x:Name="PlayerHeightBox"
+                                MinWidth="120"
+                                AutomationProperties.Name="Player height"
+                                Maximum="400"
+                                Minimum="48"
+                                PlaceholderText="Auto"
+                                SpinButtonPlacementMode="Compact"
+                                ValueChanged="OnPlayerAdvancedChanged" />
+                        </controls:SettingRow>
+                        <controls:SettingRow Description="Moves it right; negative moves it left." Header="X">
+                            <NumberBox
+                                x:Name="PlayerXBox"
+                                MinWidth="120"
+                                AutomationProperties.Name="Player X"
+                                Maximum="4000"
+                                Minimum="-4000"
+                                PlaceholderText="0"
+                                SmallChange="10"
+                                SpinButtonPlacementMode="Compact"
+                                ValueChanged="OnPlayerAdvancedChanged" />
+                        </controls:SettingRow>
+                        <controls:SettingRow Description="Moves it down; negative moves it up." Header="Y">
+                            <NumberBox
+                                x:Name="PlayerYBox"
+                                MinWidth="120"
+                                AutomationProperties.Name="Player Y"
+                                Maximum="4000"
+                                Minimum="-4000"
+                                PlaceholderText="0"
+                                SmallChange="10"
+                                SpinButtonPlacementMode="Compact"
+                                ValueChanged="OnPlayerAdvancedChanged" />
+                        </controls:SettingRow>
+                        <Button
+                            Click="OnPlayerAdvancedResetClick"
+                            Content="Reset size and position"
+                            Style="{StaticResource ResonateSubtleButtonStyle}" />
+                    </StackPanel>
+                </Expander>
                 <controls:SettingRow Description="The player sits beside it." Header="Sidebar runs full height">
                     <ToggleSwitch
                         x:Name="SidebarFullHeightSwitch"
