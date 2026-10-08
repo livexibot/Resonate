@@ -58,6 +58,11 @@ try {
         Invoke-Native 'git pull' { git pull --ff-only origin $Branch }
     }
     $commit = git log -1 --format='%h %s'
+
+    # Without "--data" the local build would use the installed copy's settings and sign-in.
+    if (-not (Select-String -Path src\Resonate.App\Program.cs -SimpleMatch '"--data"' -Quiet)) {
+        throw "This code has no --data switch, so its build would share the installed copy's settings and sign-in. Build a branch that has it."
+    }
     Write-Host "Building $commit"
 
     # Publish beside the current build, so a failed build leaves the old one usable.
