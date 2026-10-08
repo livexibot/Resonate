@@ -30,7 +30,17 @@ public static class CoverDecoder
                 transform,
                 ExifOrientationMode.RespectExifOrientation,
                 ColorManagementMode.DoNotColorManage).AsTask(cancellationToken).ConfigureAwait(false);
-            return pixels.DetachPixelData();
+            var bgra = pixels.DetachPixelData();
+
+            // Opaque: with the alpha channel ignored, its bytes are not
+            // promised to be 255, and a see-through cover would let the dark
+            // colour under the backdrop show instead.
+            for (var i = 3; i < bgra.Length; i += 4)
+            {
+                bgra[i] = 0xFF;
+            }
+
+            return bgra;
         }
         catch (Exception ex) when (ex is not (OperationCanceledException or OutOfMemoryException))
         {

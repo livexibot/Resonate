@@ -1,5 +1,6 @@
 using Resonate.Spotify.Audio;
 using Resonate.Spotify.Library;
+using Resonate.Spotify.LocalFiles;
 using Resonate.Spotify.Playback;
 using Resonate.Spotify.WebApi;
 
@@ -19,6 +20,9 @@ internal sealed class FakeLocalPlayer : ILocalPlayer
     public List<PlayRequest> Played { get; } = [];
 
     public List<TrackInfo> Queued { get; } = [];
+
+    /// <summary>The sink the visualiser handed over, or null.</summary>
+    public ILocalAudioSink? Sink { get; private set; }
 
     public PlayerState State => _state;
 
@@ -49,6 +53,8 @@ internal sealed class FakeLocalPlayer : ILocalPlayer
     public void SetEqualizer(EqualizerSettings? settings)
     {
     }
+
+    public void SetAudioSink(ILocalAudioSink? sink) => Sink = sink;
 
     public Task TogglePlayPauseAsync() => State.IsPlaying ? PauseAsync() : PlayAsync();
 

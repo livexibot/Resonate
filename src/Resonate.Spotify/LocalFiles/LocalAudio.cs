@@ -54,6 +54,13 @@ public interface ILocalAudioEngine : IDisposable
 
     /// <summary>Null, or switched off, plays the files unchanged.</summary>
     void SetEqualizer(EqualizerSettings? settings);
+
+    /// <summary>
+    /// Feeds <paramref name="sink"/> with what the engine plays, for as long
+    /// as it is set (a visualiser shows the local files player); null stops.
+    /// Engines that make no sound may feed it made-up sound, or nothing.
+    /// </summary>
+    void SetSink(ILocalAudioSink? sink);
 }
 
 /// <summary>A file the engine can not play, with a sentence that says why.</summary>

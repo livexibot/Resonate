@@ -44,7 +44,7 @@
                     ImageOpened="OnArtworkOpened"
                     Opacity="0"
                     Stretch="UniformToFill" />
-                <!-- The vinyl cover style: a groove and the spindle hole. -->
+                <!-- A record's centre (the vinyl cover style, or any cover while Spinning cover is on): a groove and the spindle hole. -->
                 <Grid x:Name="VinylCentre" Visibility="Collapsed">
                     <Ellipse
                         Width="22"

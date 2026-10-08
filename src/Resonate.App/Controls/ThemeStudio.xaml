@@ -91,6 +91,35 @@
                 SelectionMode="Single" />
         </StackPanel>
 
+        <!-- Cover art: the user's own choices, kept whatever look is in use (not part of a look) -->
+        <StackPanel Spacing="6">
+            <TextBlock Style="{StaticResource StudioSectionTextStyle}" Text="COVER ART" />
+            <controls:SettingRow Description="The cover becomes a round record in every look and turns while a song plays." Header="Spinning cover">
+                <ToggleSwitch
+                    x:Name="SpinningCoverSwitch"
+                    AutomationProperties.Name="Spinning cover"
+                    MinWidth="0"
+                    OffContent=""
+                    OnContent=""
+                    Toggled="OnSpinningCoverToggled" />
+            </controls:SettingRow>
+            <controls:SettingRow Description="Looks with the song cover as their background, like Liquid Glass, show the cover itself, blurred. When off, they use only its colours." Header="Blurred cover background">
+                <ToggleSwitch
+                    x:Name="BlurredCoverSwitch"
+                    AutomationProperties.Name="Blurred cover background"
+                    MinWidth="0"
+                    OffContent=""
+                    OnContent=""
+                    Toggled="OnBlurredCoverToggled" />
+            </controls:SettingRow>
+            <TextBlock
+                x:Name="BlurredCoverHint"
+                Margin="16,0,16,0"
+                Style="{StaticResource ResonateCaptionTextStyle}"
+                TextWrapping="Wrap"
+                Visibility="Collapsed" />
+        </StackPanel>
+
         <Expander
             x:Name="CustomizeExpander"
             HorizontalAlignment="Stretch"
@@ -152,7 +181,7 @@
                         Style="{StaticResource StudioComboStyle}">
                         <ComboBoxItem Content="Solid colour" Tag="Solid" />
                         <ComboBoxItem Content="Gradient" Tag="Gradient" />
-                        <ComboBoxItem Content="Song cover, blurred" Tag="Artwork" />
+                        <ComboBoxItem Content="Song cover" Tag="Artwork" />
                         <ComboBoxItem Content="Mica (Windows)" Tag="Mica" />
                         <ComboBoxItem Content="Acrylic (Windows)" Tag="Acrylic" />
                     </ComboBox>
@@ -323,7 +352,7 @@
                         <ComboBoxItem Content="Symbol only" Tag="Plain" />
                     </ComboBox>
                 </controls:SettingRow>
-                <controls:SettingRow Description="Vinyl turns while the song plays." Header="Cover">
+                <controls:SettingRow Description="Vinyl draws the cover as a still record. While Spinning cover is on, every cover is a turning record." Header="Cover">
                     <ComboBox
                         x:Name="CoverChoice"
                         SelectionChanged="OnChoiceChanged"

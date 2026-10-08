@@ -1,5 +1,6 @@
 using Resonate.Spotify.Audio;
 using Resonate.Spotify.Library;
+using Resonate.Spotify.LocalFiles;
 using Resonate.Spotify.WebApi;
 
 namespace Resonate.Spotify.Playback;
@@ -22,6 +23,9 @@ public interface ILocalPlayer : IPlayer, IDisposable
 
     /// <summary>Applies the equalizer to what this player plays; null or switched off plays the files unchanged.</summary>
     void SetEqualizer(EqualizerSettings? settings);
+
+    /// <summary>Lets <paramref name="sink"/> hear what this player plays (for the visualiser); null stops.</summary>
+    void SetAudioSink(ILocalAudioSink? sink);
 }
 
 /// <summary>For platforms and tests without a local files player.</summary>
@@ -48,6 +52,10 @@ public sealed class NoLocalPlayer : ILocalPlayer
     public Task AddToQueueAsync(TrackInfo track) => Task.CompletedTask;
 
     public void SetEqualizer(EqualizerSettings? settings)
+    {
+    }
+
+    public void SetAudioSink(ILocalAudioSink? sink)
     {
     }
 

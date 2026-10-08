@@ -1,4 +1,5 @@
 using System.Globalization;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
@@ -8,21 +9,26 @@ using Resonate.Spotify.Playback;
 
 namespace Resonate.App.Pages;
 
+/// <summary>A part of Settings that other places can open Settings at.</summary>
+public enum SettingsSection
+{
+    Equalizer,
+    ClassicPlayer,
+}
+
 public sealed partial class SettingsPage : Page
 {
     private readonly AppServices _services = App.Services;
+    private SettingsSection? _pendingSection;
+    private bool _animateSection;
 
     public SettingsPage()
     {
         InitializeComponent();
         PluginsHost.Children.Add(new PluginsPanel(_services.Plugins));
+        Loaded += OnLoaded;
 
         // Only while on show, so the updater never keeps a closed page alive.
-        Loaded += (_, _) =>
-        {
-            _services.Updates.ProgressChanged += OnUpdateProgressChanged;
-            ShowUpdateProgress();
-        };
         Unloaded += (_, _) => _services.Updates.ProgressChanged -= OnUpdateProgressChanged;
     }
 
@@ -40,6 +46,45 @@ public sealed partial class SettingsPage : Page
     /// <summary>Scrolls to the updates.</summary>
     internal void ShowUpdates() =>
         UpdatesSection.StartBringIntoView(new BringIntoViewOptions { VerticalAlignmentRatio = 0, AnimationDesired = false });
+
+    /// <summary>Scrolls to a section, near the top of the page (once the page is laid out, if it is still opening).</summary>
+    internal void ShowSection(SettingsSection section, bool animate = false)
+    {
+        _pendingSection = section;
+        _animateSection = animate;
+        if (IsLoaded)
+        {
+            BringSectionIntoView();
+        }
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        _services.Updates.ProgressChanged += OnUpdateProgressChanged;
+        ShowUpdateProgress();
+
+        if (_pendingSection is not null)
+        {
+            // After this turn's layout, so the sections above have their heights.
+            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, BringSectionIntoView);
+        }
+    }
+
+    private void BringSectionIntoView()
+    {
+        if (_pendingSection is not { } section)
+        {
+            return;
+        }
+
+        _pendingSection = null;
+        FrameworkElement target = section switch
+        {
+            SettingsSection.Equalizer => EqualizerSection,
+            _ => ClassicPlayerSection,
+        };
+        target.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = _animateSection, VerticalAlignmentRatio = 0.1 });
+    }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {

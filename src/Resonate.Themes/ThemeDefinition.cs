@@ -12,7 +12,11 @@ public enum WindowBackdrop
     /// <summary>A gradient from the background colour to the second background colour.</summary>
     Gradient,
 
-    /// <summary>The playing song's cover, blurred, under the background colour.</summary>
+    /// <summary>
+    /// The playing song's cover under the background colour: a soft wash of
+    /// its colours, or the cover itself, blurred, once the user allows that
+    /// (an app setting, not part of the look).
+    /// </summary>
     Artwork,
 
     /// <summary>Windows' Mica material (tinted by the desktop wallpaper).</summary>
@@ -91,7 +95,11 @@ public enum CoverStyle
     Rounded,
     Square,
 
-    /// <summary>A round cover that spins like a record while playing.</summary>
+    /// <summary>
+    /// A round cover with a record's centre. It stays still; it turns while
+    /// a song plays only when the user switches on the spinning cover (an
+    /// app setting, which makes every look's cover a record).
+    /// </summary>
     Vinyl,
 }
 

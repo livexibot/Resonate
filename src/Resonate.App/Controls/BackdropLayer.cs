@@ -15,8 +15,9 @@ namespace Resonate.App.Controls;
 
 /// <summary>
 /// What sits behind the panels: a plain colour, a gradient, the playing
-/// song's cover blurred and drifting slowly, or the Windows material (Mica
-/// or acrylic) with the theme's tint over it. Switching between them fades.
+/// song's cover drifting slowly (blurred once the user switches that on,
+/// otherwise a soft wash of its colours), or the Windows material (Mica or
+/// acrylic) with the theme's tint over it. Switching between them fades.
 /// </summary>
 internal sealed partial class BackdropLayer : Grid
 {
@@ -26,8 +27,8 @@ internal sealed partial class BackdropLayer : Grid
     private static readonly TimeSpan CoverFade = TimeSpan.FromMilliseconds(900);
     private static readonly TimeSpan DriftPeriod = TimeSpan.FromSeconds(28);
 
-    // The tiny blurred cover is stretched over the window and drawn larger
-    // than it, so the blur's soft borders never show while it drifts.
+    // The tiny blurred cover (or wash) is stretched over the window and drawn
+    // larger than it, so its soft borders never show while it drifts.
     private const float CoverZoom = 1.18f;
 
     private readonly ThemeService _theme;
