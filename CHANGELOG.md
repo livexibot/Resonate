@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.0](https://github.com/livexibot/Resonate/compare/v0.7.0...v0.8.0) (2026-10-08)
+
+
+### New features
+
+* add a visualizer to the Home stage and remove the rings from its clouds ([#37](https://github.com/livexibot/Resonate/issues/37)) ([9a2b811](https://github.com/livexibot/Resonate/commit/9a2b8114a66510dbd3e8823eb6801ce4c95906e2))
+* play Spotify on this PC in Web API only mode without the Spotify app ([#34](https://github.com/livexibot/Resonate/issues/34)) ([38feced](https://github.com/livexibot/Resonate/commit/38feceda670cef6aa367d678d2fcfb197d157368))
+* Settings in tabs, with its button at the top right ([#36](https://github.com/livexibot/Resonate/issues/36)) ([1154a02](https://github.com/livexibot/Resonate/commit/1154a0297a5820e489b8354784b082bebd82514b))
+
 ## [0.7.0](https://github.com/livexibot/Resonate/compare/v0.6.0...v0.7.0) (2026-10-08)
 
 
