@@ -1,13 +1,12 @@
 using System.Globalization;
-using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Resonate.App.Helpers;
 using Resonate.App.Services;
 using Resonate.Spotify.Audio;
-using Launcher = Windows.System.Launcher;
 
 namespace Resonate.App.Controls;
 
@@ -233,42 +232,5 @@ public sealed partial class EqualizerPanel : UserControl
     }
 
     /// <summary>Opens the Spotify app on its settings page (for Lossless, or its own equalizer).</summary>
-    private async void OnOpenSpotifySettingsClick(object sender, RoutedEventArgs e)
-    {
-        var services = App.Services;
-        if (!services.UsesSpotifyApp)
-        {
-            return;
-        }
-
-        if (services.IsDemo)
-        {
-            App.MainWindow?.ShowMessage("Demo mode: there is no Spotify app to open.", InfoBarSeverity.Informational);
-            return;
-        }
-
-        var running = await Task.Run(() => services.Launcher.IsRunning);
-        if (running)
-        {
-            // Resonate keeps Spotify's window hidden; bring it to the front first.
-            services.SpotifyWindow.ShowSpotify();
-        }
-
-        bool opened;
-        try
-        {
-            opened = await Launcher.LaunchUriAsync(new Uri("spotify:preferences"));
-        }
-        catch (Exception ex) when (ex is COMException or ArgumentException or UnauthorizedAccessException)
-        {
-            opened = false;
-        }
-
-        if (!opened && !running && !services.SpotifyWindow.ShowSpotify())
-        {
-            App.MainWindow?.ShowMessage(
-                "The Spotify app could not be opened. Install it from spotify.com/download or the Microsoft Store, sign in, then come back.",
-                InfoBarSeverity.Error);
-        }
-    }
+    private async void OnOpenSpotifySettingsClick(object sender, RoutedEventArgs e) => await SpotifySettingsLink.OpenAsync();
 }

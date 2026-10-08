@@ -150,6 +150,12 @@ internal sealed class ScreenshotTour
             }
 
             _window.CloseSettings();
+
+            // Signal path's pill in the player bar (a made-up Lossless verdict in demo mode); it stays on for the looks below.
+            App.Services.BuiltIns.Set(BuiltInPlugins.SignalPath, true);
+            await Task.Delay(800);
+            await CaptureAsync("6c-signal-path.png");
+
             await CaptureBundledFontsAsync();
 
             // Every preset, switched at run time, so the live switching of shapes and fonts is checked too.
