@@ -386,7 +386,7 @@ public sealed class AppServices : IDisposable
         OwnPlayerStatus.Ready => $"Ready. Spotify lists this PC as “{OwnPlayer.DefaultName}”.",
         OwnPlayerStatus.NeedsSignIn => "Sign in again to play on this PC: Sign out below, then sign in. Still not working? Tick Web Playback SDK in your Spotify developer app.",
         OwnPlayerStatus.NeedsPremium => "Spotify only plays on this PC with Premium.",
-        OwnPlayerStatus.Unsupported => "This PC cannot run Spotify's web player. Install Microsoft's WebView2 Runtime, or use Windows media controls.",
+        OwnPlayerStatus.Unsupported => "This PC cannot run Spotify's web player. It needs Microsoft's WebView2 Runtime (and on Windows N the Media Feature Pack), or use Windows media controls.",
         OwnPlayerStatus.Failed => "Spotify's web player stopped (offline?). Trying again…",
         _ => null,
     };

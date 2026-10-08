@@ -1153,7 +1153,14 @@ public sealed partial class MainWindow : Window
         Write("closing Resonate");
         lock (gate)
         {
-            File.AppendAllText(resultFile, outcome + Environment.NewLine);
+            try
+            {
+                File.AppendAllText(resultFile, outcome + Environment.NewLine);
+            }
+            catch (IOException)
+            {
+                // CI says the check wrote no outcome.
+            }
         }
 
         dispatcher.TryEnqueue(() => Application.Current.Exit());
@@ -1175,7 +1182,7 @@ public sealed partial class MainWindow : Window
         {
             OwnPlayerStatus.NeedsSignIn => "To play music on this PC, sign in again: Settings, Sign out, then sign in.",
             OwnPlayerStatus.NeedsPremium => "Spotify only plays on this PC with Premium.",
-            OwnPlayerStatus.Unsupported => "This PC cannot run Spotify's web player. Install Microsoft's WebView2 Runtime, or switch to Windows media controls in Settings.",
+            OwnPlayerStatus.Unsupported => "This PC cannot run Spotify's web player. It needs Microsoft's WebView2 Runtime (and on Windows N the Media Feature Pack). Or switch to Windows media controls in Settings.",
             _ => null,
         };
         if (text is not null)

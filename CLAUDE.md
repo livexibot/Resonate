@@ -279,7 +279,14 @@ Windows:
   also from its own close buttons) waits up to 3 s for its goodbye.
   Every copy names its device "Resonate", so another one is never taken
   for the Spotify app on this PC. Demo runs, which CI's checks use, never
-  look for updates. Its song changes make the player ask `/me/player` at
+  look for updates. SmartScreen look-ups are off
+  (`IsReputationCheckingRequired`), and WebView2's crash reports stay on
+  the PC (`IsCustomCrashReportingEnabled`) and are deleted when the page
+  opens and closes, since they may hold the access token. The WebView2
+  runtime itself still sends Microsoft its required diagnostic data (and
+  optional data under Windows' Diagnostics & feedback setting) while the
+  own player runs; no API turns that off (Microsoft's WebView2 privacy
+  page). Its song changes make the player ask `/me/player` at
   once (`PlayerController.RefreshSoon`). Tokens go only to the page,
   never to a log. CI's `--web-player-check` opens it in the installed copy
   and needs protected audio to work and the SDK to answer a made-up token
@@ -910,7 +917,9 @@ and Resonate never sees the audio.
 - No telemetry and no hosted backend. Everything runs on the owner's
   computer, talking only to Spotify and to GitHub for updates, and to
   LRCLIB for lyrics while the Lyrics plugin's pane is open (the owner
-  asked for it, 8 October 2026).
+  asked for it, 8 October 2026). The one exception Resonate cannot turn
+  off: while its own player runs, the WebView2 runtime sends Microsoft
+  Windows' diagnostic data, as Microsoft Edge does (told to the owner).
 - Never log access tokens, refresh tokens or authorisation responses. Keep
   tokens in the operating system's credential store, not in plain files.
 - The interface is optimistic: a control shows its result the moment it is

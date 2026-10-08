@@ -42,8 +42,12 @@ public sealed class LocalDeviceResolver
 
     public static Device? Pick(IReadOnlyList<Device> devices, string machineName)
     {
+        // Every copy of Resonate lists its own player as "Resonate" (Spotify's
+        // web player, see OwnPlayer): another PC's, or one closing down, is
+        // never taken for the Spotify app on this computer.
         var computers = devices
-            .Where(d => d.Id is not null && !d.IsRestricted && string.Equals(d.Type, "Computer", StringComparison.OrdinalIgnoreCase))
+            .Where(d => d.Id is not null && !d.IsRestricted && string.Equals(d.Type, "Computer", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(d.Name, OwnPlayer.DefaultName, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
         var named = computers

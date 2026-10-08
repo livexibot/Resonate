@@ -47,6 +47,7 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
     private readonly TaskCompletionSource _loaded = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource _stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private CoreWebView2Controller? _controller;
+    private string? _crashReports;
     private int _disposed;
 
     // On the interface thread: when the page stopped answering, and when WebView2 last said so.
@@ -206,10 +207,11 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
         CoreWebView2Environment environment;
         try
         {
+            // Crash reports stay on this PC rather than going to Microsoft: they may hold the access token.
             environment = await CoreWebView2Environment.CreateWithOptionsAsync(
                 string.Empty,
                 _userDataFolder,
-                new CoreWebView2EnvironmentOptions { AdditionalBrowserArguments = BrowserArguments });
+                new CoreWebView2EnvironmentOptions { AdditionalBrowserArguments = BrowserArguments, IsCustomCrashReportingEnabled = true });
         }
         catch (FileNotFoundException ex)
         {
@@ -217,6 +219,8 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
         }
 
         BrowserVersion = environment.BrowserVersionString;
+        _crashReports = environment.FailureReportFolderPath;
+        DeleteCrashReports(_crashReports);
 
         Trace?.Invoke("started; making the hidden view");
         var options = environment.CreateCoreWebView2ControllerOptions();
@@ -250,6 +254,9 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
         settings.IsZoomControlEnabled = false;
         settings.IsGeneralAutofillEnabled = false;
         settings.IsPasswordAutosaveEnabled = false;
+
+        // No SmartScreen look-ups at Microsoft: Resonate talks only to Spotify here, and opens nothing but its own page.
+        settings.IsReputationCheckingRequired = false;
 
         web.SetVirtualHostNameToFolderMapping(
             HostName,
@@ -361,6 +368,34 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
         });
     }
 
+    /// <summary>Deletes the crash reports a page left (they may hold the access token); a file still in use stays until next time.</summary>
+    private static void DeleteCrashReports(string? folder)
+    {
+        if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder))
+        {
+            return;
+        }
+
+        try
+        {
+            foreach (var file in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories))
+            {
+                try
+                {
+                    File.Delete(file);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // Next time.
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Next time.
+        }
+    }
+
     private void Close()
     {
         if (_controller is { } controller)
@@ -368,5 +403,7 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
             _controller = null;
             controller.Close();
         }
+
+        DeleteCrashReports(_crashReports);
     }
 }

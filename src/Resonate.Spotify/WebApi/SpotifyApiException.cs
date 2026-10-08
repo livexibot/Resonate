@@ -55,7 +55,7 @@ public sealed class SpotifyApiException : Exception
         { IsQuotaExceeded: true } => "Your Spotify developer app has used up its request allowance for now. Try again later.",
         { StatusCode: HttpStatusCode.TooManyRequests } => "Spotify asked Resonate to slow down. Try again in a moment.",
         { StatusCode: HttpStatusCode.Forbidden } => "Spotify does not allow this for your account or this app.",
-        { Reason: NoDeviceOnlineReason } => "No Spotify device is online. Turn on Play on this PC in Settings, or open Spotify on your phone or a speaker and pick it with the devices button.",
+        { Reason: NoDeviceOnlineReason } => "No Spotify device is online. See Play on this PC in Settings, or open Spotify on your phone or a speaker and pick it with the devices button.",
         { IsNoActiveDevice: true } => "The Spotify app on this computer is not reachable. Make sure it is installed and signed in (Settings, Show the Spotify app).",
         _ => "Spotify could not do that right now.",
     };

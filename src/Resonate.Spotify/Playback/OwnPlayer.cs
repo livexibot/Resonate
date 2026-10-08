@@ -282,15 +282,29 @@ public sealed class OwnPlayer : IOwnDevice, IDisposable
         var page = _createPage();
         var session = CancellationTokenSource.CreateLinkedTokenSource(stopping, _disposing.Token);
         int attempt;
+        bool stopped;
         lock (_gate)
         {
-            _page = page;
-            _session = session;
-            _deviceId = null;
-            _triedNewToken = false;
-            _rejectedToken = null;
-            SetStatusLocked(OwnPlayerStatus.Starting);
+            // Stopped while the page was made: it is never opened.
+            stopped = _disposed || !_wanted;
+            if (!stopped)
+            {
+                _page = page;
+                _session = session;
+                _deviceId = null;
+                _triedNewToken = false;
+                _rejectedToken = null;
+                SetStatusLocked(OwnPlayerStatus.Starting);
+            }
+
             attempt = ++_connectAttempt;
+        }
+
+        if (stopped)
+        {
+            session.Dispose();
+            await CloseQuietlyAsync(page).ConfigureAwait(false);
+            return;
         }
 
         RaiseStatusChanged();
