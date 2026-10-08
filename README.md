@@ -6,8 +6,8 @@ animations, that keeps Spotify's own lossless playback.
 > **Status: early versions in testing.** Home with listening stats, your
 > top artists and songs on Spotify and daily mixes, the library,
 > playlists, search, Local Files, DJ, sorting, truly random shuffle,
-> repeat, the queue, the equalizer, themes, optional plugins and automatic
-> updates are built. It has not been tried with a real Spotify account yet.
+> repeat, the queue, the equalizer, themes, a Winamp-style classic player,
+> optional plugins and automatic updates are built. It has not been tried with a real Spotify account yet.
 > The plan is in [CLAUDE.md](CLAUDE.md).
 
 ## Why
@@ -21,9 +21,18 @@ you theme every part of it.
 
 Six looks to start from (Midnight, Daylight, Liquid Glass, Pure Black,
 Synthwave and Paper), and a customizer for everything: colours, light or
-dark, the backdrop (even the playing song's cover, blurred), corners,
-shadows, fonts, and how the player, its progress bar and buttons look. Save
-your own looks, share them as text, and pick how switching animates.
+dark, the backdrop, corners, shadows, fonts, and how the player, its
+progress bar and buttons look. Save your own looks, share them as text, and
+pick how switching animates. If you like, the playing song's cover can spin
+like a record and sit blurred behind the window; both are off until you
+switch them on.
+
+## Classic player
+
+A player in the style of Winamp 2 can take the player bar's place, with
+its own original skin built in. Add any classic `.wsz` skin you have, show
+it at double size, or roll it up to one line. Its visualiser moves for
+your own music files; Spotify's sound can't be analysed.
 
 ## Plugins
 

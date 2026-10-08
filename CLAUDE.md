@@ -13,8 +13,8 @@ visitors; keep it short and in step with this file.
 
 - The first milestone is built and merged (pull request #1, 7 October
   2026; see "First milestone"). Releases are published with x64 and arm64
-  installers (`Resonate-win-x64-Setup.exe`); the latest is v0.3.0
-  (7 October 2026: the feature update and themes). CI proves on every pull
+  installers (`Resonate-win-x64-Setup.exe`); the latest is v0.4.0
+  (7 October 2026: plugins, top artists and songs, speed fixes). CI proves on every pull
   request that an installed copy can install and update. The Spotify logic is tested on Linux; the
   WinUI 3 app is only compiled, timed and photographed on GitHub's Windows
   machines (CI), because cloud sessions run on Linux.
@@ -31,6 +31,12 @@ visitors; keep it short and in step with this file.
   (see "Plugins" under verified facts and decisions). CI installs and runs
   them in the installed app; on the owner's PC, check that Windows security
   software lets the downloaded helper run.
+- The classic player (a Winamp-style player chosen in Settings) and the
+  opt-in spinning cover and blurred-cover background are described under
+  "Classic player and cover art". On the owner's PC, check that the skin
+  stays sharp at their display scaling, that a downloaded `.wsz` skin
+  imports, that the visualiser moves for Local Files, and the cost of the
+  spinning cover and Liquid Glass's drift on their 165 Hz display.
 - The two oldest commits are authored "Claude". Fixing that needs a force
   push, which the permission system blocked. Ask the owner before trying.
 - Pull request #1 could not be squash-merged (GitHub answered with an empty
@@ -300,6 +306,41 @@ Plugins (checked 2026-10-07):
   to be public, like the updater. Until then, turning a plugin on in an
   installed copy fails with "The download did not start".
 
+Classic player and cover art (checked 2026-10-08):
+- Classic Winamp skins (`.wsz`, Winamp 2) are zip archives of BMP sheets
+  (`main.bmp` is the 275x116 main window; shade mode is 275x14) plus
+  `viscolor.txt` (the visualiser's 24 colours) and `pledit.txt`. Modern
+  Winamp 3 and 5 skins (`.wal`, XML) are a different format and refused
+  with a message. Webamp (MIT) was the reference for where each sprite sits.
+- A skin is untrusted input. `Resonate.Themes/Skins` reads it with its own
+  bounded zip reader and BMP decoder: at most 16 MB per archive, 1024
+  entries, 8 MB per file and 32 MB unpacked, and 2048 pixels per side,
+  each checked before memory is taken. Nothing in a skin is ever run or
+  written anywhere but the skins folder, and a missing or broken sheet
+  falls back to the built-in skin's.
+- Third-party skins belong to their authors, so Resonate bundles none. Its
+  one built-in skin, "Resonate Classic", is original and drawn in code
+  (`BuiltInSkin`); users add their own `.wsz` files in Settings, which
+  copies them to `%LocalAppData%\Resonate\skins`.
+- Sharp pixels: each skin pixel covers a whole number of screen pixels,
+  `max(1, round(size x RasterizationScale))` (size is 1, or 2 for double
+  size), and the picture is drawn at that size and shown 1:1, never
+  stretched by XAML.
+- The visualiser only hears the local files player: a frame output node on
+  the AudioGraph's EQ bus (`AudioGraphTap`), read when each quantum starts,
+  feeds a 512-point FFT (`SpectrumAnalyser`) and the oscilloscope. Its
+  `IMemoryBufferByteAccess` is called through the raw COM vtable, which
+  works under Native AOT. For Spotify songs it stays still: Resonate cannot
+  see Spotify's audio and must not capture it (see the hard rules).
+- Cover art switches (Settings, Look, Cover art) are global, not part of a
+  look, and off until the user turns them on. Spinning cover: the playing
+  cover is drawn round and turns once every 7 s while a song plays and the
+  window shows (composition rotation, paused otherwise; still when Windows
+  animations are off). Blurred cover background: looks whose backdrop is
+  the song cover (Liquid Glass) show the cover blurred; while it is off
+  they show a soft wash of the cover's colours instead. Both are one tiny
+  bitmap stretched by the GPU, so nothing is blurred per frame.
+
 GitHub automation:
 - Releases and pull requests made with the default `GITHUB_TOKEN` do not
   start other workflows, so `release-please.yml` calls `release.yml`
@@ -427,7 +468,8 @@ playback is unchanged.
 - Starting a new song or playlist may go through Spotify's servers (always
   on Windows). That is about as fast as the official app, which also has to
   fetch the song first.
-- Resonate cannot see Spotify's audio, so a visualiser is out of scope.
+- Resonate cannot see Spotify's audio, so the classic player's visualiser
+  moves only while a local file plays and stays still for Spotify songs.
   The equaliser in Settings is Spotify's own: Resonate writes it into
   Spotify's settings file while Spotify is closed, so a change reaches
   Spotify songs when Spotify next starts (Resonate starts it, or the user
@@ -441,6 +483,11 @@ playback is unchanged.
 - Never bypass or work around Spotify's DRM or copy protection.
 - The local files player plays only files from folders the user chose,
   never anything from Spotify's own folders.
+- Never capture Spotify's or the system's audio (loopback recording or
+  the like), not even for the visualiser. It hears only the local files
+  player.
+- Never bundle third-party skins. The classic player ships only
+  Resonate's own skin; users add the skins they choose.
 - No ad blocking, no unlocking Premium features for free accounts.
 - No embedded browser engine (no Electron, no webview for the interface).
 - No telemetry and no hosted backend. Everything runs on the owner's
@@ -617,7 +664,9 @@ Keep it obvious what is what:
 - `src/Resonate.App/` the WinUI 3 app: windows, pages, controls, the
   updater, demo mode, and the theme engine (`Themes/Tokens.xaml` holds every
   token, `ThemeService.cs` applies looks, `ThemeTransitions.cs` animates
-  switching, `Controls/ThemeStudio` is the Look section of Settings).
+  switching, `Controls/ThemeStudio` is the Look section of Settings), and
+  the classic player (`Controls/ClassicPlayer`, its Settings section
+  `Controls/ClassicPlayerPanel`, and `Services/SkinLibrary.cs`).
 - `src/Resonate.Spotify/` everything about Spotify that is not Windows:
   sign-in, the Web API client, the library, the player logic, listening
   history and daily mixes (`History/`), the equalizer and Spotify's
@@ -626,7 +675,9 @@ Keep it obvious what is what:
 - `src/Resonate.Themes/` the theme model, independent of WinUI: the six
   presets, what a look can set, the palette worked out from it (readable
   text guaranteed), saved looks, sharing a look as text, and picking colours
-  from a cover. Any OS, tested.
+  from a cover; and the classic player's skins (`Skins/`): reading `.wsz`
+  files safely, the built-in skin, drawing and hit-testing the main
+  window, and the visualiser's analyser. Any OS, tested.
 - `src/Resonate.Windows/` the Windows side of the player: the media
   session, the mixer volume, starting and restarting Spotify, the local
   files player (`LocalAudio/`), the Credential Manager.
@@ -689,9 +740,10 @@ when the work first needs them, then tick them off here.
   sandbox for the helper (an AppContainer with no network or file access)
   and a way to review or sign them first.
 - Keyboard shortcuts for everything, and a command palette.
-- Lyrics (LRCLIB would contact a host other than Spotify and GitHub: ask
-  the owner first), a mini player, a Now Playing view, and tray and
-  taskbar-thumbnail controls. (The sleep timer is a plugin.)
+- A mini player, a Now Playing view, and tray and taskbar-thumbnail
+  controls. (The sleep timer is a plugin. Lyrics are declined, below.)
+- The classic player's own equalizer and playlist windows. For now its EQ
+  button opens Settings at the equalizer and PL opens the queue.
 - Queue editing (Spotify's queue can only be read and added to).
 
 ## Decisions and open questions
@@ -713,6 +765,15 @@ when the work first needs them, then tick them off here.
   question spelled out; the logo question below is still open.
 - Decided: the owner's display is 5120x2160 at 165 Hz (Windows 11), so a
   frame is about 6 ms.
+- Decided (7 October 2026): no lyrics; Resonate does not fetch them.
+- Decided (7 October 2026): spinning covers and the blurred cover behind
+  the window are allowed as options the user switches on (both off at
+  first). Spotify's design guidelines ask apps not to alter cover art; the
+  owner chose to offer these anyway. Cover, song and artist always stay
+  visible, also in the classic player.
+- Decided (7 October 2026): a Winamp-style classic player, chosen in
+  Settings (Classic player, "Use the classic player"), with Resonate's own
+  skin and any classic skins the user adds.
 - Decided (7 October 2026): Local Files are played by Resonate itself,
   because Spotify refuses to start them for other apps; the owner asked
   for Local Files "just like in Spotify". Only the user's own files.
@@ -723,8 +784,8 @@ when the work first needs them, then tick them off here.
   Spotify or the user restarts it from Settings.
 - Themes (asked 7 October 2026, "akin to Spicetify"): six presets that
   differ in shape and material, not just colour: Midnight (the default),
-  Daylight, Liquid Glass (the song's blurred cover behind see-through
-  panels), Pure Black, Synthwave and Paper. Under them, Customize edits
+  Daylight, Liquid Glass (the song's cover, as a wash of its colours or,
+  once switched on, blurred, behind see-through panels), Pure Black, Synthwave and Paper. Under them, Customize edits
   everything a look sets: colours, light, dark or black, backdrop
   (colour, gradient, song cover, Mica, acrylic), corners, button shape,
   outlines, spacing, shadows, fonts, and the player (docked or floating,
