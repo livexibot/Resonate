@@ -99,6 +99,18 @@ public sealed class SleepTimerTests
     }
 
     [Fact]
+    public async Task Pauses_when_the_next_song_starts_before_the_timer()
+    {
+        await using var host = await StartAsync();
+        host.Invoke("sleep-timer", "end-of-song");
+        await host.WaitForAsync(MessageTypes.Status, "sleep-timer");
+
+        // A crossfade (or a skip) starts the next song early; it is paused at once, not at its own end.
+        host.SendState(Playing with { Title = "Next", Uri = "spotify:track:n", Position = 0 });
+        Assert.Contains(await host.DrainAsync(), m => m.Type == MessageTypes.Player && m.Action == PlayerActions.Pause);
+    }
+
+    [Fact]
     public async Task Cancelling_brings_back_the_choices()
     {
         await using var host = await StartAsync();

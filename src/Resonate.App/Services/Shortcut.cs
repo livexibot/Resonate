@@ -88,11 +88,22 @@ internal readonly record struct Shortcut(bool Control, bool Alt, bool Shift, boo
         return string.Join('+', parts);
     }
 
-    /// <summary>Letters, digits and F-keys by their face; the rest by Windows' name (Space, Home, PageUp).</summary>
+    /// <summary>
+    /// Punctuation keys, which Windows' list of keys does not name, by where
+    /// they sit on a US keyboard (as browsers name them), whatever the layout.
+    /// </summary>
+    private static readonly (int Code, string Name)[] PunctuationKeys =
+    [
+        (0xBA, "Semicolon"), (0xBB, "Equal"), (0xBC, "Comma"), (0xBD, "Minus"), (0xBE, "Period"), (0xBF, "Slash"),
+        (0xC0, "Backquote"), (0xDB, "BracketLeft"), (0xDC, "Backslash"), (0xDD, "BracketRight"), (0xDE, "Quote"),
+    ];
+
+    /// <summary>Letters, digits and F-keys by their face; punctuation as above; the rest by Windows' name (Space, Home, PageUp).</summary>
     private static string KeyName(VirtualKey key) => key switch
     {
         >= VirtualKey.A and <= VirtualKey.Z => ((char)key).ToString(),
         >= VirtualKey.Number0 and <= VirtualKey.Number9 => ((int)(key - VirtualKey.Number0)).ToString(CultureInfo.InvariantCulture),
+        _ when Array.FindIndex(PunctuationKeys, p => p.Code == (int)key) is >= 0 and var index => PunctuationKeys[index].Name,
         _ => key.ToString(),
     };
 
@@ -106,6 +117,17 @@ internal readonly record struct Shortcut(bool Control, bool Alt, bool Shift, boo
         if (name.Length == 1 && char.IsAsciiDigit(name[0]))
         {
             return VirtualKey.Number0 + (name[0] - '0');
+        }
+
+        if (Array.FindIndex(PunctuationKeys, p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)) is >= 0 and var index)
+        {
+            return (VirtualKey)PunctuationKeys[index].Code;
+        }
+
+        // Version 0.9.0 saved punctuation keys as their number, such as "Ctrl+Shift+191".
+        if (int.TryParse(name, NumberStyles.None, CultureInfo.InvariantCulture, out var code))
+        {
+            return Array.Exists(PunctuationKeys, p => p.Code == code) ? (VirtualKey)code : null;
         }
 
         return Enum.TryParse<VirtualKey>(name, ignoreCase: true, out var key) && Enum.IsDefined(key) ? key : null;

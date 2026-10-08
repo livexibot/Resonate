@@ -75,6 +75,7 @@ public sealed partial class MainWindow : Window
     private string? _currentKey;
     private bool _syncingSelection;
     private bool _backgroundStarted;
+    private bool _updatesAllowed;
     private OwnPlayerStatus _ownPlayerStatusShown;
     private bool _firstFrameSeen;
     private bool _quitting;
@@ -136,6 +137,10 @@ public sealed partial class MainWindow : Window
 
         services.Updates.UpdateReady += (_, _) => DispatcherQueue.TryEnqueue(ShowUpdateReady);
         services.Updates.ProgressChanged += OnUpdateProgressChanged;
+
+        // "Restart now" closes like any other way out (settings saved, the own player's goodbye); the update installs after.
+        services.Updates.RestartRequested += (_, _) => Quit();
+
         SetUpSettingsPane();
         services.Plugins.Notified += (_, note) =>
             DispatcherQueue.TryEnqueue(() => ShowMessage($"{note.PluginName}: {note.Text}", InfoBarSeverity.Informational));
@@ -822,14 +827,25 @@ public sealed partial class MainWindow : Window
         await RefreshLibraryAsync();
         _ = LoadLikesAsync(token);
         _ = KeepListeningHistoryAsync(token);
+    }
 
-        // Updates last, quietly (see KeepUpdating).
-        if (_services.IsDemo)
+    /// <summary>
+    /// Updates start quietly 8 s after the first frame, signed in or not, so a
+    /// copy that can not sign in still gets the version that fixes it. Only in
+    /// an ordinary run: never in demo mode or CI's timing, tour and check runs.
+    /// </summary>
+    private async Task StartLookingForUpdatesAsync()
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(8), _lifetime.Token);
+        }
+        catch (OperationCanceledException)
         {
             return;
         }
 
-        await Task.Delay(TimeSpan.FromSeconds(8), token);
+        _updatesAllowed = true;
         KeepUpdating();
     }
 
@@ -843,7 +859,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     internal void KeepUpdating()
     {
-        if (_services.IsDemo || !_backgroundStarted || !_services.Settings.AutoUpdate || _updateLoop is { IsCompleted: false })
+        if (_services.IsDemo || !_updatesAllowed || !_services.Settings.AutoUpdate || _updateLoop is { IsCompleted: false })
         {
             return;
         }
@@ -883,6 +899,10 @@ public sealed partial class MainWindow : Window
                 ShowMessage(
                     "The Spotify app is not installed. Resonate plays music through it: install it from spotify.com/download or the Microsoft Store, sign in, then come back. (Or pick Spotify Web API only in Settings to play without it.)",
                     InfoBarSeverity.Error);
+            }
+            else if (outcome == SpotifyAppOutcome.CouldNotStart)
+            {
+                ShowMessage("The Spotify app did not start. Start it yourself, then try again.", InfoBarSeverity.Warning);
             }
             else if (outcome == SpotifyAppOutcome.CouldNotClose)
             {
@@ -1027,7 +1047,13 @@ public sealed partial class MainWindow : Window
 
     private void OnRootPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key != VirtualKey.Space || ShellGrid.Visibility != Visibility.Visible)
+        if (e.Key != VirtualKey.Space || ShellGrid.Visibility != Visibility.Visible || SummonBarSettings.IsRecording)
+        {
+            return;
+        }
+
+        // Only Space itself: Alt+Space is the window's menu, and a shortcut may use Ctrl+Space.
+        if (IsDown(VirtualKey.Control) || IsDown(VirtualKey.Menu) || IsDown(VirtualKey.Shift) || IsDown(VirtualKey.LeftWindows) || IsDown(VirtualKey.RightWindows))
         {
             return;
         }
@@ -1041,6 +1067,9 @@ public sealed partial class MainWindow : Window
         e.Handled = true;
         _ = _services.Player.TogglePlayPauseAsync();
     }
+
+    private static bool IsDown(VirtualKey key) =>
+        InputKeyboardSource.GetKeyStateForCurrentThread(key).HasFlag(global::Windows.UI.Core.CoreVirtualKeyStates.Down);
 
     private void OnSearchAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
@@ -1157,6 +1186,10 @@ public sealed partial class MainWindow : Window
         else if (options.WebPlayerCheckResultFile is { } webPlayerResult)
         {
             _ = CheckWebPlayerAndQuitAsync(webPlayerResult);
+        }
+        else if (!_services.IsDemo)
+        {
+            _ = StartLookingForUpdatesAsync();
         }
 
         // Covers nobody has looked at for a while make room, once the window is up.
@@ -1331,8 +1364,8 @@ public sealed partial class MainWindow : Window
         _lifetime.Cancel();
         _services.SaveSettings();
 
-        // "Update automatically": a downloaded version installs once Resonate has gone.
-        if (_services.Settings.AutoUpdate)
+        // "Update automatically" or "Restart now": a downloaded version installs once Resonate has gone.
+        if (_services.Settings.AutoUpdate || _services.Updates.RestartsOnExit)
         {
             _services.Updates.InstallOnExit();
         }

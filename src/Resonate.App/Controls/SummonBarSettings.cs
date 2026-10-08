@@ -18,6 +18,9 @@ internal static partial class SummonBarSettings
 {
     public static FrameworkElement Create(AppServices services) => new ShortcutRecorder(services);
 
+    /// <summary>Keys are being recorded for the shortcut, so the window's own keys (Space) leave them alone.</summary>
+    public static bool IsRecording { get; private set; }
+
     private sealed partial class ShortcutRecorder : StackPanel
     {
         private readonly AppServices _services;
@@ -91,6 +94,7 @@ internal static partial class SummonBarSettings
 
             // The keys in use stop working for now, so pressing them again records them.
             _recording = true;
+            IsRecording = true;
             App.MainWindow?.PauseSummonShortcut();
             _box.Focus(FocusState.Programmatic);
             ShowStatus("Esc to cancel.");
@@ -105,6 +109,7 @@ internal static partial class SummonBarSettings
             }
 
             _recording = false;
+            IsRecording = false;
             if (!keep)
             {
                 App.MainWindow?.ResumeSummonShortcut();

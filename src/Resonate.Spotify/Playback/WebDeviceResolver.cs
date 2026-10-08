@@ -61,7 +61,10 @@ public sealed class WebDeviceResolver
         var others = usable.Where(d => d.Id != ownDeviceId).ToList();
         return usable.FirstOrDefault(d => d.IsActive)
             ?? own
-            ?? others.FirstOrDefault(d => preferredName is not null && string.Equals(d.Name, preferredName, StringComparison.OrdinalIgnoreCase))
+            // Every copy of Resonate's own player has the same name, so a remembered "Resonate" may be another computer's.
+            ?? others.FirstOrDefault(d => preferredName is not null
+                && string.Equals(d.Name, preferredName, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(d.Name, OwnPlayer.DefaultName, StringComparison.OrdinalIgnoreCase))
             ?? LocalDeviceResolver.Pick(others, machineName)
             ?? (others.Count == 1 ? others[0] : null);
     }

@@ -46,7 +46,7 @@ public sealed partial class MainWindow
     private Grid? _stripControls;
     private Button? _pinButton;
     private GridLength _titleRowHeight;
-    private (bool Queue, bool Settings)? _panesBeforeShape;
+    private (bool Queue, bool Settings, bool Lyrics)? _panesBeforeShape;
 
     /// <summary>The last size the window had in the Full shape, and the last before it became a strip (inside, device-independent pixels).</summary>
     private (double Width, double Height)? _fullSize;
@@ -257,6 +257,10 @@ public sealed partial class MainWindow
             {
                 ShowSettings(true);
             }
+            else if (panes.Lyrics)
+            {
+                ShowLyrics(true);
+            }
         }
 
         PlacePanesAsSheet();
@@ -290,12 +294,13 @@ public sealed partial class MainWindow
         ShellGrid.Children.Insert(ShellGrid.Children.IndexOf(PlayerSlot), _column);
     }
 
-    /// <summary>Hides the sidebar and the page, closing the queue or Settings for now.</summary>
+    /// <summary>Hides the sidebar and the page, closing the queue, Settings or the lyrics for now.</summary>
     private void HidePanels()
     {
-        _panesBeforeShape ??= (QueuePane.IsOpen, SettingsPane.IsOpen);
+        _panesBeforeShape ??= (QueuePane.IsOpen, SettingsPane.IsOpen, LyricsPane.IsOpen);
         ShowQueue(false);
         ShowSettings(false);
+        ShowLyrics(false);
         Hide(Sidebar);
         Hide(SidebarElevation);
         Hide(SidebarSplitter);
@@ -318,7 +323,7 @@ public sealed partial class MainWindow
     }
 
     /// <summary>
-    /// In a column the queue or Settings opens over the cover, across the
+    /// In a column the queue, Settings or the lyrics open over the cover, across the
     /// window; in a strip, opening one gives the window its size back.
     /// </summary>
     private void OnShapePaneChanged()
@@ -328,7 +333,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        var open = QueuePane.IsOpen || SettingsPane.IsOpen;
+        var open = QueuePane.IsOpen || SettingsPane.IsOpen || LyricsPane.IsOpen;
         if (open && ShapeHidesPanels)
         {
             // The user opened it here: it is theirs now, not one to reopen later.
@@ -346,15 +351,16 @@ public sealed partial class MainWindow
 
     private void PlacePanesAsSheet()
     {
-        var sheet = _shape == WindowShape.Column && (QueuePane.IsOpen || SettingsPane.IsOpen);
-        foreach (var pane in new FrameworkElement[] { QueuePane, SettingsPane })
+        var open = QueuePane.IsOpen || SettingsPane.IsOpen || LyricsPane.IsOpen;
+        var sheet = _shape == WindowShape.Column && open;
+        foreach (var pane in new FrameworkElement[] { QueuePane, SettingsPane, LyricsPane })
         {
             Grid.SetColumn(pane, sheet ? 0 : 2);
             Grid.SetColumnSpan(pane, sheet ? ToTheLastColumn : 1);
             Canvas.SetZIndex(pane, sheet ? 1 : 0);
         }
 
-        RightSplitter.Visibility = !sheet && (QueuePane.IsOpen || SettingsPane.IsOpen) ? Visibility.Visible : Visibility.Collapsed;
+        RightSplitter.Visibility = !sheet && open ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>A short rise and fade as the window settles into its shape; none while Windows' animations are off.</summary>

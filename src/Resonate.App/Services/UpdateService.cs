@@ -61,6 +61,12 @@ public sealed class UpdateService
     /// <summary>Raised on a background thread as a download goes (a few times a second at most) and when it ends.</summary>
     public event EventHandler? ProgressChanged;
 
+    /// <summary>Raised on the interface thread by "Restart now", for the window to close as usual.</summary>
+    public event EventHandler? RestartRequested;
+
+    /// <summary>"Restart now" was pressed: the update installs once Resonate has closed, and Resonate opens again.</summary>
+    public bool RestartsOnExit { get; private set; }
+
     /// <summary>The download under way, or null when nothing is downloading.</summary>
     public UpdateProgress? Progress => Volatile.Read(ref _progress);
 
@@ -189,8 +195,9 @@ public sealed class UpdateService
     }
 
     /// <summary>
-    /// Has Velopack install the downloaded version, quietly, once Resonate has
-    /// closed, without opening it again; nothing when none is downloaded.
+    /// Has Velopack install the downloaded version once Resonate has closed:
+    /// quietly, or opening it again after "Restart now"; nothing when none is
+    /// downloaded.
     /// </summary>
     public void InstallOnExit()
     {
@@ -201,7 +208,7 @@ public sealed class UpdateService
 
         try
         {
-            _manager.WaitExitThenApplyUpdates(_pending.TargetFullRelease, silent: true, restart: false);
+            _manager.WaitExitThenApplyUpdates(_pending.TargetFullRelease, silent: !RestartsOnExit, restart: RestartsOnExit);
         }
         catch (Exception)
         {
@@ -209,12 +216,32 @@ public sealed class UpdateService
         }
     }
 
-    /// <summary>Closes Resonate, installs the downloaded version and opens it again.</summary>
+    /// <summary>
+    /// "Restart now": Resonate closes as usual (see <see cref="RestartRequested"/>),
+    /// then the downloaded version installs and opens.
+    /// </summary>
     public void RestartToUpdate()
     {
-        if (_manager is not null && _pending is not null)
+        if (_manager is null || _pending is null)
+        {
+            return;
+        }
+
+        RestartsOnExit = true;
+        if (RestartRequested is { } close)
+        {
+            close(this, EventArgs.Empty);
+            return;
+        }
+
+        try
         {
             _manager.ApplyUpdatesAndRestart(_pending.TargetFullRelease);
+        }
+        catch (Exception)
+        {
+            // Velopack installs it at the next start instead.
+            RestartsOnExit = false;
         }
     }
 }

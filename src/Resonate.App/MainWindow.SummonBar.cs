@@ -314,6 +314,8 @@ public sealed partial class MainWindow
     /// <summary>Does something in Resonate's window and brings it to the front, restored if minimised.</summary>
     private void ShowInWindow(Action action)
     {
+        // From the mini player too: the full window comes back in its place.
+        LeaveMiniPlayer();
         BringToFront();
         action();
     }
