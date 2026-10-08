@@ -163,6 +163,8 @@ internal sealed class ScreenshotTour
             await Task.Delay(800);
             await CaptureAsync("6c-signal-path.png");
 
+            await BuiltInPluginsAsync();
+
             await CaptureBundledFontsAsync();
 
             // Every preset, switched at run time, so the live switching of shapes and fonts is checked too.
@@ -193,6 +195,68 @@ internal sealed class ScreenshotTour
         {
             Application.Current.Exit();
         }
+    }
+
+    /// <summary>
+    /// The other built-in plugins, turned on in turn so CI draws each of them
+    /// once (Native AOT faults show up only at run time), then off again.
+    /// Window shapes is left out: it would resize the window for the
+    /// screenshots after it.
+    /// </summary>
+    private async Task BuiltInPluginsAsync()
+    {
+        var builtIns = App.Services.BuiltIns;
+        string[] ids =
+        [
+            BuiltInPlugins.HomeStage, BuiltInPlugins.Rediscover, BuiltInPlugins.ArtistOrbit,
+            BuiltInPlugins.UpNext, BuiltInPlugins.SmartPlaylists, BuiltInPlugins.AwayScreen, BuiltInPlugins.SummonBar,
+        ];
+        foreach (var id in ids)
+        {
+            builtIns.Set(id, true);
+        }
+
+        _window.Open(MainWindow.HomeKey);
+        await Task.Delay(2000);
+        await CaptureAsync("6d-home-stage.png");
+        if (_window.CurrentPage is HomePage home)
+        {
+            home.ScrollTo(HomeSection.Mixes);
+            await Task.Delay(800);
+            await CaptureAsync("6d-home-rediscover.png");
+        }
+
+        _window.Open(TrackActions.ArtistKey(DemoCatalog.ArtistId("Mira Sol")));
+        await Task.Delay(1500);
+        if (_window.CurrentPage is ArtistPage artist)
+        {
+            artist.ShowOrbitForTour();
+        }
+
+        await Task.Delay(800);
+        await CaptureAsync("6e-artist-orbit.png");
+
+        _window.ToggleQueue();
+        await Task.Delay(1200);
+        await CaptureAsync("6f-up-next.png");
+        _window.ToggleQueue();
+
+        _window.Open("smart-new");
+        await Task.Delay(1500);
+        await CaptureAsync("6g-smart-playlist.png");
+
+        _window.OpenSettings();
+        _window.SettingsPage?.ShowPlugins();
+        await Task.Delay(1000);
+        await CaptureAsync("6h-built-in-plugins.png");
+        _window.CloseSettings();
+
+        foreach (var id in ids)
+        {
+            builtIns.Set(id, false);
+        }
+
+        await Task.Delay(500);
     }
 
     /// <summary>

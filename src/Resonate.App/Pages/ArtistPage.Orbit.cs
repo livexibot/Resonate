@@ -150,4 +150,8 @@ public sealed partial class ArtistPage
             }
         }
     }
+
+    /// <summary>For the screenshot tour: scrolls the orbit into view at once.</summary>
+    internal void ShowOrbitForTour() =>
+        OrbitSection.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false, VerticalAlignmentRatio = 0.05 });
 }

@@ -12,6 +12,27 @@ on, Resonate has nothing extra on disk and nothing extra running.
 | Sleep timer | Pauses after 15, 30 or 60 minutes, your own length, or at the end of the song, fading out over the last minute and putting the volume back afterwards. | see what is playing, control playback, change the volume |
 | Skip rules | Skips songs you never want to hear: by artist, by version (live, remix, sped up), by title, or by length. "Always skip this song" and "Always skip this artist" are in the player bar's plugin menu. | see what is playing, control playback |
 
+### Built into Resonate
+
+These come with the app instead of being downloaded, because they need
+Resonate's own pages and your library. They are off until you turn them on
+in Settings, Plugins, and while off they do nothing at all.
+
+| Plugin | What it does |
+| --- | --- |
+| Lyrics | Words that follow the song, from LRCLIB, a free lyrics library. The song's name is sent to LRCLIB only while the lyrics pane is open. Click a line to jump there. |
+| Home stage | Home opens on the song playing, large, over drifting clouds of its colours (or its cover, blurred). |
+| Away screen | After a few idle minutes with music playing, the window shows the song and a clock. Any touch brings Resonate back. |
+| Rediscover | A row on Home: songs liked on this day in past years, ones you haven't played in a long time, and albums you love with songs you haven't liked yet. |
+| Up next | Drag songs in the queue into a new order, remove them, shuffle, clear or save what's coming. |
+| Artist orbit | Artist pages show the artists you play alongside them, from your own playlists and listening. |
+| Smart playlists | Playlists that fill themselves from rules, such as "saved this month" or "released in the 90s", and can be kept up to date on Spotify. |
+| Window shapes | The window turns into a compact view, a column or a one-line strip that can stay on top. |
+| Summon bar | A shortcut you choose opens a search box over any app; Enter plays. Ctrl+K opens it inside Resonate. |
+| Signal path | A badge in the player says whether what you hear is lossless, and what to change if not. |
+
+### Downloaded when turned on
+
 Each plugin's settings appear under it in Settings once it is on. Plugins
 that offer commands (start a sleep timer, skip this artist) add a puzzle
 button to the player bar; it lights up while a plugin has something to

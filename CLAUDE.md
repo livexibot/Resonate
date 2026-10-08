@@ -36,6 +36,13 @@ visitors; keep it short and in step with this file.
   (see "Plugins" under verified facts and decisions). CI installs and runs
   them in the installed app; on the owner's PC, check that Windows security
   software lets the downloaded helper run.
+- Ten built-in plugins (8 October 2026: Lyrics, Home stage, Away screen,
+  Rediscover, Up next, Artist orbit, Smart playlists, Window shapes,
+  Summon bar, Signal path) are compiled into the app and off until turned
+  on in Settings, Plugins; see "Built-in plugins" under verified facts.
+  CI draws each once (all but Window shapes) in its screenshot tour, but
+  nobody has used them on Windows yet: the owner's PC must check what each
+  section lists under "Measure".
 - The classic player (a Winamp-style player chosen in Settings), the
   opt-in spinning cover and Liquid Glass's blurred-cover background
   (pull request #18, 8 October 2026) are described under "Classic player
@@ -386,6 +393,101 @@ Plugins (checked 2026-10-07):
   was private, turning a plugin on in an installed copy failed with "The
   download did not start".
 
+Built-in plugins (built 8 October 2026; the owner asked for ideas 1, 2, 5,
+10, 14, 15, 17, 18 and 20 of the Idea Book "under optional plugins at the
+moment", and for synced lyrics like Spotify's, from spotifast's source):
+- They need the app's pages, windows and the Web API, which the JavaScript
+  helper cannot reach, so they are compiled in and listed in Settings,
+  Plugins above the downloaded ones (`Services/BuiltInPlugins.cs`: IDs,
+  names, `IsOn`, `Set`, `Changed`; ids saved in `BuiltInPlugins` in
+  settings). All are off at first; while off nothing of them runs or
+  shows, and switching takes effect at once. Each keeps its settings under
+  its own heading in `AppSettings.cs` and its controls in
+  `Controls/BuiltInPluginSettings.cs`, and lives in its own files
+  (`MainWindow.<Name>.cs` through the `partial void SetUp<Name>()` hooks in
+  `MainWindow.BuiltInPlugins.cs`, `HomePage.Stage.cs`,
+  `HomePage.Rediscover.cs`, `ArtistPage.Orbit.cs`, `QueuePanel.UpNext.cs`,
+  `PlayerBar.Lyrics.cs`, `PlayerBar.SignalPath.cs`). `Services/WindowHook.cs`
+  is the one shared subclass of the main window (shortcut and resize
+  messages) for plugins that need window messages.
+- Lyrics: LRCLIB (`https://lrclib.net/api`, free, no key), as spotifast
+  does (its MIT code was ported; its other route, Spotify's own
+  transcription, needs librespot and is left out). Only while the lyrics
+  pane is open, it sends the song's artist, title, album and length in
+  seconds (`/api/get`, then `/api/search` with artist and title), with the
+  User-Agent `Resonate/<version> (https://github.com/livexibot/Resonate)`;
+  nothing in demo mode. Answers, "no lyrics" included, are cached 30 days
+  in `lyrics\` (cache folder, one file per song, SHA-256 named); failures
+  are not cached. The pane shares the queue's column, grip and width
+  (`QueueWidth`); the queue, Settings and lyrics close one another. Synced
+  lyrics follow the player's clock 10 times a second only while the pane
+  is open, a song plays and the window shows; the sung line sits about a
+  quarter from the top, a click on a line seeks there, and a scroll by hand
+  pauses following for 4 s. Measure: that LRCLIB answers real requests.
+- Home stage: the top of Home is the playing song, large, over five
+  drifting clouds of the cover's colours (`Controls/CloudField`,
+  `NowPlayingStage`, colours kept readable by `StageColours.ForText`, 7:1
+  and 4.5:1), or the blurred cover (its own switch, off at first). The
+  640 px cover is `TrackInfo.FullImageUrl` / `PlayerState.FullArtworkUrl`.
+  Clouds rest while paused, hidden, scrolled away, covered, with
+  animations off, or when a full-screen app, the lock screen or a dark
+  display is detected. Away screen: after 2, 5 (default), 10 or 15 idle
+  minutes (`GetLastInputInfo`, checked every 5 s only while music plays),
+  with Resonate in front, nothing open or typed into and nothing
+  full-screen (`SHQueryUserNotificationState`), the stage covers the window
+  (in `ThemeHost.Scene`) with a clock; the input that wakes it is
+  swallowed, media keys pass. Measure: the clouds' cost at 5K and 165 Hz,
+  `PowerManager.DisplayStatus` unpackaged, that accelerators are blocked.
+- Rediscover (a Home row): On this day (liked a whole number of years ago
+  within 3 days, and album birthdays from `TrackInfo.ReleaseDate`),
+  Gathering dust (liked 180 days ago or more and never in the history,
+  only once the history covers 21 days) and Deep cuts (albums with 3 or
+  more liked songs and songs not liked yet; at most 6 single album
+  requests a day, kept in `rediscover.json`, 45 days). Picks change daily,
+  not per visit. Artist orbit (artist pages): up to 10 companion artists
+  from the user's own playlists, listening sessions and shared songs, and
+  up to 8 liked albums, on fixed rings; pictures from Home's cache, else at
+  most 10 single artist requests per orbit.
+- Up next: edits Resonate's own list order (drag, remove, Delete, Shuffle,
+  Clear, Save as playlist, Play next). About 2 s after the last edit (never
+  mid-drag) Spotify gets one PUT play: the new window with up to 10 earlier
+  songs and the current song at `position_ms`. Read-only (with a note) for
+  music started outside Resonate, a song from Spotify's own queue, or a
+  list played before it loaded. Local files edit the local queue directly.
+  Measure: how audible the brief restart on each edit is, and Previous.
+- Smart playlists: rules over Liked Songs or an own playlist (saved in a
+  range or the last N days, released before/after/between, longer or
+  shorter, explicit, by or not by an artist, not in a playlist; order and
+  limit), shown with `TracksPage` (keys `smart:<id>`, `smart-new`), stored
+  in settings (enum values are saved as numbers: never renumber them).
+  "Keep on Spotify" creates a private playlist and replaces its songs (PUT
+  `/playlists/{id}/items`, 100 at a time) after edits and once a day. Song
+  lists stored before release dates existed are read again once when a
+  rule needs years. Measure: the PUT items and PUT `/playlists/{id}` rename
+  calls against a real account.
+- Window shapes: Full, Compact (a rail), Column (big cover and controls)
+  and Strip (one line, can be pinned on top), picked from the inside size
+  when a resize ends (`Resonate.Themes/WindowShapes.cs`: Strip under 200
+  px tall, Column under 640 wide or tall and narrow, Compact under 1100
+  wide) or from a title-bar button beside the mini player button. While
+  on, the window may shrink to 360x64. Summon bar: a global shortcut the
+  user records (none by default; RegisterHotKey) and Ctrl+K open a small
+  search window (library first via `QuickSearch`, then Spotify search
+  after 250 ms); Enter plays, Shift+Enter queues, Esc returns focus.
+  Closing the window ends the app, so the shortcut works only while
+  Resonate runs (a tray icon would be needed for more). Measure: the strip
+  without a title bar, the pin, focus handover, Alt combinations.
+- Signal path: a pill in the player bar (LOSSLESS, ADJUSTED, NOT LOSSLESS,
+  CAN'T TELL) and a panel with the chain, from Spotify's per-account prefs
+  (`audio.play_bitrate_enumeration`, the equalizer, `audio.normalize_v2`
+  as a best guess), Spotify's and the mixer volume, and the default output
+  device through Core Audio (`DefaultAudioOutput`: its format from
+  `PKEY_AudioEngine_DeviceFormat`, Bluetooth from the enumerator name).
+  Lossless is taken as 44.1 kHz, so another device rate reads ADJUSTED.
+  Web API only, or another device playing, reads CAN'T TELL and never
+  touches Spotify's files. Local files are judged by their format.
+  Measure: Bluetooth detection, the normalise key, device changes.
+
 Classic player and cover art (checked 2026-10-08):
 - Classic Winamp skins (`.wsz`, Winamp 2) are zip archives of BMP sheets
   (`main.bmp` is the 275x116 main window; shade mode is 275x14) plus
@@ -687,7 +789,9 @@ playback is unchanged.
 - No ad blocking, no unlocking Premium features for free accounts.
 - No embedded browser engine (no Electron, no webview for the interface).
 - No telemetry and no hosted backend. Everything runs on the owner's
-  computer, talking only to Spotify and to GitHub for updates.
+  computer, talking only to Spotify and to GitHub for updates, and to
+  LRCLIB for lyrics while the Lyrics plugin's pane is open (the owner
+  asked for it, 8 October 2026).
 - Never log access tokens, refresh tokens or authorisation responses. Keep
   tokens in the operating system's credential store, not in plain files.
 - The interface is optimistic: a control shows its result the moment it is
@@ -906,6 +1010,13 @@ Keep it obvious what is what:
 - `src/Resonate.Windows/` the Windows side of the player: the media
   session, the mixer volume, starting and restarting Spotify, the local
   files player (`LocalAudio/`), the Credential Manager.
+- Built-in plugins (Lyrics, Home stage and the rest) live in the app as
+  `Services/BuiltInPlugins.cs` plus their own files (see "Built-in
+  plugins" under verified facts); their logic sits in `Resonate.Spotify`
+  (`Lyrics/`, `History/Rediscover*`, `Library/ArtistOrbit`,
+  `Library/SmartPlaylist*`, `Library/QuickSearch`, `Playback/*UpNext*`,
+  `Audio/SignalPath`) and `Resonate.Themes` (`StageColours`,
+  `WindowShapes`), tested.
 - `src/Resonate.Plugins/` optional plugins, everything but running them:
   the catalog built into the app, downloading and checking a plugin,
   its settings, permissions and rate limits (`PluginManager`), and the
@@ -965,13 +1076,15 @@ when the work first needs them, then tick them off here.
 - Community plugins, if the owner wants them: they would need a stronger
   sandbox for the helper (an AppContainer with no network or file access)
   and a way to review or sign them first.
-- Keyboard shortcuts for everything, and a command palette.
-- A mini player, a Now Playing view, and tray and taskbar-thumbnail
-  controls. (The sleep timer is a plugin. Lyrics are declined, below.)
+- Keyboard shortcuts for everything (the Summon bar's Ctrl+K palette is a
+  start).
+- A tray icon and close to tray (the Summon bar needs it to work after the
+  window is closed), and taskbar-thumbnail controls.
 - Equalizer and playlist windows for the classic player in the full window
   too. For now only the mini player has them; in the full window EQ opens
   Settings at the equalizer and PL opens the queue.
-- Queue editing (Spotify's queue can only be read and added to).
+- Built-in plugins that become ordinary features once the owner has used
+  them.
 
 ## Decisions and open questions
 
@@ -992,7 +1105,15 @@ when the work first needs them, then tick them off here.
   question spelled out; the logo question below is still open.
 - Decided: the owner's display is 5120x2160 at 165 Hz (Windows 11), so a
   frame is about 6 ms.
-- Decided (7 October 2026): no lyrics; Resonate does not fetch them.
+- Decided (8 October 2026, reversing "no lyrics" of 7 October): synced
+  lyrics from LRCLIB, as spotifast does, as a built-in plugin that is off
+  at first and fetches only while its pane is open. Spotify's terms ask
+  apps not to sync lyrics to recordings; the owner asked for it anyway.
+- Decided (8 October 2026): the Idea Book's Home stage, Away screen,
+  Rediscover, Up next, Artist orbit, Smart playlists, Window shapes,
+  Summon bar and Signal path, and Lyrics, are built-in plugins (compiled
+  in, off until turned on) "at the moment"; the owner may later make some
+  ordinary features.
 - Decided (7 October 2026): spinning covers and the blurred cover behind
   the window are allowed as options (the spinning cover off at first).
   Spotify's design guidelines ask apps not to alter cover art; the owner
@@ -1037,7 +1158,8 @@ when the work first needs them, then tick them off here.
   timer and Skip rules. A plugin may only see what is playing, control
   playback and change the volume, each only with its permission, and
   Resonate rate-limits all of it. No network, file or Spotify Web API
-  access for plugins yet; adding any is a decision for the owner.
+  access for downloaded plugins yet; adding any is a decision for the
+  owner. Built-in plugins (above) are reviewed app code, not scripts.
 - Decided (8 October 2026): "Spotify Web API only" closes the Spotify
   app and plays on the user's other Spotify devices; Windows media
   controls is the mode with Lossless sound on this PC. The owner then
