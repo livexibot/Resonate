@@ -38,33 +38,10 @@
     </UserControl.Resources>
 
     <StackPanel Spacing="20">
-        <!-- The presets, dark ones on the left and light ones on the right (the page scrolls, not the grids) -->
+        <!-- The presets in three groups, Dark, Light and OLED: side by side when there is room, else one under another (ThemeStudio.xaml.cs) -->
         <controls:SettingsGroup Header="Presets">
-            <Grid ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <GridView
-                    x:Name="DarkPresetGrid"
-                    AutomationProperties.Name="Dark presets"
-                    IsItemClickEnabled="True"
-                    ItemClick="OnLookClick"
-                    ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                    ScrollViewer.VerticalScrollMode="Disabled"
-                    SelectionMode="Single" />
-                <GridView
-                    x:Name="LightPresetGrid"
-                    Grid.Column="1"
-                    AutomationProperties.Name="Light presets"
-                    IsItemClickEnabled="True"
-                    ItemClick="OnLookClick"
-                    ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                    ScrollViewer.VerticalScrollMode="Disabled"
-                    SelectionMode="Single" />
-            </Grid>
+            <Grid x:Name="PresetGroups" ColumnSpacing="16" RowSpacing="16" />
         </controls:SettingsGroup>
-
         <!-- The user's own looks, each with a button to delete it -->
         <controls:SettingsGroup x:Name="YourLooksPanel" Header="Your looks">
             <GridView

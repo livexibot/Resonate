@@ -1,7 +1,7 @@
 namespace Resonate.Themes;
 
 /// <summary>
-/// The ten built-in looks. Each one is a different idea, not a recolour:
+/// The built-in looks, in three groups: dark, light and true black (OLED). Each one is a different idea, not a recolour:
 /// clean everyday themes (one in Windows' own Mica), a glass one, a
 /// true-black one and artistic ones, with the player in every position.
 /// Users start from any of them and customise from there.
@@ -49,35 +49,62 @@ public static class ThemePresets
     };
 
     /// <summary>
-    /// Frosted glass panes over the playing song's colours (or its blurred
-    /// cover, when the user allows it), with the player hovering over the
-    /// page as a smoky glass pill; the accent follows the cover.
+    /// Clear glass over the playing song's blurred cover: barely tinted panes
+    /// with a bright rim, large soft corners and a hovering pill player; the
+    /// accent follows the cover.
     /// </summary>
     public static ThemeDefinition Glass { get; } = new()
     {
         Id = "glass",
         Name = "Liquid Glass",
-        Background = ThemeColor.FromRgb(0x0A0D14),
-        Background2 = ThemeColor.FromRgb(0x141A2A),
+        Background = ThemeColor.FromRgb(0x0B0E16),
+        Background2 = ThemeColor.FromRgb(0x1A2236),
         Sidebar = ThemeColor.White,
         Surface = ThemeColor.White,
         Player = ThemeColor.White,
         Text = ThemeColor.White,
-        Accent = ThemeColor.FromRgb(0x8FD8FF),
-        Accent2 = ThemeColor.FromRgb(0xD3A6FF),
-        Border = ThemeColor.White.WithAlpha(0.16),
+        Accent = ThemeColor.FromRgb(0xA5E4FF),
+        Accent2 = ThemeColor.FromRgb(0xE3C4FF),
+        Border = ThemeColor.White.WithAlpha(0.3),
         Backdrop = WindowBackdrop.Artwork,
-        BackdropTint = 0.32,
-        PanelOpacity = 0.08,
+        BackdropTint = 0.18,
+        PanelOpacity = 0.12,
         AdaptiveAccent = true,
-        CornerRadius = 24,
+        CornerRadius = 28,
+        Buttons = ButtonShape.Round,
         BorderWidth = 1,
-        PanelGap = 12,
+        PanelGap = 14,
         Shadow = ShadowStyle.Soft,
+        DisplayFont = "Inter",
+        TextFont = "Inter",
         PlayerLayout = PlayerLayout.Hovering,
         Progress = ProgressStyle.Line,
     };
 
+    /// <summary>The OLED default: true black everywhere, panels marked only by hairlines, soft modern corners.</summary>
+    public static ThemeDefinition Oled { get; } = new()
+    {
+        Id = "oled",
+        Name = "OLED",
+        Background = ThemeColor.Black,
+        Background2 = ThemeColor.Black,
+        Sidebar = ThemeColor.Black,
+        Surface = ThemeColor.Black,
+        Player = ThemeColor.Black,
+        Text = ThemeColor.FromRgb(0xF5F5F7),
+        Accent = ThemeColor.FromRgb(0x7C9CFF),
+        Accent2 = ThemeColor.FromRgb(0xF472B6),
+        Border = ThemeColor.FromRgb(0x1C1C1E),
+        CornerRadius = 14,
+        Buttons = ButtonShape.Round,
+        BorderWidth = 1,
+        PanelGap = 8,
+        Shadow = ShadowStyle.None,
+        DisplayFont = "Geist",
+        TextFont = "Geist",
+        PlayerLayout = PlayerLayout.Floating,
+        Progress = ProgressStyle.Line,
+    };
     /// <summary>True black for OLED screens: hairlines, square corners, one red accent.</summary>
     public static ThemeDefinition PureBlack { get; } = new()
     {
@@ -236,34 +263,42 @@ public static class ThemePresets
         Cover = CoverStyle.Vinyl,
     };
 
-    /// <summary>An old green screen: phosphor on black, monospace type, hairlines and the player across the top.</summary>
+    /// <summary>A phosphor screen on true black: glowing green type and outlines, amber highlights, monospace and the player across the top.</summary>
     public static ThemeDefinition Terminal { get; } = new()
     {
         Id = "terminal",
         Name = "Terminal",
-        Background = ThemeColor.FromRgb(0x030603),
-        Background2 = ThemeColor.FromRgb(0x0A140C),
-        Sidebar = ThemeColor.FromRgb(0x060A06),
-        Surface = ThemeColor.FromRgb(0x081008),
-        Player = ThemeColor.FromRgb(0x050905),
-        Text = ThemeColor.FromRgb(0xC2F7CC),
-        Accent = ThemeColor.FromRgb(0x39FF7A),
-        Accent2 = ThemeColor.FromRgb(0xFFB000),
-        Border = ThemeColor.FromRgb(0x1E5A2C),
-        CornerRadius = 0,
+        Background = ThemeColor.Black,
+        Background2 = ThemeColor.FromRgb(0x021006),
+        Sidebar = ThemeColor.Black,
+        Surface = ThemeColor.Black,
+        Player = ThemeColor.Black,
+        Text = ThemeColor.FromRgb(0xB8FFC9),
+        Accent = ThemeColor.FromRgb(0x33FF77),
+        Accent2 = ThemeColor.FromRgb(0xFFB547),
+        Border = ThemeColor.FromRgb(0x33FF77).WithAlpha(0.45),
+        CornerRadius = 2,
         Buttons = ButtonShape.Square,
         BorderWidth = 1,
-        PanelGap = 6,
-        Shadow = ShadowStyle.None,
-        DisplayFont = "JetBrains Mono",
-        TextFont = "JetBrains Mono",
+        PanelGap = 10,
+        Shadow = ShadowStyle.Glow,
+        DisplayFont = "Geist Mono",
+        TextFont = "Geist Mono",
         PlayerLayout = PlayerLayout.Top,
-        Progress = ProgressStyle.Minimal,
-        PlayButton = PlayButtonStyle.Plain,
+        Progress = ProgressStyle.Bold,
+        PlayButton = PlayButtonStyle.Outline,
         Cover = CoverStyle.Square,
     };
 
-    public static IReadOnlyList<ThemeDefinition> All { get; } = [Midnight, Daylight, Glass, PureBlack, Synthwave, Paper, Fluent, Studio, Bubblegum, Terminal];
+    /// <summary>Dark looks, the default first.</summary>
+    public static IReadOnlyList<ThemeDefinition> Dark { get; } = [Midnight, Glass, Fluent, Studio, Synthwave];
+
+    /// <summary>Light looks, the default first.</summary>
+    public static IReadOnlyList<ThemeDefinition> Light { get; } = [Daylight, Paper, Bubblegum];
+
+    /// <summary>True-black looks for OLED screens, the default first.</summary>
+    public static IReadOnlyList<ThemeDefinition> Black { get; } = [Oled, PureBlack, Terminal];
+    public static IReadOnlyList<ThemeDefinition> All { get; } = [.. Dark, .. Light, .. Black];
 
     public static ThemeDefinition Default => Midnight;
 

@@ -64,19 +64,11 @@ public sealed partial class ThemeStudio : UserControl
             .OrderBy(font => font.Split(',')[0], StringComparer.OrdinalIgnoreCase),
     ];
 
-    private static readonly Dictionary<string, string> PresetBlurbs = new()
-    {
-        ["midnight"] = "Calm and dark, soft violet",
-        ["daylight"] = "Bright and airy, floating player",
-        ["glass"] = "Frosted glass, hovering player",
-        ["pure-black"] = "True black, sharp edges",
-        ["synthwave"] = "Neon glow on a dusk gradient",
-        ["paper"] = "Ink on paper, hard shadows",
-        ["fluent"] = "Windows Mica, calm and rounded",
-        ["studio"] = "Console grey, player on top",
-        ["bubblegum"] = "Pastel and round, corner player",
-        ["terminal"] = "Green screen, monospace",
-    };
+    /// <summary>One card wide plus the grid's spacing: three groups fit side by side from three of these.</summary>
+    private const double GroupMinWidth = 216;
+
+    private readonly List<GridView> _presetGrids = [];
+    private readonly List<FrameworkElement> _presetGroups = [];
 
     private readonly ThemeService _theme = App.Services.Theme;
     private readonly Dictionary<ComboBox, Func<ThemeDefinition, string, ThemeDefinition>> _choices;
@@ -144,11 +136,7 @@ public sealed partial class ThemeStudio : UserControl
         _picker.ColorChanged += OnPickerColorChanged;
         _pickerFlyout = new Flyout { Content = _picker, Placement = FlyoutPlacementMode.Bottom };
 
-        foreach (var preset in ThemePresets.All)
-        {
-            var grid = ThemePalette.From(preset).IsLight ? LightPresetGrid : DarkPresetGrid;
-            grid.Items.Add(Card(preset, PresetBlurbs.GetValueOrDefault(preset.Id, string.Empty), menu: null, delete: null));
-        }
+        BuildPresetGroups();
 
         _looksTimer = DispatcherQueue.CreateTimer();
         _looksTimer.Interval = TimeSpan.FromMilliseconds(250);
@@ -239,8 +227,11 @@ public sealed partial class ThemeStudio : UserControl
                 : $"Editing {look.Name}.";
             ShowDeleteButton();
 
-            SelectCard(DarkPresetGrid);
-            SelectCard(LightPresetGrid);
+            foreach (var grid in _presetGrids)
+            {
+                SelectCard(grid);
+            }
+
             SelectCard(YourLooksGrid);
         }
         finally
@@ -324,6 +315,65 @@ public sealed partial class ThemeStudio : UserControl
         if (await dialog.ShowAsync() == ContentDialogResult.Primary)
         {
             _theme.Delete(look.Id);
+        }
+    }
+
+    /// <summary>The presets under Dark, Light and OLED, each with its default first; names only.</summary>
+    private void BuildPresetGroups()
+    {
+        var resources = Application.Current.Resources;
+        foreach (var (title, presets) in new[] { ("Dark", ThemePresets.Dark), ("Light", ThemePresets.Light), ("OLED", ThemePresets.Black) })
+        {
+            var grid = new GridView
+            {
+                IsItemClickEnabled = true,
+                SelectionMode = ListViewSelectionMode.Single,
+            };
+            AutomationProperties.SetName(grid, title + " presets");
+            ScrollViewer.SetVerticalScrollBarVisibility(grid, ScrollBarVisibility.Disabled);
+            ScrollViewer.SetVerticalScrollMode(grid, ScrollMode.Disabled);
+            grid.ItemClick += OnLookClick;
+            foreach (var preset in presets)
+            {
+                grid.Items.Add(Card(preset, string.Empty, menu: null, delete: null));
+            }
+
+            var group = new StackPanel { Spacing = 8 };
+            group.Children.Add(new TextBlock { Text = title, Style = (Style)resources["ResonateEyebrowTextStyle"] });
+            group.Children.Add(grid);
+            _presetGrids.Add(grid);
+            _presetGroups.Add(group);
+            PresetGroups.Children.Add(group);
+        }
+
+        PresetGroups.SizeChanged += (_, e) => ArrangePresetGroups(e.NewSize.Width);
+        ArrangePresetGroups(0);
+    }
+
+    /// <summary>Side by side when each group has room for a card, otherwise one under another.</summary>
+    private void ArrangePresetGroups(double width)
+    {
+        var sideBySide = width >= _presetGroups.Count * GroupMinWidth;
+        if (PresetGroups.ColumnDefinitions.Count == (sideBySide ? _presetGroups.Count : 0) && width > 0)
+        {
+            return;
+        }
+
+        PresetGroups.ColumnDefinitions.Clear();
+        PresetGroups.RowDefinitions.Clear();
+        for (var i = 0; i < _presetGroups.Count; i++)
+        {
+            if (sideBySide)
+            {
+                PresetGroups.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            }
+            else
+            {
+                PresetGroups.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            }
+
+            Grid.SetColumn(_presetGroups[i], sideBySide ? i : 0);
+            Grid.SetRow(_presetGroups[i], sideBySide ? 0 : i);
         }
     }
 
@@ -425,10 +475,14 @@ public sealed partial class ThemeStudio : UserControl
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
             Style = (Style)resources["ResonateBodyTextStyle"],
         });
-        text.Children.Add(new TextBlock { Text = subtitle, Style = (Style)resources["ResonateCaptionTextStyle"] });
+        if (subtitle.Length > 0)
+        {
+            text.Children.Add(new TextBlock { Text = subtitle, Style = (Style)resources["ResonateCaptionTextStyle"] });
+        }
+
         card.Children.Add(text);
 
-        AutomationProperties.SetName(card, $"{look.Name}. {subtitle}");
+        AutomationProperties.SetName(card, subtitle.Length > 0 ? $"{look.Name}. {subtitle}" : look.Name);
         return card;
     }
 

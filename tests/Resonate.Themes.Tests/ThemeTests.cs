@@ -58,11 +58,12 @@ public sealed class ThemeColorTests
 public sealed class PresetTests
 {
     [Fact]
-    public void There_are_ten_presets_with_unique_ids_and_names()
+    public void There_are_eleven_presets_in_three_groups_with_unique_ids_and_names()
     {
-        Assert.Equal(10, ThemePresets.All.Count);
-        Assert.Equal(10, ThemePresets.All.Select(p => p.Id).Distinct().Count());
-        Assert.Equal(10, ThemePresets.All.Select(p => p.Name).Distinct().Count());
+        Assert.Equal(11, ThemePresets.All.Count);
+        Assert.Equal(ThemePresets.Dark.Count + ThemePresets.Light.Count + ThemePresets.Black.Count, ThemePresets.All.Count);
+        Assert.Equal(ThemePresets.All.Count, ThemePresets.All.Select(p => p.Id).Distinct().Count());
+        Assert.Equal(ThemePresets.All.Count, ThemePresets.All.Select(p => p.Name).Distinct().Count());
     }
 
     [Fact]
