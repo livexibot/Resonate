@@ -167,7 +167,15 @@ public sealed partial class PlayerBar : UserControl
 
     private void Show(PlayerState state)
     {
+        var before = _shown;
         _shown = state;
+        if (PositionBar.IsDragging && (!state.CanSeek || !IsSameSong(state, before)))
+        {
+            // The song changed under the pointer; the clock below shows where the new one is.
+            PositionBar.CancelDrag();
+        }
+
+        ShowSongChange(state);
         TitleText.Text = state.Title ?? "Nothing playing";
         ArtistText.Text = state.Artists ?? (state.IsConnected ? string.Empty : "Pick a song to start");
 
@@ -472,7 +480,13 @@ public sealed partial class PlayerBar : UserControl
     private void OnQueueClick(object sender, RoutedEventArgs e) => QueueRequested?.Invoke(this, EventArgs.Empty);
 
     // The song's title opens what it plays from; underlined under the pointer when it can.
-    private void OnTitleTapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e) => App.MainWindow?.OpenNowPlaying();
+    private void OnTitleTapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+    {
+        if (!_swipeMoved)
+        {
+            App.MainWindow?.OpenNowPlaying();
+        }
+    }
 
     private void OnTitlePointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
@@ -484,6 +498,10 @@ public sealed partial class PlayerBar : UserControl
 
     private void OnTitlePointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e) =>
         TitleText.TextDecorations = global::Windows.UI.Text.TextDecorations.None;
+
+    // By title: the local channel and the Web API may spell the artists differently for the same song.
+    private static bool IsSameSong(PlayerState a, PlayerState b) =>
+        a.Source == b.Source && string.Equals(a.Title, b.Title, StringComparison.Ordinal);
 
     private void OnSeekDragCompleted(object? sender, EventArgs e) =>
         _ = _player?.SeekAsync(TimeSpan.FromSeconds(PositionBar.Value));
