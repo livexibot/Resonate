@@ -732,6 +732,14 @@ link, the playlist that plays shows a speaker, the window's name is the
 song that plays (taskbar and Alt+Tab), and clicking the song's title in
 the player bar opens what it plays from.
 
+Later on 8 October 2026 the owner asked to "skip through songs by
+dragging like Spotify". Dragging the progress bar already seeked when let
+go (now one seek per release, and a drag that a new song interrupts is
+dropped). The playing song in the player bar can also be swiped, as on
+Spotify's phone app: left for the next song, right for the previous one
+(`Controls/PlayerBar.Swipe.cs`; distances and flick speed in
+`Resonate.Themes/SongSwipe.cs`, tested).
+
 ## How work gets done
 
 The owner is not familiar with git or GitHub and wants everything handled
