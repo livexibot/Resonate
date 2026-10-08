@@ -38,13 +38,16 @@ public sealed partial class ClassicPlayer : UserControl
     /// <summary>Enough for double size on a 400 % display; keeps a bad scale from taking much memory.</summary>
     private const int MaxScale = 8;
 
+    /// <summary>The start of the song's title, the least of it worth showing beside the skin.</summary>
+    private const double TitleStartWidth = 64;
+
     /// <summary>
     /// Room the rest of the row needs beside the cover and the skin: padding
     /// and spacing (32 + 48), the plugin and heart buttons (74), and the start
-    /// of the song's title (64). Double size gives way to normal size when the
+    /// of the song's title. Double size gives way to normal size when the
     /// window can't spare it (a 1024-wide window at 100 % still can).
     /// </summary>
-    private const double RestOfRowWidth = 32 + 48 + 74 + 64;
+    private const double RestOfRowWidth = 32 + 48 + 74 + TitleStartWidth;
 
     /// <summary>What the marquee says when nothing is loaded.</summary>
     private const string IdleLine = "Resonate";
@@ -390,6 +393,20 @@ public sealed partial class ClassicPlayer : UserControl
 
     /// <summary>Whether the skin shows at double size now (it may not, in a narrow window).</summary>
     public bool ShowsDoubleSize => _loaded && _scale > ScaleFor(1);
+
+    /// <summary>
+    /// The narrowest the player gets without cutting anything off: the skin
+    /// at normal size, the cover and the buttons, with no room for the
+    /// song's title. The window keeps it from hovering over a narrower page.
+    /// </summary>
+    public double NarrowestWidth
+    {
+        get
+        {
+            var height = (_skins.Shaded ? ClassicRenderer.ShadeHeight : ClassicRenderer.Height) * ScaleFor(1) / _raster;
+            return (ClassicRenderer.Width * ScaleFor(1) / _raster) + Math.Max(MinCoverSize, height) + RestOfRowWidth - TitleStartWidth;
+        }
+    }
 
     private int ScaleFor(int factor) => Math.Clamp((int)Math.Round(factor * _raster, MidpointRounding.AwayFromZero), 1, MaxScale);
 

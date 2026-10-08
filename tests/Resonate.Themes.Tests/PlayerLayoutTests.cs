@@ -150,6 +150,38 @@ public sealed class PlayerLayoutTests
     }
 
     [Theory]
+    [InlineData(0, 0, true)]
+    [InlineData(912, 360, true)]
+    [InlineData(384, 360, true)]
+    [InlineData(383, 360, false)]
+    [InlineData(272, 360, false)]
+    [InlineData(560, 545, false)]
+    public void A_hovering_player_needs_its_width_and_a_gap_on_each_side(double pageWidth, double playerWidth, bool fits) =>
+        Assert.Equal(fits, PlayerPlacement.HoveringFits(pageWidth, playerWidth, panelGap: 10));
+
+    [Theory]
+    [InlineData(10, false)]
+    [InlineData(10, true)]
+    [InlineData(24, true)]
+    public void A_hovering_player_too_wide_for_the_page_sits_under_the_panels(double gap, bool sidebarFullHeight)
+    {
+        var slot = PlayerPlacement.Slot(PlayerLayout.Hovering, gap, sidebarFullHeight, hoveringFits: false);
+        var floating = PlayerPlacement.Slot(PlayerLayout.Floating, gap, sidebarFullHeight);
+        var player = PlayerPlacement.Margin(PlayerLayout.Hovering, gap);
+
+        // In the row under the panels, where a floating player goes, so it covers nothing.
+        Assert.Equal(1, slot.Row);
+        Assert.False(slot.AlignBottom);
+        Assert.Equal(floating.StartsAtContent, slot.StartsAtContent);
+        Assert.True(slot.SpansFollowingColumns);
+        Assert.Equal(floating.Margin.Top, slot.Margin.Top);
+
+        // Its own (hovering) margin keeps it clear of the edges as over the page.
+        Assert.Equal(sidebarFullHeight ? 0 : -gap + player.Left, slot.Margin.Left + player.Left);
+        Assert.Equal(-gap + player.Bottom, slot.Margin.Bottom + player.Bottom);
+    }
+
+    [Theory]
     [InlineData(PlayerLayout.Docked, 0)]
     [InlineData(PlayerLayout.Floating, 0)]
     public void With_the_sidebar_reaching_the_bottom_the_player_sits_under_the_page(PlayerLayout layout, double expectedLeft)

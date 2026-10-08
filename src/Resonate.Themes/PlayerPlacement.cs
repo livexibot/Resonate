@@ -75,6 +75,15 @@ public static class PlayerPlacement
     /// </summary>
     public const double CompactWidth = 600;
 
+    /// <summary>
+    /// The narrowest a hovering player bar gets: the mini bar's cover, its
+    /// previous, play and next over the progress bar, the queue button and
+    /// the start of the song's name. Over a page narrower than this and its
+    /// gaps (Settings or the queue open in a small window), the player sits
+    /// under the panels instead (see <see cref="HoveringFits"/>).
+    /// </summary>
+    public const double HoveringMinWidth = 360;
+
     /// <summary>The room a page leaves under its last row beyond the hovering player itself.</summary>
     public const double HoverClearance = 8;
 
@@ -146,18 +155,31 @@ public static class PlayerPlacement
         layout == PlayerLayout.Hovering ? HoveringMaxWidth : double.PositiveInfinity;
 
     /// <summary>
+    /// Whether a hovering player at least <paramref name="playerWidth"/> wide
+    /// fits over a page <paramref name="pageWidth"/> wide, with its gap on
+    /// each side. A page not measured yet (0 wide) counts as fitting.
+    /// </summary>
+    public static bool HoveringFits(double pageWidth, double playerWidth, double panelGap)
+    {
+        var side = Margin(PlayerLayout.Hovering, panelGap).Left;
+        return pageWidth <= 0 || pageWidth + 0.5 >= playerWidth + (2 * side);
+    }
+
+    /// <summary>
     /// Where the player's slot goes. Docked and floating players sit in the
     /// row under the panels, across the whole window, or (with the sidebar
     /// reaching the bottom) under the page and the queue only; the slot
     /// reaches into the shell's padding so the look's own margins place the
     /// player exactly as before. A hovering player sits over the bottom of
-    /// the page's column and leaves the row under the panels empty.
+    /// the page's column and leaves the row under the panels empty; when it
+    /// does not fit there (<paramref name="hoveringFits"/>), it keeps its
+    /// shape in the row under the panels, like a floating player.
     /// </summary>
-    public static PlayerSlot Slot(PlayerLayout layout, double panelGap, bool sidebarFullHeight)
+    public static PlayerSlot Slot(PlayerLayout layout, double panelGap, bool sidebarFullHeight, bool hoveringFits = true)
     {
         var gap = Math.Max(panelGap, 0);
         var sidebarRows = sidebarFullHeight ? 2 : 1;
-        if (layout == PlayerLayout.Hovering)
+        if (layout == PlayerLayout.Hovering && hoveringFits)
         {
             return new PlayerSlot(0, StartsAtContent: true, SpansFollowingColumns: false, AlignBottom: true, EdgeInsets.Zero, sidebarRows);
         }
@@ -168,8 +190,9 @@ public static class PlayerPlacement
         }
 
         // Beside the sidebar: the left edge lines up with the page (a floating
-        // player's own margin is taken back), the rest reaches the window's edges.
-        var left = layout == PlayerLayout.Floating ? -Margin(layout, gap).Left : 0;
+        // or hovering player's own margin is taken back), the rest reaches the
+        // window's edges.
+        var left = layout == PlayerLayout.Docked ? 0 : -Margin(layout, gap).Left;
         return new PlayerSlot(1, StartsAtContent: true, SpansFollowingColumns: true, AlignBottom: false, new EdgeInsets(left, gap, -gap, -gap), sidebarRows);
     }
 

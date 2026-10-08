@@ -391,7 +391,11 @@ public sealed partial class MainWindow : Window
     {
         var settings = _services.Settings;
         var gap = ShellGrid.ColumnSpacing;
-        var room = ShellGrid.ActualWidth - ShellGrid.Padding.Left - ShellGrid.Padding.Right;
+
+        // Before the first layout there is no room to measure: only the limits apply.
+        var room = ShellGrid.ActualWidth > 0
+            ? ShellGrid.ActualWidth - ShellGrid.Padding.Left - ShellGrid.Padding.Right
+            : double.PositiveInfinity;
         var paneOpen = QueuePane.IsOpen || SettingsPane.IsOpen;
         var (paneMin, paneMax, paneWanted) = SettingsPane.IsOpen
             ? (SettingsPane.MinimumWidth, SettingsMaxWidth, settings.SettingsPaneWidth ?? SettingsPane.DefaultWidth)
@@ -413,9 +417,9 @@ public sealed partial class MainWindow : Window
         SetWidth(SidebarColumn, sidebarWidth);
         SetWidth(_paneColumn, paneWidth);
 
-        // Before the first layout there is no room to measure: only the limits apply.
+        // A window too small for everything gives each panel its least, so the page keeps what it can.
         static double Fit(double wanted, double min, double max, double room) =>
-            Math.Round(Math.Clamp(wanted, min, room > 0 ? Math.Clamp(room, min, max) : max));
+            Math.Round(Math.Clamp(wanted, min, Math.Clamp(room, min, max)));
 
         static void SetWidth(ColumnDefinition column, double width)
         {

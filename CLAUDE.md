@@ -437,7 +437,10 @@ Ripple, and a more interesting Home):
 - Player layouts: a look's player is Docked, Floating or Hovering. Hovering
   is a centred pill at most 912 wide over the bottom of the page, at least
   0.9 opaque so text keeps 4.5:1 (`ThemePalette.PlayerFill`); Liquid Glass
-  uses it. A global switch, "Sidebar reaches the bottom"
+  uses it. Over a page too narrow for it and its gaps (360 for the bar,
+  the skin and cover for the classic player; Settings open in a small
+  window), it sits under the panels instead (`PlayerPlacement.HoveringFits`).
+  A global switch, "Sidebar reaches the bottom"
   (`SidebarFullHeight`, off at first), puts the player under the page
   only. The player and the classic player live in one `PlayerSlot` inside
   `ShellGrid`, moved only by attached properties

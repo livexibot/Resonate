@@ -306,14 +306,14 @@ internal sealed class ScreenshotTour
         await Task.Delay(1500);
         await ScrollToEndAsync();
         await CaptureAsync($"{number++}-layout-hovering.png");
-        CheckHoveringPlayer();
+        CheckPlayerPlacement();
 
         // Next to the queue the page is narrower: the compact bar, still over the page only.
         _window.ToggleQueue();
         await Task.Delay(1200);
         await ScrollToEndAsync();
         await CaptureAsync($"{number++}-layout-hovering-queue.png");
-        CheckHoveringPlayer();
+        CheckPlayerPlacement();
         _window.ToggleQueue();
 
         // A narrow window: the mini bar.
@@ -323,7 +323,26 @@ internal sealed class ScreenshotTour
         await Task.Delay(1500);
         await ScrollToEndAsync();
         await CaptureAsync($"{number++}-layout-narrow.png");
-        CheckHoveringPlayer();
+        CheckPlayerPlacement();
+
+        // Settings beside so narrow a page leaves a hovering player too little
+        // room over it, so it moves under the panels until Settings closes.
+        _window.OpenSettings();
+        await Task.Delay(1200);
+        await CaptureAsync($"{number++}-layout-narrow-settings.png");
+        CheckPlayerPlacement();
+        if (_window.PlayerHovers)
+        {
+            Record("The player still hovered over a page too narrow for it (Settings open in an 840-wide window).");
+        }
+
+        _window.CloseSettings();
+        await Task.Delay(800);
+        if (!_window.PlayerHovers)
+        {
+            Record("The player did not hover over the page again once Settings closed.");
+        }
+
         _window.AppWindow.Resize(size);
 
         theme.Select(ThemePresets.Daylight.Id, transition: ThemeTransitionKind.None);
@@ -352,9 +371,9 @@ internal sealed class ScreenshotTour
         await Task.Delay(800);
     }
 
-    private void CheckHoveringPlayer()
+    private void CheckPlayerPlacement()
     {
-        if (_window.CheckHoveringPlayer() is { } problem)
+        if (_window.CheckPlayerPlacement() is { } problem)
         {
             Record(problem);
         }
@@ -403,6 +422,7 @@ internal sealed class ScreenshotTour
         _window.OpenSettings(SettingsSection.ClassicPlayer);
         await Task.Delay(1400);
         await CaptureAsync($"{number++}-settings-classic.png");
+        _window.CloseSettings();
 
         skins.UsesClassicPlayer = false;
         await services.Player.PlayContextAsync("demo:playlist:late-night");
