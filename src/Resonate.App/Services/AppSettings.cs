@@ -191,6 +191,9 @@ public sealed class AppSettings
     /// <summary>The last cover's colours (#RRGGBB), so the stage opens in them before any cover is read.</summary>
     public List<string> HomeStageColours { get; set; } = [];
 
+    /// <summary>The stage shows the visualizer's bars along its bottom (on unless the user turns it off).</summary>
+    public bool HomeStageVisualizer { get; set; } = true;
+
     // Away screen
 
     /// <summary>Minutes without touching the mouse or keyboard before the away screen shows (2, 5, 10 or 15).</summary>

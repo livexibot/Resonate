@@ -20,6 +20,9 @@ public static class StageColours
     private const double PrimaryContrast = 7.4;
     private const double SecondaryContrast = 4.8;
 
+    // The visualizer's bars against the page, a little above WCAG's 3:1 for graphics, for the same reason.
+    private const double BarContrast = 3.2;
+
     /// <summary>
     /// The cover's <paramref name="count"/> main colours, most of the cover
     /// first. Always that many: a cover with fewer colours repeats them. The
@@ -152,6 +155,29 @@ public static class StageColours
 
         // Text that reads over neither black nor white (a custom look): the look's own page.
         return palette.Surface.Over(palette.Background).Opaque;
+    }
+
+    /// <summary>
+    /// <paramref name="colour"/> for the visualizer's bars, which never sit
+    /// under text: lightened on a dark page (darkened on a light one) just
+    /// enough to stand out from <paramref name="page"/> at 3:1, the contrast
+    /// WCAG asks of graphics. Opaque.
+    /// </summary>
+    public static ThemeColor ForBars(ThemeColor colour, ThemeColor page)
+    {
+        var background = page.Opaque;
+        var toward = background.IsLight ? ThemeColor.Black : ThemeColor.White;
+        var opaque = colour.Opaque;
+        for (var step = 0; step <= 20; step++)
+        {
+            var shown = opaque.Mix(toward, step / 20.0);
+            if (ThemeColor.ContrastRatio(shown, background) >= BarContrast)
+            {
+                return shown;
+            }
+        }
+
+        return toward;
     }
 
     /// <summary>Makes every pixel of a BGRA picture safe for the look's text (see <see cref="ForText"/>).</summary>

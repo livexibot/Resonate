@@ -496,15 +496,30 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   `NowPlayingStage`, colours kept readable by `StageColours.ForText`, 7:1
   and 4.5:1), or the blurred cover (its own switch, off at first). The
   640 px cover is `TrackInfo.FullImageUrl` / `PlayerState.FullArtworkUrl`.
-  Clouds rest while paused, hidden, scrolled away, covered, with
-  animations off, or when a full-screen app, the lock screen or a dark
-  display is detected. Away screen: after 2, 5 (default), 10 or 15 idle
+  Each cloud is a colour brush through one dithered alpha mask
+  (`Resonate.Themes/CloudMask`, 512 px, triangular noise of 4 alpha steps,
+  sent to Windows as a PNG through `LoadedImageSurface`): the compositor's
+  radial gradients showed rings on the owner's dark stage (8 October 2026),
+  because 8-bit colour has too few shades between two dark colours. A
+  visualizer (its own switch, on at first; `Controls/StageVisualizer`,
+  maths in `Resonate.Themes/StageBars`) draws slim bars in the cover's
+  colours (`StageColours.ForBars`, 3:1 against the page) along the bottom,
+  only in the room under the cover and the words. For local files they
+  follow the local player's spectrum (`VisualiserFeed.Stage`, a second,
+  smooth 75-band analyser); for Spotify songs, which Resonate never hears,
+  they sway on their own from compositor expressions on one clock that
+  repeats every 20 minutes without a jump. With animations off they are
+  hidden. Clouds and bars rest (every animation stopped) while paused,
+  hidden, scrolled away, covered, with animations off, or when a
+  full-screen app, the lock screen or a dark display is detected. CI's tour
+  checks that the mask loads and the bars' expression compiles. Away screen: after 2, 5 (default), 10 or 15 idle
   minutes (`GetLastInputInfo`, checked every 5 s only while music plays),
   with Resonate in front, nothing open or typed into and nothing
   full-screen (`SHQueryUserNotificationState`), the stage covers the window
   (in `ThemeHost.Scene`) with a clock; the input that wakes it is
-  swallowed, media keys pass. Measure: the clouds' cost at 5K and 165 Hz,
-  `PowerManager.DisplayStatus` unpackaged, that accelerators are blocked.
+  swallowed, media keys pass. Measure: the clouds' and bars' cost at 5K
+  and 165 Hz, that the rings are gone, `PowerManager.DisplayStatus`
+  unpackaged, that accelerators are blocked.
 - Rediscover (a Home row): On this day (liked a whole number of years ago
   within 3 days, and album birthdays from `TrackInfo.ReleaseDate`),
   Gathering dust (liked 180 days ago or more and never in the history,
