@@ -216,9 +216,15 @@ internal sealed partial class PerformanceTour
     /// Visits every page <see cref="LeakRounds"/> more times. Afterwards no page
     /// left behind may still be alive, and memory should stay where it was.
     /// </summary>
+    /// <remarks>
+    /// Memory is read on Search, which shows no pictures. Read on Home, it also
+    /// counted 17 to 28 MB that was given back as soon as another page opened
+    /// (CI, 8 October 2026), so a round could seem to grow while nothing was
+    /// kept. A leak stays whichever page shows.
+    /// </remarks>
     private async Task FindLeaksAsync()
     {
-        _window.Open(MainWindow.HomeKey);
+        _window.Open(MainWindow.SearchKey);
         await SettleAsync();
         var before = await SampleMemoryAsync();
         _memory.Add(("Before visiting every page 4 more times", before));
@@ -242,13 +248,11 @@ internal sealed partial class PerformanceTour
             _window.ToggleQueue();
 
             // Memory that keeps climbing round after round is a leak; caches level off.
-            _window.Open(MainWindow.HomeKey);
+            _window.Open(MainWindow.SearchKey);
             await SettleAsync(TimeSpan.FromSeconds(3));
             _privateMbAfterRound.Add((await SampleMemoryAsync()).PrivateMb);
         }
 
-        _window.Open(MainWindow.SearchKey);
-        await SettleAsync();
         var current = _window.CurrentPage;
         _memory.Add(("After visiting every page 4 more times", await SampleMemoryAsync()));
         _leftAlive.AddRange(visited

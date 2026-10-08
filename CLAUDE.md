@@ -93,7 +93,9 @@ Building and testing:
   the job log, and fails CI on: a page holding the interface over 250 ms
   or first frame over 500 ms, idle over 2 % of a core (4 % while
   playing), a page still alive after leaving it, memory growing over
-  10 MB in the last round, a warm start over 1 s, or a build warning.
+  10 MB in the last round (read on Search, which shows no pictures; read
+  on Home it also counted memory given back once another page opened), a
+  warm start over 1 s, or a build warning.
   GitHub's machines draw without a graphics card, so judge drawing cost
   on a real PC.
 - Anything that animates for ever (a composition animation with no end,
