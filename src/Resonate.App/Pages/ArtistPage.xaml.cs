@@ -52,12 +52,14 @@ public sealed partial class ArtistPage : Page
         _artistId = e.Parameter as string ?? string.Empty;
         PortraitFrame.Background = Artwork.PlaceholderBrush(_artistId);
         _hero.Attach();
+        OnOrbitNavigatedTo();
         _ = LoadAsync();
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         _hero.Detach();
+        OnOrbitNavigatedFrom();
         _leaving.Cancel();
     }
 
@@ -117,6 +119,7 @@ public sealed partial class ArtistPage : Page
             var portrait = ImagePicker.Pick(artist.Images, 300);
             PortraitImage.Source = Artwork.FromUrl(portrait, PortraitSize);
             _hero.Show(Artwork.PlaceholderColors(artist.Name).From, portrait);
+            ShowOrbitArtist(artist.Name, portrait);
             if (artist.Genres is { Count: > 0 } genres)
             {
                 GenresText.Text = string.Join(" · ", genres.Take(4));

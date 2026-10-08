@@ -48,6 +48,9 @@ public sealed record TrackInfo(
 
     public int? DiscNumber { get; init; }
 
+    /// <summary>The album's release date as Spotify gives it ("1997", "1997-05" or "1997-05-21"), when known.</summary>
+    public string? ReleaseDate { get; init; }
+
     /// <summary>The first artist's name, for grouping and statistics.</summary>
     public string PrimaryArtist => ArtistRefs.Count > 0 ? ArtistRefs[0].Name : Artists;
 
@@ -86,6 +89,7 @@ public sealed record TrackInfo(
             AlbumId = album?.Id,
             TrackNumber = item.TrackNumber,
             DiscNumber = item.DiscNumber,
+            ReleaseDate = album?.ReleaseDate,
         };
     }
 

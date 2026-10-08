@@ -136,6 +136,12 @@
                         SelectionMode="None" />
                 </StackPanel>
 
+                <!-- Artist orbit, a built-in plugin (ArtistPage.Orbit.cs): shown only while it is on. -->
+                <StackPanel
+                    x:Name="OrbitSection"
+                    Spacing="{StaticResource ResonateSectionHeaderSpacing}"
+                    Visibility="Collapsed" />
+
                 <StackPanel
                     x:Name="SinglesSection"
                     Spacing="{StaticResource ResonateSectionHeaderSpacing}"
