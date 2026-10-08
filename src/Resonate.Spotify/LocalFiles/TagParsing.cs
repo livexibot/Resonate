@@ -316,8 +316,15 @@ internal static class TagText
         [0x89, (byte)'P', (byte)'N', (byte)'G', ..] => "image/png",
         [(byte)'B', (byte)'M', ..] => "image/bmp",
         [(byte)'G', (byte)'I', (byte)'F', ..] => "image/gif",
+        [(byte)'R', (byte)'I', (byte)'F', (byte)'F', _, _, _, _, (byte)'W', (byte)'E', (byte)'B', (byte)'P', ..] => "image/webp",
+        [(byte)'I', (byte)'I', 0x2A, 0x00, ..] or [(byte)'M', (byte)'M', 0x00, 0x2A, ..] => "image/tiff",
+        [_, _, _, _, (byte)'f', (byte)'t', (byte)'y', (byte)'p', (byte)'a', (byte)'v', (byte)'i', (byte)'f' or (byte)'s', ..] => "image/avif",
+        [_, _, _, _, (byte)'f', (byte)'t', (byte)'y', (byte)'p', .. var rest] when IsHeifBrand(rest) => "image/heif",
         _ => null,
     };
+
+    private static bool IsHeifBrand(ReadOnlySpan<byte> brand) =>
+        brand.StartsWith("heic"u8) || brand.StartsWith("heix"u8) || brand.StartsWith("mif1"u8) || brand.StartsWith("msf1"u8);
 }
 
 /// <summary>ID3's unsynchronisation: 0xFF 0x00 in the file stands for 0xFF.</summary>

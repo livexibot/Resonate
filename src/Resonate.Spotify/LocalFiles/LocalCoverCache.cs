@@ -126,8 +126,10 @@ public sealed class LocalCoverCache : IDisposable
             // The cover inside the file first, as the player bar does (LocalCovers.Read).
             if (!LocalCovers.TryReadEmbedded(file, out var embedded))
             {
-                // Locked, or not downloaded from the cloud: tried again next time.
-                return null;
+                // Locked, or not downloaded from the cloud: the picture next to it
+                // for now (not kept, so the file's own cover wins once it can be
+                // read), and the file is tried again next time.
+                return picture is null ? null : await ShrinkPictureAsync(picture).ConfigureAwait(false);
             }
 
             var certain = true;

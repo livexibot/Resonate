@@ -35,6 +35,14 @@ public sealed partial class AudioGraphEngine : ILocalAudioEngine
     /// <summary>How close to its end a song that stopped moving counts as ended.</summary>
     private static readonly TimeSpan EndSlack = TimeSpan.FromSeconds(1);
 
+    /// <summary>
+    /// Ticks after which a song that played and then stood still, even after
+    /// being started again, counts as ended wherever it is: Windows only
+    /// estimates the length of some files (MP3s without a length header), so
+    /// the end can come before the length says.
+    /// </summary>
+    private const int GiveUpTicks = 5;
+
     // Windows' equalizer effect works from 22 to 48 kHz; a device set higher gets a 48 kHz graph.
     private const uint MaxGraphRate = 48_000;
 
@@ -661,7 +669,7 @@ public sealed partial class AudioGraphEngine : ILocalAudioEngine
             }
 
             var duration = DurationOf(current);
-            if (duration > TimeSpan.Zero && position >= duration - EndSlack)
+            if ((duration > TimeSpan.Zero && position >= duration - EndSlack) || (current.StuckTicks >= GiveUpTicks && position > TimeSpan.Zero))
             {
                 current.StuckTicks = 0;
                 ended = current;

@@ -137,6 +137,33 @@ public sealed class LocalCoverCacheTests : IDisposable
         Assert.False(Directory.Exists(_cache) && Directory.EnumerateFiles(_cache, "*.none").Any());
     }
 
+    [Fact]
+    public async Task A_file_that_can_not_be_read_shows_the_picture_next_to_it_for_now()
+    {
+        var song = FileFor(Path.Combine(_album, "locked.mp3"));
+        File.WriteAllBytes(Path.Combine(_album, "cover.jpg"), Jpeg);
+
+        Assert.Equal(FakeShrinker.Thumbnail(Jpeg), await Cache().GetAsync(song));
+
+        // Not kept: once the file can be read, its own cover wins.
+        Assert.False(Directory.Exists(_cache) && Directory.EnumerateFiles(_cache).Any());
+    }
+
+    [Theory]
+    [InlineData("RIFF....WEBPVP8 ")]
+    [InlineData("II*.")]
+    [InlineData("....ftypavif")]
+    [InlineData("....ftypheic")]
+    public void Newer_picture_formats_count_as_pictures(string start) =>
+        Assert.True(LocalCovers.LooksLikeImage(Bytes(start)));
+
+    [Fact]
+    public void A_sound_file_does_not_count_as_a_picture() =>
+        Assert.False(LocalCovers.LooksLikeImage(Bytes("....ftypM4A ")));
+
+    /// <summary>The text's bytes, with each "." a zero byte.</summary>
+    private static byte[] Bytes(string text) => [.. text.Select(c => c == '.' ? (byte)0 : (byte)c)];
+
     private LocalCoverCache Cache() => new(_cache, _shrinker);
 
     private LocalFile Song(string name, byte[]? cover)

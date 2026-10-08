@@ -175,6 +175,17 @@ internal sealed class ScreenshotTour
             Record("A local song's cover could not be made into a thumbnail (LocalCoverCache with WindowsCoverShrinker).");
         }
 
+        // A cover inside the file (an ID3 tag's picture), taller than wide.
+        var embeddedFolder = Path.Combine(folder, "embedded");
+        Directory.CreateDirectory(embeddedFolder);
+        var embedded = Path.Combine(embeddedFolder, "song.mp3");
+        await File.WriteAllBytesAsync(embedded, [.. Id3WithCover(await MakePictureAsync(200, 320)), .. new byte[4096]]);
+        var embeddedInfo = new FileInfo(embedded);
+        if (await cache.GetAsync(new LocalFile { Path = embedded, Size = embeddedInfo.Length, LastWriteTicks = embeddedInfo.LastWriteTimeUtc.Ticks, Title = "song" }) is null)
+        {
+            Record("The cover inside a local song could not be made into a thumbnail (LocalCoverCache with WindowsCoverShrinker).");
+        }
+
         var (image, loaded) = await CoverImages.FromBytesAsync(thumbnail ?? picture, 40);
         if (!loaded || image is not BitmapImage { PixelWidth: > 0 })
         {
@@ -185,6 +196,21 @@ internal sealed class ScreenshotTour
         {
             Record("A cover could not be read for its colours (CoverDecoder).");
         }
+    }
+
+    /// <summary>The start of an MP3 file: an ID3v2.3 tag with <paramref name="cover"/> as its front cover.</summary>
+    private static byte[] Id3WithCover(byte[] cover)
+    {
+        byte[] picture = [0, .. "image/jpeg"u8, 0, 3, 0, .. cover];
+        var frame = new byte[10 + picture.Length];
+        "APIC"u8.CopyTo(frame);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(frame.AsSpan(4), picture.Length);
+        picture.CopyTo(frame, 10);
+
+        // The tag's size is "synchsafe": seven bits a byte.
+        var size = frame.Length;
+        byte[] header = [.. "ID3"u8, 3, 0, 0, (byte)((size >> 21) & 0x7F), (byte)((size >> 14) & 0x7F), (byte)((size >> 7) & 0x7F), (byte)(size & 0x7F)];
+        return [.. header, .. frame];
     }
 
     /// <summary>A JPEG of a simple gradient, made with Windows' encoder.</summary>
