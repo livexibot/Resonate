@@ -32,6 +32,9 @@ public sealed partial class AudioGraphEngine : ILocalAudioEngine
     private static readonly TimeSpan OpenTimeout = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(1);
 
+    /// <summary>How close to its end a song that stopped moving counts as ended.</summary>
+    private static readonly TimeSpan EndSlack = TimeSpan.FromSeconds(1);
+
     // Windows' equalizer effect works from 22 to 48 kHz; a device set higher gets a 48 kHz graph.
     private const uint MaxGraphRate = 48_000;
 
@@ -69,7 +72,7 @@ public sealed partial class AudioGraphEngine : ILocalAudioEngine
     public AudioGraphEngine()
     {
         _idleTimer = TimeProvider.System.CreateTimer(_ => StopWhenIdle(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
-        _ticker = TimeProvider.System.CreateTimer(_ => _ = PrepareNextIfDueAsync(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        _ticker = TimeProvider.System.CreateTimer(_ => OnTick(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 
     public event EventHandler<LocalTrackEnded>? TrackEnded;
@@ -77,6 +80,8 @@ public sealed partial class AudioGraphEngine : ILocalAudioEngine
     public event EventHandler<string>? Failed;
 
     public TimeSpan Position => PositionOf(Volatile.Read(ref _current));
+
+    public TimeSpan Duration => Volatile.Read(ref _current) is { } current ? DurationOf(current) : TimeSpan.Zero;
 
     public async Task<TimeSpan> OpenAsync(string path, TimeSpan position, bool play, CancellationToken cancellationToken)
     {
@@ -606,20 +611,72 @@ public sealed partial class AudioGraphEngine : ILocalAudioEngine
     private void OnSourceCompleted(Track finished)
     {
         Track? started = null;
-        if (ReferenceEquals(Volatile.Read(ref _current), finished) && Volatile.Read(ref _gaplessNext) is { } next)
+        try
         {
-            try
+            if (ReferenceEquals(Volatile.Read(ref _current), finished) && Volatile.Read(ref _gaplessNext) is { } next)
             {
                 next.Node.Start();
                 started = next;
             }
-            catch (Exception ex) when (ex is COMException or InvalidOperationException or ObjectDisposedException)
-            {
-                // The player opens it the usual way.
-            }
+        }
+        catch (Exception)
+        {
+            // OnCompleted starts it instead. Nothing may stop the hand-over below.
         }
 
         _ = Task.Run(() => OnCompleted(finished, started));
+    }
+
+    /// <summary>
+    /// Once a second while playing: prepares the next song when it is due,
+    /// and makes sure a song that stopped moving does not stop the music.
+    /// </summary>
+    private void OnTick()
+    {
+        CheckStalled();
+        _ = PrepareNextIfDueAsync();
+    }
+
+    /// <summary>
+    /// A song that sat still at its end for two ticks has ended, even when
+    /// Windows did not say so; a song that should play but sits still
+    /// elsewhere is started again (a start Windows dropped).
+    /// </summary>
+    private void CheckStalled()
+    {
+        Track? ended = null;
+        lock (_gate)
+        {
+            if (_disposed || !_playing || _current is not { } current)
+            {
+                return;
+            }
+
+            var position = PositionOf(current);
+            current.StuckTicks = position == current.LastTick ? current.StuckTicks + 1 : 0;
+            current.LastTick = position;
+            if (current.StuckTicks < 2)
+            {
+                return;
+            }
+
+            var duration = DurationOf(current);
+            if (duration > TimeSpan.Zero && position >= duration - EndSlack)
+            {
+                current.StuckTicks = 0;
+                ended = current;
+            }
+            else
+            {
+                Try(current.Node.Start);
+            }
+        }
+
+        // Ignored when Windows' own report came first (OnCompleted checks the song is still open).
+        if (ended is not null)
+        {
+            OnSourceCompleted(ended);
+        }
     }
 
     private void OnCompleted(Track finished, Track? started)
@@ -637,6 +694,20 @@ public sealed partial class AudioGraphEngine : ILocalAudioEngine
                 }
 
                 return;
+            }
+
+            // The prepared song did not start inside Windows' callback: start it here.
+            if (started is null && _playing && _next is { } prepared && string.Equals(prepared.Path, _nextPath, PathComparison))
+            {
+                try
+                {
+                    prepared.Node.Start();
+                    started = prepared;
+                }
+                catch (Exception ex) when (ex is COMException or InvalidOperationException or ArgumentException or ObjectDisposedException)
+                {
+                    // The player opens it the usual way.
+                }
             }
 
             finished.Dispose();
@@ -946,6 +1017,11 @@ public sealed partial class AudioGraphEngine : ILocalAudioEngine
         public string Path { get; } = path;
 
         public MediaSourceAudioInputNode Node { get; } = node;
+
+        /// <summary>The position at the last tick, and how many ticks in a row it stayed there (under the engine's lock).</summary>
+        public TimeSpan LastTick { get; set; } = TimeSpan.MinValue;
+
+        public int StuckTicks { get; set; }
 
         public void Dispose()
         {

@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Windows.Graphics.Imaging;
 
 namespace Resonate.Windows;
@@ -17,8 +16,7 @@ public static class CoverDecoder
     {
         try
         {
-            using var memory = new MemoryStream(image, writable: false);
-            using var stream = memory.AsRandomAccessStream();
+            using var stream = await ImageStreams.FromBytesAsync(image).ConfigureAwait(false);
             var decoder = await BitmapDecoder.CreateAsync(stream).AsTask(cancellationToken).ConfigureAwait(false);
             var transform = new BitmapTransform
             {
@@ -34,8 +32,9 @@ public static class CoverDecoder
                 ColorManagementMode.DoNotColorManage).AsTask(cancellationToken).ConfigureAwait(false);
             return pixels.DetachPixelData();
         }
-        catch (Exception ex) when (ex is COMException or ArgumentException or InvalidOperationException)
+        catch (Exception ex) when (ex is not (OperationCanceledException or OutOfMemoryException))
         {
+            // Not a picture Windows can read.
             return null;
         }
     }

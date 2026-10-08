@@ -21,6 +21,15 @@ public sealed class LocalPlayer : ILocalPlayer
 
     internal static readonly TimeSpan ClockInterval = TimeSpan.FromSeconds(1);
     internal static readonly TimeSpan DriftTolerance = TimeSpan.FromMilliseconds(400);
+
+    /// <summary>
+    /// Ticks of the clock a playing song may sit still at its very end before
+    /// the player moves on by itself, in case the engine never says it ended.
+    /// </summary>
+    internal const int EndStuckTicks = 3;
+
+    /// <summary>How close to its length a song that stopped moving counts as ended.</summary>
+    internal static readonly TimeSpan NearEnd = TimeSpan.FromSeconds(1);
     internal static readonly TimeSpan TimelineInterval = TimeSpan.FromSeconds(5);
 
     private readonly ILocalAudioEngine _engine;
@@ -51,6 +60,10 @@ public sealed class LocalPlayer : ILocalPlayer
     private bool _controlsEnabled;
     private int _controlsQueued;
     private int _clockQueued;
+
+    // The engine's position at the last tick, and how many ticks in a row it stayed there.
+    private TimeSpan _lastEnginePosition = TimeSpan.MinValue;
+    private int _stuckTicks;
     private DateTimeOffset _lastTimeline;
     private volatile bool _disposed;
 
@@ -638,8 +651,23 @@ public sealed class LocalPlayer : ILocalPlayer
         Raise();
         if (playing && ended.NextPath is not null && string.Equals(song.FilePath, ended.NextPath, StringComparison.Ordinal))
         {
-            // The engine already started it, without a gap.
+            // The engine already started it, without a gap. Its own length
+            // beats the tags' (which may have none), for the bar and the end check.
             _openPath = ended.NextPath;
+            var duration = _engine.Duration;
+            if (duration > TimeSpan.Zero)
+            {
+                lock (_gate)
+                {
+                    if (track == _track)
+                    {
+                        SetState(_state with { Duration = duration });
+                    }
+                }
+
+                Raise();
+            }
+
             _ = LoadCoverAsync(track, ended.NextPath);
             UpdateNext();
             return;
@@ -687,16 +715,45 @@ public sealed class LocalPlayer : ILocalPlayer
             epoch = _epoch;
         }
 
-        _ = _transport.Enqueue(_ =>
+        _ = _transport.Enqueue(async ct =>
         {
             Interlocked.Exchange(ref _clockQueued, 0);
             if (_openPath is not null)
             {
                 SyncPosition(epoch, quietUnlessDrifted: true);
+                await MoveOnIfEndMissedAsync(epoch, ct).ConfigureAwait(false);
+            }
+        });
+    }
+
+    /// <summary>
+    /// A song that has sat still at its very end for a few ticks while
+    /// playing has ended, even if the engine never said so (Windows' audio
+    /// may not report it): the player moves on as if it had. A late report
+    /// from the engine then means nothing, as the song is no longer open.
+    /// </summary>
+    private async Task MoveOnIfEndMissedAsync(long epoch, CancellationToken cancellationToken)
+    {
+        if (_openPath is not { } path)
+        {
+            return;
+        }
+
+        var position = _engine.Position;
+        lock (_gate)
+        {
+            _stuckTicks = position == _lastEnginePosition ? _stuckTicks + 1 : 0;
+            _lastEnginePosition = position;
+            if (epoch != _epoch || !_state.IsPlaying || _stuckTicks < EndStuckTicks
+                || _state.Duration <= TimeSpan.Zero || position < _state.Duration - NearEnd)
+            {
+                return;
             }
 
-            return Task.CompletedTask;
-        });
+            _stuckTicks = 0;
+        }
+
+        await HandleEndedAsync(new LocalTrackEnded(path, NextPath: null), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Takes the engine's position, unless a command came after <paramref name="epoch"/>.</summary>
@@ -804,7 +861,12 @@ public sealed class LocalPlayer : ILocalPlayer
     private void OnControlRepeat(object? sender, RepeatMode mode) => _ = SetRepeatAsync(mode);
 
     /// <summary>A new song: work still queued for the one before is dropped. Call under the lock.</summary>
-    private (long Track, long Epoch) NextTrack() => (++_track, ++_epoch);
+    private (long Track, long Epoch) NextTrack()
+    {
+        _stuckTicks = 0;
+        _lastEnginePosition = TimeSpan.MinValue;
+        return (++_track, ++_epoch);
+    }
 
     /// <summary>The state for a song from its start. Call under the lock.</summary>
     private PlayerState ForTrack(TrackInfo track, bool playing)

@@ -5,8 +5,9 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Hosting;
-using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.UI.Xaml.Media;
 using Resonate.App.Helpers;
+using Resonate.App.Services;
 using Resonate.Plugins;
 using Resonate.Spotify.Playback;
 using Resonate.Spotify.WebApi;
@@ -374,11 +375,11 @@ public sealed partial class PlayerBar : UserControl
 
         if (state.ArtworkUrl is { } url)
         {
-            ArtworkImage.Source = Artwork.FromUrl(url, 56);
+            _ = ShowCoverAsync(key, App.Services.Covers.GetReadyAsync(url, 56));
         }
         else if (state.ArtworkBytes is { } bytes)
         {
-            _ = LoadArtworkBytesAsync(bytes);
+            _ = ShowCoverAsync(key, CoverImages.FromBytesAsync(bytes, 56));
         }
         else
         {
@@ -386,22 +387,20 @@ public sealed partial class PlayerBar : UserControl
         }
     }
 
-    private async Task LoadArtworkBytesAsync(byte[] bytes)
+    private async Task ShowCoverAsync(object key, Task<(ImageSource? Image, bool Loaded)> loading)
     {
-        var bitmap = new BitmapImage { DecodePixelWidth = 56, DecodePixelType = DecodePixelType.Logical };
-        try
-        {
-            using var stream = new MemoryStream(bytes, writable: false);
-            await bitmap.SetSourceAsync(stream.AsRandomAccessStream());
-        }
-        catch (Exception)
+        var (image, loaded) = await loading;
+        if (!ReferenceEquals(_artworkKey, key))
         {
             return;
         }
 
-        if (ReferenceEquals(_artworkKey, bytes))
+        ArtworkImage.Source = image;
+
+        // A picture that already has its pixels may not raise ImageOpened, so it is shown here.
+        if (loaded)
         {
-            ArtworkImage.Source = bitmap;
+            OnArtworkOpened(ArtworkImage, new RoutedEventArgs());
         }
     }
 

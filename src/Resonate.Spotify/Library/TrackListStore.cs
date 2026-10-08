@@ -43,7 +43,16 @@ public sealed class TrackListStore
     /// <param name="folder">Where the files go; null keeps nothing (demo mode, tests).</param>
     public TrackListStore(string? folder) => _folder = folder;
 
-    public CachedTrackList? Load(string key)
+    public CachedTrackList? Load(string key) => Load(key, keepInMemory: true);
+
+    /// <summary>
+    /// Like <see cref="Load"/>, but a list read from disk does not take the
+    /// place of the ones kept in memory (for a quick look ahead, such as
+    /// fetching a playlist's covers while the pointer rests on it).
+    /// </summary>
+    public CachedTrackList? Peek(string key) => Load(key, keepInMemory: false);
+
+    private CachedTrackList? Load(string key, bool keepInMemory)
     {
         if (PathFor(key) is not { } path)
         {
@@ -54,7 +63,11 @@ public sealed class TrackListStore
         {
             if (_recent.Find(l => l.Key == key) is { } remembered)
             {
-                Remember(remembered);
+                if (keepInMemory)
+                {
+                    Remember(remembered);
+                }
+
                 return remembered;
             }
         }
@@ -77,9 +90,12 @@ public sealed class TrackListStore
                 return null;
             }
 
-            lock (_gate)
+            if (keepInMemory)
             {
-                Remember(list);
+                lock (_gate)
+                {
+                    Remember(list);
+                }
             }
 
             return list;

@@ -38,6 +38,18 @@ public sealed partial class MainWindow : Window
 
     private const int HistoryLimit = 50;
 
+    /// <summary>The sidebar's usual width, and how narrow and wide it can be dragged.</summary>
+    private const double SidebarDefaultWidth = 272;
+    private const double SidebarMinWidth = 200;
+    private const double SidebarMaxWidth = 520;
+
+    /// <summary>How narrow and wide the queue pane can be dragged.</summary>
+    private const double QueueMinWidth = 280;
+    private const double QueueMaxWidth = 600;
+
+    /// <summary>The page keeps at least this much room when a panel is dragged wider.</summary>
+    private const double PageMinWidth = 380;
+
     /// <summary>
     /// How often the listening history is saved while Resonate is open.
     /// Spotify only shares the last 50 songs played (at least 100 minutes
@@ -54,6 +66,7 @@ public sealed partial class MainWindow : Window
     private bool _syncingSelection;
     private bool _backgroundStarted;
     private bool _firstFrameSeen;
+    private double _dragStartWidth;
 
     public MainWindow(AppServices services)
     {
@@ -81,6 +94,8 @@ public sealed partial class MainWindow : Window
         _messageTimer.Interval = TimeSpan.FromSeconds(7);
         _messageTimer.IsRepeating = false;
         _messageTimer.Tick += (_, _) => MessageBar.IsOpen = false;
+
+        SetUpSplitters();
 
         PlayerBar.Attach(services.Player);
         PlayerBar.QueueRequested += (_, _) => ToggleQueue();
@@ -168,6 +183,7 @@ public sealed partial class MainWindow : Window
         // The pane's column exists only while it is open: the grid's spacing
         // would otherwise leave a gap for an empty column at the right edge.
         QueuePane.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        QueueSplitter.Visibility = QueuePane.Visibility;
         if (open)
         {
             ShellGrid.ColumnDefinitions.Add(_queueColumn);
@@ -178,6 +194,122 @@ public sealed partial class MainWindow : Window
             ShellGrid.ColumnDefinitions.Remove(_queueColumn);
             QueuePane.Close();
         }
+
+        LayOutPanes();
+    }
+
+    // ---- Resizing the sidebar and the queue ----
+
+    private void SetUpSplitters()
+    {
+        SidebarSplitter.Label = "Resize the sidebar";
+        SidebarSplitter.DragStarted += (_, _) => _dragStartWidth = SidebarColumn.Width.Value;
+        SidebarSplitter.Dragged += (_, moved) => LayOutPanes(sidebar: _dragStartWidth + moved);
+        SidebarSplitter.DragCompleted += (_, _) => KeepPaneWidths();
+        SidebarSplitter.Stepped += (_, step) =>
+        {
+            LayOutPanes(sidebar: SidebarColumn.Width.Value + step);
+            KeepPaneWidths();
+        };
+        SidebarSplitter.ResetRequested += (_, _) =>
+        {
+            _services.Settings.SidebarWidth = null;
+            _services.SaveSettings();
+            LayOutPanes();
+        };
+
+        // The queue is on the right, so moving the grip right makes it narrower.
+        QueueSplitter.Label = "Resize the queue";
+        QueueSplitter.DragStarted += (_, _) => _dragStartWidth = _queueColumn.Width.Value;
+        QueueSplitter.Dragged += (_, moved) => LayOutPanes(queue: _dragStartWidth - moved);
+        QueueSplitter.DragCompleted += (_, _) => KeepPaneWidths();
+        QueueSplitter.Stepped += (_, step) =>
+        {
+            LayOutPanes(queue: _queueColumn.Width.Value - step);
+            KeepPaneWidths();
+        };
+        QueueSplitter.ResetRequested += (_, _) =>
+        {
+            _services.Settings.QueueWidth = null;
+            _services.SaveSettings();
+            LayOutPanes();
+        };
+
+        // The gap between panels belongs to the look, which can change at any time.
+        ShellGrid.RegisterPropertyChangedCallback(Grid.ColumnSpacingProperty, (_, _) => PlaceSplitters());
+        ShellGrid.SizeChanged += (_, e) =>
+        {
+            if (e.NewSize.Width != e.PreviousSize.Width)
+            {
+                LayOutPanes();
+            }
+        };
+        PlaceSplitters();
+        LayOutPanes();
+    }
+
+    /// <summary>Centres each grip on the gap between its panels, however wide the look makes that gap.</summary>
+    private void PlaceSplitters()
+    {
+        var reach = -((ShellGrid.ColumnSpacing / 2) + (PaneSplitter.GripWidth / 2));
+        SidebarSplitter.Margin = new Thickness(0, 0, reach, 0);
+        QueueSplitter.Margin = new Thickness(reach, 0, 0, 0);
+    }
+
+    /// <summary>
+    /// Sizes the sidebar and the queue: as the user last dragged them (or
+    /// <paramref name="sidebar"/> or <paramref name="queue"/> while dragging),
+    /// within their limits, and never so wide that the page between them has
+    /// less than <see cref="PageMinWidth"/>. The sidebar comes first; the
+    /// queue takes what is left.
+    /// </summary>
+    private void LayOutPanes(double? sidebar = null, double? queue = null)
+    {
+        var settings = _services.Settings;
+        var gap = ShellGrid.ColumnSpacing;
+        var room = ShellGrid.ActualWidth - ShellGrid.Padding.Left - ShellGrid.Padding.Right;
+        var queueOpen = QueuePane.IsOpen;
+
+        double sidebarWidth;
+        if (queue is not null)
+        {
+            // Dragging the queue leaves the sidebar where it is.
+            sidebarWidth = SidebarColumn.Width.Value;
+        }
+        else
+        {
+            var others = gap + PageMinWidth + (queueOpen ? gap + QueueMinWidth : 0);
+            sidebarWidth = Fit(sidebar ?? settings.SidebarWidth ?? SidebarDefaultWidth, SidebarMinWidth, SidebarMaxWidth, room - others);
+        }
+
+        var queueWidth = Fit(queue ?? settings.QueueWidth ?? QueuePanel.PaneWidth, QueueMinWidth, QueueMaxWidth, room - sidebarWidth - (2 * gap) - PageMinWidth);
+        SetWidth(SidebarColumn, sidebarWidth);
+        SetWidth(_queueColumn, queueWidth);
+
+        // Before the first layout there is no room to measure: only the limits apply.
+        static double Fit(double wanted, double min, double max, double room) =>
+            Math.Round(Math.Clamp(wanted, min, room > 0 ? Math.Clamp(room, min, max) : max));
+
+        static void SetWidth(ColumnDefinition column, double width)
+        {
+            if (column.Width.Value != width || !column.Width.IsAbsolute)
+            {
+                column.Width = new GridLength(width);
+            }
+        }
+    }
+
+    /// <summary>A drag or an arrow key ended: the panels keep these widths, next time too.</summary>
+    private void KeepPaneWidths()
+    {
+        var settings = _services.Settings;
+        settings.SidebarWidth = SidebarColumn.Width.Value == SidebarDefaultWidth ? null : SidebarColumn.Width.Value;
+        if (QueuePane.IsOpen)
+        {
+            settings.QueueWidth = _queueColumn.Width.Value == QueuePanel.PaneWidth ? null : _queueColumn.Width.Value;
+        }
+
+        _services.SaveSettings();
     }
 
     public void ShowSignIn()
@@ -692,6 +824,12 @@ public sealed partial class MainWindow : Window
         else if (options is { PluginCheckFeed: { } pluginFeed, PluginCheckResultFile: { } pluginResult })
         {
             _ = CheckPluginsAndQuitAsync(pluginFeed, pluginResult);
+        }
+
+        // Covers nobody has looked at for a while make room, once the window is up.
+        if (_services.Covers.Store is { } covers)
+        {
+            _ = Task.Run(covers.Prune);
         }
     }
 

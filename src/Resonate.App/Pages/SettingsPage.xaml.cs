@@ -109,6 +109,11 @@ public sealed partial class SettingsPage : Page
         _services.Library.Forget();
         _services.Likes.Forget();
         _services.Home.Forget();
+        if (_services.Covers.Store is { } covers)
+        {
+            _ = Task.Run(covers.Clear);
+        }
+
         App.MainWindow?.ShowSignIn();
     }
 

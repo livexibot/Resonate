@@ -224,6 +224,18 @@ public sealed class LibraryService : IDisposable
             : null;
     }
 
+    /// <summary>
+    /// A playlist's songs as they were last stored, even if the playlist has
+    /// changed since (to show at once while the current list loads); null
+    /// when none is stored. Costs no request, and leaves the lists kept in
+    /// memory as they are.
+    /// </summary>
+    public IReadOnlyList<TrackInfo>? PeekStoredPlaylistTracks(string playlistId) =>
+        _lists.Peek("playlist-" + playlistId)?.Tracks;
+
+    /// <summary>Liked Songs as last stored (to show at once while Spotify is asked for changes); null when none is stored. Costs no request.</summary>
+    public IReadOnlyList<TrackInfo>? GetStoredLikedSongs() => _lists.Load(LikedSongsKey)?.Tracks;
+
     /// <summary>An album's header and all of its songs.</summary>
     public async Task<(Album Album, IReadOnlyList<TrackInfo> Tracks)> GetAlbumAsync(string albumId, CancellationToken cancellationToken)
     {

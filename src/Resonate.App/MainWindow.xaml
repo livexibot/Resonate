@@ -94,9 +94,12 @@
             Grid.Row="1"
             Padding="{ThemeResource ResonateShellPadding}"
             ColumnSpacing="{ThemeResource ResonatePanelGap}">
-            <!-- A third column for the queue pane is added while it is open (see ShowQueue). -->
+            <!--
+                A third column for the queue pane is added while it is open (see ShowQueue).
+                The sidebar and the queue can be dragged wider or narrower (see LayOutPanes).
+            -->
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="272" />
+                <ColumnDefinition x:Name="SidebarColumn" Width="272" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
@@ -193,6 +196,8 @@
                     CanReorderItems="True"
                     DragItemsCompleted="OnPlaylistDragCompleted"
                     ItemsSource="{x:Bind Playlists}"
+                    PointerExited="OnPlaylistPointerExited"
+                    PointerMoved="OnPlaylistPointerMoved"
                     SelectionChanged="OnPlaylistSelectionChanged"
                     SelectionMode="Single">
                     <ListView.ItemTemplate>
@@ -264,6 +269,14 @@
             <controls:QueuePanel
                 x:Name="QueuePane"
                 Grid.Column="2"
+                Visibility="Collapsed" />
+
+            <!-- Grips in the gaps between the panels, above them (placed by PlaceSplitters). -->
+            <controls:PaneSplitter x:Name="SidebarSplitter" HorizontalAlignment="Right" />
+            <controls:PaneSplitter
+                x:Name="QueueSplitter"
+                Grid.Column="2"
+                HorizontalAlignment="Left"
                 Visibility="Collapsed" />
         </Grid>
 

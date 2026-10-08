@@ -31,6 +31,7 @@ public sealed class AppServices : IDisposable
         ISpotifyAppLauncher launcher,
         ISpotifyAppWindow spotifyWindow,
         HttpClient http,
+        CoverStore? covers,
         LocalFilesService localFiles,
         PluginManager plugins)
     {
@@ -48,7 +49,14 @@ public sealed class AppServices : IDisposable
         Plugins = plugins;
         _owned.Add(plugins);
         Theme = new ThemeService(settings, SaveSettings);
-        Artwork = new ArtworkSampler(player, Theme, http);
+        Covers = new CoverImages(covers);
+        if (covers is not null)
+        {
+            // Before the HTTP client: downloads stop first.
+            _owned.Add(covers);
+        }
+
+        Artwork = new ArtworkSampler(player, Theme, http, covers);
         _owned.Add(Artwork);
 
         player.Spotify.Channel = settings.ParsedControlChannel;
@@ -103,6 +111,9 @@ public sealed class AppServices : IDisposable
     /// <summary>The playing song's cover, read for looks that use its colours.</summary>
     public ArtworkSampler Artwork { get; }
 
+    /// <summary>Every cover the interface shows, kept on disk and in memory so lists fill in at once.</summary>
+    public CoverImages Covers { get; }
+
     public UpdateService Updates { get; } = new();
 
     /// <summary>The real thing: Spotify's media session, the Web API, the Credential Manager.</summary>
@@ -114,12 +125,19 @@ public sealed class AppServices : IDisposable
         var http = new HttpClient(new SocketsHttpHandler
         {
             PooledConnectionLifetime = TimeSpan.FromMinutes(10),
+
+            // A connection stays ready between clicks, so the next page or cover does not wait for a new one.
+            PooledConnectionIdleTimeout = TimeSpan.FromMinutes(5),
             AutomaticDecompression = DecompressionMethods.All,
             // Connect quickly or not at all; the interface never waits on this.
             ConnectTimeout = TimeSpan.FromSeconds(10),
         })
         {
             Timeout = TimeSpan.FromSeconds(20),
+
+            // Requests to the same server share one connection (HTTP/2) where the server allows it.
+            DefaultRequestVersion = HttpVersion.Version20,
+            DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower,
         };
         http.DefaultRequestHeaders.UserAgent.ParseAdd("Resonate/" + AppInfo.Version);
 
@@ -150,7 +168,7 @@ public sealed class AppServices : IDisposable
             settings,
             () => settingsStore.Save(settings),
             new LocalLibrary(Path.Combine(AppPaths.CacheFolder, "local-files.json")),
-            new LocalCoverCache(Path.Combine(AppPaths.CacheFolder, "local-covers")),
+            new LocalCoverCache(Path.Combine(AppPaths.CacheFolder, "local-covers"), new WindowsCoverShrinker()),
             localControls);
 
         // Plugins download from this release's own files on GitHub, checked against the catalog built into the app.
@@ -163,7 +181,8 @@ public sealed class AppServices : IDisposable
             new ProcessPluginHostLauncher(),
             pluginPlayer);
 
-        var services = new AppServices(false, settingsStore, settings, account, api, library, home, player, launcher, background, http, localFiles, plugins);
+        var covers = new CoverStore(http, Path.Combine(AppPaths.CacheFolder, "covers"));
+        var services = new AppServices(false, settingsStore, settings, account, api, library, home, player, launcher, background, http, covers, localFiles, plugins);
         services._owned.AddRange([pluginPlayer, player, spotify, local, localFiles, home, library, smtc, launcher, background, account, http]);
 
         // At once, so a Spotify already on the taskbar (started with Windows) disappears from it.
@@ -197,7 +216,7 @@ public sealed class AppServices : IDisposable
         var pluginPlayer = new PluginPlayer(player);
         var plugins = new PluginManager(LoadPluginCatalog(), installer: null, new PluginStateStore(null), launcher: null, pluginPlayer);
 
-        var services = new AppServices(true, settingsStore, settings, account, api, library, home, player, demoPlayer, demoPlayer, http, localFiles, plugins);
+        var services = new AppServices(true, settingsStore, settings, account, api, library, home, player, demoPlayer, demoPlayer, http, covers: null, localFiles, plugins);
         services._owned.AddRange([pluginPlayer, player, spotify, local, localFiles, home, library, account, http]);
         return services;
     }

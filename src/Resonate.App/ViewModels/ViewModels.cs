@@ -124,7 +124,7 @@ public sealed partial class TrackRow : ObservableObject
     public Brush PlaceholderBrush { get; }
 
     /// <summary>Created on first use, on the interface thread, at the size it is shown (local files read their own cover).</summary>
-    public ImageSource? Image => _image ??= Track.FilePath is not null ? LocalArtwork.For(Track, 80) : Artwork.FromUrl(Track.SmallImageUrl, 80);
+    public ImageSource? Image => _image ??= Track.FilePath is not null ? LocalArtwork.For(Track, 40) : Artwork.FromUrl(Track.SmallImageUrl, 40);
 
     /// <summary>Only Spotify songs can be liked (not local files or podcast episodes).</summary>
     public Visibility HeartVisibility => CanLike(Track) ? Visibility.Visible : Visibility.Collapsed;
@@ -200,7 +200,7 @@ public sealed partial class PlaylistNavItem
 
     public Brush PlaceholderBrush { get; }
 
-    public ImageSource? Image => _image ??= Artwork.FromUrl(ImagePicker.Pick(Playlist.Images, 64), 80);
+    public ImageSource? Image => _image ??= Artwork.FromUrl(ImagePicker.Pick(Playlist.Images, 64), 40);
 }
 
 /// <summary>A square card for an album or playlist (search results).</summary>
@@ -233,7 +233,7 @@ public sealed partial class CardItem
 
     public Brush PlaceholderBrush { get; }
 
-    public ImageSource? Image => _image ??= Artwork.FromUrl(ImageUrl, 300);
+    public ImageSource? Image => _image ??= Artwork.FromUrl(ImageUrl, 160);
 }
 
 /// <summary>A navigation entry at the top of the sidebar.</summary>
