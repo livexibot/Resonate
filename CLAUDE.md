@@ -363,8 +363,9 @@ Plugins (checked 2026-10-07):
   and output (one JSON message per line), so the installer and start-up
   are unchanged when no plugin is on.
 - Release downloads (`/releases/download/<tag>/<file>`) need the repository
-  to be public, like the updater. Until then, turning a plugin on in an
-  installed copy fails with "The download did not start".
+  to be public, like the updater. It is (checked 8 October 2026); while it
+  was private, turning a plugin on in an installed copy failed with "The
+  download did not start".
 
 Classic player and cover art (checked 2026-10-08):
 - Classic Winamp skins (`.wsz`, Winamp 2) are zip archives of BMP sheets
@@ -888,9 +889,8 @@ when the work first needs them, then tick them off here.
   in, and let it start with Windows, minimised.
 - [ ] Choose a license before making the repository public (MIT is a
   common, simple choice).
-- [ ] Make the repository public (decided 7 October 2026, so installed
-  copies can see new releases): Settings, General, Danger Zone, Change
-  visibility. Do the email setting above first.
+- [x] Make the repository public (decided 7 October 2026, so installed
+  copies can see new releases). Public by 8 October 2026.
 - [ ] Optional, later: Windows code signing, so the installer does not show
   a SmartScreen warning. This costs money (for example Azure Trusted
   Signing).
