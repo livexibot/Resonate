@@ -28,7 +28,7 @@ public sealed class AppSettings
     /// <summary>Looks with the song cover backdrop show the cover itself, blurred (off: only its colours).</summary>
     public bool BlurredCoverBackground { get; set; } = true;
 
-    /// <summary>The library sidebar runs to the bottom of the window, beside the player (off unless the user switches it on).</summary>
+    /// <summary>The library sidebar runs the window's full height, beside the player (off unless the user switches it on).</summary>
     public bool SidebarFullHeight { get; set; }
 
     /// <summary>Links the user hid from the sidebar (Settings, Layout), by page key. Home always shows; Local Files has <see cref="ShowLocalFiles"/>.</summary>
@@ -36,6 +36,18 @@ public sealed class AppSettings
 
     /// <summary>The mini player button in the title bar (Ctrl+M opens the mini player either way).</summary>
     public bool ShowMiniPlayerButton { get; set; } = true;
+
+    /// <summary>The sections of Settings the user folded away, by their headings (see Controls/SettingsGroup).</summary>
+    public List<string> CollapsedSettingsSections { get; set; } = [];
+
+    /// <summary>The sections that start folded (Customize, Effects, Winamp) which the user opened, by their headings.</summary>
+    public List<string> ExpandedSettingsSections { get; set; } = [];
+
+    /// <summary>
+    /// New versions download by themselves and install when Resonate closes
+    /// (on unless the user switches it off; then only Check for updates looks).
+    /// </summary>
+    public bool AutoUpdate { get; set; } = true;
 
     /// <summary>How large everything under the title bar is drawn, in percent (one of <see cref="AppScale.AppSizes"/>).</summary>
     public int AppSize { get; set; } = AppScale.Normal;
@@ -186,13 +198,20 @@ public sealed class AppSettings
     // Home stage
 
     /// <summary>The Home stage shows the playing cover blurred behind its clouds (the user's choice, off at first).</summary>
-    public bool HomeStageBlurredCover { get; set; }
+    public bool HomeStageBlurredCover { get; set; } = true;
 
     /// <summary>The last cover's colours (#RRGGBB), so the stage opens in them before any cover is read.</summary>
     public List<string> HomeStageColours { get; set; } = [];
 
     /// <summary>The stage shows the visualizer's bars along its bottom (on unless the user turns it off).</summary>
     public bool HomeStageVisualizer { get; set; } = true;
+
+    /// <summary>
+    /// The bars follow Spotify's own sound, heard through Windows (on unless
+    /// the user turns it off; the owner's choice of 8 October 2026). Off, they
+    /// sway on their own for Spotify songs.
+    /// </summary>
+    public bool HomeStageListens { get; set; } = true;
 
     // Away screen
 
@@ -360,38 +379,48 @@ public sealed class SettingsStore
 
 public static class AppPaths
 {
+    /// <summary>
+    /// "--data": everything below goes in this one folder instead, so a local
+    /// build run beside the installed copy shares nothing with it. Read once,
+    /// after <see cref="StartupOptions.Parse"/>.
+    /// </summary>
+    private static readonly string? DataFolder = StartupOptions.Current.DataFolder;
+
+    private static readonly string Roaming =
+        DataFolder ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Resonate");
+
+    private static readonly string Local =
+        DataFolder ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Resonate");
+
     /// <summary>Settings that should survive reinstalling (roaming app data).</summary>
-    public static string SettingsFile { get; } =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Resonate", "settings.json");
+    public static string SettingsFile { get; } = Path.Combine(Roaming, "settings.json");
 
     /// <summary>
     /// Caches. Velopack installs to %LocalAppData%\Resonate and only replaces
     /// its "current" folder on updates, so this survives updates and is
     /// removed on uninstall.
     /// </summary>
-    public static string CacheFolder { get; } =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Resonate", "data");
+    public static string CacheFolder { get; } = Path.Combine(Local, "data");
 
     /// <summary>
     /// Plugins that are on, and the helper that runs them. Next to the cache,
     /// so it survives updates and goes on uninstall; emptied when the last
     /// plugin is turned off.
     /// </summary>
-    public static string PluginsFolder { get; } =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Resonate", "plugins");
+    public static string PluginsFolder { get; } = Path.Combine(Local, "plugins");
 
     /// <summary>Which plugins are on, their settings and what they keep (next to the settings).</summary>
-    public static string PluginsFile { get; } =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Resonate", "plugins.json");
+    public static string PluginsFile { get; } = Path.Combine(Roaming, "plugins.json");
 
     /// <summary>
     /// WebView2's own folder for Resonate's own player ("Spotify Web API
     /// only"). It runs InPrivate, so no cookies, cache or history stay here.
     /// </summary>
-    public static string WebPlayerFolder { get; } =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Resonate", "webplayer");
+    public static string WebPlayerFolder { get; } = Path.Combine(Local, "webplayer");
 
     /// <summary>Classic player skins the user added (copies), next to <see cref="CacheFolder"/>.</summary>
-    public static string SkinsFolder { get; } =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Resonate", "skins");
+    public static string SkinsFolder { get; } = Path.Combine(Local, "skins");
+
+    /// <summary>Where the Spotify sign-in is kept in the Credential Manager; its own entry for "--data".</summary>
+    public static string CredentialTarget { get; } = DataFolder is null ? "Resonate/Spotify" : "Resonate/Spotify/" + DataFolder;
 }

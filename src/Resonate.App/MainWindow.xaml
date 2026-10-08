@@ -147,18 +147,31 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <!-- The panels, then the player's row (empty while the player hovers over the page). -->
+                <!--
+                    A row for a player along the top, the panels, and a row for a
+                    player underneath; the player's rows are empty while it is
+                    elsewhere or hovers over the page (see MainWindow.PlayerPlacement.cs).
+                -->
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <!-- The panels' shadows, behind them -->
-                <controls:Elevation x:Name="SidebarElevation" CornerRadius="{ThemeResource ResonateCornerLarge}" />
-                <controls:Elevation Grid.Column="1" CornerRadius="{ThemeResource ResonateCornerLarge}" />
+                <controls:Elevation
+                    x:Name="SidebarElevation"
+                    Grid.Row="1"
+                    CornerRadius="{ThemeResource ResonateCornerLarge}" />
+                <controls:Elevation
+                    x:Name="ContentElevation"
+                    Grid.Row="1"
+                    Grid.Column="1"
+                    CornerRadius="{ThemeResource ResonateCornerLarge}" />
 
                 <Grid
                     x:Name="Sidebar"
+                    Grid.Row="1"
                     Padding="6,10,6,8"
                     Background="{StaticResource ResonateSidebarBrush}"
                     BorderBrush="{StaticResource ResonateBorderBrush}"
@@ -217,13 +230,15 @@
                                         VerticalAlignment="Center"
                                         FontWeight="SemiBold"
                                         Style="{StaticResource ResonateBodyTextStyle}"
-                                        Text="{x:Bind Label}" />
+                                        Text="{x:Bind Label}"
+                                        Visibility="{x:Bind LabelVisibility, Mode=OneWay}" />
                                 </StackPanel>
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
 
                     <Grid
+                        x:Name="PlaylistsHeader"
                         Grid.Row="1"
                         Margin="16,14,8,4"
                         ColumnSpacing="2">
@@ -279,30 +294,37 @@
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="vm:PlaylistNavItem">
                                 <Grid
-                                    MinHeight="54"
+                                    MinHeight="64"
                                     Background="{StaticResource ResonateTransparentBrush}"
                                     ColumnSpacing="12">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="40" />
+                                        <ColumnDefinition Width="48" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <Grid
-                                        Width="40"
-                                        Height="40"
-                                        Background="{x:Bind PlaceholderBrush}"
-                                        CornerRadius="{ThemeResource ResonateCornerSmall}">
-                                        <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
+                                        Width="48"
+                                        Height="48"
+                                        Background="{x:Bind Cover.Background, Mode=OneWay}"
+                                        CornerRadius="{ThemeResource ResonateCornerSmall}"
+                                        ToolTipService.ToolTip="{x:Bind Name}">
+                                        <Image Source="{x:Bind Cover.Image}" Stretch="UniformToFill" />
                                     </Grid>
                                     <StackPanel
                                         Grid.Column="1"
                                         VerticalAlignment="Center"
-                                        Spacing="1">
+                                        Spacing="2"
+                                        Visibility="{x:Bind TextVisibility, Mode=OneWay}">
                                         <TextBlock
+                                            FontWeight="SemiBold"
                                             Foreground="{x:Bind NameBrush, Mode=OneWay}"
                                             Style="{StaticResource ResonateBodyTextStyle}"
-                                            Text="{x:Bind Name}" />
-                                        <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="{x:Bind Details}" />
+                                            Text="{x:Bind Name}"
+                                            TextTrimming="CharacterEllipsis" />
+                                        <TextBlock
+                                            Style="{StaticResource ResonateCaptionTextStyle}"
+                                            Text="{x:Bind Details}"
+                                            TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
                                     <FontIcon
                                         Grid.Column="2"
@@ -322,6 +344,7 @@
 
                 <Grid
                     x:Name="ContentPanel"
+                    Grid.Row="1"
                     Grid.Column="1"
                     Background="{StaticResource ResonateSurfaceBrush}"
                     BorderBrush="{StaticResource ResonateBorderBrush}"
@@ -370,18 +393,21 @@
 
                 <controls:QueuePanel
                     x:Name="QueuePane"
+                    Grid.Row="1"
                     Grid.Column="2"
                     Visibility="Collapsed" />
 
                 <!-- Settings, next to the page in the queue's place (see ShowSettings). -->
                 <controls:SettingsPane
                     x:Name="SettingsPane"
+                    Grid.Row="1"
                     Grid.Column="2"
                     Visibility="Collapsed" />
 
                 <!-- Lyrics, a built-in plugin, in the same place (see MainWindow.Lyrics.cs). -->
                 <controls:LyricsPane
                     x:Name="LyricsPane"
+                    Grid.Row="1"
                     Grid.Column="2"
                     Visibility="Collapsed" />
 
@@ -394,16 +420,20 @@
                 -->
                 <Grid
                     x:Name="PlayerSlot"
-                    Grid.Row="1"
+                    Grid.Row="2"
                     Grid.ColumnSpan="99"
                     SizeChanged="OnPlayerSlotSizeChanged">
                     <controls:PlayerBar x:Name="PlayerBar" />
                 </Grid>
 
                 <!-- Grips in the gaps between the panels, above them (placed by PlaceSplitters). -->
-                <controls:PaneSplitter x:Name="SidebarSplitter" HorizontalAlignment="Right" />
+                <controls:PaneSplitter
+                    x:Name="SidebarSplitter"
+                    Grid.Row="1"
+                    HorizontalAlignment="Right" />
                 <controls:PaneSplitter
                     x:Name="RightSplitter"
+                    Grid.Row="1"
                     Grid.Column="2"
                     HorizontalAlignment="Left"
                     Visibility="Collapsed" />

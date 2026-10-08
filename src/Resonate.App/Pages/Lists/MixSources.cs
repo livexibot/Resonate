@@ -50,7 +50,7 @@ public sealed class DailyMixSource : TrackListSource
     {
         var title = mix?.Title ?? "Daily Mix " + _number.ToString(CultureInfo.CurrentCulture);
         var user = _services.Library.Snapshot?.User?.DisplayName;
-        var details = (string.IsNullOrEmpty(user) ? "Made for you" : "Made for " + user) + " · New every day";
+        var details = string.IsNullOrEmpty(user) ? "Made for you" : "Made for " + user;
         return new ListHeader("DAILY MIX", title, mix?.Subtitle, details, mix?.ImageUrl, title, mix?.ImageUrl is null ? Glyph : null);
     }
 }
@@ -76,7 +76,7 @@ public sealed class OnRepeatSource : TrackListSource
     public override string EmptyText => "The songs you play most over a few weeks appear here.";
 
     public override ListHeader CachedHeader =>
-        new("MADE FOR YOU", "On repeat", "The songs you have played most lately.", "Updated every day", null, "On repeat", Glyph);
+        new("MADE FOR YOU", "On repeat", null, null, null, "On repeat", Glyph);
 
     public override async Task<FullTrackList> LoadAllAsync(CancellationToken cancellationToken) =>
         new((await _services.Home.GetContentAsync(cancellationToken)).OnRepeat, ItemsHidden: false);

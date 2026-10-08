@@ -23,6 +23,7 @@ public sealed class BuiltInPlugins
     public const string WindowShapes = "window-shapes";
     public const string SummonBar = "summon-bar";
     public const string SignalPath = "signal-path";
+    public const string SleepTimer = "sleep-timer";
 
     private readonly AppSettings _settings;
     private readonly Action _save;
@@ -39,8 +40,7 @@ public sealed class BuiltInPlugins
     /// <summary>Every built-in plugin, in the order Settings lists them.</summary>
     public static IReadOnlyList<BuiltInPlugin> All { get; } =
     [
-        new(Lyrics, "Lyrics", "Words that follow the song, from LRCLIB, a free lyrics library."),
-        new(HomeStage, "Home stage", "Home opens on the song playing, large, in its colours."),
+
         new(AwayScreen, "Away screen", "After a few idle minutes, the window shows the song and a clock."),
         new(Rediscover, "Rediscover", "Songs you liked on this day, and ones you have not played in a while, on Home."),
         new(UpNext, "Up next", "Reorder, remove and clear the songs coming up."),
@@ -49,9 +49,13 @@ public sealed class BuiltInPlugins
         new(WindowShapes, "Window shapes", "Shrink the window to a compact player or a strip that stays on top."),
         new(SummonBar, "Summon bar", "A shortcut opens a search box over any app."),
         new(SignalPath, "Signal path", "A badge in the player that says whether you hear lossless."),
+        new(SleepTimer, "Sleep timer", "Pauses the music after the time you pick."),
     ];
 
-    public bool IsOn(string id) => _settings.BuiltInPlugins.Contains(id, StringComparer.Ordinal);
+    /// <summary>Part of Resonate itself now (the owner's choice, 8 October 2026): always on, not listed.</summary>
+    public static bool IsAlwaysOn(string id) => id is Lyrics or HomeStage;
+
+    public bool IsOn(string id) => IsAlwaysOn(id) || _settings.BuiltInPlugins.Contains(id, StringComparer.Ordinal);
 
     /// <summary>Turns a plugin on or off and saves it. Call on the interface thread.</summary>
     public void Set(string id, bool on)

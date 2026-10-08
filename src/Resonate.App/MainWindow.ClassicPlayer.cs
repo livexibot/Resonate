@@ -72,6 +72,9 @@ public sealed partial class MainWindow
             _classicPlayer.SetWindowActive(_windowActive);
             _classicPlayer.SetWindowShown(IsShown);
             PlayerSlot.Children.Add(_classicPlayer);
+
+            // Under the cover while the player is a column beside the page.
+            Grid.SetRow(_classicPlayer, _sideColumn is null ? 0 : 1);
         }
         else if (!classic && _classicPlayer is not null)
         {

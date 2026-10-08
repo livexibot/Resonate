@@ -217,11 +217,25 @@ public sealed partial class PlayerBar : UserControl
         // A rolling wave makes no sense for volume; it gets the plain line.
         VolumeBar.BarStyle = look.Progress == ProgressStyle.Wave ? ProgressStyle.Line : look.Progress;
 
+        // Settings, Layout, Advanced: the user's own height.
+        Bar.Height = look.PlayerHeight ?? PlayerPlacement.HeightFor(_widthClass);
+
         // A pill when it hovers in a look with round buttons: the corners
         // follow the bar's height, which is lower for the mini bar.
         var corner = new CornerRadius(PlayerPlacement.Corner(look.PlayerLayout, look.Buttons, theme.Palette.CornerLarge, Bar.Height));
         Bar.CornerRadius = corner;
         BarHost.CornerRadius = corner;
+
+        // The mini bar keeps to the page's corner; a pill no wider than its slot sits in the middle.
+        BarHost.HorizontalAlignment = look.PlayerLayout switch
+        {
+            PlayerLayout.Corner => HorizontalAlignment.Right,
+            PlayerLayout.CornerLeft => HorizontalAlignment.Left,
+            _ => HorizontalAlignment.Stretch,
+        };
+
+        // Settings, Layout, Advanced: the user's own width and height.
+        BarHost.MaxWidth = look.PlayerWidth ?? PlayerPlacement.MaxWidth(look.PlayerLayout);
 
         // A record for the vinyl style, and for every look while the user
         // lets covers spin; otherwise the look's own shape.
@@ -263,7 +277,7 @@ public sealed partial class PlayerBar : UserControl
         var mini = widthClass == PlayerWidthClass.Mini;
         var shown = mini ? Visibility.Collapsed : Visibility.Visible;
 
-        Bar.Height = PlayerPlacement.HeightFor(widthClass);
+        Bar.Height = App.Services.Theme.Current.PlayerHeight ?? PlayerPlacement.HeightFor(widthClass);
         var padding = full ? 20 : mini ? 14 : 16;
         Bar.Padding = new Thickness(padding, 0, padding, 0);
         Bar.ColumnSpacing = full ? 24 : mini ? 12 : 16;

@@ -58,12 +58,25 @@ public sealed class ThemeColorTests
 public sealed class PresetTests
 {
     [Fact]
-    public void There_are_six_presets_with_unique_ids_and_names()
+    public void There_are_fourteen_presets_in_three_groups_with_unique_ids_and_names()
     {
-        Assert.Equal(6, ThemePresets.All.Count);
-        Assert.Equal(6, ThemePresets.All.Select(p => p.Id).Distinct().Count());
-        Assert.Equal(6, ThemePresets.All.Select(p => p.Name).Distinct().Count());
+        Assert.Equal(14, ThemePresets.All.Count);
+        Assert.Equal(ThemePresets.Dark.Count + ThemePresets.Light.Count + ThemePresets.Black.Count, ThemePresets.All.Count);
+        Assert.Equal(ThemePresets.All.Count, ThemePresets.All.Select(p => p.Id).Distinct().Count());
+        Assert.Equal(ThemePresets.All.Count, ThemePresets.All.Select(p => p.Name).Distinct().Count());
     }
+
+    [Fact]
+    public void Every_preset_has_the_player_at_the_bottom() =>
+        Assert.All(ThemePresets.All, p => Assert.True(
+            p.PlayerLayout is PlayerLayout.Docked or PlayerLayout.Floating or PlayerLayout.Hovering or PlayerLayout.Corner or PlayerLayout.CornerLeft,
+            $"{p.Name} has the player at {p.PlayerLayout}"));
+
+    [Fact]
+    public void The_presets_use_only_fonts_that_come_with_Resonate_or_Windows() =>
+        Assert.All(
+            ThemePresets.All.SelectMany(p => new[] { p.DisplayFont, p.TextFont }).Where(f => !f.StartsWith("Segoe", StringComparison.Ordinal) && !f.StartsWith("Sitka", StringComparison.Ordinal) && f != "Bahnschrift"),
+            font => Assert.NotNull(BundledFonts.Find(font)));
 
     [Fact]
     public void The_ids_the_first_release_saved_still_work()

@@ -203,7 +203,7 @@ public sealed record ThemePalette
     private static ThemeColor PlayerFill(ThemeDefinition theme, ThemeColor effectiveSurface)
     {
         var panel = theme.Player.Opaque.WithAlpha(theme.PanelOpacity);
-        return theme.PlayerLayout == PlayerLayout.Hovering
+        return PlayerPlacement.HoversOverPage(theme.PlayerLayout)
             ? panel.Over(effectiveSurface).WithAlpha(Math.Max(theme.PanelOpacity, HoveringPlayerOpacity))
             : panel;
     }

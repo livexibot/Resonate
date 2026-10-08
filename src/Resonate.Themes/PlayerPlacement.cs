@@ -22,22 +22,28 @@ public readonly record struct EdgeInsets(double Left, double Top, double Right, 
 }
 
 /// <summary>
-/// Where the player's slot sits in the window's shell grid, whose first row
-/// holds the panels and whose second row (as tall as the player) holds the
-/// player unless it hovers over the page.
+/// Where the player's slot sits in the window's shell grid, whose middle row
+/// holds the panels, with a row above and one below them (each as tall as
+/// the player, or empty) for a player on top or underneath. A player that
+/// hovers over the page sits in the panels' row.
 /// </summary>
-/// <param name="Row">0 to hover over the panels, 1 for the row under them.</param>
+/// <param name="Row">
+/// <see cref="PlayerPlacement.TopRow"/>, <see cref="PlayerPlacement.PanelsRow"/>
+/// (hovering over the page) or <see cref="PlayerPlacement.BottomRow"/>.
+/// </param>
 /// <param name="StartsAtContent">The slot starts at the page's column instead of the window's left edge.</param>
 /// <param name="SpansFollowingColumns">The slot also covers every column after its first (the queue pane's).</param>
 /// <param name="AlignBottom">The slot is only as tall as the player and sits at the bottom of its row.</param>
 /// <param name="Margin">The slot's margin; negative values reach into the shell's padding, to the window's edges.</param>
-/// <param name="SidebarRowSpan">2 when the sidebar runs to the bottom of the window, beside the player.</param>
+/// <param name="SidebarRow">The sidebar's first row: the top row when it reaches the top beside a player there.</param>
+/// <param name="SidebarRowSpan">2 when the sidebar runs to the window's edge beside the player.</param>
 public readonly record struct PlayerSlot(
     int Row,
     bool StartsAtContent,
     bool SpansFollowingColumns,
     bool AlignBottom,
     EdgeInsets Margin,
+    int SidebarRow,
     int SidebarRowSpan);
 
 /// <summary>
@@ -48,6 +54,15 @@ public readonly record struct PlayerSlot(
 /// </summary>
 public static class PlayerPlacement
 {
+    /// <summary>The shell's row above the panels, for a player along the top.</summary>
+    public const int TopRow = 0;
+
+    /// <summary>The shell's row of the panels, where a hovering player sits over the page.</summary>
+    public const int PanelsRow = 1;
+
+    /// <summary>The shell's row under the panels.</summary>
+    public const int BottomRow = 2;
+
     /// <summary>The player bar's height (Full and Compact).</summary>
     public const double BarHeight = 88;
 
@@ -84,6 +99,13 @@ public static class PlayerPlacement
     /// </summary>
     public const double HoveringMinWidth = 360;
 
+    /// <summary>
+    /// The widest a player in the corner grows: the mini bar (narrower than
+    /// <see cref="CompactWidth"/>), so it stays a small pill beside the page's
+    /// content.
+    /// </summary>
+    public const double CornerWidth = 440;
+
     /// <summary>The room a page leaves under its last row beyond the hovering player itself.</summary>
     public const double HoverClearance = 8;
 
@@ -95,6 +117,27 @@ public static class PlayerPlacement
 
     /// <summary>The largest corner of a hovering player whose buttons are not round.</summary>
     private const double HoveringCornerLimit = 44;
+
+    /// <summary>Whether the player sits along the top of the window, under the title bar.</summary>
+    public static bool IsAtTop(PlayerLayout layout) => layout is PlayerLayout.Top or PlayerLayout.FloatingTop;
+
+    /// <summary>Whether the player hovers over the page (in the middle or in its corner), which scrolls on under it.</summary>
+    public static bool HoversOverPage(PlayerLayout layout) => layout is PlayerLayout.Hovering or PlayerLayout.Corner or PlayerLayout.HoveringTop or PlayerLayout.CornerLeft;
+
+    /// <summary>Whether the player is a column beside the page (left or right) rather than a bar.</summary>
+    public static bool IsSide(PlayerLayout layout) => layout is PlayerLayout.Left or PlayerLayout.Right or PlayerLayout.InsetLeft or PlayerLayout.InsetRight;
+
+    /// <summary>Whether a side column is on the left of the page.</summary>
+    public static bool IsLeftSide(PlayerLayout layout) => layout is PlayerLayout.Left or PlayerLayout.InsetLeft;
+
+    /// <summary>Whether a hovering player keeps to the top of the page instead of the bottom.</summary>
+    public static bool HoversAtTop(PlayerLayout layout) => layout == PlayerLayout.HoveringTop;
+
+    /// <summary>A column beside the page: wide enough for the mini bar.</summary>
+    public const double SideWidth = 360;
+
+    /// <summary>Whether the player is a card of its own (corners, outline all round and the look's shadow) rather than a bar along an edge.</summary>
+    public static bool Floats(PlayerLayout layout) => layout is not (PlayerLayout.Docked or PlayerLayout.Top or PlayerLayout.Left or PlayerLayout.Right);
 
     /// <summary>
     /// Which version of the player bar fits <paramref name="width"/> (its
@@ -117,7 +160,11 @@ public static class PlayerPlacement
         return layout switch
         {
             PlayerLayout.Floating => Around(Math.Max(gap, FloatingGap)),
-            PlayerLayout.Hovering => Around(Math.Max(gap, HoveringGap)),
+
+            // Right under the title bar, where the panels start otherwise; the slot keeps the gap below it.
+            PlayerLayout.FloatingTop => new EdgeInsets(Math.Max(gap, FloatingGap), 0, Math.Max(gap, FloatingGap), 0),
+            PlayerLayout.Hovering or PlayerLayout.Corner or PlayerLayout.CornerLeft => Around(Math.Max(gap, HoveringGap)),
+            PlayerLayout.HoveringTop => new EdgeInsets(Math.Max(gap, HoveringGap), Math.Max(gap, HoveringGap), Math.Max(gap, HoveringGap), 0),
             _ => EdgeInsets.Zero,
         };
 
@@ -125,14 +172,16 @@ public static class PlayerPlacement
     }
 
     /// <summary>
-    /// The player's outline: a line along the top when docked, the look's
+    /// The player's outline: a line along the edge that faces the panels when
+    /// docked (its top at the bottom, its bottom at the top), the look's
     /// outline all round when floating, and at least a hairline all round when
     /// hovering, so it keeps an edge over the page in looks without shadows.
     /// </summary>
     public static EdgeInsets Outline(PlayerLayout layout, double borderWidth) => layout switch
     {
-        PlayerLayout.Floating => EdgeInsets.All(borderWidth),
-        PlayerLayout.Hovering => EdgeInsets.All(Math.Max(borderWidth, 1)),
+        PlayerLayout.Floating or PlayerLayout.FloatingTop or PlayerLayout.Left or PlayerLayout.Right or PlayerLayout.InsetLeft or PlayerLayout.InsetRight => EdgeInsets.All(borderWidth),
+        PlayerLayout.Hovering or PlayerLayout.Corner or PlayerLayout.HoveringTop or PlayerLayout.CornerLeft => EdgeInsets.All(Math.Max(borderWidth, 1)),
+        PlayerLayout.Top => new EdgeInsets(0, 0, 0, borderWidth),
         _ => new EdgeInsets(0, borderWidth, 0, 0),
     };
 
@@ -144,15 +193,20 @@ public static class PlayerPlacement
     /// </summary>
     public static double Corner(PlayerLayout layout, ButtonShape buttons, double cornerLarge, double height) => layout switch
     {
-        PlayerLayout.Floating => Math.Min(Math.Max(cornerLarge, 4), height / 2),
-        PlayerLayout.Hovering when buttons == ButtonShape.Round => height / 2,
-        PlayerLayout.Hovering => Math.Min(Math.Min(cornerLarge * 1.5, HoveringCornerLimit), height / 2),
+        PlayerLayout.Floating or PlayerLayout.FloatingTop or PlayerLayout.Left or PlayerLayout.Right or PlayerLayout.InsetLeft or PlayerLayout.InsetRight
+            => Math.Min(Math.Max(cornerLarge, 4), height / 2),
+        PlayerLayout.Hovering or PlayerLayout.Corner or PlayerLayout.HoveringTop or PlayerLayout.CornerLeft when buttons == ButtonShape.Round => height / 2,
+        PlayerLayout.Hovering or PlayerLayout.Corner or PlayerLayout.HoveringTop or PlayerLayout.CornerLeft => Math.Min(Math.Min(cornerLarge * 1.5, HoveringCornerLimit), height / 2),
         _ => 0,
     };
 
-    /// <summary>How wide the player may grow: a hovering player stays a centred pill.</summary>
-    public static double MaxWidth(PlayerLayout layout) =>
-        layout == PlayerLayout.Hovering ? HoveringMaxWidth : double.PositiveInfinity;
+    /// <summary>How wide the player may grow: a hovering player stays a centred pill, one in the corner a small one.</summary>
+    public static double MaxWidth(PlayerLayout layout) => layout switch
+    {
+        PlayerLayout.Hovering or PlayerLayout.HoveringTop => HoveringMaxWidth,
+        PlayerLayout.Corner or PlayerLayout.CornerLeft => CornerWidth,
+        _ => double.PositiveInfinity,
+    };
 
     /// <summary>
     /// Whether a hovering player at least <paramref name="playerWidth"/> wide
@@ -167,33 +221,40 @@ public static class PlayerPlacement
 
     /// <summary>
     /// Where the player's slot goes. Docked and floating players sit in the
-    /// row under the panels, across the whole window, or (with the sidebar
-    /// reaching the bottom) under the page and the queue only; the slot
+    /// row under the panels (or above them, for the layouts along the top),
+    /// across the whole window, or (with the sidebar reaching the window's
+    /// edge) beside the sidebar, over the page and the queue only; the slot
     /// reaches into the shell's padding so the look's own margins place the
     /// player exactly as before. A hovering player sits over the bottom of
-    /// the page's column and leaves the row under the panels empty; when it
-    /// does not fit there (<paramref name="hoveringFits"/>), it keeps its
-    /// shape in the row under the panels, like a floating player.
+    /// the page's column (in the middle or in its corner) and leaves the rows
+    /// above and under the panels empty; when it does not fit there
+    /// (<paramref name="hoveringFits"/>), it keeps its shape in the row under
+    /// the panels, like a floating player.
     /// </summary>
     public static PlayerSlot Slot(PlayerLayout layout, double panelGap, bool sidebarFullHeight, bool hoveringFits = true)
     {
         var gap = Math.Max(panelGap, 0);
         var sidebarRows = sidebarFullHeight ? 2 : 1;
-        if (layout == PlayerLayout.Hovering && hoveringFits)
+        if (HoversOverPage(layout) && hoveringFits)
         {
-            return new PlayerSlot(0, StartsAtContent: true, SpansFollowingColumns: false, AlignBottom: true, EdgeInsets.Zero, sidebarRows);
+            return new PlayerSlot(PanelsRow, StartsAtContent: true, SpansFollowingColumns: false, AlignBottom: true, EdgeInsets.Zero, PanelsRow, sidebarRows);
         }
 
+        // The shell has no padding at the top (the title bar is there), so a
+        // player along the top starts right under it, with the gap below.
+        var top = IsAtTop(layout);
+        var row = top ? TopRow : BottomRow;
+        var (above, below) = top ? (0, gap) : (gap, -gap);
         if (!sidebarFullHeight)
         {
-            return new PlayerSlot(1, StartsAtContent: false, SpansFollowingColumns: true, AlignBottom: false, new EdgeInsets(-gap, gap, -gap, -gap), sidebarRows);
+            return new PlayerSlot(row, StartsAtContent: false, SpansFollowingColumns: true, AlignBottom: false, new EdgeInsets(-gap, above, -gap, below), PanelsRow, 1);
         }
 
         // Beside the sidebar: the left edge lines up with the page (a floating
         // or hovering player's own margin is taken back), the rest reaches the
         // window's edges.
-        var left = layout == PlayerLayout.Docked ? 0 : -Margin(layout, gap).Left;
-        return new PlayerSlot(1, StartsAtContent: true, SpansFollowingColumns: true, AlignBottom: false, new EdgeInsets(left, gap, -gap, -gap), sidebarRows);
+        var left = Floats(layout) ? -Margin(layout, gap).Left : 0;
+        return new PlayerSlot(row, StartsAtContent: true, SpansFollowingColumns: true, AlignBottom: false, new EdgeInsets(left, above, -gap, below), top ? TopRow : PanelsRow, 2);
     }
 
     /// <summary>
@@ -202,5 +263,5 @@ public static class PlayerPlacement
     /// other layouts, which never cover the page).
     /// </summary>
     public static double PageInset(PlayerLayout layout, double slotHeight) =>
-        layout == PlayerLayout.Hovering && slotHeight > 0 ? Math.Ceiling(slotHeight) + HoverClearance : 0;
+        HoversOverPage(layout) && !HoversAtTop(layout) && slotHeight > 0 ? Math.Ceiling(slotHeight) + HoverClearance : 0;
 }

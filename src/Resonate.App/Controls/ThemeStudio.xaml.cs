@@ -64,15 +64,11 @@ public sealed partial class ThemeStudio : UserControl
             .OrderBy(font => font.Split(',')[0], StringComparer.OrdinalIgnoreCase),
     ];
 
-    private static readonly Dictionary<string, string> PresetBlurbs = new()
-    {
-        ["midnight"] = "Calm and dark, soft violet",
-        ["daylight"] = "Bright and airy, floating player",
-        ["glass"] = "Frosted glass, hovering player",
-        ["pure-black"] = "True black, sharp edges",
-        ["synthwave"] = "Neon glow on a dusk gradient",
-        ["paper"] = "Ink on paper, hard shadows",
-    };
+    /// <summary>One card wide plus the grid's spacing: three groups fit side by side from three of these.</summary>
+    private const double GroupMinWidth = 216;
+
+    private readonly List<GridView> _presetGrids = [];
+    private readonly List<FrameworkElement> _presetGroups = [];
 
     private readonly ThemeService _theme = App.Services.Theme;
     private readonly Dictionary<ComboBox, Func<ThemeDefinition, string, ThemeDefinition>> _choices;
@@ -140,29 +136,29 @@ public sealed partial class ThemeStudio : UserControl
         _picker.ColorChanged += OnPickerColorChanged;
         _pickerFlyout = new Flyout { Content = _picker, Placement = FlyoutPlacementMode.Bottom };
 
-        foreach (var preset in ThemePresets.All)
-        {
-            PresetGrid.Items.Add(Card(preset, PresetBlurbs.GetValueOrDefault(preset.Id, string.Empty), menu: null));
-        }
+        BuildPresetGroups();
 
         _looksTimer = DispatcherQueue.CreateTimer();
         _looksTimer.Interval = TimeSpan.FromMilliseconds(250);
         _looksTimer.IsRepeating = false;
 
-        CustomizeExpander.IsExpanded = CustomizeOpen;
+        if (CustomizeOpen)
+        {
+            CustomizeGroup.IsExpanded = true;
+        }
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
         _loading = false;
     }
 
-    /// <summary>Whether Customize is open; kept while Resonate runs.</summary>
+    /// <summary>Opens Customize when the page is built (the screenshot tour).</summary>
     public static bool CustomizeOpen { get; set; }
 
     /// <summary>Opens Customize and scrolls it to the top of the page.</summary>
     internal void ShowCustomize()
     {
-        CustomizeExpander.IsExpanded = true;
-        CustomizeExpander.StartBringIntoView(new BringIntoViewOptions { VerticalAlignmentRatio = 0, AnimationDesired = false });
+        CustomizeGroup.IsExpanded = true;
+        CustomizeGroup.StartBringIntoView(new BringIntoViewOptions { VerticalAlignmentRatio = 0, AnimationDesired = false });
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -198,7 +194,6 @@ public sealed partial class ThemeStudio : UserControl
         {
             // Room for the colours' names at the user's Text size.
             SwatchGrid.ItemWidth = SwatchWidth * _theme.TextScale;
-            Select(TransitionChoice, _theme.Transition.ToString());
             Select(BackdropChoice, look.Backdrop.ToString());
             Select(ButtonsChoice, look.Buttons.ToString());
             Select(ShadowChoice, look.Shadow.ToString());
@@ -232,8 +227,13 @@ public sealed partial class ThemeStudio : UserControl
             CustomizeHint.Text = _theme.Library.ActiveIsPreset
                 ? $"Changes make your own copy of {look.Name}."
                 : $"Editing {look.Name}.";
+            ShowDeleteButton();
 
-            SelectCard(PresetGrid);
+            foreach (var grid in _presetGrids)
+            {
+                SelectCard(grid);
+            }
+
             SelectCard(YourLooksGrid);
         }
         finally
@@ -277,6 +277,108 @@ public sealed partial class ThemeStudio : UserControl
         GapText.Text = $"{GapSlider.Value:0}";
     }
 
+    /// <summary>Under Customize: delete the saved look in use, or discard the unsaved one. Presets never change.</summary>
+    private void ShowDeleteButton()
+    {
+        var library = _theme.Library;
+        var id = library.ActiveId;
+        var own = !library.ActiveIsPreset && library.Find(id) is not null;
+        DeleteLookButton.Visibility = own ? Visibility.Visible : Visibility.Collapsed;
+        if (own)
+        {
+            var name = library.Find(id)!.Name;
+            DeleteLookButton.Content = id == ThemeLibrary.CustomId ? "Discard these changes" : $"Delete {name}";
+        }
+    }
+
+    private async void OnDeleteLookClick(object sender, RoutedEventArgs e)
+    {
+        if (_theme.Library.Find(_theme.Library.ActiveId) is { } look && !_theme.Library.ActiveIsPreset)
+        {
+            await DeleteAsync(look);
+        }
+    }
+
+    /// <summary>Deletes one of the user's looks, once they say so; the default preset takes over if it was in use.</summary>
+    private async Task DeleteAsync(ThemeDefinition look)
+    {
+        var unsaved = look.Id == ThemeLibrary.CustomId;
+        var dialog = new ContentDialog
+        {
+            Title = unsaved ? "Discard your changes?" : $"Delete {look.Name}?",
+            Content = unsaved ? "This unsaved look goes away." : "This look goes away for good.",
+            PrimaryButtonText = unsaved ? "Discard" : "Delete",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = XamlRoot,
+            RequestedTheme = (XamlRoot.Content as FrameworkElement)?.ActualTheme ?? ElementTheme.Default,
+        };
+
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            _theme.Delete(look.Id);
+        }
+    }
+
+    /// <summary>The presets under Dark, Light and OLED, each with its default first; names only.</summary>
+    private void BuildPresetGroups()
+    {
+        var resources = Application.Current.Resources;
+        foreach (var (title, presets) in new[] { ("Dark", ThemePresets.Dark), ("Light", ThemePresets.Light), ("OLED", ThemePresets.Black) })
+        {
+            var grid = new GridView
+            {
+                IsItemClickEnabled = true,
+                SelectionMode = ListViewSelectionMode.Single,
+            };
+            AutomationProperties.SetName(grid, title + " presets");
+            ScrollViewer.SetVerticalScrollBarVisibility(grid, ScrollBarVisibility.Disabled);
+            ScrollViewer.SetVerticalScrollMode(grid, ScrollMode.Disabled);
+            grid.ItemClick += OnLookClick;
+            foreach (var preset in presets)
+            {
+                grid.Items.Add(Card(preset, string.Empty, menu: null, delete: null));
+            }
+
+            var group = new StackPanel { Spacing = 8 };
+            group.Children.Add(new TextBlock { Text = title, Style = (Style)resources["ResonateEyebrowTextStyle"] });
+            group.Children.Add(grid);
+            _presetGrids.Add(grid);
+            _presetGroups.Add(group);
+            PresetGroups.Children.Add(group);
+        }
+
+        PresetGroups.SizeChanged += (_, e) => ArrangePresetGroups(e.NewSize.Width);
+        ArrangePresetGroups(0);
+    }
+
+    /// <summary>Side by side when each group has room for a card, otherwise one under another.</summary>
+    private void ArrangePresetGroups(double width)
+    {
+        var sideBySide = width >= _presetGroups.Count * GroupMinWidth;
+        if (PresetGroups.ColumnDefinitions.Count == (sideBySide ? _presetGroups.Count : 0) && width > 0)
+        {
+            return;
+        }
+
+        PresetGroups.ColumnDefinitions.Clear();
+        PresetGroups.RowDefinitions.Clear();
+        for (var i = 0; i < _presetGroups.Count; i++)
+        {
+            if (sideBySide)
+            {
+                PresetGroups.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            }
+            else
+            {
+                PresetGroups.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            }
+
+            Grid.SetColumn(_presetGroups[i], sideBySide ? i : 0);
+            Grid.SetRow(_presetGroups[i], sideBySide ? 0 : i);
+        }
+    }
+
     private void SelectCard(GridView grid)
     {
         var active = _theme.Library.ActiveId;
@@ -296,7 +398,7 @@ public sealed partial class ThemeStudio : UserControl
             menu.Items.Add(MenuItem("Copy as text", () => Copy(custom)));
             menu.Items.Add(new MenuFlyoutSeparator());
             menu.Items.Add(MenuItem("Discard", () => _theme.Delete(custom.Id)));
-            YourLooksGrid.Items.Add(Card(custom, "Not saved yet", menu));
+            YourLooksGrid.Items.Add(Card(custom, "Not saved yet", menu, async () => await DeleteAsync(custom)));
         }
 
         foreach (var look in library.Saved)
@@ -305,8 +407,8 @@ public sealed partial class ThemeStudio : UserControl
             menu.Items.Add(MenuItem("Rename…", async () => await RenameAsync(look)));
             menu.Items.Add(MenuItem("Copy as text", () => Copy(look)));
             menu.Items.Add(new MenuFlyoutSeparator());
-            menu.Items.Add(MenuItem("Delete", () => _theme.Delete(look.Id)));
-            YourLooksGrid.Items.Add(Card(look, Describe(look), menu));
+            menu.Items.Add(MenuItem("Delete…", async () => await DeleteAsync(look)));
+            YourLooksGrid.Items.Add(Card(look, Describe(look), menu, async () => await DeleteAsync(look)));
         }
 
         YourLooksPanel.Visibility = YourLooksGrid.Items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -336,11 +438,37 @@ public sealed partial class ThemeStudio : UserControl
         return $"{mode}, {backdrop}";
     }
 
-    private static StackPanel Card(ThemeDefinition look, string subtitle, MenuFlyout? menu)
+    /// <summary>A look's card: its miniature, name and a line about it; the user's own looks get a delete button on the miniature.</summary>
+    private StackPanel Card(ThemeDefinition look, string subtitle, MenuFlyout? menu, Action? delete)
     {
         var resources = Application.Current.Resources;
         var card = new StackPanel { Padding = new Thickness(6), Spacing = 8, Tag = look.Id, ContextFlyout = menu };
-        card.Children.Add(new LookPreview(look));
+        if (delete is null)
+        {
+            card.Children.Add(new LookPreview(look));
+        }
+        else
+        {
+            // On the current look's own colours, so it reads over any miniature.
+            var button = new Button
+            {
+                Content = "\uE74D",
+                Width = 28,
+                Height = 28,
+                Margin = new Thickness(5),
+                FontSize = 12,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Top,
+                Style = (Style)resources["ResonateIconButtonStyle"],
+                Background = _theme.GetBrush("ResonateSurfaceBrush"),
+                Foreground = _theme.GetBrush("ResonateTextPrimaryBrush"),
+            };
+            var label = look.Id == ThemeLibrary.CustomId ? $"Discard {look.Name}" : $"Delete {look.Name}";
+            AutomationProperties.SetName(button, label);
+            ToolTipService.SetToolTip(button, look.Id == ThemeLibrary.CustomId ? "Discard" : "Delete");
+            button.Click += (_, _) => delete();
+            card.Children.Add(new Grid { Children = { new LookPreview(look), button } });
+        }
 
         var text = new StackPanel { Padding = new Thickness(2, 0, 2, 2), Spacing = 1, MaxWidth = LookPreview.PreviewWidth };
         text.Children.Add(new TextBlock
@@ -349,10 +477,14 @@ public sealed partial class ThemeStudio : UserControl
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
             Style = (Style)resources["ResonateBodyTextStyle"],
         });
-        text.Children.Add(new TextBlock { Text = subtitle, Style = (Style)resources["ResonateCaptionTextStyle"] });
+        if (subtitle.Length > 0)
+        {
+            text.Children.Add(new TextBlock { Text = subtitle, Style = (Style)resources["ResonateCaptionTextStyle"] });
+        }
+
         card.Children.Add(text);
 
-        AutomationProperties.SetName(card, $"{look.Name}. {subtitle}");
+        AutomationProperties.SetName(card, subtitle.Length > 0 ? $"{look.Name}. {subtitle}" : look.Name);
         return card;
     }
 
@@ -427,13 +559,6 @@ public sealed partial class ThemeStudio : UserControl
         _theme.Edit(look => swatch.Set(look, color));
     }
 
-    private void OnTransitionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (!_loading && TransitionChoice.SelectedItem is ComboBoxItem { Tag: string tag })
-        {
-            _theme.Transition = ThemeTransitionKindConverter.Parse(tag);
-        }
-    }
 
     private void OnLookClick(object sender, ItemClickEventArgs e)
     {
@@ -558,9 +683,7 @@ public sealed partial class ThemeStudio : UserControl
     private static void Select(ComboBox combo, string tag) =>
         combo.SelectedItem = combo.Items.OfType<ComboBoxItem>().FirstOrDefault(item => item.Tag as string == tag);
 
-    private void OnCustomizeExpanding(Expander sender, ExpanderExpandingEventArgs args) => CustomizeOpen = true;
 
-    private void OnCustomizeCollapsed(Expander sender, ExpanderCollapsedEventArgs args) => CustomizeOpen = false;
 
     private async void OnSaveAsClick(object sender, RoutedEventArgs e) => await SaveAsAsync(_theme.Current);
 

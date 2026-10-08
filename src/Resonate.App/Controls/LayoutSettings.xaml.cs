@@ -23,6 +23,9 @@ public sealed partial class LayoutSettings : UserControl
     {
         InitializeComponent();
 
+        // Home's stage (part of Home itself): its visualizer, cover and colours, after the player.
+        Sections.Children.Insert(1, new SettingsGroup { Header = "Home", Content = StageSettings.HomeStage(_services) });
+
         foreach (var size in AppScale.AppSizes)
         {
             AppSizeChoice.Items.Add(AppScale.Label(size));
@@ -55,8 +58,14 @@ public sealed partial class LayoutSettings : UserControl
         _loading = true;
         try
         {
-            var position = _theme.Current.PlayerLayout.ToString();
-            PlayerPositionChoice.SelectedItem = PlayerPositionChoice.Items.OfType<ComboBoxItem>().FirstOrDefault(item => item.Tag as string == position);
+            var look = _theme.Current;
+            var (edge, type) = Split(look.PlayerLayout);
+            Select(PlayerEdgeChoice, edge);
+            Select(PlayerTypeChoice, type);
+            PlayerWidthBox.Value = look.PlayerWidth ?? double.NaN;
+            PlayerHeightBox.Value = look.PlayerHeight ?? double.NaN;
+            PlayerXBox.Value = look.PlayerOffsetX ?? double.NaN;
+            PlayerYBox.Value = look.PlayerOffsetY ?? double.NaN;
             SidebarFullHeightSwitch.IsOn = _theme.SidebarFullHeight;
 
             var hidden = _services.Settings.HiddenSidebarLinks;
@@ -75,13 +84,73 @@ public sealed partial class LayoutSettings : UserControl
         }
     }
 
-    private void OnPlayerPositionChanged(object sender, SelectionChangedEventArgs e)
+    private void OnPlayerLayoutChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!_loading && PlayerPositionChoice.SelectedItem is ComboBoxItem { Tag: string tag } && Enum.TryParse<PlayerLayout>(tag, out var layout))
+        if (!_loading
+            && PlayerEdgeChoice.SelectedItem is ComboBoxItem { Tag: string edge }
+            && PlayerTypeChoice.SelectedItem is ComboBoxItem { Tag: string type })
         {
+            var layout = Join(edge, type);
             _theme.Edit(look => look with { PlayerLayout = layout }, smooth: true);
         }
     }
+
+    private void OnPlayerAdvancedChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+    {
+        if (_loading)
+        {
+            return;
+        }
+
+        _theme.Edit(look => look with
+        {
+            PlayerWidth = Value(PlayerWidthBox),
+            PlayerHeight = Value(PlayerHeightBox),
+            PlayerOffsetX = Value(PlayerXBox),
+            PlayerOffsetY = Value(PlayerYBox),
+        });
+
+        static double? Value(NumberBox box) => double.IsNaN(box.Value) ? null : Math.Round(box.Value);
+    }
+
+    private void OnPlayerAdvancedResetClick(object sender, RoutedEventArgs e) =>
+        _theme.Edit(look => look with { PlayerWidth = null, PlayerHeight = null, PlayerOffsetX = null, PlayerOffsetY = null });
+
+    /// <summary>Where the player sits (Top, Bottom, Left, Right) and what kind it is (Docked, Inset, Floating).</summary>
+    private static (string Edge, string Type) Split(PlayerLayout layout) => layout switch
+    {
+        PlayerLayout.Top => ("Top", "Docked"),
+        PlayerLayout.FloatingTop => ("Top", "Inset"),
+        PlayerLayout.HoveringTop => ("Top", "Floating"),
+        PlayerLayout.Floating => ("Bottom", "Inset"),
+        PlayerLayout.Hovering => ("Bottom", "Floating"),
+        PlayerLayout.Left => ("Left", "Docked"),
+        PlayerLayout.InsetLeft => ("Left", "Inset"),
+        PlayerLayout.CornerLeft => ("Left", "Floating"),
+        PlayerLayout.Right => ("Right", "Docked"),
+        PlayerLayout.InsetRight => ("Right", "Inset"),
+        PlayerLayout.Corner => ("Right", "Floating"),
+        _ => ("Bottom", "Docked"),
+    };
+
+    private static PlayerLayout Join(string edge, string type) => (edge, type) switch
+    {
+        ("Top", "Docked") => PlayerLayout.Top,
+        ("Top", "Inset") => PlayerLayout.FloatingTop,
+        ("Top", "Floating") => PlayerLayout.HoveringTop,
+        ("Bottom", "Inset") => PlayerLayout.Floating,
+        ("Bottom", "Floating") => PlayerLayout.Hovering,
+        ("Left", "Docked") => PlayerLayout.Left,
+        ("Left", "Inset") => PlayerLayout.InsetLeft,
+        ("Left", "Floating") => PlayerLayout.CornerLeft,
+        ("Right", "Docked") => PlayerLayout.Right,
+        ("Right", "Inset") => PlayerLayout.InsetRight,
+        ("Right", "Floating") => PlayerLayout.Corner,
+        _ => PlayerLayout.Docked,
+    };
+
+    private static void Select(ComboBox choice, string tag) =>
+        choice.SelectedItem = choice.Items.OfType<ComboBoxItem>().FirstOrDefault(item => item.Tag as string == tag);
 
     // Like the sizes, the layout switch belongs to the user, not to a look.
     private void OnSidebarFullHeightToggled(object sender, RoutedEventArgs e)

@@ -27,6 +27,33 @@ visitors; keep it short and in step with this file.
   request that an installed copy can install and update. The Spotify logic is tested on Linux; the
   WinUI 3 app is only compiled, timed and photographed on GitHub's Windows
   machines (CI), because cloud sessions run on Linux.
+- Local builds (owner's choice, 8 October 2026): changes the owner asks
+  for are tried on their PC as a local build first, with no pull request,
+  and are published together, in one release, only when the owner says
+  so. Cloud threads push their work to `claude/...` branches. The clone
+  on that PC is `C:\Users\deity\Documents\Resonate` (.NET 10 SDK, Build
+  Tools 2026 with the C++ tools, Windows SDK 10.0.26100). Its
+  `update-local.ps1` (kept out of the repository) rebuilds a local
+  `local-build` branch from `main` plus every branch listed in
+  `.git\local-build-branches.txt` (`-Add`/`-Remove` names) and publishes
+  it to `artifacts\local\app`. The desktop shortcuts "Resonate (local)"
+  and "Resonate (local demo)" start it with `--data
+  %LocalAppData%\Resonate-local`, which keeps its settings, caches,
+  plugins and its own Credential Manager sign-in apart from the installed
+  copy. Never run CI's install, update or plugin checks there: they would
+  install over the owner's copy. For quick edits the owner watches live,
+  `live.ps1` there (also kept out of the repository) builds Debug without
+  Native AOT and swaps the open window (about 20 s; hot reload does not
+  work without Visual Studio).
+- The owner's choices from live editing (8 October 2026): no explanatory
+  captions or blurbs anywhere in the interface (names and controls only);
+  presets in three groups (Dark, Light, OLED; Midnight, Daylight and Black
+  are the defaults), every preset with the player at the bottom; switching
+  looks always ripples from the click (no setting); the player is placed
+  by Placement (top, bottom, left, right) and Type (docked, inset,
+  floating) with an Advanced size and offset, folded by default; Home's
+  stage and lyrics are part of the app (always on, settings under Layout,
+  Home); the sidebar snaps to covers only when dragged narrow.
 - The feature update (pull request #9, 7 October 2026) adds Home with
   listening stats and daily mixes, Local Files, DJ, sorting and filtering
   of every list, likes, album and artist pages, truly random shuffle,
@@ -75,6 +102,13 @@ visitors; keep it short and in step with this file.
   song with it yet. On the owner's PC: sign in again (new permissions),
   check that songs play, skip and seek, that it still plays after a long
   pause, what media keys do, and its power use against the Spotify app's.
+- The Home stage's visualizer hears Spotify (8 October 2026, the owner's
+  choice): its bars follow the sound of the program that plays Spotify on
+  this PC, through Windows' process loopback (see "Home stage" under
+  built-in plugins). CI never captures anything (demo mode). On the
+  owner's PC, check that the bars follow Spotify songs with the Spotify
+  app and with Resonate's own player, at a low volume too, that Windows
+  shows no microphone icon, and the processor cost while it listens.
 - App size and Text size (8 October 2026) are described under "Size". On
   the owner's PC, check sharpness at 125 to 200 %, 150 % text with Paper
   and the wider fonts, Ctrl+Plus on their keyboard, and the window growing
@@ -200,10 +234,13 @@ Spotify Web API (these changed a lot; re-check before relying on them):
   public (see open questions).
 - Design guidelines: Spotify content (names, covers, playback) must be
   attributed to Spotify with its logo and link back to Spotify. "Spotify"
-  must not be in the app's name. Resonate credits Spotify in words in
-  Settings, About, and offers "Open in Spotify"; the official logo is not
-  added yet (open question). The owner asked (8 October 2026) to drop the
-  caption under the sidebar, so keep the credit in About.
+  must not be in the app's name. The owner asked (8 October 2026) to drop
+  the caption under the sidebar, then every "Open in Spotify" button and
+  every "from Spotify" credit line (Home's "Song and cover from Spotify",
+  About's "Songs, covers and details come from Spotify"): Resonate is meant
+  to be used instead of Spotify's app. About keeps only "Resonate is not
+  affiliated with Spotify." Before going public this conflicts with the
+  guidelines again (open question).
 
 Windows:
 - Resonate keeps the Spotify app in the background (owner's request,
@@ -228,7 +265,7 @@ Windows:
   Otherwise the mode leaves the app alone: Resonate does not start, hide,
   slow down or restart it, does not listen to its media session, read its
   mixer volume or write its settings file (the equalizer waits and reaches
-  local files only), and "Open in Spotify" opens open.spotify.com. A
+  local files only). A
   Spotify the user opens again is not closed. Music plays on whatever
   Spotify Connect device Spotify lists: the one already playing, else
   Resonate's own player on this PC (below; a play command waits up to
@@ -333,7 +370,7 @@ Windows:
   theme dictionary of `Tokens.xaml` and are used with `ThemeResource`:
   `ThemeService` replaces their values, then switches the window's
   `RequestedTheme` away and back so every `ThemeResource` is read again
-  (a known workaround; CI's screenshots switch all six presets at run time
+  (a known workaround; CI's screenshots switch every preset at run time
   to check it). New XAML must use `ThemeResource` for those tokens.
 - `RenderTargetBitmap` (used by CI's screenshots and by the theme
   transitions' snapshots) does not draw visuals added with
@@ -372,7 +409,7 @@ only the owner's PC can tell):
   `%APPDATA%\Spotify\prefs` (it holds sign-in data) and never log either
   file. `audio.play_bitrate_enumeration=5` means Lossless (4 is Very high);
   Spotify leaves the key out while at its default. Measure all of these.
-- Windows has no per-app equalizer, and processing Spotify's audio is
+- Windows has no per-app equalizer, and changing Spotify's audio is
   forbidden here, so the Spotify app's own equalizer is the only one for
   Spotify songs.
 - `/me/player/recently-played` returns at most the last 50 plays, so the
@@ -433,6 +470,15 @@ only the owner's PC can tell):
   (while the pointer rests on a playlist in the sidebar) use at most six
   downloads. `CoverImages` makes one picture per cover and size, shared by
   every row. Signing out clears the folder.
+- No colour tile flashes before a cover (the owner's request, 8 October
+  2026): rows and cards (`CoverTile` in `ViewModels.cs`) and page headers
+  (`Helpers/PageCover`, which also hides the shadow) draw nothing while a
+  cover loads, and the album's colour tile only for a song without a cover
+  or once its cover can not be had (`CoverImages.Get(..., out missing)`).
+  A song list waits up to 150 ms for the first screen of covers before
+  showing its songs (`TracksPage.WarmCoversAsync`; from memory or disk
+  that takes a frame or two). Measure: that opening a playlist shows its
+  covers with the songs.
 
 Plugins (checked 2026-10-07):
 - A Native AOT app cannot load .NET code at run time, so plugins are
@@ -506,11 +552,37 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   visualizer (its own switch, on at first; `Controls/StageVisualizer`,
   maths in `Resonate.Themes/StageBars`) draws slim bars in the cover's
   colours (`StageColours.ForBars`, 3:1 against the page) along the bottom,
-  only in the room under the cover and the words. For local files they
-  follow the local player's spectrum (`VisualiserFeed.Stage`, a second,
-  smooth 75-band analyser); for Spotify songs, which Resonate never hears,
-  they sway on their own from compositor expressions on one clock that
-  repeats every 20 minutes without a jump. With animations off they are
+  only in the room under the cover and the words. They follow a second,
+  smooth 75-band analyser (`VisualiserFeed.Stage`): for local files the
+  local player's spectrum, for Spotify songs the sound Windows mixes for
+  the program that plays them (below). When nothing is heard (the music
+  plays on a phone, or "Listen to Spotify" is off) they sway on their own
+  from compositor expressions on one clock that repeats every 20 minutes
+  without a jump. Listening to Spotify (the owner chose it on 8 October
+  2026; its own switch, "Listen to Spotify", on at first): only while the
+  bars move (a Spotify song plays, the stage is seen, the switch is on),
+  `SpotifySoundListener` (`Resonate.Spotify/Audio`) asks
+  `AppSoundCapture` (`Resonate.Windows`) for Windows' process loopback
+  (`ActivateAudioInterfaceAsync` on `VAD\Process_Loopback`, include the
+  process tree, Windows 10 build 20348 or later; older Windows keeps the
+  sway) of the Spotify app's main process (the one without `--type`), or
+  with Web API only of the own player's WebView2 browser process
+  (`WebPlayerPage.BrowserProcessId`), unless Spotify reports another
+  device playing, when a Spotify app the user opened again is heard
+  instead (`AppServices.FindSpotifySound`). No other app and no microphone is
+  heard; Windows copies the sound as it mixes it, so playback and
+  Lossless are untouched. It is read as 16-bit stereo at 48 kHz on a
+  thread of its own when Windows signals a packet, levelled for the bars
+  only (`SoundLeveller`: gain 1 to 8 towards 0.8 of full scale, 3 s
+  release, since the copy may come after the mixer volume), and dropped
+  once the analyser has its bands. No sound for 2 s means not heard (the
+  bars sway); while nothing is heard it looks for the program again
+  every 3 s (Spotify restarted, the own player started), and a capture
+  that Windows refused or that stopped is tried again 10 s later (a
+  timer, since a paused song brings no other news). The classic player's visualiser does not use
+  it. Measure: that the bars follow the music with the Spotify app and
+  the own player, that the copy comes after the mixer volume or not, no
+  microphone icon, and the cost while listening. With animations off they are
   hidden. Clouds and bars rest (every animation stopped) while paused,
   hidden, scrolled away, covered, with animations off, or when a
   full-screen app, the lock screen or a dark display is detected. CI's tour
@@ -597,8 +669,8 @@ Classic player and cover art (checked 2026-10-08):
   the AudioGraph's EQ bus (`AudioGraphTap`), read when each quantum starts,
   feeds a 512-point FFT (`SpectrumAnalyser`) and the oscilloscope. Its
   `IMemoryBufferByteAccess` is called through the raw COM vtable, which
-  works under Native AOT. For Spotify songs it stays still: Resonate cannot
-  see Spotify's audio and must not capture it (see the hard rules).
+  works under Native AOT. For Spotify songs it stays still: only the Home
+  stage's visualizer hears Spotify (see "Home stage" above).
 - Cover art switches (Settings, Themes, Effects) are global, not part of a
   look. Spinning cover (off until the user turns it on): the playing
   cover is drawn round and turns once every 7 s while a song plays and the
@@ -675,15 +747,27 @@ Ripple, and a more interesting Home):
   test reports each switch's first motion and end. Measure: the cost of the
   rounded-rectangle clip at 5K and 165 Hz. Pictures lack the soft shadows,
   so the old look's shadows vanish on the first frame of a switch.
-- Player layouts: a look's player is Docked, Floating or Hovering. Hovering
+  A switch on screen always plays to its end (the owner's request,
+  8 October 2026): `ThemeService.Switch` queues the newest switch asked
+  for meanwhile and skips any between; a quick edit keeps the animation of
+  a look clicked before it; while a switch waits, `ThemeService.Current`
+  is the look on screen, so nothing mixes two looks; a switch still on
+  screen after 10 s is ended.
+- Player layouts (saved by name: append, never rename): a look's player is
+  Docked or Floating under the panels, Top or FloatingTop above them
+  (under the title bar), Hovering, or Corner. Hovering
   is a centred pill at most 912 wide over the bottom of the page, at least
   0.9 opaque so text keeps 4.5:1 (`ThemePalette.PlayerFill`); Liquid Glass
-  uses it. Over a page too narrow for it and its gaps (360 for the bar,
-  the skin and cover for the classic player; Settings open in a small
-  window), it sits under the panels instead (`PlayerPlacement.HoveringFits`).
-  A global switch, "Sidebar reaches the bottom"
-  (`SidebarFullHeight`, off at first), puts the player under the page
-  only. The player and the classic player live in one `PlayerSlot` inside
+  uses it. Corner is the same over the page's bottom-right corner, at most
+  440 wide, so it is the Mini bar. Over a page too narrow for them and their
+  gaps (360 for the bar, the skin and cover for the classic player; Settings
+  open in a small window), they sit under the panels instead
+  (`PlayerPlacement.HoveringFits`). `ShellGrid` has three rows: the top
+  player's, the panels' and the bottom player's (`PlayerPlacement.TopRow`,
+  `PanelsRow`, `BottomRow`); anything added to it goes in `PanelsRow`.
+  A window shape without the page puts a top player underneath. A global
+  switch, "Sidebar runs full height" (`SidebarFullHeight`, off at first),
+  puts the player under or above the page only. The player and the classic player live in one `PlayerSlot` inside
   `ShellGrid`, moved only by attached properties
   (`MainWindow.PlayerPlacement.cs`, maths in
   `Resonate.Themes/PlayerPlacement.cs`), so the classic player is never
@@ -800,6 +884,14 @@ GitHub automation:
 - The in-app updater reads GitHub releases without a token, which only
   works once the repository is public. The owner chose to make it public
   for this (7 October 2026). Never embed a token in the app instead.
+- "Update automatically" (Settings, About, `AutoUpdate`, on at first; the
+  owner's request, 8 October 2026): an installed copy looks for a new
+  version 8 s after start and every 4 hours, downloads it, and has
+  Velopack install it quietly once Resonate closes
+  (`UpdateService.InstallOnExit`, `WaitExitThenApplyUpdates` without a
+  restart); "Restart now" still installs at once. Off, only "Check for
+  updates" looks. Velopack also installs a downloaded update at the next
+  start.
 - CI packages the app with Velopack exactly like a release, installs it
   silently, starts the installed copy, and checks that it downloads a newer
   local version (`--update-check <feed folder> <result file>`), so a broken
@@ -904,7 +996,8 @@ default) closes the Spotify app instead. Then Spotify's official web
 player, the Web Playback SDK, plays on this PC, hidden inside Resonate
 (see "Resonate's own player" under verified facts). Spotify's own code
 still does the playback, at the web player's quality rather than Lossless,
-and Resonate never sees the audio.
+and Resonate never reads its stream; only the Home stage's visualizer
+hears what Windows mixes, as for the Spotify app.
 
 ## Requirements and limits
 
@@ -922,8 +1015,9 @@ and Resonate never sees the audio.
 - Starting a new song or playlist may go through Spotify's servers (always
   on Windows). That is about as fast as the official app, which also has to
   fetch the song first.
-- Resonate cannot see Spotify's audio, so the classic player's visualiser
-  moves only while a local file plays and stays still for Spotify songs.
+- The classic player's visualiser moves only while a local file plays and
+  stays still for Spotify songs; only the Home stage's visualizer hears
+  Spotify (through Windows, from the program that plays it here).
   The equaliser in Settings is Spotify's own: Resonate writes it into
   Spotify's settings file while Spotify is closed, so a change reaches
   Spotify songs when Spotify next starts (Resonate starts it, or the user
@@ -936,13 +1030,18 @@ and Resonate never sees the audio.
   Resonate, and do not use librespot. Spotify's own software does all
   playback: its desktop app, or with "Spotify Web API only" its official
   Web Playback SDK, which Resonate hosts in a hidden WebView2 and never
-  reads the audio of.
+  reads the audio of (the Home stage only hears what Windows mixes, below).
 - Never bypass or work around Spotify's DRM or copy protection.
 - The local files player plays only files from folders the user chose,
   never anything from Spotify's own folders.
-- Never capture Spotify's or the system's audio (loopback recording or
-  the like), not even for the visualiser. It hears only the local files
-  player.
+- Never capture the system's sound, another app's or a microphone. The
+  one exception, the owner's choice of 8 October 2026: the Home stage's
+  visualizer hears the program that plays Spotify on this PC (the Spotify
+  app or Resonate's own player) through Windows' process loopback, only
+  while its bars move and "Listen to Spotify" is on. That sound becomes
+  bar heights at once and is never kept, recorded, sent or played. Until
+  that day this rule said "not even for the visualiser"; Claude had set it
+  as a precaution, not the owner.
 - Never bundle third-party skins. The classic player ships only
   Resonate's own skin; users add the skins they choose.
 - No ad blocking, no unlocking Premium features for free accounts.
@@ -964,9 +1063,8 @@ and Resonate never sees the audio.
 - Resonate is not affiliated with Spotify. Never make the app look like an
   official Spotify product, never put "Spotify" in its name or icon, and say
   "for Spotify". Spotify's design guidelines require their logo as the
-  credit next to Spotify content; whether to add it is an open question
-  for the owner (until then Resonate credits Spotify in words, in
-  Settings, About).
+  credit next to Spotify content; the owner had the text credits removed
+  (8 October 2026), so this is an open question again before going public.
 
 ## Suggested technology
 
@@ -1050,8 +1148,7 @@ Built then: the sidebar and the queue can be dragged wider (double-click
 the gap for the usual width; widths are remembered), covers are kept on
 disk and fetched ahead, the window opens where it was left (size, place,
 maximised), double-clicking a playlist in the sidebar plays it and
-right-clicking it offers Play, Shuffle play, Open in Spotify and Copy
-link, the playlist that plays shows a speaker, the window's name is the
+right-clicking it offers Play, Shuffle play and Copy link, the playlist that plays shows a speaker, the window's name is the
 song that plays (taskbar and Alt+Tab), and clicking the song's title in
 the player bar opens what it plays from.
 
@@ -1062,6 +1159,13 @@ dropped). The playing song in the player bar can also be swiped, as on
 Spotify's phone app: left for the next song, right for the previous one
 (`Controls/PlayerBar.Swipe.cs`; distances and flick speed in
 `Resonate.Themes/SongSwipe.cs`, tested).
+
+Also on 8 October 2026 the owner asked to click an artist or album name in
+a playlist to open its page. In song rows (playlists, Liked Songs, albums,
+search and the queue) the names become links while the pointer is on them
+(`Helpers/SongLinks`, `helpers:SongLinks.To="Artists"` or `"Album"` on the
+row's TextBlock), the one under the pointer underlined; a click reads the
+row it is on then, so a reused row never opens the wrong page.
 
 ## How work gets done
 
@@ -1139,8 +1243,9 @@ cannot be done right away, open an issue for it so nothing is forgotten.
 - Merging that release pull request creates the `vX.Y.Z` tag and the GitHub
   release. The release workflow then builds the Windows installer with
   Velopack and attaches it, and installed copies update themselves.
-- Claude merges the release pull request when the owner asks ("publish a
-  release"), or after a change the owner wants to try. Check the notes read
+- Claude merges the release pull request only when the owner asks
+  ("publish a release"); changes are tried as local builds first (see
+  "Status and handoff"). Check the notes read
   well for users before merging, and start its CI at once (see "GitHub
   automation": its runs wait for approval otherwise).
 
@@ -1166,7 +1271,8 @@ Keep it obvious what is what:
   sign-in, the Web API client, the library, the player logic (with
   Resonate's own player, `Playback/OwnPlayer.cs`), listening
   history and daily mixes (`History/`), the equalizer and Spotify's
-  settings file (`Audio/`), and Local Files' tag reader and index
+  settings file (`Audio/`, which also decides when the Home stage hears
+  Spotify: `SpotifySoundListener`), and Local Files' tag reader and index
   (`LocalFiles/`). Any OS.
 - `src/Resonate.Themes/` the theme model, independent of WinUI: the six
   presets, what a look can set, the palette worked out from it (readable
@@ -1180,7 +1286,8 @@ Keep it obvious what is what:
   (`ClassicStack.cs`), and the visualiser's analyser. Any OS, tested.
 - `src/Resonate.Windows/` the Windows side of the player: the media
   session, the mixer volume, starting and restarting Spotify, the local
-  files player (`LocalAudio/`), the Credential Manager.
+  files player (`LocalAudio/`), hearing Spotify for the Home stage
+  (`AppSoundCapture.cs`, process loopback), the Credential Manager.
 - Built-in plugins (Lyrics, Home stage and the rest) live in the app as
   `Services/BuiltInPlugins.cs` plus their own files (see "Built-in
   plugins" under verified facts); their logic sits in `Resonate.Spotify`
@@ -1274,8 +1381,9 @@ when the work first needs them, then tick them off here.
   repository, own developer app), ask Spotify for permission, or reshape it
   to add value Spotify's app lacks. The owner decides.
 - Open: add Spotify's official logo as the credit next to Spotify content
-  (the guidelines require it), or keep the text credit while Resonate stays
-  personal. The original rule said never use the logo.
+  (the guidelines require it), or no credit while Resonate stays personal
+  (the owner had the text credits removed on 8 October 2026). The original
+  rule said never use the logo.
 - Decided: the repository becomes public so the updater works without
   tokens (7 October 2026). The choice was offered with the Developer Policy
   question spelled out; the logo question below is still open.
@@ -1290,6 +1398,12 @@ when the work first needs them, then tick them off here.
   Summon bar and Signal path, and Lyrics, are built-in plugins (compiled
   in, off until turned on) "at the moment"; the owner may later make some
   ordinary features.
+- Decided (8 October 2026, the owner's request "make sure visualizer in
+  home reacts to the audio", then their answer on a card): the Home
+  stage's visualizer listens to Spotify's sound through Windows, with a
+  switch to turn it off ("Listen to Spotify", on at first). The classic
+  player's visualiser was not part of the request and still hears only
+  local files.
 - Decided (7 October 2026): spinning covers and the blurred cover behind
   the window are allowed as options (the spinning cover off at first).
   Spotify's design guidelines ask apps not to alter cover art; the owner
@@ -1298,8 +1412,9 @@ when the work first needs them, then tick them off here.
   cover, so that switch is now on at first. Cover, song and artist always stay
   visible, also in the classic player.
 - Decided (7 October 2026): a Winamp-style classic player, chosen in
-  Settings (Classic player, "Use the classic player"), with Resonate's own
-  skin and any classic skins the user adds.
+  Settings, with Resonate's own skin and any classic skins the user adds.
+  On 8 October 2026 the owner asked to call it Winamp: Settings shows
+  "Winamp" and "Use the Winamp player"; the code keeps `ClassicPlayer`.
 - Decided (7 October 2026): Local Files are played by Resonate itself,
   because Spotify refuses to start them for other apps; the owner asked
   for Local Files "just like in Spotify". Only the user's own files.
@@ -1308,16 +1423,23 @@ when the work first needs them, then tick them off here.
   (`prefs.resonate-backup`). A change made while Spotify runs waits
   (`EqualizerPendingForSpotify` in settings) until Resonate next starts
   Spotify or the user restarts it from Settings.
-- Themes (asked 7 October 2026, "akin to Spicetify"): six presets that
+- Themes (asked 7 October 2026, "akin to Spicetify"): presets that
   differ in shape and material, not just colour: Midnight (the default),
   Daylight, Liquid Glass (the song's cover, blurred, or as a wash of its
   colours once that is switched off, behind see-through panels), Pure
-  Black, Synthwave and Paper. Under them, Customize edits
+  Black, Synthwave and Paper, and since 8 October 2026 (the owner asked
+  for four more) Fluent (Mica, calm), Studio (console grey, floating
+  player on top), Bubblegum (pastel gradient, corner player) and Terminal
+  (green on black, monospace, player docked on top). A test keeps every
+  two presets apart in at least two shapes and every player position shown
+  by one. Under them, Customize edits
   everything a look sets: colours, light, dark or black, backdrop
   (colour, gradient, song cover, Mica, acrylic), corners, button shape,
-  outlines, spacing, shadows, fonts, and the player (docked, floating or
-  hovering, progress bar style, play button, cover). Editing a preset makes
-  a custom copy; looks can be saved, renamed, and copied or pasted as text.
+  outlines, spacing, shadows, fonts, and the player (where it sits,
+  progress bar style, play button, cover). Editing a preset makes
+  a custom copy; looks can be saved, renamed, copied or pasted as text,
+  and deleted (a bin button on each of the user's own cards, after a
+  confirmation).
   Switching looks animates (morph, cross-fade, spread from the middle,
   ripple from the click, split, blinds, wipe, a random one, or none; the
   owner asked for animated switching, then on 8 October 2026 for 1 to 2 s
@@ -1377,6 +1499,11 @@ when the work first needs them, then tick them off here.
   the name does not, in a few words. Hidden sidebar links are kept in
   `HiddenSidebarLinks` (Home always shows; Local Files keeps
   `ShowLocalFiles`), the mini player button in `ShowMiniPlayerButton`.
+  Every section folds away under its heading (the owner's request,
+  8 October 2026): `Controls/SettingsGroup` (template in
+  `Themes/Controls.xaml`) wraps each one, and folded headings are kept in
+  `CollapsedSettingsSections`, so a renamed heading opens again. Opening
+  Settings at the equalizer or the Winamp player unfolds its section.
 - Decided (8 October 2026, the owner's request): App size and Text size
   are the user's own, not part of a look; the title bar keeps Windows'
   size; Ctrl+Plus, Ctrl+Minus and Ctrl+0 change App size as in a browser.

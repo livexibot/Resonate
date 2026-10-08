@@ -6,8 +6,9 @@ namespace Resonate.Spotify.LocalFiles;
 /// Lends a sink (the visualiser) the local files player's sound, but only
 /// while it is wanted and the local files player is the one the player bar
 /// shows; otherwise the player's tap is taken down. Spotify's songs never
-/// reach the sink: the Spotify app plays them in its own process, and
-/// Resonate neither captures nor meters that sound.
+/// reach the sink: the Spotify app plays them in its own process, and only
+/// the Home stage may hear that sound, through
+/// <see cref="Audio.SpotifySoundListener"/>.
 /// </summary>
 public sealed class LocalAudioListener : IDisposable
 {

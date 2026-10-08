@@ -33,43 +33,27 @@ internal sealed partial class PluginsPanel : StackPanel
         _builtIns = services.BuiltIns;
         Spacing = 12;
 
-        // The tab above is called Plugins, so no heading here.
-        var resources = Application.Current.Resources;
-        Children.Add(new TextBlock
-        {
-            Text = "Optional extras, off until you turn them on.",
-            Style = (Style)resources["ResonateSecondaryTextStyle"],
-            TextWrapping = TextWrapping.Wrap,
-        });
-
-        // Built into Resonate: nothing to download.
+        // Every plugin in one list by name; each says whether it is built in or downloaded.
+        var items = new List<(string Name, FrameworkElement Element)>();
         foreach (var plugin in BuiltInPlugins.All)
         {
             var card = new BuiltInCard(plugin, BuiltInPluginSettings.Create(plugin.Id, services));
             _builtInCards[plugin.Id] = card;
-            Children.Add(Build(card));
+            items.Add((plugin.Name, Build(card)));
             RefreshBuiltIn(card);
         }
-
-        Children.Add(new TextBlock
-        {
-            Margin = new Thickness(0, 8, 0, 0),
-            Text = "DOWNLOADED WHEN TURNED ON",
-            Style = (Style)resources["ResonateEyebrowTextStyle"],
-        });
-        Children.Add(new TextBlock
-        {
-            Text = Intro(plugins),
-            Style = (Style)resources["ResonateSecondaryTextStyle"],
-            TextWrapping = TextWrapping.Wrap,
-        });
 
         foreach (var manifest in plugins.Available)
         {
             var card = new Card(manifest);
             _cards[manifest.Id] = card;
-            Children.Add(Build(card));
+            items.Add((manifest.Name, Build(card)));
             Refresh(card);
+        }
+
+        foreach (var (_, element) in items.OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase))
+        {
+            Children.Add(element);
         }
 
         Loaded += (_, _) =>
@@ -95,18 +79,6 @@ internal sealed partial class PluginsPanel : StackPanel
                 card.SaveTyping?.Invoke();
             }
         };
-    }
-
-    private static string Intro(PluginManager plugins)
-    {
-        if (plugins.Available.Count == 0)
-        {
-            return "This copy of Resonate was built without plugins. Copies installed from a release get them.";
-        }
-
-        return plugins.IsPreview
-            ? "Demo mode: nothing is downloaded or run."
-            : "Downloaded from Resonate's releases, and deleted when turned off.";
     }
 
     private StackPanel Build(BuiltInCard card)
@@ -442,8 +414,9 @@ internal sealed partial class PluginsPanel : StackPanel
                 PluginStatus.Downloading => $"Downloading… {view.Progress:P0}",
                 PluginStatus.Starting => "Starting…",
                 PluginStatus.Running when _plugins.IsPreview => "On (demo mode: not downloaded)",
-                PluginStatus.Running => string.IsNullOrEmpty(view.StatusText) ? "On" : "On. " + view.StatusText,
-                PluginStatus.Failed => "Not running",
+                PluginStatus.Running => string.IsNullOrEmpty(view.StatusText) ? "Downloaded" : "Downloaded. " + view.StatusText,
+                PluginStatus.Failed => "Downloaded, not running",
+                _ when !view.IsOn => "Not downloaded",
                 _ => null,
             };
             card.Status.Text = status ?? string.Empty;

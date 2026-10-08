@@ -12,7 +12,7 @@ namespace Resonate.App;
 
 /// <summary>
 /// Playing from the sidebar: double-click a playlist to play it, or
-/// right-click it for Play, Shuffle play, Open in Spotify and Copy link.
+/// right-click it for Play, Shuffle play and Copy link.
 /// The playlist that plays is drawn in the accent colour with a speaker,
 /// the song that plays names the window (on the taskbar and in Alt+Tab),
 /// and clicking its title in the player bar opens what it plays from.
@@ -50,10 +50,9 @@ public sealed partial class MainWindow
         var menu = new MenuFlyout();
         menu.Items.Add(TrackActions.Item("Play", "", () => _ = PlayPlaylistAsync(item, shuffle: false)));
         menu.Items.Add(TrackActions.Item("Shuffle play", "", () => _ = PlayPlaylistAsync(item, shuffle: true)));
-        menu.Items.Add(new MenuFlyoutSeparator());
-        menu.Items.Add(TrackActions.Item("Open in Spotify", "", () => TrackActions.OpenInSpotify(uri)));
         if (TrackActions.SpotifyWebLink(uri) is { } link)
         {
+            menu.Items.Add(new MenuFlyoutSeparator());
             menu.Items.Add(TrackActions.Item("Copy link", "", () => TrackActions.CopyText(link)));
         }
 

@@ -132,4 +132,60 @@
         </Setter>
     </Style>
 
+    <!--
+        A section of Settings that folds away (see SettingsGroup.cs): its heading
+        is a button across the pane with a chevron, and the settings sit under it.
+        The button reaches a little past the settings on each side, so the
+        heading's text lines up with them and its hover fill has room.
+    -->
+    <Style TargetType="controls:SettingsGroup">
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:SettingsGroup">
+                    <StackPanel>
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="ExpandStates">
+                                <VisualState x:Name="Expanded" />
+                                <VisualState x:Name="Collapsed">
+                                    <VisualState.Setters>
+                                        <Setter Target="Presenter.Visibility" Value="Collapsed" />
+                                        <Setter Target="Chevron.Glyph" Value="&#xE76C;" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <Button
+                            x:Name="HeaderButton"
+                            Margin="-10,0,-10,0"
+                            Style="{StaticResource ResonateSectionHeaderButtonStyle}">
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="{TemplateBinding Header}" />
+                                <FontIcon
+                                    x:Name="Chevron"
+                                    Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    FontFamily="{StaticResource ResonateIconFont}"
+                                    FontSize="12"
+                                    Foreground="{StaticResource ResonateTextSecondaryBrush}"
+                                    Glyph="&#xE70D;" />
+                            </Grid>
+                        </Button>
+                        <ContentPresenter
+                            x:Name="Presenter"
+                            Margin="0,8,0,0"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            Content="{TemplateBinding Content}" />
+                    </StackPanel>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>

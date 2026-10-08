@@ -42,11 +42,15 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
     /// </summary>
     private static readonly TimeSpan UnresponsiveLimit = TimeSpan.FromSeconds(30);
 
+    // The open page's WebView2 browser process, for the Home stage's visualizer.
+    private static int _browserProcessId;
+
     private readonly DispatcherQueue _dispatcher;
     private readonly string _userDataFolder;
     private readonly TaskCompletionSource _loaded = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource _stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private CoreWebView2Controller? _controller;
+    private int _ownProcessId;
     private string? _crashReports;
     private int _disposed;
 
@@ -68,6 +72,13 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
 
     /// <summary>The WebView2 runtime's version, once the page is open.</summary>
     public string? BrowserVersion { get; private set; }
+
+    /// <summary>
+    /// The WebView2 browser process of the page that is open (0 when none):
+    /// Spotify's sound plays in its tree, which the Home stage's visualizer
+    /// hears (SpotifySoundListener). Any thread.
+    /// </summary>
+    public static int BrowserProcessId => Volatile.Read(ref _browserProcessId);
 
     /// <summary>Told each step of opening the page, for CI's check; never anything a message carries.</summary>
     public Action<string>? Trace { get; init; }
@@ -245,6 +256,8 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
         // Hidden for good: nothing is drawn, and sound plays as it does in a background tab.
         controller.IsVisible = false;
         var web = controller.CoreWebView2;
+        _ownProcessId = (int)web.BrowserProcessId;
+        Volatile.Write(ref _browserProcessId, _ownProcessId);
         var settings = web.Settings;
         settings.AreDevToolsEnabled = false;
         settings.AreDefaultContextMenusEnabled = false;
@@ -404,6 +417,8 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
             controller.Close();
         }
 
+        // Only this page's: a newer page may already have taken its place.
+        Interlocked.CompareExchange(ref _browserProcessId, 0, _ownProcessId);
         DeleteCrashReports(_crashReports);
     }
 }

@@ -25,6 +25,9 @@ public sealed class ThemeService
     // When the playing song's colours change the accent; switching looks times itself (ThemeTransitionCatalog).
     private static readonly ThemeTransitionSpec AccentSlide = new(TimeSpan.FromMilliseconds(700), ThemeTransitionCatalog.Emphasized);
 
+    // A switch takes 1.6 s at most; one still on screen after this was held by something and ends, so the next is never kept waiting.
+    private static readonly TimeSpan SwitchLimit = TimeSpan.FromSeconds(10);
+
     // Heights of the themed buttons (Tokens.xaml); a round button's corner is
     // half its height, since a larger corner draws an oval instead of a pill.
     private const double ButtonHeight = 36;
@@ -51,6 +54,9 @@ public sealed class ThemeService
     private TaskCompletionSource? _morphDone;
     private TaskCompletionSource<long> _started = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int _version;
+    private bool _switching;
+    private SwitchRequest? _waiting;
+    private ThemeDefinition? _onScreen;
     private Func<ThemeDefinition, ThemeDefinition>? _pendingEdit;
     private DispatcherQueueTimer? _saveTimer;
 
@@ -69,21 +75,19 @@ public sealed class ThemeService
     /// <summary>The presets, the saved looks and which one is in use.</summary>
     public ThemeLibrary Library { get; }
 
-    public ThemeDefinition Current => Library.Active;
+    /// <summary>
+    /// The look on screen (or switching onto it). While a switch plays to its
+    /// end and another waits behind it, this is still the one playing, so the
+    /// window never mixes its shapes with the colours of the next; the look
+    /// chosen is <see cref="ThemeLibrary.Active"/>.
+    /// </summary>
+    public ThemeDefinition Current => _waiting is not null && _onScreen is not null ? _onScreen : Library.Active;
 
     /// <summary>The colours and sizes of the look in use (with the cover's accent when it follows the cover).</summary>
     public ThemePalette Palette { get; private set; }
 
-    /// <summary>How switching looks animates.</summary>
-    public ThemeTransitionKind Transition
-    {
-        get => _settings.ThemeTransition;
-        set
-        {
-            _settings.ThemeTransition = value;
-            SaveSoon();
-        }
-    }
+    /// <summary>How switching looks animates: always a ripple from the click (the owner's choice; not a setting).</summary>
+    public ThemeTransitionKind Transition => ThemeTransitionKind.Ripple;
 
     /// <summary>The latest switch of looks: finishes when its animation has (for the speed test and the screenshot tour).</summary>
     internal Task TransitionTask { get; private set; } = Task.CompletedTask;
@@ -314,7 +318,7 @@ public sealed class ThemeService
         FlushPendingEdit();
         var saved = Library.SaveAs(name);
         Persist();
-        ApplyNow(Current, PaletteFor(Current));
+        Switch(ThemeTransitionKind.None, null);
         return saved;
     }
 
@@ -388,13 +392,94 @@ public sealed class ThemeService
         Switch(ThemeTransitionKind.None, null);
     }
 
-    /// <summary>Starts switching to the look in use; a newer switch takes over from this one.</summary>
+    /// <summary>
+    /// Switches to the look in use. A switch already on screen always plays
+    /// to its end; the newest one asked for meanwhile follows it (any in
+    /// between are skipped, as the newest shows the latest look anyway). With
+    /// nothing on screen the switch starts at once, and one that needs no
+    /// animation is done before this returns.
+    /// </summary>
     private void Switch(ThemeTransitionKind kind, Point? origin, ThemeTransitionSpec? spec = null)
     {
-        _started.TrySetResult(Stopwatch.GetTimestamp());
-        var started = new TaskCompletionSource<long>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _started = started;
-        TransitionTask = ShowAsync(kind, origin, spec, time => started.TrySetResult(time));
+        var request = new SwitchRequest(kind, origin, spec, Waited: _switching);
+        if (_waiting is { } skipped)
+        {
+            // A quick edit (a slider, a choice under Customize) never takes away the animation of a look that was clicked.
+            if ((kind == ThemeTransitionKind.None || spec is not null) && skipped.Kind != ThemeTransitionKind.None && skipped.Spec is null)
+            {
+                request = request with { Kind = skipped.Kind, Origin = skipped.Origin, Spec = null };
+            }
+
+            skipped.Finish();
+        }
+
+        _started = request.Started;
+        TransitionTask = request.Done.Task;
+        _waiting = request;
+        if (!_switching)
+        {
+            _ = RunSwitchesAsync();
+        }
+    }
+
+    /// <summary>Plays the switches one after another, each to its end, until none waits.</summary>
+    private async Task RunSwitchesAsync()
+    {
+        _switching = true;
+        try
+        {
+            while (_waiting is { } request)
+            {
+                _waiting = null;
+                try
+                {
+                    if (request.Waited && Library.Active == _applied)
+                    {
+                        // Clicked back to the look on screen while it played: nothing left to show.
+                        continue;
+                    }
+
+                    _onScreen = Library.Active;
+                    await WithinLimitAsync(ShowAsync(request.Kind, request.Origin, request.Spec, time => request.Started.TrySetResult(time)));
+                }
+                catch (Exception ex)
+                {
+                    // A switch that went wrong never blocks the ones after it.
+                    Debug.WriteLine($"Switching looks failed: {ex.Message}");
+                }
+                finally
+                {
+                    request.Finish();
+                }
+            }
+        }
+        finally
+        {
+            _switching = false;
+            _onScreen = null;
+        }
+    }
+
+    /// <summary>Waits for a switch, ending its animation if something holds it far longer than any switch takes.</summary>
+    private async Task WithinLimitAsync(Task show)
+    {
+        // One without animation is done already, and goes on at once.
+        if (show.IsCompleted)
+        {
+            await show;
+            return;
+        }
+
+        using var limit = new CancellationTokenSource();
+        if (await Task.WhenAny(show, Task.Delay(SwitchLimit, limit.Token)) == show)
+        {
+            limit.Cancel();
+            await show;
+            return;
+        }
+
+        _transitions?.Clear();
+        StopMorph();
     }
 
     private async Task ShowAsync(ThemeTransitionKind kind, Point? origin, ThemeTransitionSpec? quick, Action<long> moving)
@@ -813,6 +898,23 @@ public sealed class ThemeService
         {
             To = color;
             Show(color);
+        }
+    }
+
+    /// <summary>A switch of looks asked for: how it animates, and who waits for it to show and to end.</summary>
+    private sealed record SwitchRequest(ThemeTransitionKind Kind, Point? Origin, ThemeTransitionSpec? Spec, bool Waited)
+    {
+        /// <summary>The Stopwatch time of its first frame on screen.</summary>
+        public TaskCompletionSource<long> Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>Finishes when its animation has.</summary>
+        public TaskCompletionSource Done { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>Played, or skipped for a newer one: nobody waits for it any longer.</summary>
+        public void Finish()
+        {
+            Started.TrySetResult(Stopwatch.GetTimestamp());
+            Done.TrySetResult();
         }
     }
 }

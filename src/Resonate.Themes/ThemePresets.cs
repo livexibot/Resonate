@@ -1,9 +1,10 @@
 namespace Resonate.Themes;
 
 /// <summary>
-/// The six built-in looks. Each one is a different idea, not a recolour:
-/// two clean everyday themes, a glass one, a true-black one and two
-/// artistic ones. Users start from any of them and customise from there.
+/// The built-in looks, in three groups: dark, light and true black (OLED). Each one is a different idea, not a recolour:
+/// clean everyday themes (one in Windows' own Mica), a glass one, a
+/// true-black one and artistic ones, with the player in every position.
+/// Users start from any of them and customise from there.
 /// </summary>
 public static class ThemePresets
 {
@@ -48,35 +49,62 @@ public static class ThemePresets
     };
 
     /// <summary>
-    /// Frosted glass panes over the playing song's colours (or its blurred
-    /// cover, when the user allows it), with the player hovering over the
-    /// page as a smoky glass pill; the accent follows the cover.
+    /// Clear glass over the playing song's blurred cover: barely tinted panes
+    /// with a bright rim, large soft corners and a hovering pill player; the
+    /// accent follows the cover.
     /// </summary>
     public static ThemeDefinition Glass { get; } = new()
     {
         Id = "glass",
         Name = "Liquid Glass",
-        Background = ThemeColor.FromRgb(0x0A0D14),
-        Background2 = ThemeColor.FromRgb(0x141A2A),
+        Background = ThemeColor.FromRgb(0x0B0E16),
+        Background2 = ThemeColor.FromRgb(0x1A2236),
         Sidebar = ThemeColor.White,
         Surface = ThemeColor.White,
         Player = ThemeColor.White,
         Text = ThemeColor.White,
-        Accent = ThemeColor.FromRgb(0x8FD8FF),
-        Accent2 = ThemeColor.FromRgb(0xD3A6FF),
-        Border = ThemeColor.White.WithAlpha(0.16),
+        Accent = ThemeColor.FromRgb(0xA5E4FF),
+        Accent2 = ThemeColor.FromRgb(0xE3C4FF),
+        Border = ThemeColor.White.WithAlpha(0.3),
         Backdrop = WindowBackdrop.Artwork,
-        BackdropTint = 0.32,
-        PanelOpacity = 0.08,
+        BackdropTint = 0.18,
+        PanelOpacity = 0.12,
         AdaptiveAccent = true,
-        CornerRadius = 24,
+        CornerRadius = 28,
+        Buttons = ButtonShape.Round,
         BorderWidth = 1,
-        PanelGap = 12,
+        PanelGap = 14,
         Shadow = ShadowStyle.Soft,
+        DisplayFont = "Inter",
+        TextFont = "Inter",
         PlayerLayout = PlayerLayout.Hovering,
         Progress = ProgressStyle.Line,
     };
 
+    /// <summary>The OLED default: true black everywhere, panels marked only by hairlines, soft modern corners.</summary>
+    public static ThemeDefinition Oled { get; } = new()
+    {
+        Id = "oled",
+        Name = "Black",
+        Background = ThemeColor.Black,
+        Background2 = ThemeColor.Black,
+        Sidebar = ThemeColor.Black,
+        Surface = ThemeColor.Black,
+        Player = ThemeColor.Black,
+        Text = ThemeColor.FromRgb(0xF5F5F7),
+        Accent = ThemeColor.FromRgb(0x7C9CFF),
+        Accent2 = ThemeColor.FromRgb(0xF472B6),
+        Border = ThemeColor.FromRgb(0x1C1C1E),
+        CornerRadius = 14,
+        Buttons = ButtonShape.Round,
+        BorderWidth = 1,
+        PanelGap = 8,
+        Shadow = ShadowStyle.None,
+        DisplayFont = "Geist",
+        TextFont = "Geist",
+        PlayerLayout = PlayerLayout.Floating,
+        Progress = ProgressStyle.Line,
+    };
     /// <summary>True black for OLED screens: hairlines, square corners, one red accent.</summary>
     public static ThemeDefinition PureBlack { get; } = new()
     {
@@ -158,7 +186,190 @@ public static class ThemePresets
         Cover = CoverStyle.Square,
     };
 
-    public static IReadOnlyList<ThemeDefinition> All { get; } = [Midnight, Daylight, Glass, PureBlack, Synthwave, Paper];
+    /// <summary>Windows 11's own colours: calm greys, gentle corners and its blue accent.</summary>
+    public static ThemeDefinition Fluent { get; } = new()
+    {
+        Id = "fluent",
+        Name = "Fluent",
+        Background = ThemeColor.FromRgb(0x202020),
+        Background2 = ThemeColor.FromRgb(0x2B2B2B),
+        Sidebar = ThemeColor.FromRgb(0x272727),
+        Surface = ThemeColor.FromRgb(0x2C2C2C),
+        Player = ThemeColor.FromRgb(0x242424),
+        Text = ThemeColor.FromRgb(0xFFFFFF),
+        Accent = ThemeColor.FromRgb(0x4CC2FF),
+        Accent2 = ThemeColor.FromRgb(0x99EBFF),
+        Border = ThemeColor.White.WithAlpha(0.08),
+
+        CornerRadius = 8,
+        Buttons = ButtonShape.Rounded,
+        BorderWidth = 1,
+        PanelGap = 6,
+        Shadow = ShadowStyle.Soft,
+        PlayerLayout = PlayerLayout.Docked,
+        Progress = ProgressStyle.Line,
+    };
+
+    /// <summary>A mixing desk: graphite panels, orange like a console's lights.</summary>
+    public static ThemeDefinition Studio { get; } = new()
+    {
+        Id = "studio",
+        Name = "Studio",
+        Background = ThemeColor.FromRgb(0x141517),
+        Background2 = ThemeColor.FromRgb(0x222327),
+        Sidebar = ThemeColor.FromRgb(0x1C1D20),
+        Surface = ThemeColor.FromRgb(0x202124),
+        Player = ThemeColor.FromRgb(0x2A2B2F),
+        Text = ThemeColor.FromRgb(0xECEAE6),
+        Accent = ThemeColor.FromRgb(0xFF7A1A),
+        Accent2 = ThemeColor.FromRgb(0xFFD166),
+        Border = ThemeColor.FromRgb(0x34363B),
+        CornerRadius = 4,
+        Buttons = ButtonShape.Rounded,
+        BorderWidth = 1,
+        PanelGap = 8,
+        Shadow = ShadowStyle.Strong,
+        DisplayFont = "Space Grotesk",
+        TextFont = "Inter",
+        PlayerLayout = PlayerLayout.Floating,
+        Progress = ProgressStyle.Bold,
+        Cover = CoverStyle.Square,
+    };
+
+    /// <summary>Pastel and soft: a pink and lilac gradient, very round shapes and a small player in the corner.</summary>
+    public static ThemeDefinition Bubblegum { get; } = new()
+    {
+        Id = "bubblegum",
+        Name = "Bubblegum",
+        Background = ThemeColor.FromRgb(0xFFE3F1),
+        Background2 = ThemeColor.FromRgb(0xE2E0FF),
+        Sidebar = ThemeColor.FromRgb(0xFFF6FB),
+        Surface = ThemeColor.FromRgb(0xFFFFFF),
+        Player = ThemeColor.FromRgb(0xFFFFFF),
+        Text = ThemeColor.FromRgb(0x2A1631),
+        Accent = ThemeColor.FromRgb(0xE8337F),
+        Accent2 = ThemeColor.FromRgb(0x7C5CFF),
+        Backdrop = WindowBackdrop.Gradient,
+        GradientAngle = 135,
+        CornerRadius = 28,
+        PanelGap = 14,
+        Shadow = ShadowStyle.Glow,
+        DisplayFont = "Nunito",
+        TextFont = "Nunito",
+        PlayerLayout = PlayerLayout.Corner,
+        Progress = ProgressStyle.Gradient,
+        Cover = CoverStyle.Vinyl,
+    };
+
+    /// <summary>A phosphor screen on true black: glowing green type and outlines, amber highlights, monospace and the player along the bottom.</summary>
+    public static ThemeDefinition Terminal { get; } = new()
+    {
+        Id = "terminal",
+        Name = "Terminal",
+        Background = ThemeColor.Black,
+        Background2 = ThemeColor.FromRgb(0x021006),
+        Sidebar = ThemeColor.Black,
+        Surface = ThemeColor.Black,
+        Player = ThemeColor.Black,
+        Text = ThemeColor.FromRgb(0xB8FFC9),
+        Accent = ThemeColor.FromRgb(0x33FF77),
+        Accent2 = ThemeColor.FromRgb(0xFFB547),
+        Border = ThemeColor.FromRgb(0x33FF77).WithAlpha(0.45),
+        CornerRadius = 2,
+        Buttons = ButtonShape.Square,
+        BorderWidth = 1,
+        PanelGap = 10,
+        Shadow = ShadowStyle.Glow,
+        DisplayFont = "Geist Mono",
+        TextFont = "Geist Mono",
+        PlayerLayout = PlayerLayout.Docked,
+        Progress = ProgressStyle.Bold,
+        PlayButton = PlayButtonStyle.Outline,
+        Cover = CoverStyle.Square,
+    };
+
+    /// <summary>Warm charcoal lit by coral and amber, rounded and soft.</summary>
+    public static ThemeDefinition Ember { get; } = new()
+    {
+        Id = "ember",
+        Name = "Ember",
+        Background = ThemeColor.FromRgb(0x15110F),
+        Background2 = ThemeColor.FromRgb(0x2E1810),
+        Sidebar = ThemeColor.FromRgb(0x1B1512),
+        Surface = ThemeColor.FromRgb(0x211A16),
+        Player = ThemeColor.FromRgb(0x1B1512),
+        Text = ThemeColor.FromRgb(0xF7EDE6),
+        Accent = ThemeColor.FromRgb(0xFF7849),
+        Accent2 = ThemeColor.FromRgb(0xFFC15E),
+        Backdrop = WindowBackdrop.Gradient,
+        GradientAngle = 200,
+        PanelOpacity = 0.9,
+        CornerRadius = 16,
+        PanelGap = 10,
+        Shadow = ShadowStyle.Soft,
+        DisplayFont = "Manrope",
+        TextFont = "Manrope",
+        PlayerLayout = PlayerLayout.Floating,
+        Progress = ProgressStyle.Gradient,
+    };
+
+    /// <summary>Calm green-grey paper tones with a deep green accent.</summary>
+    public static ThemeDefinition Sage { get; } = new()
+    {
+        Id = "sage",
+        Name = "Sage",
+        Background = ThemeColor.FromRgb(0xE6ECE4),
+        Background2 = ThemeColor.FromRgb(0xD9E3D4),
+        Sidebar = ThemeColor.FromRgb(0xF1F5EF),
+        Surface = ThemeColor.FromRgb(0xFBFCFA),
+        Player = ThemeColor.FromRgb(0xFFFFFF),
+        Text = ThemeColor.FromRgb(0x1C2420),
+        Accent = ThemeColor.FromRgb(0x2F7D5B),
+        Accent2 = ThemeColor.FromRgb(0xC98A2E),
+        CornerRadius = 14,
+        Buttons = ButtonShape.Rounded,
+        PanelGap = 10,
+        Shadow = ShadowStyle.Soft,
+        DisplayFont = "Figtree",
+        TextFont = "Figtree",
+        PlayerLayout = PlayerLayout.Docked,
+        Progress = ProgressStyle.Bold,
+    };
+
+    /// <summary>True black with northern-lights accents: teal and violet glows and a hovering pill.</summary>
+    public static ThemeDefinition Aurora { get; } = new()
+    {
+        Id = "aurora",
+        Name = "Aurora",
+        Background = ThemeColor.Black,
+        Background2 = ThemeColor.FromRgb(0x001018),
+        Sidebar = ThemeColor.Black,
+        Surface = ThemeColor.Black,
+        Player = ThemeColor.Black,
+        Text = ThemeColor.FromRgb(0xEAFBFF),
+        Accent = ThemeColor.FromRgb(0x00E5C7),
+        Accent2 = ThemeColor.FromRgb(0x8A5CFF),
+        Border = ThemeColor.FromRgb(0x00E5C7).WithAlpha(0.22),
+        CornerRadius = 18,
+        BorderWidth = 1,
+        PanelGap = 8,
+        Shadow = ShadowStyle.Glow,
+        DisplayFont = "Sora",
+        TextFont = "Sora",
+        PlayerLayout = PlayerLayout.Hovering,
+        Progress = ProgressStyle.Gradient,
+        Cover = CoverStyle.Vinyl,
+    };
+
+    /// <summary>Dark looks, the default first.</summary>
+    public static IReadOnlyList<ThemeDefinition> Dark { get; } = [Midnight, Glass, Ember, Fluent, Studio, Synthwave];
+
+    /// <summary>Light looks, the default first.</summary>
+    public static IReadOnlyList<ThemeDefinition> Light { get; } = [Daylight, Paper, Sage, Bubblegum];
+
+    /// <summary>True-black looks for OLED screens, the default first.</summary>
+    public static IReadOnlyList<ThemeDefinition> Black { get; } = [Oled, Aurora, PureBlack, Terminal];
+    public static IReadOnlyList<ThemeDefinition> All { get; } = [.. Dark, .. Light, .. Black];
 
     public static ThemeDefinition Default => Midnight;
 

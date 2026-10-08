@@ -16,7 +16,7 @@ public enum UpdateStatus
 /// <summary>
 /// Installs new releases from this project's GitHub releases: checks and
 /// downloads in the background, showing how the download goes, then waits
-/// for one click to restart.
+/// for one click to restart, or installs when Resonate closes.
 /// </summary>
 public sealed class UpdateService
 {
@@ -186,6 +186,27 @@ public sealed class UpdateService
 
         _lastProgressEvent = now;
         return true;
+    }
+
+    /// <summary>
+    /// Has Velopack install the downloaded version, quietly, once Resonate has
+    /// closed, without opening it again; nothing when none is downloaded.
+    /// </summary>
+    public void InstallOnExit()
+    {
+        if (_manager is null || _pending is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _manager.WaitExitThenApplyUpdates(_pending.TargetFullRelease, silent: true, restart: false);
+        }
+        catch (Exception)
+        {
+            // Velopack installs it at the next start instead.
+        }
     }
 
     /// <summary>Closes Resonate, installs the downloaded version and opens it again.</summary>

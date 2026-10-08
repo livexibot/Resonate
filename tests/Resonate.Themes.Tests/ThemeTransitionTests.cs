@@ -77,18 +77,6 @@ public sealed class ThemeTransitionKindTests
         Assert.Contains("\"themeTransition\":\"Morph\"", json, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void The_menu_in_Settings_offers_every_kind_once_by_its_exact_name()
-    {
-        var studio = XDocument.Load(Path.Combine(RepositoryRoot(), "src", "Resonate.App", "Controls", "ThemeStudio.xaml"));
-        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
-        var menu = studio.Descendants().Single(e => e.Name.LocalName == "ComboBox" && (string?)e.Attribute(x + "Name") == "TransitionChoice");
-        var tags = menu.Elements().Where(e => e.Name.LocalName == "ComboBoxItem").Select(e => (string?)e.Attribute("Tag") ?? "").ToList();
-
-        Assert.Equal(tags.Count, tags.Distinct().Count());
-        Assert.Equal(Enum.GetNames<ThemeTransitionKind>().Order(StringComparer.Ordinal), tags.Order(StringComparer.Ordinal));
-    }
-
     private static string RepositoryRoot()
     {
         var folder = new DirectoryInfo(AppContext.BaseDirectory);

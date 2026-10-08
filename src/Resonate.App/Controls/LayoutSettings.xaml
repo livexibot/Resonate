@@ -9,108 +9,173 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Resonate.App.Controls">
 
-    <StackPanel Spacing="28">
+    <StackPanel x:Name="Sections" Spacing="20">
         <!-- The player -->
-        <StackPanel Spacing="6">
-            <TextBlock
-                Margin="0,0,0,6"
-                Style="{StaticResource ResonateTitleTextStyle}"
-                Text="Player" />
-            <controls:SettingRow Description="Kept with the look." Header="Player position">
-                <ComboBox
-                    x:Name="PlayerPositionChoice"
-                    MinWidth="150"
-                    AutomationProperties.Name="Player position"
-                    SelectionChanged="OnPlayerPositionChanged">
-                    <ComboBoxItem Content="Docked" Tag="Docked" />
-                    <ComboBoxItem Content="Floating" Tag="Floating" />
-                    <ComboBoxItem Content="Hovering" Tag="Hovering" />
-                </ComboBox>
-            </controls:SettingRow>
-            <controls:SettingRow Description="The player sits beside it, under the page." Header="Sidebar reaches the bottom">
-                <ToggleSwitch
-                    x:Name="SidebarFullHeightSwitch"
-                    MinWidth="0"
-                    AutomationProperties.Name="Sidebar reaches the bottom"
-                    OffContent=""
-                    OnContent=""
-                    Toggled="OnSidebarFullHeightToggled" />
-            </controls:SettingRow>
-        </StackPanel>
+        <controls:SettingsGroup Header="Player">
+            <StackPanel Spacing="6">
+                <controls:SettingRow Description="Kept with the look." Header="Placement">
+                    <ComboBox
+                        x:Name="PlayerEdgeChoice"
+                        MinWidth="170"
+                        AutomationProperties.Name="Player placement"
+                        SelectionChanged="OnPlayerLayoutChanged">
+                        <ComboBoxItem Content="Top" Tag="Top" />
+                        <ComboBoxItem Content="Bottom" Tag="Bottom" />
+                        <ComboBoxItem Content="Left" Tag="Left" />
+                        <ComboBoxItem Content="Right" Tag="Right" />
+                    </ComboBox>
+                </controls:SettingRow>
+                <controls:SettingRow Description="Floating sits over the page; move it anywhere under Advanced." Header="Player type">
+                    <ComboBox
+                        x:Name="PlayerTypeChoice"
+                        MinWidth="170"
+                        AutomationProperties.Name="Player type"
+                        SelectionChanged="OnPlayerLayoutChanged">
+                        <ComboBoxItem Content="Docked" Tag="Docked" />
+                        <ComboBoxItem Content="Inset" Tag="Inset" />
+                        <ComboBoxItem Content="Floating" Tag="Floating" />
+                    </ComboBox>
+                </controls:SettingRow>
+                <Expander
+                    x:Name="PlayerAdvancedExpander"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    Header="Advanced"
+                    IsExpanded="False">
+                    <StackPanel Spacing="6">
+                        <controls:SettingRow Description="Empty for automatic." Header="Width">
+                            <NumberBox
+                                x:Name="PlayerWidthBox"
+                                MinWidth="120"
+                                AutomationProperties.Name="Player width"
+                                Maximum="4000"
+                                Minimum="200"
+                                PlaceholderText="Auto"
+                                SpinButtonPlacementMode="Compact"
+                                ValueChanged="OnPlayerAdvancedChanged" />
+                        </controls:SettingRow>
+                        <controls:SettingRow Description="Empty for automatic." Header="Height">
+                            <NumberBox
+                                x:Name="PlayerHeightBox"
+                                MinWidth="120"
+                                AutomationProperties.Name="Player height"
+                                Maximum="400"
+                                Minimum="48"
+                                PlaceholderText="Auto"
+                                SpinButtonPlacementMode="Compact"
+                                ValueChanged="OnPlayerAdvancedChanged" />
+                        </controls:SettingRow>
+                        <controls:SettingRow Description="Moves it right; negative moves it left." Header="X">
+                            <NumberBox
+                                x:Name="PlayerXBox"
+                                MinWidth="120"
+                                AutomationProperties.Name="Player X"
+                                Maximum="4000"
+                                Minimum="-4000"
+                                PlaceholderText="0"
+                                SmallChange="10"
+                                SpinButtonPlacementMode="Compact"
+                                ValueChanged="OnPlayerAdvancedChanged" />
+                        </controls:SettingRow>
+                        <controls:SettingRow Description="Moves it down; negative moves it up." Header="Y">
+                            <NumberBox
+                                x:Name="PlayerYBox"
+                                MinWidth="120"
+                                AutomationProperties.Name="Player Y"
+                                Maximum="4000"
+                                Minimum="-4000"
+                                PlaceholderText="0"
+                                SmallChange="10"
+                                SpinButtonPlacementMode="Compact"
+                                ValueChanged="OnPlayerAdvancedChanged" />
+                        </controls:SettingRow>
+                        <Button
+                            Click="OnPlayerAdvancedResetClick"
+                            Content="Reset size and position"
+                            Style="{StaticResource ResonateSubtleButtonStyle}" />
+                    </StackPanel>
+                </Expander>
+                <controls:SettingRow Description="The player sits beside it." Header="Sidebar runs full height">
+                    <ToggleSwitch
+                        x:Name="SidebarFullHeightSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Sidebar runs full height"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnSidebarFullHeightToggled" />
+                </controls:SettingRow>
+            </StackPanel>
+        </controls:SettingsGroup>
 
         <!-- Links in the sidebar and buttons in the title bar (Home and Settings always show) -->
-        <StackPanel Spacing="6">
-            <TextBlock
-                Margin="0,0,0,6"
-                Style="{StaticResource ResonateTitleTextStyle}"
-                Text="Sidebar and buttons" />
-            <controls:SettingRow Header="Search">
-                <ToggleSwitch
-                    x:Name="SearchLinkSwitch"
-                    MinWidth="0"
-                    AutomationProperties.Name="Search in the sidebar"
-                    OffContent=""
-                    OnContent=""
-                    Toggled="OnLinkToggled" />
-            </controls:SettingRow>
-            <controls:SettingRow Header="Liked Songs">
-                <ToggleSwitch
-                    x:Name="LikedLinkSwitch"
-                    MinWidth="0"
-                    AutomationProperties.Name="Liked Songs in the sidebar"
-                    OffContent=""
-                    OnContent=""
-                    Toggled="OnLinkToggled" />
-            </controls:SettingRow>
-            <controls:SettingRow Header="Local Files">
-                <ToggleSwitch
-                    x:Name="LocalFilesLinkSwitch"
-                    MinWidth="0"
-                    AutomationProperties.Name="Local Files in the sidebar"
-                    OffContent=""
-                    OnContent=""
-                    Toggled="OnLinkToggled" />
-            </controls:SettingRow>
-            <controls:SettingRow Header="DJ">
-                <ToggleSwitch
-                    x:Name="DjLinkSwitch"
-                    MinWidth="0"
-                    AutomationProperties.Name="DJ in the sidebar"
-                    OffContent=""
-                    OnContent=""
-                    Toggled="OnLinkToggled" />
-            </controls:SettingRow>
-            <controls:SettingRow Description="Ctrl+M opens it either way." Header="Mini player button">
-                <ToggleSwitch
-                    x:Name="MiniPlayerButtonSwitch"
-                    MinWidth="0"
-                    AutomationProperties.Name="Mini player button"
-                    OffContent=""
-                    OnContent=""
-                    Toggled="OnMiniPlayerButtonToggled" />
-            </controls:SettingRow>
-        </StackPanel>
+        <controls:SettingsGroup Header="Sidebar and buttons">
+            <StackPanel Spacing="6">
+                <controls:SettingRow Header="Search">
+                    <ToggleSwitch
+                        x:Name="SearchLinkSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Search in the sidebar"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnLinkToggled" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="Liked Songs">
+                    <ToggleSwitch
+                        x:Name="LikedLinkSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Liked Songs in the sidebar"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnLinkToggled" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="Local Files">
+                    <ToggleSwitch
+                        x:Name="LocalFilesLinkSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Local Files in the sidebar"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnLinkToggled" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="DJ">
+                    <ToggleSwitch
+                        x:Name="DjLinkSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="DJ in the sidebar"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnLinkToggled" />
+                </controls:SettingRow>
+                <controls:SettingRow Description="Ctrl+M opens it either way." Header="Mini player button">
+                    <ToggleSwitch
+                        x:Name="MiniPlayerButtonSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Mini player button"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnMiniPlayerButtonToggled" />
+                </controls:SettingRow>
+            </StackPanel>
+        </controls:SettingsGroup>
 
         <!-- Size: the user's own, kept whatever look is in use (not part of a look); steps from AppScale -->
-        <StackPanel Spacing="6">
-            <TextBlock
-                Margin="0,0,0,6"
-                Style="{StaticResource ResonateTitleTextStyle}"
-                Text="Size" />
-            <controls:SettingRow Description="Ctrl+Plus, Ctrl+Minus, Ctrl+0" Header="App size">
-                <ComboBox
-                    x:Name="AppSizeChoice"
-                    MinWidth="100"
-                    AutomationProperties.Name="App size"
-                    SelectionChanged="OnAppSizeChanged" />
-            </controls:SettingRow>
-            <controls:SettingRow Header="Text size">
-                <ComboBox
-                    x:Name="TextSizeChoice"
-                    MinWidth="100"
-                    AutomationProperties.Name="Text size"
-                    SelectionChanged="OnTextSizeChanged" />
-            </controls:SettingRow>
-        </StackPanel>
+        <controls:SettingsGroup Header="Size">
+            <StackPanel Spacing="6">
+                <controls:SettingRow Description="Ctrl+Plus, Ctrl+Minus, Ctrl+0" Header="App size">
+                    <ComboBox
+                        x:Name="AppSizeChoice"
+                        MinWidth="100"
+                        AutomationProperties.Name="App size"
+                        SelectionChanged="OnAppSizeChanged" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="Text size">
+                    <ComboBox
+                        x:Name="TextSizeChoice"
+                        MinWidth="100"
+                        AutomationProperties.Name="Text size"
+                        SelectionChanged="OnTextSizeChanged" />
+                </controls:SettingRow>
+            </StackPanel>
+        </controls:SettingsGroup>
     </StackPanel>
 </UserControl>

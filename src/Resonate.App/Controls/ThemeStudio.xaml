@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The Themes tab of Settings: six presets, the user's own looks, a
-  customizer for everything a look sets, and the effects. Changes show at
-  once; see ThemeStudio.xaml.cs.
+  The Themes tab of Settings: the presets, the user's own looks, the
+  effects and a customizer for everything a look sets, each in a section
+  that folds away. Changes show at once; see ThemeStudio.xaml.cs.
 -->
 <UserControl
     x:Class="Resonate.App.Controls.ThemeStudio"
@@ -37,22 +37,13 @@
         </Style>
     </UserControl.Resources>
 
-    <StackPanel Spacing="14">
-        <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Look" />
-
-        <!-- The six presets (the page scrolls, not the grid) -->
-        <GridView
-            x:Name="PresetGrid"
-            AutomationProperties.Name="Presets"
-            IsItemClickEnabled="True"
-            ItemClick="OnLookClick"
-            ScrollViewer.VerticalScrollBarVisibility="Disabled"
-            ScrollViewer.VerticalScrollMode="Disabled"
-            SelectionMode="Single" />
-
-        <!-- The user's own looks -->
-        <StackPanel x:Name="YourLooksPanel" Spacing="6">
-            <TextBlock Style="{StaticResource StudioSectionTextStyle}" Text="YOUR LOOKS" />
+    <StackPanel Spacing="20">
+        <!-- The presets in three groups, Dark, Light and OLED: side by side when there is room, else one under another (ThemeStudio.xaml.cs) -->
+        <controls:SettingsGroup Header="Presets">
+            <Grid x:Name="PresetGroups" ColumnSpacing="16" RowSpacing="16" />
+        </controls:SettingsGroup>
+        <!-- The user's own looks, each with a button to delete it -->
+        <controls:SettingsGroup x:Name="YourLooksPanel" Header="Your looks">
             <GridView
                 x:Name="YourLooksGrid"
                 AutomationProperties.Name="Your looks"
@@ -61,71 +52,44 @@
                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
                 ScrollViewer.VerticalScrollMode="Disabled"
                 SelectionMode="Single" />
-        </StackPanel>
+        </controls:SettingsGroup>
 
         <!-- Effects: the user's own choices, kept whatever look is in use (not part of a look) -->
-        <StackPanel Spacing="6">
-            <TextBlock Style="{StaticResource StudioSectionTextStyle}" Text="EFFECTS" />
-            <controls:SettingRow Header="Switching animation">
-                <ComboBox
-                    x:Name="TransitionChoice"
-                    MinWidth="170"
-                    AutomationProperties.Name="Switching animation"
-                    SelectionChanged="OnTransitionChanged">
-                    <ComboBoxItem Content="Morph" Tag="Morph" />
-                    <ComboBoxItem Content="Cross-fade" Tag="Fade" />
-                    <ComboBoxItem Content="Spread from the middle" Tag="Grow" />
-                    <ComboBoxItem Content="Ripple from the click" Tag="Ripple" />
-                    <ComboBoxItem Content="Split apart" Tag="Split" />
-                    <ComboBoxItem Content="Blinds" Tag="Blinds" />
-                    <ComboBoxItem Content="Wipe" Tag="Wipe" />
-                    <ComboBoxItem Content="Surprise me" Tag="Random" />
-                    <ComboBoxItem Content="None" Tag="None" />
-                </ComboBox>
-            </controls:SettingRow>
-            <controls:SettingRow Description="Turns like a record while a song plays." Header="Spinning cover">
-                <ToggleSwitch
-                    x:Name="SpinningCoverSwitch"
-                    AutomationProperties.Name="Spinning cover"
-                    MinWidth="0"
-                    OffContent=""
-                    OnContent=""
-                    Toggled="OnSpinningCoverToggled" />
-            </controls:SettingRow>
-            <controls:SettingRow Description="Behind looks like Liquid Glass." Header="Blurred cover background">
-                <ToggleSwitch
-                    x:Name="BlurredCoverSwitch"
-                    AutomationProperties.Name="Blurred cover background"
-                    MinWidth="0"
-                    OffContent=""
-                    OnContent=""
-                    Toggled="OnBlurredCoverToggled" />
-            </controls:SettingRow>
-            <TextBlock
-                x:Name="BlurredCoverHint"
-                Margin="16,0,16,0"
-                Style="{StaticResource ResonateCaptionTextStyle}"
-                TextWrapping="Wrap"
-                Visibility="Collapsed" />
-        </StackPanel>
-
-        <Expander
-            x:Name="CustomizeExpander"
-            HorizontalAlignment="Stretch"
-            HorizontalContentAlignment="Stretch"
-            Collapsed="OnCustomizeCollapsed"
-            Expanding="OnCustomizeExpanding">
-            <Expander.Header>
-                <StackPanel Padding="0,12" Spacing="2">
-                    <TextBlock Style="{StaticResource ResonateBodyTextStyle}" Text="Customize" />
-                    <TextBlock
-                        x:Name="CustomizeHint"
-                        Style="{StaticResource ResonateCaptionTextStyle}"
-                        TextWrapping="Wrap" />
-                </StackPanel>
-            </Expander.Header>
-
+        <controls:SettingsGroup StartsCollapsed="True" Header="Effects">
             <StackPanel Spacing="6">
+                <controls:SettingRow Description="Turns like a record while a song plays." Header="Spinning cover">
+                    <ToggleSwitch
+                        x:Name="SpinningCoverSwitch"
+                        AutomationProperties.Name="Spinning cover"
+                        MinWidth="0"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnSpinningCoverToggled" />
+                </controls:SettingRow>
+                <controls:SettingRow Description="Behind looks like Liquid Glass." Header="Blurred cover background">
+                    <ToggleSwitch
+                        x:Name="BlurredCoverSwitch"
+                        AutomationProperties.Name="Blurred cover background"
+                        MinWidth="0"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnBlurredCoverToggled" />
+                </controls:SettingRow>
+                <TextBlock
+                    x:Name="BlurredCoverHint"
+                    Margin="16,0,16,0"
+                    Style="{StaticResource ResonateCaptionTextStyle}"
+                    TextWrapping="Wrap"
+                    Visibility="Collapsed" />
+            </StackPanel>
+        </controls:SettingsGroup>
+
+        <controls:SettingsGroup x:Name="CustomizeGroup" StartsCollapsed="True" Header="Customize">
+            <StackPanel Spacing="6">
+                <TextBlock
+                    x:Name="CustomizeHint"
+                    Style="{StaticResource ResonateCaptionTextStyle}"
+                    TextWrapping="Wrap" />
                 <!-- Colours -->
                 <TextBlock Style="{StaticResource StudioSectionTextStyle}" Text="COLOURS" />
                 <controls:SettingRow Header="Mode">
@@ -360,7 +324,13 @@
                         Content="Paste a look"
                         Style="{StaticResource ResonateSubtleButtonStyle}" />
                 </StackPanel>
+                <!-- Not for presets, which never change (see ShowDeleteButton) -->
+                <Button
+                    x:Name="DeleteLookButton"
+                    Click="OnDeleteLookClick"
+                    Style="{StaticResource ResonateSubtleButtonStyle}"
+                    Visibility="Collapsed" />
             </StackPanel>
-        </Expander>
+        </controls:SettingsGroup>
     </StackPanel>
 </UserControl>

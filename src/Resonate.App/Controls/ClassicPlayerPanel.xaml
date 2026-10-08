@@ -1,99 +1,100 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Settings, Classic player: whether to use it, its skin, its size, the mini player and the visualiser. See ClassicPlayerPanel.xaml.cs. -->
+<!-- Settings, Winamp (the classic player): whether to use it, its skin, its size, the mini player and the visualiser. See ClassicPlayerPanel.xaml.cs. -->
 <UserControl
     x:Class="Resonate.App.Controls.ClassicPlayerPanel"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Resonate.App.Controls">
 
-    <StackPanel Spacing="12">
-        <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Classic player" />
-        <TextBlock
-            Style="{StaticResource ResonateSecondaryTextStyle}"
-            Text="A Winamp-style player with skins."
-            TextWrapping="Wrap" />
+    <controls:SettingsGroup x:Name="Group" StartsCollapsed="True" Header="Winamp">
+        <StackPanel Spacing="12">
+            <TextBlock
+                Style="{StaticResource ResonateSecondaryTextStyle}"
+                Text="Classic skins and a mini player."
+                TextWrapping="Wrap" />
 
-        <StackPanel Spacing="6">
-            <controls:SettingRow Description="In place of the player bar." Header="Use the classic player">
-                <ToggleSwitch
-                    x:Name="UseSwitch"
-                    MinWidth="0"
-                    AutomationProperties.Name="Use the classic player"
-                    OffContent=""
-                    OnContent=""
-                    Toggled="OnUseToggled" />
-            </controls:SettingRow>
-            <controls:SettingRow Header="Skin">
-                <ComboBox
-                    x:Name="SkinList"
-                    MinWidth="190"
-                    AutomationProperties.Name="Skin"
-                    SelectionChanged="OnSkinChanged" />
-            </controls:SettingRow>
-            <controls:SettingRow Header="Double size">
-                <ToggleSwitch
-                    x:Name="DoubleSizeSwitch"
-                    MinWidth="0"
-                    AutomationProperties.Name="Double size"
-                    OffContent=""
-                    OnContent=""
-                    Toggled="OnDoubleSizeToggled" />
-            </controls:SettingRow>
-            <controls:SettingRow Description="Ctrl+M" Header="Mini player">
+            <StackPanel Spacing="6">
+                <controls:SettingRow Description="In place of the player bar." Header="Use the Winamp player">
+                    <ToggleSwitch
+                        x:Name="UseSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Use the Winamp player"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnUseToggled" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="Skin">
+                    <ComboBox
+                        x:Name="SkinList"
+                        MinWidth="190"
+                        AutomationProperties.Name="Skin"
+                        SelectionChanged="OnSkinChanged" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="Double size">
+                    <ToggleSwitch
+                        x:Name="DoubleSizeSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Double size"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnDoubleSizeToggled" />
+                </controls:SettingRow>
+                <controls:SettingRow Description="Ctrl+M" Header="Mini player">
+                    <Button
+                        x:Name="OpenMiniButton"
+                        Click="OnMiniPlayerClick"
+                        Content="Open" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="Mini player size">
+                    <ComboBox
+                        x:Name="MiniSizeChoice"
+                        MinWidth="190"
+                        AutomationProperties.Name="Mini player size"
+                        SelectionChanged="OnMiniSizeChanged">
+                        <ComboBoxItem Content="1x" />
+                        <ComboBoxItem Content="2x" />
+                        <ComboBoxItem Content="3x" />
+                        <ComboBoxItem Content="4x" />
+                    </ComboBox>
+                </controls:SettingRow>
+                <controls:SettingRow Header="Mini player on top">
+                    <ToggleSwitch
+                        x:Name="MiniOnTopSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Mini player on top"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnMiniOnTopToggled" />
+                </controls:SettingRow>
+                <controls:SettingRow Description="Moves for Local Files only." Header="Visualiser">
+                    <ComboBox
+                        x:Name="VisualiserChoice"
+                        MinWidth="190"
+                        AutomationProperties.Name="Visualiser"
+                        SelectionChanged="OnVisualiserChanged">
+                        <ComboBoxItem Content="Spectrum" />
+                        <ComboBoxItem Content="Oscilloscope" />
+                        <ComboBoxItem Content="Off" />
+                    </ComboBox>
+                </controls:SettingRow>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="12">
                 <Button
-                    x:Name="OpenMiniButton"
-                    Click="OnMiniPlayerClick"
-                    Content="Open" />
-            </controls:SettingRow>
-            <controls:SettingRow Header="Mini player size">
-                <ComboBox
-                    x:Name="MiniSizeChoice"
-                    MinWidth="190"
-                    AutomationProperties.Name="Mini player size"
-                    SelectionChanged="OnMiniSizeChanged">
-                    <ComboBoxItem Content="1x" />
-                    <ComboBoxItem Content="2x" />
-                    <ComboBoxItem Content="3x" />
-                    <ComboBoxItem Content="4x" />
-                </ComboBox>
-            </controls:SettingRow>
-            <controls:SettingRow Header="Mini player on top">
-                <ToggleSwitch
-                    x:Name="MiniOnTopSwitch"
-                    MinWidth="0"
-                    AutomationProperties.Name="Mini player on top"
-                    OffContent=""
-                    OnContent=""
-                    Toggled="OnMiniOnTopToggled" />
-            </controls:SettingRow>
-            <controls:SettingRow Description="Moves for Local Files only." Header="Visualiser">
-                <ComboBox
-                    x:Name="VisualiserChoice"
-                    MinWidth="190"
-                    AutomationProperties.Name="Visualiser"
-                    SelectionChanged="OnVisualiserChanged">
-                    <ComboBoxItem Content="Spectrum" />
-                    <ComboBoxItem Content="Oscilloscope" />
-                    <ComboBoxItem Content="Off" />
-                </ComboBox>
-            </controls:SettingRow>
+                    x:Name="AddSkinButton"
+                    Click="OnAddSkinClick"
+                    Content="Add a skin…"
+                    Style="{StaticResource ResonateAccentButtonStyle}" />
+                <Button
+                    x:Name="RemoveSkinButton"
+                    Click="OnRemoveSkinClick"
+                    Content="Remove this skin"
+                    Style="{StaticResource ResonateSubtleButtonStyle}" />
+            </StackPanel>
+            <TextBlock
+                Style="{StaticResource ResonateCaptionTextStyle}"
+                Text="Winamp 2 skins (.wsz)."
+                TextWrapping="Wrap" />
         </StackPanel>
-
-        <StackPanel Orientation="Horizontal" Spacing="12">
-            <Button
-                x:Name="AddSkinButton"
-                Click="OnAddSkinClick"
-                Content="Add a skin…"
-                Style="{StaticResource ResonateAccentButtonStyle}" />
-            <Button
-                x:Name="RemoveSkinButton"
-                Click="OnRemoveSkinClick"
-                Content="Remove this skin"
-                Style="{StaticResource ResonateSubtleButtonStyle}" />
-        </StackPanel>
-        <TextBlock
-            Style="{StaticResource ResonateCaptionTextStyle}"
-            Text="Winamp 2 skins (.wsz)."
-            TextWrapping="Wrap" />
-    </StackPanel>
+    </controls:SettingsGroup>
 </UserControl>

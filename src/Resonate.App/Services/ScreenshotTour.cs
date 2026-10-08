@@ -183,7 +183,8 @@ internal sealed class ScreenshotTour
 
             await CaptureBundledFontsAsync();
 
-            // Every preset, switched at run time, so the live switching of shapes and fonts is checked too.
+            // Every preset, switched at run time, so the live switching of
+            // shapes and fonts is checked too, and each player position.
             var number = 7;
             foreach (var preset in ThemePresets.All.Where(p => p != ThemePresets.Default))
             {
@@ -191,6 +192,14 @@ internal sealed class ScreenshotTour
                 _window.OpenPlaylist("focus");
                 await Task.Delay(1500);
                 await CaptureAsync($"{number++}-theme-{preset.Id}.png");
+
+                // A hovering player is checked against the page's last row.
+                if (_window.PlayerHovers)
+                {
+                    await ScrollToEndAsync();
+                }
+
+                CheckPlayerPlacement();
             }
 
             number = await CoverEffectsAsync(number);

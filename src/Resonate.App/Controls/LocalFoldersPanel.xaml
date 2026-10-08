@@ -6,76 +6,77 @@
     xmlns:local="using:Resonate.App.Controls">
 
     <!-- Settings, Local Files: the folders Resonate looks in for the user's own music files. -->
-    <StackPanel Spacing="12">
-        <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Local Files" />
-        <TextBlock
-            Style="{StaticResource ResonateSecondaryTextStyle}"
-            Text="Your music files in these folders:"
-            TextWrapping="Wrap" />
+    <local:SettingsGroup x:Name="Group" Header="Local Files">
+        <StackPanel Spacing="12">
+            <TextBlock
+                Style="{StaticResource ResonateSecondaryTextStyle}"
+                Text="Your music files in these folders:"
+                TextWrapping="Wrap" />
 
-        <ItemsControl ItemsSource="{x:Bind Folders}">
-            <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="local:LocalFolderItem">
-                    <Grid
-                        Margin="0,0,0,8"
-                        Padding="14,8,6,8"
-                        Background="{StaticResource ResonateSurfaceBrush}"
-                        BorderBrush="{StaticResource ResonateBorderBrush}"
-                        BorderThickness="1"
-                        ColumnSpacing="12"
-                        CornerRadius="{ThemeResource ResonateCornerMedium}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <FontIcon
-                            VerticalAlignment="Center"
-                            FontSize="16"
-                            Foreground="{StaticResource ResonateTextSecondaryBrush}"
-                            Glyph="&#xE8B7;" />
-                        <StackPanel
-                            Grid.Column="1"
-                            VerticalAlignment="Center"
-                            Spacing="2">
-                            <TextBlock Style="{StaticResource ResonateBodyTextStyle}" Text="{x:Bind Name}" />
-                            <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="{x:Bind Path}" />
-                        </StackPanel>
-                        <Button
-                            Grid.Column="2"
-                            VerticalAlignment="Center"
-                            AutomationProperties.Name="{x:Bind RemoveLabel}"
-                            Click="{x:Bind Remove}"
-                            Content="&#xE711;"
-                            IsEnabled="{x:Bind CanRemove}"
-                            Style="{StaticResource ResonateIconButtonStyle}"
-                            ToolTipService.ToolTip="{x:Bind RemoveLabel}" />
-                    </Grid>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
+            <ItemsControl ItemsSource="{x:Bind Folders}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="local:LocalFolderItem">
+                        <Grid
+                            Margin="0,0,0,8"
+                            Padding="14,8,6,8"
+                            Background="{StaticResource ResonateSurfaceBrush}"
+                            BorderBrush="{StaticResource ResonateBorderBrush}"
+                            BorderThickness="1"
+                            ColumnSpacing="12"
+                            CornerRadius="{ThemeResource ResonateCornerMedium}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon
+                                VerticalAlignment="Center"
+                                FontSize="16"
+                                Foreground="{StaticResource ResonateTextSecondaryBrush}"
+                                Glyph="&#xE8B7;" />
+                            <StackPanel
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="2">
+                                <TextBlock Style="{StaticResource ResonateBodyTextStyle}" Text="{x:Bind Name}" />
+                                <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="{x:Bind Path}" />
+                            </StackPanel>
+                            <Button
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                AutomationProperties.Name="{x:Bind RemoveLabel}"
+                                Click="{x:Bind Remove}"
+                                Content="&#xE711;"
+                                IsEnabled="{x:Bind CanRemove}"
+                                Style="{StaticResource ResonateIconButtonStyle}"
+                                ToolTipService.ToolTip="{x:Bind RemoveLabel}" />
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
 
-        <StackPanel Orientation="Horizontal" Spacing="12">
-            <Button
-                x:Name="AddFolderButton"
-                Click="OnAddFolderClick"
-                Content="Add folder"
-                Style="{StaticResource ResonateAccentButtonStyle}" />
-            <Button
-                x:Name="RescanButton"
-                Click="OnRescanClick"
-                Content="Rescan"
-                Style="{StaticResource ResonateSubtleButtonStyle}" />
-            <Button
-                x:Name="DefaultsButton"
-                Click="OnDefaultsClick"
-                Content="Use Music and Downloads"
-                Style="{StaticResource ResonateSubtleButtonStyle}"
-                Visibility="Collapsed" />
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Button
+                    x:Name="AddFolderButton"
+                    Click="OnAddFolderClick"
+                    Content="Add folder"
+                    Style="{StaticResource ResonateAccentButtonStyle}" />
+                <Button
+                    x:Name="RescanButton"
+                    Click="OnRescanClick"
+                    Content="Rescan"
+                    Style="{StaticResource ResonateSubtleButtonStyle}" />
+                <Button
+                    x:Name="DefaultsButton"
+                    Click="OnDefaultsClick"
+                    Content="Use Music and Downloads"
+                    Style="{StaticResource ResonateSubtleButtonStyle}"
+                    Visibility="Collapsed" />
+            </StackPanel>
+            <TextBlock
+                x:Name="StatusText"
+                Style="{StaticResource ResonateCaptionTextStyle}"
+                TextWrapping="Wrap" />
         </StackPanel>
-        <TextBlock
-            x:Name="StatusText"
-            Style="{StaticResource ResonateCaptionTextStyle}"
-            TextWrapping="Wrap" />
-    </StackPanel>
+    </local:SettingsGroup>
 </UserControl>

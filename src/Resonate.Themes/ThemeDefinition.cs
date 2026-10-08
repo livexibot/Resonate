@@ -66,6 +66,38 @@ public enum PlayerLayout
     /// underneath it (pages leave room at their end, so nothing stays hidden).
     /// </summary>
     Hovering,
+
+    // Saved by name: new layouts go at the end, and none is ever renamed.
+
+    /// <summary>Across the top of the window, under the title bar.</summary>
+    Top,
+
+    /// <summary>A rounded bar floating along the top, under the title bar.</summary>
+    FloatingTop,
+
+    /// <summary>
+    /// A small pill hovering in the page's bottom-right corner: the mini bar,
+    /// over the page like <see cref="Hovering"/>.
+    /// </summary>
+    Corner,
+
+    /// <summary>A column on the left of the page: the cover, the song and the mini player.</summary>
+    Left,
+
+    /// <summary>A column on the right of the page: the cover, the song and the mini player.</summary>
+    Right,
+
+    /// <summary>Like <see cref="Left"/>, as a card with a gap all round.</summary>
+    InsetLeft,
+
+    /// <summary>Like <see cref="Right"/>, as a card with a gap all round.</summary>
+    InsetRight,
+
+    /// <summary>A centred pill hovering over the top of the page.</summary>
+    HoveringTop,
+
+    /// <summary>A small pill hovering in the page's bottom-left corner, like <see cref="Corner"/>.</summary>
+    CornerLeft,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<ProgressStyle>))]
@@ -208,6 +240,18 @@ public sealed record ThemeDefinition
 
     public PlayerLayout PlayerLayout { get; init; } = PlayerLayout.Docked;
 
+    /// <summary>The player's own width (Settings, Layout, Advanced); null for the layout's.</summary>
+    public double? PlayerWidth { get; init; }
+
+    /// <summary>The player bar's own height; null for the layout's.</summary>
+    public double? PlayerHeight { get; init; }
+
+    /// <summary>How far the player is moved right from its place (negative: left).</summary>
+    public double? PlayerOffsetX { get; init; }
+
+    /// <summary>How far the player is moved down from its place (negative: up).</summary>
+    public double? PlayerOffsetY { get; init; }
+
     public ProgressStyle Progress { get; init; } = ProgressStyle.Line;
 
     public PlayButtonStyle PlayButton { get; init; } = PlayButtonStyle.Filled;
@@ -288,6 +332,10 @@ public sealed record ThemeDefinition
         && DisplayFont == other.DisplayFont
         && TextFont == other.TextFont
         && PlayerLayout == other.PlayerLayout
+        && PlayerWidth == other.PlayerWidth
+        && PlayerHeight == other.PlayerHeight
+        && PlayerOffsetX == other.PlayerOffsetX
+        && PlayerOffsetY == other.PlayerOffsetY
         && Progress == other.Progress
         && PlayButton == other.PlayButton
         && Cover == other.Cover;

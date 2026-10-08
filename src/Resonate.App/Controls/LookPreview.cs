@@ -11,8 +11,9 @@ namespace Resonate.App.Controls;
 /// <summary>
 /// A miniature of a look, drawn in its own colours and shapes: the
 /// backdrop, the sidebar, a page and the player bar with its progress bar,
-/// play button and cover (docked, floating, or a pill hovering over the
-/// page). Used for the theme cards in Settings.
+/// play button and cover (docked or floating under or above the panels, or
+/// a pill hovering over the page, in its middle or its corner). Used for the
+/// theme cards in Settings.
 /// </summary>
 internal sealed partial class LookPreview : Grid
 {
@@ -36,9 +37,13 @@ internal sealed partial class LookPreview : Grid
         IsHitTestVisible = false;
 
         var gap = _palette.PanelGap <= 0 ? 0 : Math.Round(Math.Clamp(2 + (_palette.PanelGap * MiniatureScale), 3, 8));
-        var floating = look.PlayerLayout == PlayerLayout.Floating;
-        var hovering = look.PlayerLayout == PlayerLayout.Hovering;
+        var layout = look.PlayerLayout;
+        var floating = layout is PlayerLayout.Floating or PlayerLayout.FloatingTop;
+        var top = PlayerPlacement.IsAtTop(layout);
+
+        // The title bar, a player on top, the panels and a player underneath.
         RowDefinitions.Add(new RowDefinition { Height = new GridLength(9) });
+        RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
@@ -52,31 +57,34 @@ internal sealed partial class LookPreview : Grid
                 new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
             },
         };
-        SetRow(shell, 1);
+        SetRow(shell, 2);
         shell.Children.Add(Panel(_palette.Sidebar, Sidebar(), PanelCorner));
         var page = Panel(_palette.Surface, Page(), PanelCorner);
         SetColumn(page, 1);
         shell.Children.Add(page);
         Children.Add(shell);
 
-        if (hovering)
+        if (PlayerPlacement.HoversOverPage(layout))
         {
             // The panels reach the bottom, and the player hovers over the page.
             SetRowSpan(shell, 2);
-            var pill = HoveringPlayer();
+            var pill = HoveringPlayer(inCorner: layout == PlayerLayout.Corner);
             SetColumn(pill, 1);
             shell.Children.Add(pill);
             return;
         }
 
         var playerGap = floating ? Math.Max(gap, 4) : 0;
+        var outline = _palette.BorderWidth > 0 ? 1 : 0;
         var player = Panel(
             _palette.Player,
             Player(),
             floating ? PanelCorner : new CornerRadius(0),
-            floating ? null : new Thickness(0, _palette.BorderWidth > 0 ? 1 : 0, 0, 0));
-        player.Margin = new Thickness(playerGap, 0, playerGap, playerGap);
-        SetRow(player, 2);
+            floating ? null : top ? new Thickness(0, 0, 0, outline) : new Thickness(0, outline, 0, 0));
+
+        // On top the gap under the player parts it from the panels; underneath, the shell's own margin does.
+        player.Margin = top ? new Thickness(playerGap, 0, playerGap, gap) : new Thickness(playerGap, 0, playerGap, playerGap);
+        SetRow(player, top ? 1 : 3);
         Children.Add(player);
     }
 
@@ -239,8 +247,11 @@ internal sealed partial class LookPreview : Grid
         return player;
     }
 
-    /// <summary>A small pill over the bottom of the page: the cover, the play button and a short progress bar.</summary>
-    private FrameworkElement HoveringPlayer()
+    /// <summary>
+    /// A small pill over the bottom of the page, in its middle or its corner:
+    /// the cover, the play button and a short progress bar.
+    /// </summary>
+    private FrameworkElement HoveringPlayer(bool inCorner)
     {
         const double PillHeight = 16;
         var content = new StackPanel
@@ -261,9 +272,9 @@ internal sealed partial class LookPreview : Grid
         var corner = PlayerPlacement.Corner(PlayerLayout.Hovering, _look.Buttons, PanelCorner.TopLeft, PillHeight);
         var pill = Panel(_palette.Player, content, new CornerRadius(corner), new Thickness(1));
         pill.Height = PillHeight;
-        pill.HorizontalAlignment = HorizontalAlignment.Center;
+        pill.HorizontalAlignment = inCorner ? HorizontalAlignment.Right : HorizontalAlignment.Center;
         pill.VerticalAlignment = VerticalAlignment.Bottom;
-        pill.Margin = new Thickness(0, 0, 0, 4);
+        pill.Margin = inCorner ? new Thickness(0, 0, 4, 4) : new Thickness(0, 0, 0, 4);
         return pill;
     }
 

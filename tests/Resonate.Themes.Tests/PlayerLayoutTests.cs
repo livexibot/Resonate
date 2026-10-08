@@ -53,7 +53,7 @@ public sealed class PlayerLayoutTests
     public void Docked_and_floating_players_keep_the_look_s_own_fill(string id)
     {
         var preset = ThemePresets.Find(id)!;
-        foreach (var layout in new[] { PlayerLayout.Docked, PlayerLayout.Floating })
+        foreach (var layout in new[] { PlayerLayout.Docked, PlayerLayout.Floating, PlayerLayout.Top, PlayerLayout.FloatingTop })
         {
             var look = preset with { PlayerLayout = layout };
             Assert.Equal(look.Player.Opaque.WithAlpha(look.PanelOpacity), ThemePalette.From(look).Player);
@@ -100,7 +100,7 @@ public sealed class PlayerLayoutTests
         var slot = PlayerPlacement.Slot(PlayerLayout.Docked, gap, sidebarFullHeight: false);
         var player = PlayerPlacement.Margin(PlayerLayout.Docked, gap);
 
-        Assert.Equal(1, slot.Row);
+        Assert.Equal(PlayerPlacement.BottomRow, slot.Row);
         Assert.False(slot.StartsAtContent);
         Assert.True(slot.SpansFollowingColumns);
 
@@ -140,7 +140,7 @@ public sealed class PlayerLayoutTests
         var slot = PlayerPlacement.Slot(PlayerLayout.Hovering, gap, sidebarFullHeight);
         var player = PlayerPlacement.Margin(PlayerLayout.Hovering, gap);
 
-        Assert.Equal(0, slot.Row);
+        Assert.Equal(PlayerPlacement.PanelsRow, slot.Row);
         Assert.True(slot.StartsAtContent);
         Assert.False(slot.SpansFollowingColumns);
         Assert.True(slot.AlignBottom);
@@ -170,7 +170,7 @@ public sealed class PlayerLayoutTests
         var player = PlayerPlacement.Margin(PlayerLayout.Hovering, gap);
 
         // In the row under the panels, where a floating player goes, so it covers nothing.
-        Assert.Equal(1, slot.Row);
+        Assert.Equal(PlayerPlacement.BottomRow, slot.Row);
         Assert.False(slot.AlignBottom);
         Assert.Equal(floating.StartsAtContent, slot.StartsAtContent);
         Assert.True(slot.SpansFollowingColumns);
@@ -193,7 +193,8 @@ public sealed class PlayerLayoutTests
 
         Assert.Equal(2, slot.SidebarRowSpan);
         Assert.Equal(1, normal.SidebarRowSpan);
-        Assert.Equal(1, slot.Row);
+        Assert.Equal(PlayerPlacement.PanelsRow, slot.SidebarRow);
+        Assert.Equal(PlayerPlacement.BottomRow, slot.Row);
         Assert.True(slot.StartsAtContent);
 
         // Under the page and the queue: it starts where the page starts...
@@ -251,5 +252,123 @@ public sealed class PlayerLayoutTests
         Assert.Equal(0, PlayerPlacement.PageInset(PlayerLayout.Hovering, 0));
         Assert.Equal(0, PlayerPlacement.PageInset(PlayerLayout.Docked, 96));
         Assert.Equal(0, PlayerPlacement.PageInset(PlayerLayout.Floating, 104));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(8)]
+    [InlineData(24)]
+    public void A_player_on_top_reaches_the_window_s_edges_under_the_title_bar(double gap)
+    {
+        var slot = PlayerPlacement.Slot(PlayerLayout.Top, gap, sidebarFullHeight: false);
+        var player = PlayerPlacement.Margin(PlayerLayout.Top, gap);
+
+        Assert.Equal(PlayerPlacement.TopRow, slot.Row);
+        Assert.False(slot.StartsAtContent);
+        Assert.True(slot.SpansFollowingColumns);
+        Assert.Equal(PlayerPlacement.PanelsRow, slot.SidebarRow);
+        Assert.Equal(1, slot.SidebarRowSpan);
+
+        // The shell has no padding at the top (the title bar is there); the gap on the sides.
+        Assert.Equal(-gap, slot.Margin.Left + player.Left);
+        Assert.Equal(-gap, slot.Margin.Right + player.Right);
+        Assert.Equal(0, slot.Margin.Top + player.Top);
+
+        // As far above the panels as they are apart.
+        Assert.Equal(gap, slot.Margin.Bottom + player.Bottom);
+    }
+
+    [Theory]
+    [InlineData(8)]
+    [InlineData(12)]
+    public void A_floating_player_on_top_lines_up_with_the_panels(double gap)
+    {
+        var slot = PlayerPlacement.Slot(PlayerLayout.FloatingTop, gap, sidebarFullHeight: false);
+        var player = PlayerPlacement.Margin(PlayerLayout.FloatingTop, gap);
+
+        Assert.Equal(PlayerPlacement.TopRow, slot.Row);
+        Assert.Equal(0, slot.Margin.Left + player.Left);
+        Assert.Equal(0, slot.Margin.Right + player.Right);
+        Assert.Equal(gap, slot.Margin.Bottom + player.Bottom);
+        Assert.Equal(8, PlayerPlacement.Margin(PlayerLayout.FloatingTop, 0).Left);
+    }
+
+    [Theory]
+    [InlineData(PlayerLayout.Top, 0)]
+    [InlineData(PlayerLayout.FloatingTop, 0)]
+    public void With_the_sidebar_reaching_the_edge_a_player_on_top_sits_over_the_page(PlayerLayout layout, double expectedLeft)
+    {
+        const double Gap = 10;
+        var normal = PlayerPlacement.Slot(layout, Gap, sidebarFullHeight: false);
+        var slot = PlayerPlacement.Slot(layout, Gap, sidebarFullHeight: true);
+        var player = PlayerPlacement.Margin(layout, Gap);
+
+        // The sidebar starts in the top row and runs down beside the player.
+        Assert.Equal(PlayerPlacement.TopRow, slot.SidebarRow);
+        Assert.Equal(2, slot.SidebarRowSpan);
+        Assert.Equal(PlayerPlacement.TopRow, slot.Row);
+        Assert.True(slot.StartsAtContent);
+        Assert.True(slot.SpansFollowingColumns);
+        Assert.Equal(expectedLeft, slot.Margin.Left + player.Left);
+        Assert.Equal(normal.Margin.Right, slot.Margin.Right);
+        Assert.Equal(normal.Margin.Top, slot.Margin.Top);
+        Assert.Equal(normal.Margin.Bottom, slot.Margin.Bottom);
+    }
+
+    [Theory]
+    [InlineData(10, false)]
+    [InlineData(24, true)]
+    public void A_player_in_the_corner_hovers_over_the_page_like_the_pill(double gap, bool sidebarFullHeight)
+    {
+        Assert.Equal(PlayerPlacement.Slot(PlayerLayout.Hovering, gap, sidebarFullHeight), PlayerPlacement.Slot(PlayerLayout.Corner, gap, sidebarFullHeight));
+        Assert.Equal(PlayerPlacement.Margin(PlayerLayout.Hovering, gap), PlayerPlacement.Margin(PlayerLayout.Corner, gap));
+        Assert.True(PlayerPlacement.HoversOverPage(PlayerLayout.Corner));
+        Assert.Equal(PlayerPlacement.BottomRow, PlayerPlacement.Slot(PlayerLayout.Corner, gap, sidebarFullHeight, hoveringFits: false).Row);
+    }
+
+    [Fact]
+    public void A_player_in_the_corner_is_the_mini_bar()
+    {
+        Assert.Equal(PlayerWidthClass.Mini, PlayerPlacement.WidthClassFor(PlayerPlacement.MaxWidth(PlayerLayout.Corner)));
+        Assert.True(PlayerPlacement.CornerWidth >= PlayerPlacement.HoveringMinWidth);
+        Assert.Equal(108, PlayerPlacement.PageInset(PlayerLayout.Corner, 99.6));
+        Assert.Equal(0, PlayerPlacement.PageInset(PlayerLayout.Top, 96));
+        Assert.Equal(0, PlayerPlacement.PageInset(PlayerLayout.FloatingTop, 104));
+    }
+
+    [Fact]
+    public void Players_on_top_face_the_panels_with_their_outline_and_corners()
+    {
+        Assert.Equal(new EdgeInsets(0, 0, 0, 1.5), PlayerPlacement.Outline(PlayerLayout.Top, 1.5));
+        Assert.Equal(EdgeInsets.All(1.5), PlayerPlacement.Outline(PlayerLayout.FloatingTop, 1.5));
+        Assert.Equal(EdgeInsets.All(1), PlayerPlacement.Outline(PlayerLayout.Corner, 0));
+        Assert.Equal(0, PlayerPlacement.Corner(PlayerLayout.Top, ButtonShape.Round, 16, 88));
+        Assert.Equal(16, PlayerPlacement.Corner(PlayerLayout.FloatingTop, ButtonShape.Round, 16, 88));
+        Assert.Equal(36, PlayerPlacement.Corner(PlayerLayout.Corner, ButtonShape.Round, 16, 72));
+        Assert.False(PlayerPlacement.Floats(PlayerLayout.Top));
+        Assert.True(PlayerPlacement.Floats(PlayerLayout.FloatingTop));
+        Assert.True(PlayerPlacement.Floats(PlayerLayout.Corner));
+    }
+
+    [Fact]
+    public void The_new_layouts_survive_being_copied_as_text()
+    {
+        foreach (var layout in new[] { PlayerLayout.Top, PlayerLayout.FloatingTop, PlayerLayout.Corner })
+        {
+            var look = ThemePresets.Midnight with { PlayerLayout = layout };
+            Assert.Equal(look, ThemeJson.Import(ThemeJson.Export(look)));
+            Assert.False(ThemePresets.Midnight.HasSameStructure(look));
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(PresetTests.PresetIds), MemberType = typeof(PresetTests))]
+    public void A_player_in_the_corner_stays_readable_over_anything_scrolling_under_it(string id)
+    {
+        var palette = ThemePalette.From(ThemePresets.Find(id)! with { PlayerLayout = PlayerLayout.Corner });
+        foreach (var under in new[] { ThemeColor.Black, ThemeColor.White, palette.TextPrimary, palette.Accent })
+        {
+            Assert.True(ThemeColor.ContrastRatio(palette.TextPrimary, palette.Player.Over(under)) >= 4.5, $"main text over {under}");
+        }
     }
 }
