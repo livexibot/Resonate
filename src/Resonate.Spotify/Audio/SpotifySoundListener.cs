@@ -351,6 +351,8 @@ public sealed class SpotifySoundListener : ISoundSink, IDisposable
         {
             StopListening();
             _lookAfter = now + (long)(LookAgainAfter.TotalSeconds * _time.TimestampFrequency);
+
+            // Not running yet (Spotify starting, the own player connecting): look again shortly.
             if (!_disposed)
             {
                 _retry.Change(LookAgainAfter, Timeout.InfiniteTimeSpan);

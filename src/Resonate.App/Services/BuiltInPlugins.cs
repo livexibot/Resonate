@@ -23,7 +23,6 @@ public sealed class BuiltInPlugins
     public const string WindowShapes = "window-shapes";
     public const string SummonBar = "summon-bar";
     public const string SignalPath = "signal-path";
-    public const string SleepTimer = "sleep-timer";
 
     private readonly AppSettings _settings;
     private readonly Action _save;
@@ -40,7 +39,6 @@ public sealed class BuiltInPlugins
     /// <summary>Every built-in plugin, in the order Settings lists them.</summary>
     public static IReadOnlyList<BuiltInPlugin> All { get; } =
     [
-
         new(AwayScreen, "Away screen", "After a few idle minutes, the window shows the song and a clock."),
         new(Rediscover, "Rediscover", "Songs you liked on this day, and ones you have not played in a while, on Home."),
         new(UpNext, "Up next", "Reorder, remove and clear the songs coming up."),
@@ -49,7 +47,6 @@ public sealed class BuiltInPlugins
         new(WindowShapes, "Window shapes", "Shrink the window to a compact player or a strip that stays on top."),
         new(SummonBar, "Summon bar", "A shortcut opens a search box over any app."),
         new(SignalPath, "Signal path", "A badge in the player that says whether you hear lossless."),
-        new(SleepTimer, "Sleep timer", "Pauses the music after the time you pick."),
     ];
 
     /// <summary>Part of Resonate itself now (the owner's choice, 8 October 2026): always on, not listed.</summary>

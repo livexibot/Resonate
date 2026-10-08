@@ -74,6 +74,8 @@ public sealed class LibraryService : IDisposable
 
     public async Task<LibrarySnapshot> RefreshAsync(CancellationToken cancellationToken)
     {
+        // As of the first request: a playlist made while the pages load may be missing from them.
+        var started = _time.GetUtcNow();
         var userTask = _api.GetCurrentUserAsync(cancellationToken);
         var playlists = new List<SimplifiedPlaylist>();
         var offset = 0;
@@ -93,7 +95,7 @@ public sealed class LibraryService : IDisposable
         {
             User = await userTask.ConfigureAwait(false),
             Playlists = playlists,
-            SavedAt = _time.GetUtcNow(),
+            SavedAt = started,
         };
         Snapshot = snapshot;
         _cache?.Save(snapshot);
@@ -376,6 +378,11 @@ public sealed class LibraryService : IDisposable
     /// <summary>Adds songs to the end of a playlist (a hundred at a time).</summary>
     public async Task AddToPlaylistAsync(string playlistId, IReadOnlyList<string> uris, CancellationToken cancellationToken)
     {
+        if (uris.Count == 0)
+        {
+            return;
+        }
+
         string? snapshot = null;
         foreach (var batch in uris.Chunk(SpotifyWebApi.MaxPlaylistUris))
         {
@@ -396,8 +403,10 @@ public sealed class LibraryService : IDisposable
         playlist.Owner ??= new PlaylistOwner { Id = Snapshot?.User?.Id ?? string.Empty, DisplayName = Snapshot?.User?.DisplayName };
         if (Snapshot is { } snapshot)
         {
-            snapshot.Playlists.Insert(0, playlist);
-            _cache?.Save(snapshot);
+            // A new snapshot rather than a change to the list others may be reading on another thread.
+            var updated = new LibrarySnapshot { User = snapshot.User, Playlists = [playlist, .. snapshot.Playlists], SavedAt = snapshot.SavedAt };
+            Snapshot = updated;
+            _cache?.Save(updated);
             PlaylistsChanged?.Invoke(this, EventArgs.Empty);
         }
 
