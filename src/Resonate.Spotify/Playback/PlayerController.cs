@@ -14,10 +14,11 @@ namespace Resonate.Spotify.Playback;
 /// still shows the old situation is ignored, so a late answer can not undo
 /// what the user just did. A command that really fails is rolled back and
 /// reported through <see cref="ErrorOccurred"/>.
-/// With <see cref="ControlChannel.WebApi"/> it never touches the Spotify app
-/// on this computer: it does not listen to its media session, read its
-/// mixer volume or start it, and commands go to whichever Spotify Connect
-/// device plays (see <see cref="WebDeviceResolver"/>).
+/// With <see cref="ControlChannel.WebApi"/> it never uses the Spotify app
+/// on this computer (which <see cref="SpotifyAppKeeper"/> closes): it does
+/// not listen to its media session, read its mixer volume or start it, and
+/// commands go to whichever Spotify Connect device plays (see
+/// <see cref="WebDeviceResolver"/>).
 /// </summary>
 public sealed class PlayerController : IPlayer, IDisposable
 {
