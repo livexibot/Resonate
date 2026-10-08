@@ -13,11 +13,12 @@ visitors; keep it short and in step with this file.
 
 - The first milestone is built and merged (pull request #1, 7 October
   2026; see "First milestone"). Releases are published with x64 and arm64
-  installers (`Resonate-win-x64-Setup.exe`); the latest is v0.5.0
-  (8 October 2026: the resizable sidebar, faster covers, local songs that
-  show covers and move on, and a Web API only mode that leaves the
-  Spotify app alone; v0.4.0 brought "Your top on Spotify" and plugins,
-  v0.3.0 the feature update and themes).
+  installers (`Resonate-win-x64-Setup.exe`); the latest is v0.6.0
+  (8 October 2026: the classic player, Settings in a side pane, bundled
+  fonts, the hovering player, eased look switching and a livelier Home;
+  v0.5.0 brought the resizable sidebar, faster covers and the Web API
+  only mode, v0.4.0 "Your top on Spotify" and plugins, v0.3.0 the
+  feature update and themes).
   CI proves on every pull
   request that an installed copy can install and update. The Spotify logic is tested on Linux; the
   WinUI 3 app is only compiled, timed and photographed on GitHub's Windows
@@ -362,8 +363,9 @@ Plugins (checked 2026-10-07):
   and output (one JSON message per line), so the installer and start-up
   are unchanged when no plugin is on.
 - Release downloads (`/releases/download/<tag>/<file>`) need the repository
-  to be public, like the updater. Until then, turning a plugin on in an
-  installed copy fails with "The download did not start".
+  to be public, like the updater. It is (checked 8 October 2026); while it
+  was private, turning a plugin on in an installed copy failed with "The
+  download did not start".
 
 Classic player and cover art (checked 2026-10-08):
 - Classic Winamp skins (`.wsz`, Winamp 2) are zip archives of BMP sheets
@@ -887,9 +889,8 @@ when the work first needs them, then tick them off here.
   in, and let it start with Windows, minimised.
 - [ ] Choose a license before making the repository public (MIT is a
   common, simple choice).
-- [ ] Make the repository public (decided 7 October 2026, so installed
-  copies can see new releases): Settings, General, Danger Zone, Change
-  visibility. Do the email setting above first.
+- [x] Make the repository public (decided 7 October 2026, so installed
+  copies can see new releases). Public by 8 October 2026.
 - [ ] Optional, later: Windows code signing, so the installer does not show
   a SmartScreen warning. This costs money (for example Azure Trusted
   Signing).
