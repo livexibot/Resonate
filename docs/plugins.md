@@ -1,16 +1,12 @@
 # Plugins
 
-Plugins are optional extras for Resonate. Nothing about them is in the
-installer: a plugin is downloaded the first time you turn it on in
-Settings, and its files are deleted when you turn it off. With no plugin
-on, Resonate has nothing extra on disk and nothing extra running.
+Plugins are optional extras for Resonate, off until you turn them on in
+Settings, Plugins. Some are built into the app; the others are not in the
+installer: such a plugin is downloaded the first time you turn it on, and
+its files are deleted when you turn it off. With no plugin on, Resonate
+has nothing extra on disk and nothing extra running.
 
 ## The plugins
-
-| Plugin | What it does | It can |
-| --- | --- | --- |
-| Sleep timer | Pauses after 15, 30 or 60 minutes, your own length, or at the end of the song, fading out over the last minute and putting the volume back afterwards. | see what is playing, control playback, change the volume |
-| Skip rules | Skips songs you never want to hear: by artist, by version (live, remix, sped up), by title, or by length. "Always skip this song" and "Always skip this artist" are in the player bar's plugin menu. | see what is playing, control playback |
 
 ### Built into Resonate
 
@@ -32,6 +28,11 @@ in Settings, Plugins, and while off they do nothing at all.
 | Signal path | A badge in the player says whether what you hear is lossless, and what to change if not. |
 
 ### Downloaded when turned on
+
+| Plugin | What it does | It can |
+| --- | --- | --- |
+| Sleep timer | Pauses after 15, 30 or 60 minutes, your own length, or at the end of the song, fading out over the last minute and putting the volume back afterwards. | see what is playing, control playback, change the volume |
+| Skip rules | Skips songs you never want to hear: by artist, by version (live, remix, sped up), by title, or by length. "Always skip this song" and "Always skip this artist" are in the player bar's plugin menu. | see what is playing, control playback |
 
 Each plugin's settings appear under it in Settings once it is on. Plugins
 that offer commands (start a sleep timer, skip this artist) add a puzzle
