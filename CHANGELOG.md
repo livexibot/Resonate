@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.9.1](https://github.com/livexibot/Resonate/compare/v0.9.0...v0.9.1) (2026-10-08)
+
+
+### Fixes
+
+* one Sleep timer, smart playlists in their chosen order, and safer song lists ([#43](https://github.com/livexibot/Resonate/issues/43)) ([16448dd](https://github.com/livexibot/Resonate/commit/16448dd6b9eb19e745710f1f2efedce99609b97e))
+* steadier playback controls, plugins, shortcuts and updates ([#46](https://github.com/livexibot/Resonate/issues/46)) ([2af68c6](https://github.com/livexibot/Resonate/commit/2af68c6e4e0534deb762cee999b1b12d038378d6))
+* themes that can't break the window, lyrics at your Text size, and no leftover captions ([#47](https://github.com/livexibot/Resonate/issues/47)) ([5e6d3ab](https://github.com/livexibot/Resonate/commit/5e6d3ab0d9149bde4959a51c0300c3e2de3eed98))
+
+
+### Faster
+
+* lighter on memory and the processor while idle ([#44](https://github.com/livexibot/Resonate/issues/44)) ([db9d576](https://github.com/livexibot/Resonate/commit/db9d576f80ab448b667657ab2777cc4326257285))
+
 ## [0.9.0](https://github.com/livexibot/Resonate/compare/v0.8.0...v0.9.0) (2026-10-08)
 
 
