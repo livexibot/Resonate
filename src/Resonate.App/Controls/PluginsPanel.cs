@@ -4,14 +4,16 @@ using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Resonate.App.Services;
 using Resonate.Plugins;
 
 namespace Resonate.App.Controls;
 
 /// <summary>
-/// The Plugins section of Settings: every plugin this release offers, a
-/// switch that downloads and starts it (or stops it and deletes its files),
-/// and its own settings, drawn from its plugin.json. Built in code, like the theme cards, so Native AOT never has
+/// The Plugins section of Settings: the plugins built into Resonate (see
+/// <see cref="BuiltInPlugins"/>), then every plugin this release offers to
+/// download, with a switch that downloads and starts it (or stops it and
+/// deletes its files), and its own settings, drawn from its plugin.json. Built in code, like the theme cards, so Native AOT never has
 /// to look up a XAML-created type.
 /// </summary>
 internal sealed partial class PluginsPanel : StackPanel
@@ -19,17 +21,42 @@ internal sealed partial class PluginsPanel : StackPanel
     private static readonly TimeSpan TypingPause = TimeSpan.FromMilliseconds(700);
 
     private readonly PluginManager _plugins;
+    private readonly BuiltInPlugins _builtIns;
     private readonly Dictionary<string, Card> _cards = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, BuiltInCard> _builtInCards = new(StringComparer.Ordinal);
     private readonly HashSet<string> _dirty = new(StringComparer.Ordinal);
     private bool _updating;
 
-    public PluginsPanel(PluginManager plugins)
+    public PluginsPanel(PluginManager plugins, AppServices services)
     {
         _plugins = plugins;
+        _builtIns = services.BuiltIns;
         Spacing = 12;
 
         var resources = Application.Current.Resources;
         Children.Add(new TextBlock { Text = "Plugins", Style = (Style)resources["ResonateTitleTextStyle"] });
+        Children.Add(new TextBlock
+        {
+            Text = "Optional extras, off until you turn them on.",
+            Style = (Style)resources["ResonateSecondaryTextStyle"],
+            TextWrapping = TextWrapping.Wrap,
+        });
+
+        // Built into Resonate: nothing to download.
+        foreach (var plugin in BuiltInPlugins.All)
+        {
+            var card = new BuiltInCard(plugin, BuiltInPluginSettings.Create(plugin.Id, services));
+            _builtInCards[plugin.Id] = card;
+            Children.Add(Build(card));
+            RefreshBuiltIn(card);
+        }
+
+        Children.Add(new TextBlock
+        {
+            Margin = new Thickness(0, 8, 0, 0),
+            Text = "DOWNLOADED WHEN TURNED ON",
+            Style = (Style)resources["ResonateEyebrowTextStyle"],
+        });
         Children.Add(new TextBlock
         {
             Text = Intro(plugins),
@@ -48,14 +75,21 @@ internal sealed partial class PluginsPanel : StackPanel
         Loaded += (_, _) =>
         {
             _plugins.Changed += OnChanged;
+            _builtIns.Changed += OnBuiltInChanged;
             foreach (var card in _cards.Values)
             {
                 Refresh(card);
+            }
+
+            foreach (var card in _builtInCards.Values)
+            {
+                RefreshBuiltIn(card);
             }
         };
         Unloaded += (_, _) =>
         {
             _plugins.Changed -= OnChanged;
+            _builtIns.Changed -= OnBuiltInChanged;
             foreach (var card in _cards.Values)
             {
                 card.SaveTyping?.Invoke();
@@ -72,7 +106,56 @@ internal sealed partial class PluginsPanel : StackPanel
 
         return plugins.IsPreview
             ? "Demo mode: nothing is downloaded or run."
-            : "Optional extras, downloaded only when turned on.";
+            : "Downloaded from Resonate's releases, and deleted when turned off.";
+    }
+
+    private StackPanel Build(BuiltInCard card)
+    {
+        var panel = new StackPanel { Spacing = 8 };
+        card.Switch.OnContent = "On";
+        card.Switch.OffContent = "Off";
+        AutomationProperties.SetName(card.Switch, card.Plugin.Name);
+        card.Switch.Toggled += (_, _) =>
+        {
+            if (!_updating)
+            {
+                _builtIns.Set(card.Plugin.Id, card.Switch.IsOn);
+            }
+        };
+        panel.Children.Add(new SettingRow { Header = card.Plugin.Name, Description = card.Plugin.Description, Content = card.Switch });
+        if (card.Settings is not null)
+        {
+            panel.Children.Add(card.Settings);
+        }
+
+        return panel;
+    }
+
+    private void OnBuiltInChanged(object? sender, string id)
+    {
+        if (_builtInCards.TryGetValue(id, out var card))
+        {
+            RefreshBuiltIn(card);
+        }
+    }
+
+    private void RefreshBuiltIn(BuiltInCard card)
+    {
+        var on = _builtIns.IsOn(card.Plugin.Id);
+        _updating = true;
+        try
+        {
+            card.Switch.IsOn = on;
+        }
+        finally
+        {
+            _updating = false;
+        }
+
+        if (card.Settings is not null)
+        {
+            card.Settings.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+        }
     }
 
     private StackPanel Build(Card card)
@@ -381,6 +464,16 @@ internal sealed partial class PluginsPanel : StackPanel
         {
             _updating = false;
         }
+    }
+
+    /// <summary>The switch of one built-in plugin, and its settings (shown while it is on), if it has any.</summary>
+    private sealed class BuiltInCard(BuiltInPlugin plugin, FrameworkElement? settings)
+    {
+        public BuiltInPlugin Plugin { get; } = plugin;
+
+        public ToggleSwitch Switch { get; } = new();
+
+        public FrameworkElement? Settings { get; } = settings;
     }
 
     /// <summary>The controls of one plugin.</summary>

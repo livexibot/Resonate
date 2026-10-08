@@ -49,6 +49,7 @@ public sealed class AppServices : IDisposable
         Plugins = plugins;
         _owned.Add(plugins);
         Theme = new ThemeService(settings, SaveSettings);
+        BuiltIns = new BuiltInPlugins(settings, SaveSettings);
         Covers = new CoverImages(covers);
         if (covers is not null)
         {
@@ -123,6 +124,9 @@ public sealed class AppServices : IDisposable
 
     /// <summary>Optional plugins, downloaded only when turned on in Settings.</summary>
     public PluginManager Plugins { get; }
+
+    /// <summary>The plugins built into Resonate (lyrics, Home stage and the rest), off until turned on.</summary>
+    public BuiltInPlugins BuiltIns { get; }
 
     /// <summary>The look: presets, the user's own looks, and switching between them.</summary>
     public ThemeService Theme { get; }

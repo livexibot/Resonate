@@ -25,7 +25,7 @@ public sealed partial class SettingsPage : Page
     public SettingsPage()
     {
         InitializeComponent();
-        PluginsHost.Children.Add(new PluginsPanel(_services.Plugins));
+        PluginsHost.Children.Add(new PluginsPanel(_services.Plugins, _services));
         Loaded += OnLoaded;
 
         // Only while on show, so the updater never keeps a closed page alive.

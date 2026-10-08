@@ -604,6 +604,12 @@
                         SelectionMode="None" />
                 </StackPanel>
 
+                <!-- Rediscover, a built-in plugin (HomePage.Rediscover.cs): shown only while it is on. -->
+                <StackPanel
+                    x:Name="RediscoverSection"
+                    Spacing="12"
+                    Visibility="Collapsed" />
+
                 <!-- Spotify's own top artists and songs, over the time range picked on the right. -->
                 <StackPanel x:Name="TopSection" Spacing="12">
                     <Grid ColumnSpacing="16">

@@ -175,6 +175,8 @@ public sealed partial class HomePage : Page
         _services.Home.History.Changed += OnHomeChanged;
         _services.Player.StateChanged += OnPlayerChanged;
         _services.Theme.Changed += OnThemeChanged;
+        OnStageNavigatedTo();
+        OnRediscoverNavigatedTo();
         _ = LoadAsync();
     }
 
@@ -184,8 +186,19 @@ public sealed partial class HomePage : Page
         _services.Home.History.Changed -= OnHomeChanged;
         _services.Player.StateChanged -= OnPlayerChanged;
         _services.Theme.Changed -= OnThemeChanged;
+        OnStageNavigatedFrom();
+        OnRediscoverNavigatedFrom();
         _leaving.Cancel();
     }
+
+    // The built-in plugins on Home (see BuiltInPlugins), each in its own HomePage.<Name>.cs.
+    partial void OnStageNavigatedTo();
+
+    partial void OnStageNavigatedFrom();
+
+    partial void OnRediscoverNavigatedTo();
+
+    partial void OnRediscoverNavigatedFrom();
 
     /// <summary>For the screenshot tour: scrolls <paramref name="section"/> to the top of the page at once.</summary>
     internal void ScrollTo(HomeSection section)

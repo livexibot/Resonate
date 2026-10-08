@@ -134,6 +134,33 @@ public sealed class AppSettings
     /// <summary>The local files player's volume, from 0 to 1 (the Spotify app keeps its own).</summary>
     public double LocalVolume { get; set; } = 1;
 
+    // ---- Built-in plugins (Settings, Plugins; see BuiltInPlugins). Each keeps its settings under its own heading. ----
+
+    /// <summary>The built-in plugins that are on, by ID.</summary>
+    public List<string> BuiltInPlugins { get; set; } = [];
+
+    // Lyrics
+
+    // Home stage
+
+    // Away screen
+
+    // Rediscover
+
+    // Up next
+
+    // Artist orbit
+
+    // Smart playlists
+
+    // Window shapes
+
+    // Summon bar
+
+    // Signal path
+
+    // ---- End of built-in plugins ----
+
     [JsonIgnore]
     public bool UsesClassicPlayer => PlayerStyle == "classic";
 

@@ -148,6 +148,7 @@ public sealed partial class MainWindow : Window
         CompositionTarget.Rendering += OnFirstFrame;
         SetUpLocalFiles();
         SetUpClassicPlayer();
+        SetUpBuiltInPlugins();
     }
 
     /// <summary>False while the window is minimised or hidden: clocks and endless animations rest then.</summary>
