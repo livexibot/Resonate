@@ -13,9 +13,12 @@ on:
 permissions:
   contents: read
 
+# A newer push to a pull request replaces that pull request's older run.
+# On main every merge keeps its own run (grouped by commit, never
+# cancelled), so two merges in a row both get a result.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   DOTNET_NOLOGO: true

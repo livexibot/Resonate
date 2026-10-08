@@ -767,6 +767,9 @@ app and make text bigger):
   layout, and that the window grows when App size needs more room.
 
 GitHub automation:
+- CI cancels a pull request's older run when a newer push arrives, but
+  never a run on main: each merge there keeps its own run (8 October
+  2026, after merging pull request #37 cancelled #36's run on main).
 - Releases and pull requests made with the default `GITHUB_TOKEN` do not
   start other workflows, so `release-please.yml` calls `release.yml`
   directly when a release is created. Pull requests it opens get CI runs
