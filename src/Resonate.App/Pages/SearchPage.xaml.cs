@@ -168,15 +168,13 @@ public sealed partial class SearchPage : Page
             }
         }
 
-        HintText.Text = "Search for songs, artists, albums and playlists. Double-click a song to play it.";
-        HintText.Visibility = results is null ? Visibility.Visible : Visibility.Collapsed;
+        HintText.Visibility = Visibility.Collapsed;
         SongsSection.Visibility = Songs.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         ArtistsSection.Visibility = ArtistCards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         PlaylistsSection.Visibility = PlaylistCards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         AlbumsSection.Visibility = AlbumCards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         if (results is not null && Songs.Count + ArtistCards.Count + PlaylistCards.Count + AlbumCards.Count == 0)
         {
-            HintText.Text = "Nothing found. Try other words.";
             HintText.Visibility = Visibility.Visible;
         }
     }

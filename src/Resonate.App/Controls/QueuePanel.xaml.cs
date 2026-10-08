@@ -27,9 +27,6 @@ public sealed partial class QueuePanel : UserControl
     /// <summary>The pane's width next to the pages.</summary>
     public const double PaneWidth = 340;
 
-    private const string SpotifyNote = "Spotify shares about 20 songs ahead, and does not let other apps reorder or clear its queue. Right-click a song for more.";
-    private const string LocalNote = "Right-click a song for more.";
-
     // Spotify shares about 20; the local files player knows the whole rest of its list.
     private const int MaxRows = 100;
 
@@ -153,7 +150,7 @@ public sealed partial class QueuePanel : UserControl
         NowDuration.Text = state.Duration > TimeSpan.Zero ? Format.Duration(state.Duration) : string.Empty;
         SourceText.Text = state.SourceName is { Length: > 0 } name ? $"Playing from {name}" : string.Empty;
         SourceText.Visibility = SourceText.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-        NoteText.Text = _upNextNote ?? DefaultNote(source);
+        ShowNote(_upNextNote);
         ShowArtwork(state);
 
         // What plays next changes with the song, the player, shuffle and repeat.
@@ -171,7 +168,12 @@ public sealed partial class QueuePanel : UserControl
         }
     }
 
-    private static string DefaultNote(PlaybackSource source) => source == PlaybackSource.LocalFiles ? LocalNote : SpotifyNote;
+    /// <summary>Why the queue cannot be edited now, when Up next says so; nothing otherwise.</summary>
+    private void ShowNote(string? note)
+    {
+        NoteText.Text = note ?? string.Empty;
+        NoteText.Visibility = note is null ? Visibility.Collapsed : Visibility.Visible;
+    }
 
     private void ShowArtwork(PlayerState state)
     {

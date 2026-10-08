@@ -36,6 +36,9 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     internal static readonly TimeSpan ShuffleConfirmInterval = TimeSpan.FromMilliseconds(300);
     internal const int ShuffleConfirmAttempts = 4;
 
+    /// <summary>How many answers about another song a new song's details wait through (one poll each).</summary>
+    internal const int MaxWebDetailsMisses = 4;
+
     /// <summary>
     /// Resonate sends at most this many song addresses in one play command.
     /// Spotify documents no limit; other apps found that about 800 are
@@ -79,6 +82,9 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     private long _webApplied;
     private bool _webConnected;
     private bool _needsWebDetails = true;
+
+    /// <summary>Answers since the song changed that still described another song; the details are asked for again a few times.</summary>
+    private int _webDetailsMisses;
     private DateTimeOffset _webPausedUntil;
     private bool _started;
     private int _ownPlayerRefreshQueued;
@@ -1120,7 +1126,8 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     /// restarts at the position it has reached, so the switch is barely
     /// heard. Repeat is set again in case Spotify forgets it with a new list.
     /// </summary>
-    private async Task RestartAsync(StartPlaybackBody body, string? deviceId, CancellationToken cancellationToken)
+    /// <param name="fromStart">The song was switched to and starts from its beginning.</param>
+    private async Task RestartAsync(StartPlaybackBody body, string? deviceId, CancellationToken cancellationToken, bool fromStart = false)
     {
         PlayerState state;
         lock (_gate)
@@ -1129,7 +1136,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         }
 
         var position = state.PositionAt(_time.GetUtcNow());
-        body.PositionMs = position > TimeSpan.FromMilliseconds(500) ? (int)position.TotalMilliseconds : null;
+        body.PositionMs = !fromStart && position > TimeSpan.FromMilliseconds(500) ? (int)position.TotalMilliseconds : null;
         await _api.StartPlaybackAsync(body, deviceId, cancellationToken).ConfigureAwait(false);
         if (state.Repeat != RepeatMode.Off)
         {
@@ -1325,6 +1332,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                         Duration = snapshot.Duration,
                     };
                     _needsWebDetails = true;
+                    _webDetailsMisses = 0;
                     fetchDetails = true;
                 }
                 else
@@ -1380,9 +1388,12 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             var now = _time.GetUtcNow();
             var s = _state;
             _webConnected = playback?.Device is not null;
-            _needsWebDetails = false;
             var item = TrackInfo.From(playback?.Item);
             var localIsTruth = Local.HasSession && Local.HasTimeline;
+
+            // Spotify's answer often still describes the song before; the next poll asks again.
+            _needsWebDetails = localIsTruth && _needsWebDetails && item is not null && !TitlesMatch(item.Title, s.Title)
+                && ++_webDetailsMisses < MaxWebDetailsMisses;
 
             if (playback is null)
             {
@@ -1738,19 +1749,23 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     /// <summary>Pauses; with "Spotify Web API only" and nothing playing anywhere there is nothing to pause, and no device is woken for it.</summary>
     private async Task PauseOnDeviceAsync(CancellationToken cancellationToken)
     {
-        if (UseLocal)
-        {
-            await WithLocalDeviceAsync(_api.PauseAsync, cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
         try
         {
+            if (UseLocal)
+            {
+                await WithLocalDeviceAsync(_api.PauseAsync, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
             await _api.PauseAsync(null, cancellationToken).ConfigureAwait(false);
         }
-        catch (SpotifyApiException ex) when (ex.IsNoActiveDevice)
+        catch (SpotifyApiException ex) when (!UseLocal && ex.IsNoActiveDevice)
         {
             // Nothing plays on any device: already paused.
+        }
+        catch (SpotifyApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden && !ex.IsPremiumRequired)
+        {
+            // Spotify refuses to pause what is already paused ("Restriction violated").
         }
     }
 

@@ -241,8 +241,9 @@ public static class PlayerPlacement
         }
 
         // The shell has no padding at the top (the title bar is there), so a
-        // player along the top starts right under it, with the gap below.
-        var top = IsAtTop(layout);
+        // player along the top starts right under it, with the gap below. A
+        // player hovering at the top that does not fit stays at the top.
+        var top = IsAtTop(layout) || HoversAtTop(layout);
         var row = top ? TopRow : BottomRow;
         var (above, below) = top ? (0, gap) : (gap, -gap);
         if (!sidebarFullHeight)

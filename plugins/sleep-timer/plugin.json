@@ -1,7 +1,7 @@
 {
   "id": "sleep-timer",
   "name": "Sleep timer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Pauses the music after a while or at the end of the song.",
   "author": "Resonate",
   "main": "main.js",

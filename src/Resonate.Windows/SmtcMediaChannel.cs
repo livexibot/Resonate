@@ -142,7 +142,8 @@ public sealed partial class SmtcMediaChannel : ILocalMediaChannel
         }
         catch (System.Runtime.InteropServices.COMException)
         {
-            // Sessions are changing; the next SessionsChanged event tries again.
+            // Sessions are changing; the next SessionsChanged event tries again. Until then the session followed so far stays.
+            return;
         }
 
         var current = Volatile.Read(ref _session);

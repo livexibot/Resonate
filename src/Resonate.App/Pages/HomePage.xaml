@@ -550,12 +550,6 @@
                             ContentTemplate="{StaticResource StatCardTemplate}" />
                     </Grid>
                 </Grid>
-                <TextBlock
-                    x:Name="HistoryNote"
-                    Style="{StaticResource ResonateCaptionTextStyle}"
-                    Text="Spotify shares the last 50 songs you played. Resonate keeps them from now on, so your stats fill in as you listen."
-                    TextWrapping="Wrap"
-                    Visibility="Collapsed" />
                 <Border
                     x:Name="PermissionNote"
                     Padding="16,12"

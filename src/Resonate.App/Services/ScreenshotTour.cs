@@ -95,12 +95,11 @@ internal sealed class ScreenshotTour
             await CaptureAsync("2-queue.png");
             _window.ToggleQueue();
 
-            // Lyrics, a built-in plugin, with the demo's made-up words following the song.
-            App.Services.BuiltIns.Set(BuiltInPlugins.Lyrics, true);
+            // Lyrics, with the demo's made-up words following the song.
             _window.ToggleLyrics();
             await Task.Delay(1500);
             await CaptureAsync("2b-lyrics.png");
-            App.Services.BuiltIns.Set(BuiltInPlugins.Lyrics, false);
+            _window.ToggleLyrics();
 
             SearchPage.PendingQuery = "mid";
             _window.OpenSearch();

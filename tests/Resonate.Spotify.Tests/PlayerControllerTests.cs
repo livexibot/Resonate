@@ -113,6 +113,19 @@ public sealed class PlayerControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task Spotify_refusing_to_pause_paused_music_counts_as_paused()
+    {
+        await StartPlayingSongA();
+        _local.Accepts = false;
+        _web.FailNextCommand = new SpotifyApiException(HttpStatusCode.Forbidden, null, "Player command failed: Restriction violated");
+
+        await _player.PauseAsync();
+
+        Assert.False(_player.State.IsPlaying);
+        Assert.Empty(_errors);
+    }
+
+    [Fact]
     public async Task Seeking_ignores_positions_from_before_the_seek()
     {
         await StartPlayingSongA();

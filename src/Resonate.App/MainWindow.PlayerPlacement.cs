@@ -66,7 +66,7 @@ public sealed partial class MainWindow
         var gap = theme.Palette.PanelGap;
 
         // A window shape without the page (Window shapes plugin) has the player under everything.
-        if (ShapeHidesPanels && (PlayerPlacement.IsAtTop(layout) || PlayerPlacement.IsSide(layout)))
+        if (ShapeHidesPanels && (PlayerPlacement.IsAtTop(layout) || PlayerPlacement.HoversAtTop(layout) || PlayerPlacement.IsSide(layout)))
         {
             layout = layout is PlayerLayout.Top or PlayerLayout.Left or PlayerLayout.Right ? PlayerLayout.Docked : PlayerLayout.Floating;
         }

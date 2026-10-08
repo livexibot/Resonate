@@ -80,7 +80,8 @@
                 <TextBlock
                     x:Name="HintText"
                     Style="{StaticResource ResonateSecondaryTextStyle}"
-                    Text="Search for songs, artists, albums and playlists. Double-click a song to play it." />
+                    Text="Nothing found"
+                    Visibility="Collapsed" />
 
                 <StackPanel
                     x:Name="SongsSection"

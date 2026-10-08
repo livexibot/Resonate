@@ -237,7 +237,10 @@ public sealed class ThemeJsonTests
               "cornerRadius": 5000,
               "panelOpacity": -3,
               "borderWidth": 1e9,
-              "displayFont": ""
+              "displayFont": "",
+              "playerWidth": -5,
+              "playerHeight": 1e9,
+              "playerOffsetX": -1e9
             } }
             """;
         var look = ThemeJson.Import(Text)!;
@@ -246,6 +249,10 @@ public sealed class ThemeJsonTests
         Assert.Equal(0, look.PanelOpacity);
         Assert.Equal(ThemeDefinition.MaxBorderWidth, look.BorderWidth);
         Assert.Equal(ThemeDefinition.DefaultDisplayFont, look.DisplayFont);
+        Assert.Equal(ThemeDefinition.MinPlayerWidth, look.PlayerWidth);
+        Assert.Equal(ThemeDefinition.MaxPlayerHeight, look.PlayerHeight);
+        Assert.Equal(-ThemeDefinition.MaxPlayerOffset, look.PlayerOffsetX);
+        Assert.Null(look.PlayerOffsetY);
     }
 
     [Fact]
@@ -304,6 +311,17 @@ public sealed class ThemeLibraryTests
         Assert.Single(library.Saved);
         Assert.Equal("Teal night", library.Active.Name);
         Assert.Equal(4, library.Saved[0].CornerRadius);
+    }
+
+    [Fact]
+    public void Pasting_a_look_keeps_the_unsaved_custom_look()
+    {
+        var library = new ThemeLibrary("midnight", null, null);
+        library.Edit(t => t with { CornerRadius = 3 });
+        library.Add(ThemePresets.Paper);
+
+        Assert.NotNull(library.Custom);
+        Assert.Equal(3, library.Custom.CornerRadius);
     }
 
     [Fact]

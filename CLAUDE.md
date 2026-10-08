@@ -15,8 +15,10 @@ visitors; keep it short and in step with this file.
   2026; see "First milestone"). Releases are published with one
   installer, for ordinary (x64) Windows PCs (`Resonate-win-x64-Setup.exe`;
   the owner dropped arm64 and the portable zip on 8 October 2026 to save
-  build time); the latest is v0.7.0
-  (8 October 2026: swiping the playing song to skip, Web API only closing
+  build time); the latest is v0.9.0
+  (8 October 2026: the owner's live edits, see below; v0.8.0 brought
+  Resonate's own player for Web API only, the Home stage's visualizer
+  and Settings in tabs, v0.7.0 swiping the playing song to skip, Web API only closing
   the Spotify app, the Winamp mini player, App size and Text size, and
   ten built-in plugins with synced lyrics; v0.6.0 brought the classic
   player, Settings in a side pane, bundled fonts, the hovering player,
@@ -67,10 +69,14 @@ visitors; keep it short and in step with this file.
   (see "Plugins" under verified facts and decisions). CI installs and runs
   them in the installed app; on the owner's PC, check that Windows security
   software lets the downloaded helper run.
-- Ten built-in plugins (8 October 2026: Lyrics, Home stage, Away screen,
-  Rediscover, Up next, Artist orbit, Smart playlists, Window shapes,
-  Summon bar, Signal path) are compiled into the app and off until turned
-  on in Settings, Plugins; see "Built-in plugins" under verified facts.
+- Eight built-in plugins (8 October 2026: Away screen, Rediscover, Up
+  next, Artist orbit, Smart playlists, Window shapes, Summon bar, Signal
+  path) are compiled into the app and off until turned on in Settings,
+  Plugins; see "Built-in plugins" under verified facts. Lyrics and Home
+  stage began as built-in plugins and are now always on
+  (`BuiltInPlugins.IsAlwaysOn`). The Sleep timer is only the downloaded
+  plugin (`plugins/sleep-timer`); a built-in copy with the same ID was
+  removed before release.
   CI draws each once (all but Window shapes) in its screenshot tour, but
   nobody has used them on Windows yet: the owner's PC must check what each
   section lists under "Measure".
@@ -554,7 +560,7 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
 - Home stage: the top of Home is the playing song, large, over five
   drifting clouds of the cover's colours (`Controls/CloudField`,
   `NowPlayingStage`, colours kept readable by `StageColours.ForText`, 7:1
-  and 4.5:1), or the blurred cover (its own switch, off at first). The
+  and 4.5:1), or the blurred cover (its own switch, on at first). The
   640 px cover is `TrackInfo.FullImageUrl` / `PlayerState.FullArtworkUrl`.
   Each cloud is a colour brush through one dithered alpha mask
   (`Resonate.Themes/CloudMask`, 512 px, triangular noise of 4 alpha steps,
@@ -738,7 +744,10 @@ more modern look without bloat, a centred hovering player, a sidebar that
 reaches the bottom, switching animations of 1 to 2 s that ease in and out,
 a spread from the middle that is not a circle, a plain morph, a smoother
 Ripple, and a more interesting Home):
-- Switching looks: every kind but None lasts 1.2 to 1.6 s and eases in and
+- Switching looks always uses Ripple from the click
+  (`ThemeService.Transition`, the owner's choice); the other kinds below
+  stay in the catalog (Customize's quick edits cross-fade) and the tests.
+  Every kind but None lasts 1.2 to 1.6 s and eases in and
   out (cubic Bézier with y1 = 0 and y2 = 1). Durations, curves and the
   Random pool live in `Resonate.Themes/ThemeTransitionCatalog.cs` and are
   tested. Kinds: Morph (shapes dissolve while colours flow on the same

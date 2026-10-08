@@ -147,6 +147,7 @@ public sealed partial class PlayerController : IUpNext
     private bool FollowUpNext()
     {
         UpNextSend? send = null;
+        TimeSpan? waitFor = null;
         lock (_gate)
         {
             if (_session is not { EditsPending: true } session)
@@ -181,12 +182,20 @@ public sealed partial class PlayerController : IUpNext
                 // The same song, or back to an earlier one (those are as Spotify has them).
                 session.Index = located;
                 session.PlayingOther = false;
-                if (!_state.IsPlaying || _upNextHeld || now < _upNextDue)
+                if (!_state.IsPlaying || _upNextHeld)
                 {
                     return true;
                 }
 
-                send = TakeUpNext(session, now, switching: false);
+                if (now < _upNextDue)
+                {
+                    // Not due yet (a timer can fire a moment early): aimed again rather than left for the next change.
+                    waitFor = _upNextDue - now;
+                }
+                else
+                {
+                    send = TakeUpNext(session, now, switching: false);
+                }
             }
             else
             {
@@ -194,6 +203,12 @@ public sealed partial class PlayerController : IUpNext
                 session.PlayingOther = true;
                 return true;
             }
+        }
+
+        if (waitFor is not null)
+        {
+            ArmUpNext(waitFor);
+            return true;
         }
 
         RaiseStateChanged();
@@ -253,7 +268,7 @@ public sealed partial class PlayerController : IUpNext
                 return null;
             }
 
-            send = new UpNextSend(session, session.TakeEdits());
+            send = new UpNextSend(session, session.TakeEdits(), FromStart: true);
             song = next;
             source = _state.SourceName;
         }
@@ -296,7 +311,7 @@ public sealed partial class PlayerController : IUpNext
         }
 
         SetState(state);
-        return new UpNextSend(session, body);
+        return new UpNextSend(session, body, FromStart: switching);
     }
 
     /// <summary>Whether the player shows <paramref name="song"/> now.</summary>
@@ -312,22 +327,30 @@ public sealed partial class PlayerController : IUpNext
     {
         try
         {
-            await RestartAsync(send.Body, deviceId, cancellationToken).ConfigureAwait(false);
+            await RestartAsync(send.Body, deviceId, cancellationToken, fromStart: send.FromStart).ConfigureAwait(false);
         }
         catch (Exception) when (!cancellationToken.IsCancellationRequested)
         {
+            var retry = false;
             lock (_gate)
             {
                 if (_session == send.Session)
                 {
                     send.Session.RestoreEdits();
                     _upNextDue = _time.GetUtcNow() + UpNextRetryDelay;
+                    retry = true;
                 }
+            }
+
+            if (retry)
+            {
+                ArmUpNext(UpNextRetryDelay);
             }
 
             throw;
         }
     }
 
-    private sealed record UpNextSend(ListSession Session, StartPlaybackBody Body);
+    /// <param name="FromStart">A song switched to: it starts from its beginning, however long the command took to go out.</param>
+    private sealed record UpNextSend(ListSession Session, StartPlaybackBody Body, bool FromStart);
 }

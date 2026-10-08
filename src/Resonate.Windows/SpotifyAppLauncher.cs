@@ -31,19 +31,8 @@ public sealed class SpotifyAppLauncher : ISpotifyAppLauncher, ISpotifyAppRestart
     /// <param name="background">Hides Spotify's window once it appears; without it, the window is minimised instead.</param>
     public SpotifyAppLauncher(SpotifyBackground? background = null) => _background = background;
 
-    public bool IsRunning
-    {
-        get
-        {
-            var processes = Process.GetProcessesByName(ProcessName);
-            foreach (var process in processes)
-            {
-                process.Dispose();
-            }
-
-            return processes.Length > 0;
-        }
-    }
+    /// <summary>Spotify runs for this Windows user (another signed-in user's Spotify does not play here).</summary>
+    public bool IsRunning => SessionProcessIds().Count > 0;
 
     public Action? BeforeStart { get; set; }
 
