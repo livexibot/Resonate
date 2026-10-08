@@ -28,8 +28,11 @@ public sealed partial class TracksPage : Page
     private const double CompactWidth = 600;
     private const int CoverSize = 232;
     private const int CompactCoverSize = 128;
+    private const double RowHeight = 56;
 
-    private const string OpenInSpotifyLabel = "Open in Spotify";
+    /// <summary>The longest the songs wait for their covers, so a list opened again shows both at once.</summary>
+    private static readonly TimeSpan CoverWait = TimeSpan.FromMilliseconds(150);
+
     private const string UpGlyph = "";
     private const string DownGlyph = "";
 
@@ -38,6 +41,7 @@ public sealed partial class TracksPage : Page
     private readonly Dictionary<TrackInfo, TrackRow> _rowCache = new(ReferenceEqualityComparer.Instance);
     private readonly DispatcherQueueTimer _filterTimer;
     private readonly CoverHero _hero;
+    private readonly PageCover _cover;
     private TrackListSource _source = null!;
     private ListHeader _header = null!;
     private TrackColumns _columns = null!;
@@ -69,6 +73,7 @@ public sealed partial class TracksPage : Page
         _filterTimer.Interval = TimeSpan.FromMilliseconds(150);
         _filterTimer.IsRepeating = false;
         _hero = new CoverHero(Hero);
+        _cover = new PageCover(CoverFrame, CoverImage, CoverShadow, CoverSize);
     }
 
     /// <summary>The list shown is in its own order, unfiltered (so it can play inside its Spotify context and be rearranged).</summary>
@@ -145,7 +150,13 @@ public sealed partial class TracksPage : Page
 
         try
         {
-            ShowAll(await full);
+            var list = await full;
+            if (_rows.Count == 0 && !list.ItemsHidden)
+            {
+                await WarmCoversAsync(list.Tracks, token);
+            }
+
+            ShowAll(list);
         }
         catch (OperationCanceledException)
         {
@@ -186,6 +197,11 @@ public sealed partial class TracksPage : Page
             var preview = await Task.Run(() => source.LoadPreviewAsync(token), token);
             if (preview is { Count: > 0 } && !full.IsCompleted && !_complete)
             {
+                await WarmCoversAsync(preview, token);
+            }
+
+            if (preview is { Count: > 0 } && !full.IsCompleted && !_complete && !token.IsCancellationRequested)
+            {
                 LoadingRing.IsActive = false;
                 _all = preview.ToList();
                 ApplyView();
@@ -197,6 +213,38 @@ public sealed partial class TracksPage : Page
         }
     }
 
+    /// <summary>
+    /// Gets the covers of the songs that will show first ready (from memory
+    /// or disk this takes a frame or two), so the rows appear with their
+    /// covers instead of filling them in a moment later. Waits at most
+    /// <see cref="CoverWait"/>, for covers that still have to be downloaded.
+    /// </summary>
+    private async Task WarmCoversAsync(IReadOnlyList<TrackInfo> tracks, CancellationToken token)
+    {
+        // Demo mode: Windows loads every cover itself, once it is on screen.
+        if (_services.Covers.Store is null || tracks.Count == 0)
+        {
+            return;
+        }
+
+        var count = TrackList.ActualHeight > 0 ? (int)Math.Ceiling(TrackList.ActualHeight / RowHeight) + 1 : 24;
+        var (sort, filter) = (_sort, _filter);
+        var first = InOwnOrder
+            ? tracks.Take(count).ToList()
+            : await Task.Run(() => TrackSorter.Apply(tracks.Where(t => TrackSorter.Matches(t, filter)), sort).Take(count).ToList(), token);
+
+        var covers = first
+            .Where(t => t.FilePath is null && t.SmallImageUrl is not null)
+            .Select(t => _services.Covers.GetReadyAsync(t.SmallImageUrl, TrackRow.CoverWidth))
+            .ToList();
+        if (covers.Count > 0)
+        {
+            await Task.WhenAny(Task.WhenAll(covers), Task.Delay(CoverWait, token));
+        }
+
+        token.ThrowIfCancellationRequested();
+    }
+
     private void ShowHeader(ListHeader header)
     {
         _header = header;
@@ -205,13 +253,9 @@ public sealed partial class TracksPage : Page
         DescriptionText.Text = header.Description ?? string.Empty;
         DescriptionText.Visibility = string.IsNullOrEmpty(header.Description) ? Visibility.Collapsed : Visibility.Visible;
 
-        CoverFrame.Background = Artwork.PlaceholderBrush(header.PlaceholderName);
+        _cover.Show(header.ImageUrl, Artwork.PlaceholderBrush(header.PlaceholderName));
         CoverGlyph.Glyph = header.Glyph ?? string.Empty;
         CoverGlyph.Visibility = header.Glyph is null ? Visibility.Collapsed : Visibility.Visible;
-        if (header.ImageUrl is not null)
-        {
-            CoverImage.Source = Artwork.FromUrl(header.ImageUrl, CoverSize);
-        }
 
         _hero.Show(Artwork.PlaceholderColors(header.PlaceholderName).From, header.ImageUrl);
 
@@ -229,7 +273,6 @@ public sealed partial class TracksPage : Page
 
         // An empty panel would still push the details over by the row's spacing.
         ArtistLinks.Visibility = header.Artists.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        OpenInSpotifyButton.Visibility = _source.SpotifyLink is null ? Visibility.Collapsed : Visibility.Visible;
         UpdateDetails();
     }
 
@@ -731,16 +774,11 @@ public sealed partial class TracksPage : Page
         TitleText.Style = (Style)Application.Current.Resources[compact ? "ResonateCompactDisplayTextStyle" : "ResonateDisplayTextStyle"];
 
         Grid.SetRow(FilterBox, compact ? 1 : 0);
-        Grid.SetColumn(FilterBox, compact ? 0 : 4);
-        Grid.SetColumnSpan(FilterBox, compact ? 5 : 1);
+        Grid.SetColumn(FilterBox, compact ? 0 : 3);
+        Grid.SetColumnSpan(FilterBox, compact ? 4 : 1);
         Grid.SetRow(SortButton, compact ? 1 : 0);
         SortText.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-        OpenInSpotifyText.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-        OpenInSpotifyIcon.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
-        ToolTipService.SetToolTip(OpenInSpotifyButton, compact ? OpenInSpotifyLabel : null);
     }
-
-    private void OnOpenInSpotifyClick(object sender, RoutedEventArgs e) => TrackActions.OpenInSpotify(_source.SpotifyLink);
 
     // ---- Likes, the menu, rearranging ----
 

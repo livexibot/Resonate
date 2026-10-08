@@ -23,11 +23,11 @@ public sealed partial class ArtistPage : Page
     // A narrow page (a small window, or Settings or the queue open beside it), as on a playlist; wider with larger text.
     private const double CompactWidth = 600;
     private const int CompactPortraitSize = 128;
-    private const string OpenInSpotifyLabel = "Open in Spotify";
 
     private readonly AppServices _services = App.Services;
     private readonly CancellationTokenSource _leaving = new();
     private readonly CoverHero _hero;
+    private readonly PageCover _portrait;
     private string _artistId = string.Empty;
     private string _name = string.Empty;
     private bool _compact;
@@ -36,6 +36,7 @@ public sealed partial class ArtistPage : Page
     {
         InitializeComponent();
         _hero = new CoverHero(Hero);
+        _portrait = new PageCover(PortraitFrame, PortraitImage, PortraitShadow, PortraitSize);
     }
 
     public ObservableCollection<CardItem> Albums { get; } = [];
@@ -49,7 +50,6 @@ public sealed partial class ArtistPage : Page
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         _artistId = e.Parameter as string ?? string.Empty;
-        PortraitFrame.Background = Artwork.PlaceholderBrush(_artistId);
         _services.Theme.SizeChanged += OnTextSizeChanged;
         _hero.Attach();
         OnOrbitNavigatedTo();
@@ -93,9 +93,6 @@ public sealed partial class ArtistPage : Page
         NameText.Style = (Style)Application.Current.Resources[compact ? "ResonateCompactDisplayTextStyle" : "ResonateDisplayTextStyle"];
 
         LikedSongsButton.Content = compact ? "Liked songs" : "Liked songs by this artist";
-        OpenInSpotifyText.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-        OpenInSpotifyIcon.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
-        ToolTipService.SetToolTip(OpenInSpotifyButton, compact ? OpenInSpotifyLabel : null);
     }
 
     private async Task LoadAsync()
@@ -112,9 +109,8 @@ public sealed partial class ArtistPage : Page
             var artist = await artistTask;
             _name = artist.Name;
             NameText.Text = artist.Name;
-            PortraitFrame.Background = Artwork.PlaceholderBrush(artist.Name);
             var portrait = ImagePicker.Pick(artist.Images, 300);
-            PortraitImage.Source = Artwork.FromUrl(portrait, PortraitSize);
+            _portrait.Show(portrait, Artwork.PlaceholderBrush(artist.Name));
             _hero.Show(Artwork.PlaceholderColors(artist.Name).From, portrait);
             ShowOrbitArtist(artist.Name, portrait);
             if (artist.Genres is { Count: > 0 } genres)
@@ -138,6 +134,7 @@ public sealed partial class ArtistPage : Page
         }
         catch (Exception ex)
         {
+            _portrait.Show(null, Artwork.PlaceholderBrush(_artistId));
             App.MainWindow?.ShowMessage(PlayerController.DescribeError(ex), InfoBarSeverity.Warning);
         }
         finally
@@ -183,6 +180,4 @@ public sealed partial class ArtistPage : Page
             App.MainWindow?.Open(AlbumSource.Prefix + id);
         }
     }
-
-    private void OnOpenInSpotifyClick(object sender, RoutedEventArgs e) => TrackActions.OpenInSpotify(ContextUri);
 }

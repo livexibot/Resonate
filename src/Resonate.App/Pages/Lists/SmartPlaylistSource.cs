@@ -39,8 +39,6 @@ public sealed class SmartPlaylistSource : TrackListSource
 
     public override string Key => Prefix + _id;
 
-    public override string? SpotifyLink => _current is { KeepOnSpotify: true, SpotifyId: { } id } ? "spotify:playlist:" + id : null;
-
     public override string OwnOrderName => "Smart order";
 
     public override bool ShowsOwnTotals => _panel is not null;

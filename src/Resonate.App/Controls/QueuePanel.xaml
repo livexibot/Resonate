@@ -3,6 +3,7 @@
     x:Class="Resonate.App.Controls.QueuePanel"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:helpers="using:Resonate.App.Helpers"
     xmlns:vm="using:Resonate.App.ViewModels">
 
     <Grid Background="{StaticResource ResonateSurfaceBrush}" CornerRadius="{ThemeResource ResonateCornerLarge}">
@@ -144,9 +145,9 @@
                         <Grid
                             Width="40"
                             Height="40"
-                            Background="{x:Bind PlaceholderBrush}"
+                            Background="{x:Bind Cover.Background, Mode=OneWay}"
                             CornerRadius="{ThemeResource ResonateCornerSmall}">
-                            <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
+                            <Image Source="{x:Bind Cover.Image}" Stretch="UniformToFill" />
                         </Grid>
                         <StackPanel
                             Grid.Column="1"
@@ -157,6 +158,7 @@
                                 Text="{x:Bind Title}"
                                 TextTrimming="CharacterEllipsis" />
                             <TextBlock
+                                helpers:SongLinks.To="Artists"
                                 Style="{StaticResource ResonateSecondaryTextStyle}"
                                 Text="{x:Bind Artists}"
                                 TextTrimming="CharacterEllipsis" />

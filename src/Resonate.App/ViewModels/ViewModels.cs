@@ -32,6 +32,79 @@ public abstract partial class ObservableObject : INotifyPropertyChanged
 }
 
 /// <summary>
+/// A cover and the colour tile behind it. While a cover loads nothing is
+/// drawn there, so no colour flashes before the picture appears; the tile
+/// shows only for something without a cover, or once its cover turns out
+/// to be missing (offline, or a picture Windows can not read).
+/// </summary>
+public sealed partial class CoverTile : ObservableObject
+{
+    private readonly string? _url;
+    private readonly TrackInfo? _localTrack;
+    private readonly int _width;
+    private readonly Brush _placeholder;
+    private ImageSource? _image;
+    private bool _requested;
+    private bool _missing;
+
+    /// <param name="url">The cover's address, or null when there is none.</param>
+    /// <param name="displayWidth">The width it is shown at (it is decoded at that size).</param>
+    /// <param name="placeholder">The colour tile for when there is no cover.</param>
+    public CoverTile(string? url, int displayWidth, Brush placeholder)
+    {
+        _url = url;
+        _width = displayWidth;
+        _placeholder = placeholder;
+        _missing = string.IsNullOrEmpty(url);
+    }
+
+    /// <summary>A song in Local Files: its cover is read from the file itself.</summary>
+    private CoverTile(TrackInfo track, int displayWidth, Brush placeholder)
+    {
+        _localTrack = track;
+        _width = displayWidth;
+        _placeholder = placeholder;
+        _missing = App.Services.LocalFiles.Covers is null;
+    }
+
+    public static CoverTile ForLocalFile(TrackInfo track, int displayWidth, Brush placeholder) => new(track, displayWidth, placeholder);
+
+    /// <summary>The colour tile while there is no cover to show; nothing while one loads or shows.</summary>
+    public Brush? Background => _missing ? _placeholder : null;
+
+    /// <summary>Created on first use, on the interface thread, at the size it is shown.</summary>
+    public ImageSource? Image
+    {
+        get
+        {
+            if (!_requested && !_missing)
+            {
+                _requested = true;
+                Task<bool> missing;
+                _image = _localTrack is { } track
+                    ? LocalArtwork.For(track, _width, out missing)
+                    : App.Services.Covers.Get(_url, _width, out missing);
+                _ = WatchAsync(new WeakReference<CoverTile>(this), missing);
+            }
+
+            return _image;
+        }
+    }
+
+    // Holds the tile only weakly: a cover that never answers (one Windows
+    // loads itself but never shows) must not keep a closed page's rows alive
+    // through their bindings.
+    private static async Task WatchAsync(WeakReference<CoverTile> tile, Task<bool> missing)
+    {
+        if (await missing && tile.TryGetTarget(out var target) && !target._missing)
+        {
+            target._missing = true;
+            target.OnPropertyChanged(nameof(Background));
+        }
+    }
+}
+
+/// <summary>
 /// Which optional columns a song list shows. One instance is shared by all
 /// of a list's rows, so when the list gets narrow (a small window, or the
 /// queue open beside it) every row drops the same columns at once: the date
@@ -89,7 +162,7 @@ public sealed partial class TrackRow : ObservableObject
     private string _number;
     private bool _isCurrent;
     private bool _isLiked;
-    private ImageSource? _image;
+    private CoverTile? _cover;
 
     public TrackRow(TrackInfo track, int number, TrackColumns? columns = null, bool isLiked = false)
     {
@@ -98,8 +171,10 @@ public sealed partial class TrackRow : ObservableObject
         _isLiked = isLiked;
         Columns = columns ?? Default;
         DateAdded = Format.DateAdded(track.AddedAt, DateTimeOffset.UtcNow);
-        PlaceholderBrush = Artwork.PlaceholderBrush(track.Album.Length > 0 ? track.Album : track.Title);
     }
+
+    /// <summary>The width of a row's cover.</summary>
+    public const int CoverWidth = 40;
 
     private static TrackColumns Default { get; } = new(album: true, dateAdded: false);
 
@@ -126,10 +201,8 @@ public sealed partial class TrackRow : ObservableObject
 
     public double RowOpacity => Track.IsPlayable || Track.IsLocal ? 1 : 0.45;
 
-    public Brush PlaceholderBrush { get; }
-
-    /// <summary>Created on first use, on the interface thread, at the size it is shown (local files read their own cover).</summary>
-    public ImageSource? Image => _image ??= Track.FilePath is not null ? LocalArtwork.For(Track, 40) : Artwork.FromUrl(Track.SmallImageUrl, 40);
+    /// <summary>Created on first use, on the interface thread (local files read their own cover).</summary>
+    public CoverTile Cover => _cover ??= CoverFor(Track, CoverWidth);
 
     /// <summary>Only Spotify songs can be liked (not local files or podcast episodes).</summary>
     public Visibility HeartVisibility => CanLike(Track) ? Visibility.Visible : Visibility.Collapsed;
@@ -172,6 +245,15 @@ public sealed partial class TrackRow : ObservableObject
     /// <summary>The same song with new details that are not shown (its position after a move).</summary>
     public void Replace(TrackInfo track) => Track = track;
 
+    /// <summary>The cover of <paramref name="track"/>, with its album's colour tile for when it has none.</summary>
+    public static CoverTile CoverFor(TrackInfo track, int displayWidth)
+    {
+        var placeholder = Artwork.PlaceholderBrush(track.Album.Length > 0 ? track.Album : track.Title);
+        return track.FilePath is not null
+            ? CoverTile.ForLocalFile(track, displayWidth, placeholder)
+            : new CoverTile(track.SmallImageUrl, displayWidth, placeholder);
+    }
+
     public static bool CanLike(TrackInfo track) =>
         track.FilePath is null && !track.IsLocal && track.Uri?.StartsWith("spotify:track:", StringComparison.Ordinal) == true;
 }
@@ -179,7 +261,7 @@ public sealed partial class TrackRow : ObservableObject
 /// <summary>A playlist in the sidebar.</summary>
 public sealed partial class PlaylistNavItem : ObservableObject
 {
-    private ImageSource? _image;
+    private CoverTile? _cover;
     private bool _isCurrent;
     private bool _isPlaying;
 
@@ -207,7 +289,9 @@ public sealed partial class PlaylistNavItem : ObservableObject
 
     public Brush PlaceholderBrush { get; }
 
-    public ImageSource? Image => _image ??= Artwork.FromUrl(ImagePicker.Pick(Playlist.Images, 64), 40);
+    public CoverTile Cover => _cover ??= new CoverTile(ImagePicker.Pick(Playlist.Images, 64), 40, PlaceholderBrush);
+
+    public ImageSource? Image => Cover.Image;
 
     /// <summary>The music plays from this playlist (or did, if it is paused): its name is drawn in the accent colour.</summary>
     public bool IsCurrent
@@ -244,7 +328,7 @@ public sealed partial class PlaylistNavItem : ObservableObject
 /// <summary>A square card for an album or playlist (search results).</summary>
 public sealed partial class CardItem
 {
-    private ImageSource? _image;
+    private CoverTile? _cover;
 
     public CardItem(string title, string subtitle, string uri, string? id, string? imageUrl, bool isPlaylist)
     {
@@ -254,7 +338,6 @@ public sealed partial class CardItem
         Id = id;
         ImageUrl = imageUrl;
         IsPlaylist = isPlaylist;
-        PlaceholderBrush = Artwork.PlaceholderBrush(title);
     }
 
     public string Title { get; }
@@ -269,9 +352,7 @@ public sealed partial class CardItem
 
     public bool IsPlaylist { get; }
 
-    public Brush PlaceholderBrush { get; }
-
-    public ImageSource? Image => _image ??= Artwork.FromUrl(ImageUrl, 160);
+    public CoverTile Cover => _cover ??= new CoverTile(ImageUrl, 160, Artwork.PlaceholderBrush(Title));
 }
 
 /// <summary>A navigation entry at the top of the sidebar.</summary>
@@ -505,14 +586,13 @@ public sealed partial class MixCard
 /// <summary>A song in Home's "Recently played" row, with when it played.</summary>
 public sealed partial class RecentCard
 {
-    private ImageSource? _image;
+    private CoverTile? _cover;
 
     public RecentCard(TrackInfo track, DateTimeOffset playedAt, DateTimeOffset now)
     {
         Track = track;
         Ago = Format.DateAdded(playedAt, now);
         Tooltip = $"{track.Title} · {track.Artists}\nPlayed {Ago}";
-        PlaceholderBrush = Artwork.PlaceholderBrush(track.Album.Length > 0 ? track.Album : track.Title);
     }
 
     public TrackInfo Track { get; }
@@ -526,9 +606,7 @@ public sealed partial class RecentCard
 
     public string Tooltip { get; }
 
-    public Brush PlaceholderBrush { get; }
-
-    public ImageSource? Image => _image ??= Artwork.FromUrl(Track.LargeImageUrl, 140);
+    public CoverTile Cover => _cover ??= new CoverTile(Track.LargeImageUrl, 140, Artwork.PlaceholderBrush(Track.Album.Length > 0 ? Track.Album : Track.Title));
 
     /// <summary>What screen readers say for the card.</summary>
     public override string ToString() => $"{Title}, {Artists}, {Ago}";
@@ -576,13 +654,12 @@ public sealed partial class TopArtistRow
 /// <summary>One of the user's top songs on Spotify, on Home: its rank, cover, title and artists.</summary>
 public sealed partial class TopSongRow
 {
-    private ImageSource? _image;
+    private CoverTile? _cover;
 
     public TopSongRow(TrackInfo track, int rank)
     {
         Track = track;
         Rank = rank.ToString(System.Globalization.CultureInfo.CurrentCulture);
-        PlaceholderBrush = Artwork.PlaceholderBrush(track.Album.Length > 0 ? track.Album : track.Title);
         FirstVisibility = rank == 1 ? Visibility.Visible : Visibility.Collapsed;
         OtherVisibility = rank == 1 ? Visibility.Collapsed : Visibility.Visible;
     }
@@ -595,14 +672,12 @@ public sealed partial class TopSongRow
 
     public string Artists => Track.Artists;
 
-    public Brush PlaceholderBrush { get; }
-
     /// <summary>Number one's rank is in the accent colour.</summary>
     public Visibility FirstVisibility { get; }
 
     public Visibility OtherVisibility { get; }
 
-    public ImageSource? Image => _image ??= Artwork.FromUrl(Track.SmallImageUrl ?? Track.LargeImageUrl, 48);
+    public CoverTile Cover => _cover ??= new CoverTile(Track.SmallImageUrl ?? Track.LargeImageUrl, 48, Artwork.PlaceholderBrush(Track.Album.Length > 0 ? Track.Album : Track.Title));
 
     /// <summary>What screen readers say for the row.</summary>
     public override string ToString() => $"{Rank}. {Title}, {Artists}";

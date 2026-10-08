@@ -341,19 +341,14 @@
                     <!-- About -->
                     <StackPanel Spacing="8">
                         <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="About" />
-                        <!-- Spotify's terms ask apps to credit Spotify for its content; this is that credit. -->
                         <TextBlock
                             Style="{StaticResource ResonateSecondaryTextStyle}"
-                            Text="Songs, covers and details come from Spotify. Resonate is not affiliated with Spotify."
+                            Text="Resonate is not affiliated with Spotify."
                             TextWrapping="Wrap" />
                         <TextBlock
                             x:Name="StartupText"
                             Style="{StaticResource ResonateCaptionTextStyle}"
                             TextWrapping="Wrap" />
-                        <HyperlinkButton
-                            Padding="0"
-                            Content="Spotify"
-                            NavigateUri="https://www.spotify.com" />
                         <HyperlinkButton
                             Padding="0"
                             Content="Resonate on GitHub"

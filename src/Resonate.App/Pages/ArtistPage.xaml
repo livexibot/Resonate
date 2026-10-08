@@ -17,9 +17,9 @@
                 <Grid
                     Width="160"
                     Height="160"
-                    Background="{x:Bind PlaceholderBrush}"
+                    Background="{x:Bind Cover.Background, Mode=OneWay}"
                     CornerRadius="{ThemeResource ResonateCornerMedium}">
-                    <Image Source="{x:Bind Image}" Stretch="UniformToFill" />
+                    <Image Source="{x:Bind Cover.Image}" Stretch="UniformToFill" />
                 </Grid>
                 <TextBlock
                     FontWeight="SemiBold"
@@ -57,12 +57,14 @@
                         Margin="-32,-32,-32,-36"
                         CornerRadius="{ThemeResource ResonateCornerLarge}"
                         IsHitTestVisible="False" />
+                    <!-- Hidden until the picture is ready (Helpers/PageCover.cs). -->
                     <controls:Elevation
                         x:Name="PortraitShadow"
                         Width="232"
                         Height="232"
                         CornerRadius="116"
-                        Level="Item" />
+                        Level="Item"
+                        Opacity="0" />
                     <Grid
                         x:Name="PortraitFrame"
                         Width="232"
@@ -105,21 +107,6 @@
                             Click="OnLikedSongsClick"
                             Content="Liked songs by this artist"
                             Style="{StaticResource ResonateSubtleButtonStyle}" />
-                        <Button
-                            x:Name="OpenInSpotifyButton"
-                            AutomationProperties.Name="Open in Spotify"
-                            Click="OnOpenInSpotifyClick"
-                            Style="{StaticResource ResonateSubtleButtonStyle}">
-                            <Grid>
-                                <TextBlock x:Name="OpenInSpotifyText" Text="Open in Spotify" />
-                                <FontIcon
-                                    x:Name="OpenInSpotifyIcon"
-                                    FontFamily="{StaticResource ResonateIconFont}"
-                                    FontSize="14"
-                                    Glyph="&#xE8A7;"
-                                    Visibility="Collapsed" />
-                            </Grid>
-                        </Button>
                     </StackPanel>
                 </Grid>
 

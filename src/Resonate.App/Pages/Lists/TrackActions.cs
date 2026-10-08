@@ -260,19 +260,6 @@ public static class TrackActions
             : null;
     }
 
-    /// <summary>
-    /// "Open in Spotify": in the Spotify app, or with "Spotify Web API only"
-    /// (which leaves the Spotify app alone) on open.spotify.com in the browser.
-    /// </summary>
-    public static void OpenInSpotify(string? uri)
-    {
-        var link = App.Services.UsesSpotifyApp ? uri : SpotifyWebLink(uri);
-        if (link is not null && Uri.TryCreate(link, UriKind.Absolute, out var target))
-        {
-            _ = global::Windows.System.Launcher.LaunchUriAsync(target);
-        }
-    }
-
     public static void CopyText(string text)
     {
         var package = new DataPackage();
