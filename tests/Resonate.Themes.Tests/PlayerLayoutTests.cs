@@ -326,6 +326,12 @@ public sealed class PlayerLayoutTests
         Assert.Equal(PlayerPlacement.BottomRow, PlayerPlacement.Slot(PlayerLayout.Corner, gap, sidebarFullHeight, hoveringFits: false).Row);
     }
 
+    [Theory]
+    [InlineData(10, false)]
+    [InlineData(24, true)]
+    public void A_player_hovering_at_the_top_that_does_not_fit_stays_at_the_top(double gap, bool sidebarFullHeight) =>
+        Assert.Equal(PlayerPlacement.TopRow, PlayerPlacement.Slot(PlayerLayout.HoveringTop, gap, sidebarFullHeight, hoveringFits: false).Row);
+
     [Fact]
     public void A_player_in_the_corner_is_the_mini_bar()
     {

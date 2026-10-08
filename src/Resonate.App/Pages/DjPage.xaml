@@ -45,10 +45,6 @@
                     Spacing="8">
                     <TextBlock Style="{StaticResource ResonateEyebrowTextStyle}" Text="IN THE SPOTIFY APP" />
                     <TextBlock Style="{StaticResource ResonateDisplayTextStyle}" Text="DJ" />
-                    <TextBlock
-                        Style="{StaticResource ResonateSecondaryTextStyle}"
-                        Text="Spotify's DJ picks music for you, mixing favourites with new finds, and talks you through it."
-                        TextWrapping="Wrap" />
                 </StackPanel>
             </Grid>
 

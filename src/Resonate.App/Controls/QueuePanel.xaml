@@ -196,8 +196,8 @@
                     <TextBlock
                         x:Name="NoteText"
                         Style="{StaticResource ResonateCaptionTextStyle}"
-                        Text="Spotify shares about 20 songs ahead, and does not let other apps reorder or clear its queue. Right-click a song for more."
-                        TextWrapping="Wrap" />
+                        TextWrapping="Wrap"
+                        Visibility="Collapsed" />
                 </StackPanel>
             </ListView.Footer>
         </ListView>

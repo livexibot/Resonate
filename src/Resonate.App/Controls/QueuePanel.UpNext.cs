@@ -21,7 +21,6 @@ namespace Resonate.App.Controls;
 /// </summary>
 public sealed partial class QueuePanel
 {
-    private const string EditNote = "Drag songs to reorder them. Delete removes the selected ones.";
     private const string WaitNote = "You can edit the queue again when the next song starts.";
     private const string PartNote = "This list started before all its songs had loaded, so its queue can't be edited. Play it again to edit it.";
     private const string OutsideNote = "Started outside Resonate, so this queue can't be edited. Play a list in Resonate to edit it.";
@@ -95,7 +94,7 @@ public sealed partial class QueuePanel
         _nowTrack = source == PlaybackSource.Spotify ? list.Current : null;
         LoadingRing.IsActive = false;
         ShowRows(list.Upcoming, error: null);
-        ShowUpNextState(list.CanEdit, list.CanEdit ? EditNote : list.PartlyKnown ? PartNote : WaitNote, canSave);
+        ShowUpNextState(list.CanEdit, list.CanEdit ? null : list.PartlyKnown ? PartNote : WaitNote, canSave);
         return true;
     }
 
@@ -103,9 +102,9 @@ public sealed partial class QueuePanel
     {
         _upNextEditable = editable;
         _upNextNote = note;
-        if (_player is { } player)
+        if (_player is not null)
         {
-            NoteText.Text = note ?? DefaultNote(player.ActiveSource);
+            ShowNote(note);
         }
 
         UpcomingList.CanDragItems = editable;

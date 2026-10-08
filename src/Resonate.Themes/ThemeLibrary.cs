@@ -78,10 +78,20 @@ public sealed class ThemeLibrary
         return _saved[index];
     }
 
-    /// <summary>Saves the look in use under a name and switches to the saved copy.</summary>
-    public ThemeDefinition SaveAs(string name) => Add(Active with { Name = name });
+    /// <summary>Saves the look in use under a name and switches to the saved copy (an unsaved custom look is saved by it).</summary>
+    public ThemeDefinition SaveAs(string name)
+    {
+        var wasCustom = ActiveId == CustomId;
+        var saved = Add(Active with { Name = name });
+        if (wasCustom)
+        {
+            Custom = null;
+        }
 
-    /// <summary>Adds a look (for example one pasted as text) and switches to it.</summary>
+        return saved;
+    }
+
+    /// <summary>Adds a look (for example one pasted as text) and switches to it; an unsaved custom look stays.</summary>
     public ThemeDefinition Add(ThemeDefinition look)
     {
         look = look.Normalize();
@@ -93,11 +103,6 @@ public sealed class ThemeLibrary
         var name = UniqueName(look.Name);
         var saved = look with { Id = NewId(name), Name = name };
         _saved.Add(saved);
-        if (ActiveId == CustomId)
-        {
-            Custom = null;
-        }
-
         ActiveId = saved.Id;
         return saved;
     }

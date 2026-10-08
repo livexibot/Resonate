@@ -689,9 +689,6 @@ public sealed partial class HomePage : Page
         {
             _ = ShowArtistImagesAsync(added);
         }
-
-        // A new listener: say why the numbers are small, once the first look at Spotify is done.
-        HistoryNote.Visibility = plays.Count < ListeningHistory.PageLimit && !_refreshing ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>The past day's chart: a bar per clock hour, this hour last and in the accent, a time under every sixth.</summary>
