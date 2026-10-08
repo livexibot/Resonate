@@ -91,6 +91,11 @@ public sealed partial class TracksPage : Page
         }
 
         BuildSortMenu();
+        if (_source.CreatePanel() is { } panel)
+        {
+            SourcePanel.Child = panel;
+            SourcePanel.Visibility = Visibility.Visible;
+        }
 
         // Subscribed only while shown: the timer is not part of the page's
         // tree, so a handler left on it would keep the page alive for good.
@@ -235,7 +240,7 @@ public sealed partial class TracksPage : Page
             parts.Add(_header.Details);
         }
 
-        if (_complete && !_itemsHidden)
+        if (_complete && !_itemsHidden && !_source.ShowsOwnTotals)
         {
             parts.Add(ListFormat.CountAndLength(_all));
         }

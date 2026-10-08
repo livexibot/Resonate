@@ -505,6 +505,12 @@ public sealed class CreatePlaylistBody
     public bool Public { get; set; }
 }
 
+/// <summary>Renames a playlist (PUT /playlists/{id}).</summary>
+public sealed class ChangePlaylistDetailsBody
+{
+    public string Name { get; set; } = string.Empty;
+}
+
 public sealed class TransferPlaybackBody
 {
     public List<string> DeviceIds { get; set; } = [];

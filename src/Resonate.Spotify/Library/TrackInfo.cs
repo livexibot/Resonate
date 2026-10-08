@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json.Serialization;
 using Resonate.Spotify.WebApi;
 
 namespace Resonate.Spotify.Library;
@@ -51,6 +52,10 @@ public sealed record TrackInfo(
     /// <summary>The album's release date as Spotify gives it ("1997", "1997-05" or "1997-05-21"), when known.</summary>
     public string? ReleaseDate { get; init; }
 
+    /// <summary>The year its album came out, when Spotify says (smart playlists' "released" rules).</summary>
+    [JsonIgnore]
+    public int? ReleaseYear => ParseYear(ReleaseDate);
+
     /// <summary>The first artist's name, for grouping and statistics.</summary>
     public string PrimaryArtist => ArtistRefs.Count > 0 ? ArtistRefs[0].Name : Artists;
 
@@ -92,6 +97,14 @@ public sealed record TrackInfo(
             ReleaseDate = album?.ReleaseDate,
         };
     }
+
+    /// <summary>The year of Spotify's "release_date" ("1999", "1999-03" or "1999-03-01"); null when missing or "0000".</summary>
+    public static int? ParseYear(string? releaseDate) =>
+        releaseDate is { Length: >= 4 }
+            && int.TryParse(releaseDate.AsSpan(0, 4), NumberStyles.None, CultureInfo.InvariantCulture, out var year)
+            && year > 0
+            ? year
+            : null;
 
     /// <summary>Reads Spotify's "added_at" (ISO 8601); null when missing or unreadable.</summary>
     public static DateTimeOffset? ParseTime(string? value) =>
