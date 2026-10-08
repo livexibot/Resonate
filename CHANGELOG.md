@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.7.0](https://github.com/livexibot/Resonate/compare/v0.6.0...v0.7.0) (2026-10-08)
+
+
+### New features
+
+* a Spotifast-style mini player with Winamp's equalizer and playlist windows ([#29](https://github.com/livexibot/Resonate/issues/29)) ([8998d83](https://github.com/livexibot/Resonate/commit/8998d8315351edf1b7f8dcad6504fe5a6d318fad))
+* close the Spotify app when Web API only is on ([#27](https://github.com/livexibot/Resonate/issues/27)) ([dbacf3a](https://github.com/livexibot/Resonate/commit/dbacf3a77e906c4c7822e93dbc0d515bb0dc4cfe))
+* settings to scale the whole app and make text bigger ([#30](https://github.com/livexibot/Resonate/issues/30)) ([5bc2e12](https://github.com/livexibot/Resonate/commit/5bc2e12ab3c0a63d27707fbba0f489f80e295407))
+* swipe the playing song to skip, and tidier seeking by drag ([#26](https://github.com/livexibot/Resonate/issues/26)) ([6a082db](https://github.com/livexibot/Resonate/commit/6a082db052f717dec3d66840d6ea0cca6e1145ef))
+* synced lyrics and nine more features as built-in plugins ([#31](https://github.com/livexibot/Resonate/issues/31)) ([d4f9b4f](https://github.com/livexibot/Resonate/commit/d4f9b4f3f0b8a70d24ed07e88fb8b0a4e426c0c8))
+
 ## [0.6.0](https://github.com/livexibot/Resonate/compare/v0.5.0...v0.6.0) (2026-10-08)
 
 
