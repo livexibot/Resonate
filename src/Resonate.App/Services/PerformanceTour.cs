@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
@@ -249,9 +250,9 @@ internal sealed partial class PerformanceTour
             foreach (var (name, key) in Pages)
             {
                 _window.Open(key);
-                if (_window.CurrentPage is { } page)
+                if (_window.CurrentPage is FrameworkElement page)
                 {
-                    visited.Add(new Visit(name, round, new WeakReference(page)));
+                    visited.Add(Visit.Of(name, round, page));
                 }
 
                 await SettleAsync(TimeSpan.FromSeconds(3));
@@ -265,7 +266,7 @@ internal sealed partial class PerformanceTour
             _window.OpenSettings();
             if (_window.SettingsPage is { } settings)
             {
-                visited.Add(new Visit("Settings", round, new WeakReference(settings)));
+                visited.Add(Visit.Of("Settings", round, settings));
             }
 
             await SettleAsync(TimeSpan.FromSeconds(3));
@@ -291,18 +292,63 @@ internal sealed partial class PerformanceTour
             alive = alive.Where(v => v.IsAlive(current)).ToList();
         }
 
-        _leftAlive.AddRange(Describe(alive));
         if (aliveAtCheck.Count > alive.Count)
         {
             _releasedLate.AddRange(Describe(aliveAtCheck.Except(alive)));
             _lateReleaseSeconds = waited.Elapsed.TotalSeconds;
         }
+
+        // Still alive: whatever lets go of it says what holds it. Each step
+        // fails CI like a page kept for good, naming the step.
+        foreach (var (step, act) in Nudges())
+        {
+            if (alive.Count == 0)
+            {
+                break;
+            }
+
+            await act();
+            await SettleAsync(TimeSpan.FromSeconds(2));
+            await SampleMemoryAsync();
+            var gone = alive.Where(v => !v.IsAlive(null)).ToList();
+            if (gone.Count > 0)
+            {
+                _leftAlive.AddRange(Describe(gone).Select(d => $"{d} until {step}"));
+                alive = alive.Except(gone).ToList();
+            }
+        }
+
+        _leftAlive.AddRange(Describe(alive));
     }
 
-    /// <summary>"Settings ×1 (round 4)": how many of a page, and from which rounds.</summary>
+    /// <summary>What a page still alive after the wait is given next, in turn.</summary>
+    private (string Step, Func<Task> Act)[] Nudges() =>
+    [
+        ("Home opened", () => OpenPage(MainWindow.HomeKey)),
+        ("Search opened again", () => OpenPage(MainWindow.SearchKey)),
+        ("Settings opened and closed again", ReopenSettingsAsync),
+    ];
+
+    private Task OpenPage(string key)
+    {
+        _window.Open(key);
+        return Task.CompletedTask;
+    }
+
+    private async Task ReopenSettingsAsync()
+    {
+        _window.OpenSettings();
+        await SettleAsync(TimeSpan.FromSeconds(2));
+        _window.CloseSettings();
+    }
+
+    /// <summary>
+    /// "Settings ×1 (round 4, never unloaded)": how many of a page, from which
+    /// rounds, and whether WinUI said it left (its Unloaded event).
+    /// </summary>
     private static IEnumerable<string> Describe(IEnumerable<Visit> visits) => visits
         .GroupBy(v => v.Name)
-        .Select(g => $"{g.Key} ×{g.Count()} (round {string.Join(", ", g.Select(v => v.Round))})");
+        .Select(g => $"{g.Key} ×{g.Count()} (round {string.Join(", ", g.Select(v => v.Round + (v.Unloaded.Value ? string.Empty : ", never unloaded")))})");
 
     /// <summary>Anything over its limit is an error, so CI fails and shows it.</summary>
     private void CheckLimits()
@@ -783,8 +829,16 @@ internal sealed partial class PerformanceTour
     private sealed record MemorySample(double WorkingSetMb, double PrivateMb, double ManagedMb, int Handles, int Threads, uint GdiObjects, uint UserObjects);
 
     /// <summary>A page visited in the leak rounds, held only weakly.</summary>
-    private sealed record Visit(string Name, int Round, WeakReference Page)
+    private sealed record Visit(string Name, int Round, WeakReference Page, StrongBox<bool> Unloaded)
     {
+        public static Visit Of(string name, int round, FrameworkElement page)
+        {
+            // The page holds the handler, and the handler only the box.
+            var unloaded = new StrongBox<bool>();
+            page.Unloaded += (_, _) => unloaded.Value = true;
+            return new Visit(name, round, new WeakReference(page), unloaded);
+        }
+
         public bool IsAlive(object? current) => Page.Target is { } page && !ReferenceEquals(page, current);
     }
 

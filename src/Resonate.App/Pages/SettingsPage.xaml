@@ -131,8 +131,6 @@
                     Content="Resonate on GitHub"
                     NavigateUri="https://github.com/livexibot/Resonate" />
             </StackPanel>
-
-            <!-- Room for a player hovering over the page (see IPlayerInset). -->
         </StackPanel>
     </ScrollViewer>
 </Page>
