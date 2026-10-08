@@ -63,7 +63,7 @@
             </StackPanel>
 
             <!-- Updates -->
-            <StackPanel Spacing="12">
+            <StackPanel x:Name="UpdatesSection" Spacing="12">
                 <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Updates" />
                 <TextBlock
                     x:Name="VersionText"

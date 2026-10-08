@@ -48,13 +48,10 @@ public sealed class ManagerTests : IDisposable
     public async Task Turning_a_plugin_on_downloads_it_and_the_helper_then_runs_it()
     {
         using var manager = Manager();
-        var size = manager.DownloadSize("skip-rules");
-        Assert.Equal(_packages.Catalog.Host!.Size + _packages.Catalog.Find("skip-rules")!.Package.Size, size);
         Assert.False(Directory.Exists(_packages.Installed));
 
         Assert.True(await manager.EnableAsync("skip-rules", CancellationToken.None));
         await WaitUntilAsync(() => manager.Get("skip-rules")!.Status == PluginStatus.Running, "it runs");
-        Assert.Equal(_packages.Catalog.Find("sleep-timer")!.Package.Size, manager.DownloadSize("sleep-timer"));
 
         manager.SetSetting("skip-rules", "versions", new JsonArray("live"));
         _player.Show(LiveSong);

@@ -62,6 +62,7 @@ public sealed partial class MainWindow : Window
     private bool _backgroundStarted;
     private bool _firstFrameSeen;
     private double _settingsDragStart;
+    private bool _settingsResized;
     private bool _updateBarDismissed;
     private int _updateProgressQueued;
 
@@ -190,15 +191,28 @@ public sealed partial class MainWindow : Window
     private void SetUpSettingsPane()
     {
         SettingsPane.CloseRequested += (_, _) => ShowSettings(false);
-        SettingsPane.ResizeStarted += (_, _) => _settingsDragStart = _settingsColumn.Width.Value;
+        SettingsPane.ResizeStarted += (_, _) =>
+        {
+            _settingsDragStart = _settingsColumn.Width.Value;
+            _settingsResized = false;
+        };
 
         // The pane is on the right: dragging its edge left makes it wider.
         SettingsPane.Resizing += (_, distance) =>
+        {
             _settingsColumn.Width = new GridLength(FitSettingsWidth(_settingsDragStart - distance));
+            _settingsResized = true;
+        };
+
+        // Only a drag changes the saved width: a click on the edge of a pane
+        // that a small window narrowed must not make that width the choice.
         SettingsPane.ResizeCompleted += (_, _) =>
         {
-            _services.Settings.SettingsPaneWidth = Math.Round(_settingsColumn.Width.Value);
-            _services.SaveSettings();
+            if (_settingsResized)
+            {
+                _services.Settings.SettingsPaneWidth = Math.Round(_settingsColumn.Width.Value);
+                _services.SaveSettings();
+            }
         };
         SettingsPane.ResetRequested += (_, _) =>
         {
@@ -216,9 +230,13 @@ public sealed partial class MainWindow : Window
             }
         };
 
-        // The update bar stays inside a page narrowed by Settings or the queue.
+        // The update bar stays inside a page narrowed by Settings or the queue
+        // (16 px from each edge, inside the page's outline).
         PageArea.SizeChanged += (_, e) =>
-            UpdateBar.Width = Math.Clamp(e.NewSize.Width - UpdateBar.Margin.Left - UpdateBar.Margin.Right, 0, UpdateBarWidth);
+        {
+            var outline = PageArea.BorderThickness.Left + PageArea.BorderThickness.Right;
+            UpdateBar.Width = Math.Clamp(e.NewSize.Width - outline - 32, 0, UpdateBarWidth);
+        };
     }
 
     private void ShowSettings(bool open)
@@ -692,12 +710,12 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        UpdateBar.Title = $"Downloading Resonate {progress.Version}";
+        UpdateBar.Title = progress.Title;
         UpdateBar.Message = string.Empty;
         UpdateBar.Severity = InfoBarSeverity.Informational;
         UpdateBar.ActionButton = null;
         UpdateBarProgress.Visibility = Visibility.Visible;
-        // The endless "getting it ready" animation only runs while it is on show.
+        // The endless "almost ready" animation only runs while it is on show.
         UpdateProgressBar.IsIndeterminate = progress.Preparing && !_updateBarDismissed;
         UpdateProgressBar.Value = progress.Fraction;
         UpdateProgressText.Text = progress.Describe();

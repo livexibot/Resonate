@@ -37,6 +37,10 @@ public sealed partial class SettingsPage : Page
     internal void ShowPlugins() =>
         PluginsHost.StartBringIntoView(new BringIntoViewOptions { VerticalAlignmentRatio = 0, AnimationDesired = false });
 
+    /// <summary>Scrolls to the updates.</summary>
+    internal void ShowUpdates() =>
+        UpdatesSection.StartBringIntoView(new BringIntoViewOptions { VerticalAlignmentRatio = 0, AnimationDesired = false });
+
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         _loading = true;
@@ -174,7 +178,7 @@ public sealed partial class SettingsPage : Page
 
         if (_services.Updates.Progress is not { } progress)
         {
-            // Stops the endless "getting it ready" animation too.
+            // Stops the endless "almost ready" animation too.
             UpdateProgressBar.IsIndeterminate = false;
             UpdateProgressPanel.Visibility = Visibility.Collapsed;
             return;
@@ -184,6 +188,6 @@ public sealed partial class SettingsPage : Page
         UpdateStatusText.Text = string.Empty;
         UpdateProgressBar.IsIndeterminate = progress.Preparing;
         UpdateProgressBar.Value = progress.Fraction;
-        UpdateProgressText.Text = $"Downloading Resonate {progress.Version}: {progress.Describe()}";
+        UpdateProgressText.Text = progress.Preparing ? $"{progress.Title}…" : $"{progress.Title}: {progress.Describe()}";
     }
 }

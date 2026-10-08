@@ -106,6 +106,9 @@ internal sealed partial class PluginsPanel : StackPanel
                 Header = setting.Title,
                 Description = setting.Description ?? string.Empty,
                 Content = SettingControl(card, setting),
+
+                // Text boxes go under the name, so both fit a narrow Settings pane.
+                ContentBelow = setting.Type is PluginSettingTypes.Text or PluginSettingTypes.List,
             });
         }
 
@@ -216,7 +219,7 @@ internal sealed partial class PluginsPanel : StackPanel
         var isList = setting.Type == PluginSettingTypes.List;
         var box = new TextBox
         {
-            Width = 280,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             PlaceholderText = setting.Placeholder ?? (isList ? "One per line" : string.Empty),
             AcceptsReturn = isList,
             TextWrapping = isList ? TextWrapping.Wrap : TextWrapping.NoWrap,

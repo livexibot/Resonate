@@ -256,25 +256,34 @@
                     VerticalAlignment="Top"
                     IsOpen="False" />
 
-                <!-- A new version downloading, then ready to install (see ShowUpdateProgress); its width follows the page. -->
-                <InfoBar
-                    x:Name="UpdateBar"
+                <!--
+                    A new version downloading, then ready to install (see ShowUpdateProgress); its
+                    width follows the page. The InfoBar's own fill is see-through, so it sits on the
+                    panel colour to stay readable over the page.
+                -->
+                <Border
                     Margin="16"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Bottom"
-                    CloseButtonClick="OnUpdateBarCloseClick"
-                    IsOpen="False">
-                    <StackPanel
-                        x:Name="UpdateBarProgress"
-                        Margin="0,0,0,14"
-                        Spacing="6">
-                        <ProgressBar x:Name="UpdateProgressBar" Maximum="1" />
-                        <TextBlock
-                            x:Name="UpdateProgressText"
-                            Style="{StaticResource ResonateCaptionTextStyle}"
-                            TextWrapping="Wrap" />
-                    </StackPanel>
-                </InfoBar>
+                    Background="{StaticResource ResonateSurfaceBrush}"
+                    CornerRadius="{ThemeResource ResonateCornerMedium}">
+                    <InfoBar
+                        x:Name="UpdateBar"
+                        CloseButtonClick="OnUpdateBarCloseClick"
+                        CornerRadius="{ThemeResource ResonateCornerMedium}"
+                        IsOpen="False">
+                        <StackPanel
+                            x:Name="UpdateBarProgress"
+                            Margin="0,0,0,14"
+                            Spacing="6">
+                            <ProgressBar x:Name="UpdateProgressBar" Maximum="1" />
+                            <TextBlock
+                                x:Name="UpdateProgressText"
+                                Style="{StaticResource ResonateCaptionTextStyle}"
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                    </InfoBar>
+                </Border>
             </Grid>
 
             <controls:QueuePanel

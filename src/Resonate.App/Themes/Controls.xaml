@@ -69,7 +69,7 @@
         </Setter>
     </Style>
 
-    <!-- A setting on a card: name and explanation on the left, the control on the right. -->
+    <!-- A setting on a card: name and explanation on the left, the control on the right (or below, see SettingRow.ContentBelow). -->
     <Style TargetType="controls:SettingRow">
         <Setter Property="IsTabStop" Value="False" />
         <Setter Property="Background" Value="{StaticResource ResonateControlBrush}" />
@@ -90,10 +90,28 @@
                         BorderThickness="{TemplateBinding BorderThickness}"
                         ColumnSpacing="20"
                         CornerRadius="{TemplateBinding CornerRadius}">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="ContentPlacement">
+                                <VisualState x:Name="Beside" />
+                                <VisualState x:Name="Below">
+                                    <VisualState.Setters>
+                                        <Setter Target="Presenter.(Grid.Row)" Value="1" />
+                                        <Setter Target="Presenter.(Grid.Column)" Value="0" />
+                                        <Setter Target="Presenter.(Grid.ColumnSpan)" Value="2" />
+                                        <Setter Target="Presenter.HorizontalAlignment" Value="Stretch" />
+                                        <Setter Target="Presenter.Margin" Value="0,10,0,0" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <StackPanel VerticalAlignment="Center" Spacing="2">
                             <TextBlock Style="{StaticResource ResonateBodyTextStyle}" Text="{TemplateBinding Header}" />
                             <TextBlock
@@ -102,6 +120,7 @@
                                 TextWrapping="Wrap" />
                         </StackPanel>
                         <ContentPresenter
+                            x:Name="Presenter"
                             Grid.Column="1"
                             HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                             VerticalAlignment="Center"

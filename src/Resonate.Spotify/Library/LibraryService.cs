@@ -164,7 +164,7 @@ public sealed class LibraryService : IDisposable
             if (cached is not null && TryExtend(cached.Tracks, first) is { } extended)
             {
                 // Saved again when songs were added or the first page told more
-                // (a song liked from the player bar is stored with less detail).
+                // (a song liked with only its address and names is stored with less detail).
                 if (extended.Count != cached.Tracks.Count || !SameDetails(extended, cached.Tracks, first.Tracks.Count))
                 {
                     SaveList(LikedSongsKey, null, extended);

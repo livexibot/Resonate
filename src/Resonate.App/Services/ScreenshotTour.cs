@@ -107,19 +107,27 @@ internal sealed class ScreenshotTour
                 await Task.Delay(600);
                 await CaptureAsync("5-customize.png");
 
-                // The plugins, with the sleep timer turned on (demo mode shows its settings without downloading it).
+                // The plugins, turned on (demo mode shows their settings without downloading them):
+                // Skip rules' lists sit under their names, the sleep timer's controls beside them.
                 var plugins = App.Services.Plugins;
-                if (plugins.Available.FirstOrDefault(p => p.Id == "sleep-timer") is { } sleepTimer)
+                foreach (var id in (string[])["skip-rules", "sleep-timer"])
                 {
-                    await plugins.EnableAsync(sleepTimer.Id, CancellationToken.None);
+                    if (plugins.Available.FirstOrDefault(p => p.Id == id) is { } plugin)
+                    {
+                        await plugins.EnableAsync(plugin.Id, CancellationToken.None);
+                    }
                 }
 
                 settings.ShowPlugins();
                 await Task.Delay(800);
                 await CaptureAsync("6-plugins.png");
 
-                // A new version downloading (made up: demo mode never downloads), in Settings and in the corner.
+                // A new version downloading (made up: demo mode never downloads), in Settings, then in the page's corner.
                 App.Services.Updates.Preview(new UpdateProgress("0.5.0", 14_900_000, 38_400_000, 3_600_000, Preparing: false));
+                settings.ShowUpdates();
+                await Task.Delay(800);
+                await CaptureAsync("6b-update-settings.png");
+                _window.CloseSettings();
                 await Task.Delay(800);
                 await CaptureAsync("6b-update-download.png");
                 App.Services.Updates.Preview(null);

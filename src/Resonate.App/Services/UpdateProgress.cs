@@ -24,12 +24,15 @@ public sealed record UpdateProgress(string Version, long Received, long Total, d
         ? TimeSpan.FromSeconds(Math.Max(0, Total - Received) / BytesPerSecond)
         : null;
 
+    /// <summary>"Downloading Resonate 0.5.0", or "Preparing …" once it is downloaded.</summary>
+    public string Title => Preparing ? $"Preparing Resonate {Version}" : $"Downloading Resonate {Version}";
+
     /// <summary>"12.4 of 38.0 MB · 3.2 MB/s · 8 s left", or what happens after the download.</summary>
     public string Describe()
     {
         if (Preparing)
         {
-            return "Downloaded. Getting it ready…";
+            return "Downloaded. Almost ready…";
         }
 
         var megabytes = Total >= Megabyte;
@@ -141,8 +144,11 @@ internal sealed class ProgressReportingSource(IUpdateSource inner, Action<Velopa
     public Task<VelopackAssetFeed> GetReleaseFeed(IVelopackLogger logger, string? appId, string channel, Guid? stagingId = null, VelopackAsset? latestLocalRelease = null) =>
         inner.GetReleaseFeed(logger, appId, channel, stagingId, latestLocalRelease);
 
-    public Task DownloadReleaseEntry(IVelopackLogger logger, VelopackAsset releaseEntry, string localFile, Action<int> progress, CancellationToken cancelToken = default) =>
-        inner.DownloadReleaseEntry(
+    public Task DownloadReleaseEntry(IVelopackLogger logger, VelopackAsset releaseEntry, string localFile, Action<int> progress, CancellationToken cancelToken = default)
+    {
+        // Velopack's first report comes at 3 %; the bars should know at once which file is coming.
+        report(releaseEntry, 0);
+        return inner.DownloadReleaseEntry(
             logger,
             releaseEntry,
             localFile,
@@ -152,4 +158,5 @@ internal sealed class ProgressReportingSource(IUpdateSource inner, Action<Velopa
                 report(releaseEntry, percent);
             },
             cancelToken);
+    }
 }

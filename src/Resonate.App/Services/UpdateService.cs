@@ -87,7 +87,7 @@ public sealed class UpdateService
     }
 
     /// <summary>For the screenshots in demo mode: shows a made-up download (or none) without downloading anything.</summary>
-    internal void Preview(UpdateProgress? progress) => Publish(progress, force: true);
+    internal void Preview(UpdateProgress? progress) => Publish(null, progress);
 
     private async Task<UpdateStatus> CheckAndDownloadOnceAsync(CancellationToken cancellationToken)
     {
@@ -110,8 +110,7 @@ public sealed class UpdateService
             }
 
             var meter = new UpdateDownloadMeter(update);
-            Volatile.Write(ref _meter, meter);
-            Publish(meter.Start(), force: true);
+            Publish(meter, meter.Start());
             try
             {
                 await _manager.DownloadUpdatesAsync(update, progress: null, cancelToken: cancellationToken).ConfigureAwait(false);
@@ -120,8 +119,7 @@ public sealed class UpdateService
             finally
             {
                 // Done or failed: the progress bars go, after the version is known to be ready.
-                Volatile.Write(ref _meter, null);
-                Publish(null, force: true);
+                Publish(null, null);
             }
 
             UpdateReady?.Invoke(this, EventArgs.Empty);
@@ -140,29 +138,54 @@ public sealed class UpdateService
 
     private void OnFileProgress(VelopackAsset file, int percent)
     {
-        if (Volatile.Read(ref _meter) is { } meter)
-        {
-            var progress = meter.Report(file, percent, Stopwatch.GetTimestamp());
-            Publish(progress, force: progress.Preparing);
-        }
-    }
-
-    private void Publish(UpdateProgress? progress, bool force)
-    {
+        // Velopack downloads several files at once: worked out and kept under
+        // one lock, so an older result never lands after a newer one.
         lock (_gate)
         {
-            Volatile.Write(ref _progress, progress);
-            var now = Stopwatch.GetTimestamp();
-            if (!force && Stopwatch.GetElapsedTime(_lastProgressEvent, now) < ProgressInterval)
+            if (_meter is null)
             {
-                // Shown with the next event; the newest progress is always kept.
                 return;
             }
 
-            _lastProgressEvent = now;
+            var progress = _meter.Report(file, percent, Stopwatch.GetTimestamp());
+
+            // A file starting (0 %) is shown at once too: after a failed patch,
+            // Velopack downloads the whole version, and the bars must leave
+            // "Almost ready" straight away.
+            if (!Keep(progress, force: progress.Preparing || percent == 0))
+            {
+                return;
+            }
         }
 
         ProgressChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Starts (with a meter) or ends (without one) a download, and shows it at once.</summary>
+    private void Publish(UpdateDownloadMeter? meter, UpdateProgress? progress)
+    {
+        lock (_gate)
+        {
+            _meter = meter;
+            Keep(progress, force: true);
+        }
+
+        ProgressChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Under the lock: keeps the newest progress, and says whether to tell the progress bars now.</summary>
+    private bool Keep(UpdateProgress? progress, bool force)
+    {
+        Volatile.Write(ref _progress, progress);
+        var now = Stopwatch.GetTimestamp();
+        if (!force && Stopwatch.GetElapsedTime(_lastProgressEvent, now) < ProgressInterval)
+        {
+            // Shown with the next event.
+            return false;
+        }
+
+        _lastProgressEvent = now;
+        return true;
     }
 
     /// <summary>Closes Resonate, installs the downloaded version and opens it again.</summary>
