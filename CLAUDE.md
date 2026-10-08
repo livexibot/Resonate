@@ -542,7 +542,7 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
 - Home stage: the top of Home is the playing song, large, over five
   drifting clouds of the cover's colours (`Controls/CloudField`,
   `NowPlayingStage`, colours kept readable by `StageColours.ForText`, 7:1
-  and 4.5:1), or the blurred cover (its own switch, off at first). The
+  and 4.5:1), or the blurred cover (its own switch, on at first). The
   640 px cover is `TrackInfo.FullImageUrl` / `PlayerState.FullArtworkUrl`.
   Each cloud is a colour brush through one dithered alpha mask
   (`Resonate.Themes/CloudMask`, 512 px, triangular noise of 4 alpha steps,

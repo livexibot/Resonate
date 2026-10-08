@@ -62,6 +62,9 @@ public sealed class PluginManager : IDisposable
     internal static readonly TimeSpan RestartWindow = TimeSpan.FromMinutes(10);
     internal const int MaxRestarts = 2;
 
+    /// <summary>Far past any song's end, and well inside what a TimeSpan holds.</summary>
+    internal const double MaxSeekSeconds = 1e7;
+
     private readonly PluginCatalog _catalog;
     private readonly PluginInstaller? _installer;
     private readonly PluginStateStore _store;
@@ -426,6 +429,12 @@ public sealed class PluginManager : IDisposable
         bool loadNow;
         lock (_gate)
         {
+            if (!_store.IsEnabled(id))
+            {
+                // Turned off just now; DisableAsync has already put it back to Off.
+                return false;
+            }
+
             var runtime = _runtimes[id];
             runtime.Folder = folder;
             runtime.Status = PluginStatus.Starting;
@@ -495,7 +504,14 @@ public sealed class PluginManager : IDisposable
                     return;
                 }
 
-                Handle(message);
+                try
+                {
+                    Handle(message);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // One odd message must never stop Resonate reading the helper (it would then hang once its pipe fills).
+                }
             }
         }
         catch (OperationCanceledException)
@@ -675,7 +691,7 @@ public sealed class PluginManager : IDisposable
             PlayerActions.Pause => _player.PauseAsync(),
             PlayerActions.Next => _player.NextAsync(),
             PlayerActions.Previous => _player.PreviousAsync(),
-            PlayerActions.Seek => _player.SeekAsync(TimeSpan.FromSeconds(Math.Max(0, value))),
+            PlayerActions.Seek => _player.SeekAsync(TimeSpan.FromSeconds(Math.Clamp(value, 0, MaxSeekSeconds))),
             PlayerActions.Volume => _player.SetVolumeAsync(Math.Clamp(value, 0, 1)),
             _ => Task.CompletedTask,
         };

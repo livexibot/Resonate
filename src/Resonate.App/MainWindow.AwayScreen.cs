@@ -1,5 +1,6 @@
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -128,10 +129,12 @@ public sealed partial class MainWindow
             return false;
         }
 
-        // A menu, flyout or dialog is open (a tooltip under a resting pointer does not count).
+        // A menu, flyout or dialog is open (a tooltip under a resting pointer does not count). Asked of the
+        // automation peer: under Native AOT "is ToolTip" is false for tooltips XAML made (see CLAUDE.md).
         foreach (var popup in VisualTreeHelper.GetOpenPopupsForXamlRoot(root))
         {
-            if (popup.Child is not ToolTip)
+            if (popup.Child is not { } child
+                || FrameworkElementAutomationPeer.CreatePeerForElement(child)?.GetAutomationControlType() != AutomationControlType.ToolTip)
             {
                 return false;
             }

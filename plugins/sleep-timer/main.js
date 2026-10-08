@@ -198,6 +198,14 @@ function stop(restore) {
 }
 
 resonate.player.onChange(() => aimAtSongEnd());
+
+// The song ended before the timer fired (a crossfade, a late position, a
+// skip): pause now, rather than aiming at the next song's end at a faded volume.
+resonate.player.onTrackChange(() => {
+    if (mode === 'song') {
+        finish();
+    }
+});
 resonate.settings.onChange(() => {
     if (mode === null) {
         updateCommands();
