@@ -5,7 +5,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Resonate.App.Controls"
     xmlns:vm="using:Resonate.App.ViewModels"
-    Background="{StaticResource ResonateTransparentBrush}">
+    Background="{StaticResource ResonateTransparentBrush}"
+    SizeChanged="OnPageSizeChanged">
 
     <Page.Resources>
         <DataTemplate x:Key="AlbumCardTemplate" x:DataType="vm:CardItem">
@@ -32,10 +33,13 @@
     <Grid>
         <ScrollViewer>
             <StackPanel Padding="{StaticResource ResonatePagePadding}" Spacing="{StaticResource ResonateSectionSpacing}">
-                <!-- The buttons have a row of their own under the picture, as on a playlist, so they fit a narrow window. -->
+                <!--
+                  The buttons have a row of their own under the picture, as on a playlist, so they
+                  fit a narrow window; a narrow page also gets a smaller picture (see FitToWidth).
+                -->
                 <Grid ColumnSpacing="28" RowSpacing="24">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="232" />
+                        <ColumnDefinition x:Name="PortraitColumn" Width="232" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
@@ -54,6 +58,7 @@
                         CornerRadius="{ThemeResource ResonateCornerLarge}"
                         IsHitTestVisible="False" />
                     <controls:Elevation
+                        x:Name="PortraitShadow"
                         Width="232"
                         Height="232"
                         CornerRadius="116"
@@ -72,8 +77,10 @@
                         <TextBlock Style="{StaticResource ResonateEyebrowTextStyle}" Text="ARTIST" />
                         <TextBlock
                             x:Name="NameText"
+                            MaxLines="2"
                             Style="{StaticResource ResonateDisplayTextStyle}"
-                            Text=" " />
+                            Text=" "
+                            TextWrapping="WrapWholeWords" />
                         <TextBlock
                             x:Name="GenresText"
                             Style="{StaticResource ResonateCaptionTextStyle}"
@@ -94,13 +101,25 @@
                             </StackPanel>
                         </Button>
                         <Button
+                            x:Name="LikedSongsButton"
                             Click="OnLikedSongsClick"
                             Content="Liked songs by this artist"
                             Style="{StaticResource ResonateSubtleButtonStyle}" />
                         <Button
+                            x:Name="OpenInSpotifyButton"
+                            AutomationProperties.Name="Open in Spotify"
                             Click="OnOpenInSpotifyClick"
-                            Content="Open in Spotify"
-                            Style="{StaticResource ResonateSubtleButtonStyle}" />
+                            Style="{StaticResource ResonateSubtleButtonStyle}">
+                            <Grid>
+                                <TextBlock x:Name="OpenInSpotifyText" Text="Open in Spotify" />
+                                <FontIcon
+                                    x:Name="OpenInSpotifyIcon"
+                                    FontFamily="{StaticResource ResonateIconFont}"
+                                    FontSize="14"
+                                    Glyph="&#xE8A7;"
+                                    Visibility="Collapsed" />
+                            </Grid>
+                        </Button>
                     </StackPanel>
                 </Grid>
 

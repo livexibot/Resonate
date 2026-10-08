@@ -20,11 +20,18 @@ public sealed partial class ArtistPage : Page
 
     private const int PortraitSize = 232;
 
+    // A narrow page (a small window, or Settings or the queue open beside it), as on a playlist.
+    private const double CompactWidth = 600;
+    private const int CompactPortraitSize = 128;
+    private const double CompactNameSize = 32;
+    private const string OpenInSpotifyLabel = "Open in Spotify";
+
     private readonly AppServices _services = App.Services;
     private readonly CancellationTokenSource _leaving = new();
     private readonly CoverHero _hero;
     private string _artistId = string.Empty;
     private string _name = string.Empty;
+    private bool _compact;
 
     public ArtistPage()
     {
@@ -52,6 +59,44 @@ public sealed partial class ArtistPage : Page
     {
         _hero.Detach();
         _leaving.Cancel();
+    }
+
+    private void OnPageSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (e.NewSize.Width != e.PreviousSize.Width)
+        {
+            FitToWidth(e.NewSize.Width);
+        }
+    }
+
+    /// <summary>A narrow page gets a smaller picture and name, and shorter buttons, so nothing is cut off.</summary>
+    private void FitToWidth(double width)
+    {
+        var compact = width < CompactWidth;
+        if (compact == _compact)
+        {
+            return;
+        }
+
+        _compact = compact;
+        var size = compact ? CompactPortraitSize : PortraitSize;
+        PortraitColumn.Width = new GridLength(size);
+        PortraitFrame.Width = PortraitFrame.Height = size;
+        PortraitShadow.Width = PortraitShadow.Height = size;
+        PortraitFrame.CornerRadius = PortraitShadow.CornerRadius = new CornerRadius(size / 2.0);
+        if (compact)
+        {
+            NameText.FontSize = CompactNameSize;
+        }
+        else
+        {
+            NameText.ClearValue(TextBlock.FontSizeProperty);
+        }
+
+        LikedSongsButton.Content = compact ? "Liked songs" : "Liked songs by this artist";
+        OpenInSpotifyText.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        OpenInSpotifyIcon.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
+        ToolTipService.SetToolTip(OpenInSpotifyButton, compact ? OpenInSpotifyLabel : null);
     }
 
     private async Task LoadAsync()
