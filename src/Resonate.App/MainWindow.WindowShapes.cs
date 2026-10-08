@@ -285,6 +285,7 @@ public sealed partial class MainWindow
     {
         HidePanels();
         _column = new NowPlayingColumn(_services);
+        Grid.SetRow(_column, PlayerPlacement.PanelsRow);
         Grid.SetColumnSpan(_column, ToTheLastColumn);
         ShellGrid.Children.Insert(ShellGrid.Children.IndexOf(PlayerSlot), _column);
     }

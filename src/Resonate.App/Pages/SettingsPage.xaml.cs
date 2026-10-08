@@ -231,11 +231,18 @@ public sealed partial class SettingsPage : Page
             return;
         }
 
-        FrameworkElement target = section switch
+        FrameworkElement target;
+        if (section == SettingsSection.Equalizer)
         {
-            SettingsSection.Equalizer => EqualizerSection,
-            _ => ClassicPlayerSection,
-        };
+            EqualizerSection.Open();
+            target = EqualizerSection;
+        }
+        else
+        {
+            ClassicPlayerSection.Open();
+            target = ClassicPlayerSection;
+        }
+
         target.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = _animateSection, VerticalAlignmentRatio = 0.1 });
     }
 
@@ -248,6 +255,8 @@ public sealed partial class SettingsPage : Page
         PlayHereSwitch.IsOn = _services.Settings.WebApiPlayHere;
         PlayHereSwitch.IsEnabled = _services.OwnPlayer is not null;
         ShowChannelOptions();
+        AutoUpdateSwitch.IsOn = _services.Settings.AutoUpdate;
+        AutoUpdateSwitch.IsEnabled = _services.Updates.IsInstalled;
         _loading = false;
 
         var user = _services.Library.Snapshot?.User;
@@ -389,6 +398,18 @@ public sealed partial class SettingsPage : Page
     }
 
     private void OnRestartClick(object sender, RoutedEventArgs e) => _services.Updates.RestartToUpdate();
+
+    private void OnAutoUpdateToggled(object sender, RoutedEventArgs e)
+    {
+        if (_loading)
+        {
+            return;
+        }
+
+        _services.Settings.AutoUpdate = AutoUpdateSwitch.IsOn;
+        _services.SaveSettings();
+        App.MainWindow?.KeepUpdating();
+    }
 
     private void OnUpdateProgressChanged(object? sender, EventArgs e)
     {

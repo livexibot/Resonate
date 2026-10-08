@@ -874,9 +874,10 @@ public sealed partial class ClassicPlayer : UserControl
 
     /// <summary>
     /// Hovering over the page, the player hugs the cover, the skin and the
-    /// song and sits in the middle, like a Winamp window over the page;
-    /// otherwise it spans its row like the player bar. The control itself
-    /// always spans the row, so double size still sees the room there is.
+    /// song and sits in the middle (or in the page's corner), like a Winamp
+    /// window over the page; otherwise it spans its row like the player bar.
+    /// The control itself always spans the row, so double size still sees
+    /// the room there is.
     /// </summary>
     private void ApplyPlacement()
     {
@@ -893,9 +894,14 @@ public sealed partial class ClassicPlayer : UserControl
 
         // Before the first layout (or the skin's first picture) there is nothing to measure yet.
         var fits = available <= 0 || double.IsNaN(needed) || needed <= available;
-        PlayerShell.HorizontalAlignment = fits && _services.Theme.Current.PlayerLayout == Resonate.Themes.PlayerLayout.Hovering
-            ? HorizontalAlignment.Center
-            : HorizontalAlignment.Stretch;
+        PlayerShell.HorizontalAlignment = !fits
+            ? HorizontalAlignment.Stretch
+            : _services.Theme.Current.PlayerLayout switch
+            {
+                Resonate.Themes.PlayerLayout.Hovering => HorizontalAlignment.Center,
+                Resonate.Themes.PlayerLayout.Corner => HorizontalAlignment.Right,
+                _ => HorizontalAlignment.Stretch,
+            };
     }
 
     /// <summary>The heart for the playing song (Spotify songs only).</summary>

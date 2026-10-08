@@ -8,9 +8,10 @@ using Windows.Foundation;
 namespace Resonate.App;
 
 /// <summary>
-/// Where the player sits: under the panels across the window, under the page
-/// beside a sidebar that reaches the bottom, or hovering over the bottom of
-/// the page (under the panels instead while the page is too narrow for it,
+/// Where the player sits: under the panels or above them across the window,
+/// under or above the page beside a sidebar that runs the window's full
+/// height, or hovering over the bottom of the page, as a centred pill or in
+/// its corner (under the panels instead while the page is too narrow for it,
 /// as with Settings open in a small window). The player's slot never leaves
 /// the shell grid; only its row, columns, alignment and margin change, so
 /// the classic player is never taken out of the window (which would rebuild
@@ -58,8 +59,14 @@ public sealed partial class MainWindow
         var theme = _services.Theme;
         var layout = theme.Current.PlayerLayout;
         var gap = theme.Palette.PanelGap;
+
         // A window shape without the page (Window shapes plugin) has the player under everything.
-        var hovers = layout == PlayerLayout.Hovering
+        if (ShapeHidesPanels && PlayerPlacement.IsAtTop(layout))
+        {
+            layout = layout == PlayerLayout.Top ? PlayerLayout.Docked : PlayerLayout.Floating;
+        }
+
+        var hovers = PlayerPlacement.HoversOverPage(layout)
             && !ShapeHidesPanels
             && PlayerPlacement.HoveringFits(ContentPanel.ActualWidth, NarrowestPlayerWidth, gap);
         var fullHeight = theme.SidebarFullHeight && !ShapeHidesPanels;
@@ -71,9 +78,11 @@ public sealed partial class MainWindow
 
         _placement = placement;
         var slot = PlayerPlacement.Slot(layout, gap, fullHeight, hoveringFits: hovers);
-        Grid.SetRowSpan(Sidebar, slot.SidebarRowSpan);
-        Grid.SetRowSpan(SidebarElevation, slot.SidebarRowSpan);
-        Grid.SetRowSpan(SidebarSplitter, slot.SidebarRowSpan);
+        foreach (var element in new FrameworkElement[] { Sidebar, SidebarElevation, SidebarSplitter })
+        {
+            Grid.SetRow(element, slot.SidebarRow);
+            Grid.SetRowSpan(element, slot.SidebarRowSpan);
+        }
 
         // The page's column, wherever it is (columns may be added before it).
         var page = Grid.GetColumn(ContentPanel);
@@ -104,7 +113,7 @@ public sealed partial class MainWindow
     /// </summary>
     private void UpdatePlayerInset(bool newPage = false)
     {
-        var inset = _placement?.Hovers == true ? PlayerPlacement.PageInset(PlayerLayout.Hovering, PlayerSlot.ActualHeight) : 0;
+        var inset = _placement is { Hovers: true } placement ? PlayerPlacement.PageInset(placement.Layout, PlayerSlot.ActualHeight) : 0;
         if (!newPage && Math.Abs(inset - _playerInset) < 0.5)
         {
             return;
@@ -127,7 +136,8 @@ public sealed partial class MainWindow
     /// For the screenshot tour. A hovering player stays over the page (never
     /// over the sidebar or the queue) with room for all of it, and the page
     /// on show, scrolled to its end, keeps its last row above it. A player
-    /// under the panels lies wholly in the window. Null when all is well.
+    /// under or above the panels lies wholly in the window, clear of the
+    /// page. Null when all is well.
     /// </summary>
     internal string? CheckPlayerPlacement()
     {
@@ -136,8 +146,10 @@ public sealed partial class MainWindow
         if (!PlayerHovers)
         {
             var shell = BoundsInShell(ShellGrid);
-            return player.Top < page.Bottom - 0.5 || player.Left < shell.Left - 0.5 || player.Right > shell.Right + 0.5 || player.Bottom > shell.Bottom + 0.5
-                ? $"The player ({player}) is not under the page ({page}) inside the window ({shell})."
+            var onTop = _placement is { } placement && PlayerPlacement.IsAtTop(placement.Layout);
+            var clear = onTop ? player.Bottom <= page.Top + 0.5 : player.Top >= page.Bottom - 0.5;
+            return !clear || player.Left < shell.Left - 0.5 || player.Right > shell.Right + 0.5 || player.Top < shell.Top - 0.5 || player.Bottom > shell.Bottom + 0.5
+                ? $"The player ({player}) is not {(onTop ? "above" : "under")} the page ({page}) inside the window ({shell})."
                 : null;
         }
 

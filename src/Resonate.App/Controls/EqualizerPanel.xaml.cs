@@ -27,6 +27,9 @@ public sealed partial class EqualizerPanel : UserControl
     /// <summary>True while the panel sets its own controls, so their change events are not the user's.</summary>
     private bool _showing;
 
+    /// <summary>Unfolds the section, for links that open Settings here.</summary>
+    internal void Open() => Group.IsExpanded = true;
+
     public EqualizerPanel()
     {
         InitializeComponent();

@@ -223,6 +223,9 @@ public sealed partial class PlayerBar : UserControl
         Bar.CornerRadius = corner;
         BarHost.CornerRadius = corner;
 
+        // The mini bar keeps to the page's corner; a pill no wider than its slot sits in the middle.
+        BarHost.HorizontalAlignment = look.PlayerLayout == PlayerLayout.Corner ? HorizontalAlignment.Right : HorizontalAlignment.Stretch;
+
         // A record for the vinyl style, and for every look while the user
         // lets covers spin; otherwise the look's own shape.
         var record = theme.CoverIsRecord;

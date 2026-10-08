@@ -1,9 +1,10 @@
 namespace Resonate.Themes;
 
 /// <summary>
-/// The six built-in looks. Each one is a different idea, not a recolour:
-/// two clean everyday themes, a glass one, a true-black one and two
-/// artistic ones. Users start from any of them and customise from there.
+/// The ten built-in looks. Each one is a different idea, not a recolour:
+/// clean everyday themes (one in Windows' own Mica), a glass one, a
+/// true-black one and artistic ones, with the player in every position.
+/// Users start from any of them and customise from there.
 /// </summary>
 public static class ThemePresets
 {
@@ -158,7 +159,111 @@ public static class ThemePresets
         Cover = CoverStyle.Square,
     };
 
-    public static IReadOnlyList<ThemeDefinition> All { get; } = [Midnight, Daylight, Glass, PureBlack, Synthwave, Paper];
+    /// <summary>Windows 11's own material: Mica behind calm, slightly see-through panels.</summary>
+    public static ThemeDefinition Fluent { get; } = new()
+    {
+        Id = "fluent",
+        Name = "Fluent",
+        Background = ThemeColor.FromRgb(0x202020),
+        Background2 = ThemeColor.FromRgb(0x2B2B2B),
+        Sidebar = ThemeColor.FromRgb(0x272727),
+        Surface = ThemeColor.FromRgb(0x2C2C2C),
+        Player = ThemeColor.FromRgb(0x242424),
+        Text = ThemeColor.FromRgb(0xFFFFFF),
+        Accent = ThemeColor.FromRgb(0x4CC2FF),
+        Accent2 = ThemeColor.FromRgb(0x99EBFF),
+        Border = ThemeColor.White.WithAlpha(0.08),
+        Backdrop = WindowBackdrop.Mica,
+        BackdropTint = 0.5,
+        PanelOpacity = 0.7,
+        CornerRadius = 8,
+        Buttons = ButtonShape.Rounded,
+        BorderWidth = 1,
+        PanelGap = 6,
+        Shadow = ShadowStyle.Soft,
+        PlayerLayout = PlayerLayout.Docked,
+        Progress = ProgressStyle.Line,
+    };
+
+    /// <summary>A mixing desk: graphite panels, orange like a console's lights, the player along the top.</summary>
+    public static ThemeDefinition Studio { get; } = new()
+    {
+        Id = "studio",
+        Name = "Studio",
+        Background = ThemeColor.FromRgb(0x141517),
+        Background2 = ThemeColor.FromRgb(0x222327),
+        Sidebar = ThemeColor.FromRgb(0x1C1D20),
+        Surface = ThemeColor.FromRgb(0x202124),
+        Player = ThemeColor.FromRgb(0x2A2B2F),
+        Text = ThemeColor.FromRgb(0xECEAE6),
+        Accent = ThemeColor.FromRgb(0xFF7A1A),
+        Accent2 = ThemeColor.FromRgb(0xFFD166),
+        Border = ThemeColor.FromRgb(0x34363B),
+        CornerRadius = 4,
+        Buttons = ButtonShape.Rounded,
+        BorderWidth = 1,
+        PanelGap = 8,
+        Shadow = ShadowStyle.Strong,
+        DisplayFont = "Space Grotesk",
+        TextFont = "Inter",
+        PlayerLayout = PlayerLayout.FloatingTop,
+        Progress = ProgressStyle.Bold,
+        Cover = CoverStyle.Square,
+    };
+
+    /// <summary>Pastel and soft: a pink and lilac gradient, very round shapes and a small player in the corner.</summary>
+    public static ThemeDefinition Bubblegum { get; } = new()
+    {
+        Id = "bubblegum",
+        Name = "Bubblegum",
+        Background = ThemeColor.FromRgb(0xFFE3F1),
+        Background2 = ThemeColor.FromRgb(0xE2E0FF),
+        Sidebar = ThemeColor.FromRgb(0xFFF6FB),
+        Surface = ThemeColor.FromRgb(0xFFFFFF),
+        Player = ThemeColor.FromRgb(0xFFFFFF),
+        Text = ThemeColor.FromRgb(0x2A1631),
+        Accent = ThemeColor.FromRgb(0xE8337F),
+        Accent2 = ThemeColor.FromRgb(0x7C5CFF),
+        Backdrop = WindowBackdrop.Gradient,
+        GradientAngle = 135,
+        CornerRadius = 28,
+        PanelGap = 14,
+        Shadow = ShadowStyle.Glow,
+        DisplayFont = "Nunito",
+        TextFont = "Nunito",
+        PlayerLayout = PlayerLayout.Corner,
+        Progress = ProgressStyle.Gradient,
+        Cover = CoverStyle.Vinyl,
+    };
+
+    /// <summary>An old green screen: phosphor on black, monospace type, hairlines and the player across the top.</summary>
+    public static ThemeDefinition Terminal { get; } = new()
+    {
+        Id = "terminal",
+        Name = "Terminal",
+        Background = ThemeColor.FromRgb(0x030603),
+        Background2 = ThemeColor.FromRgb(0x0A140C),
+        Sidebar = ThemeColor.FromRgb(0x060A06),
+        Surface = ThemeColor.FromRgb(0x081008),
+        Player = ThemeColor.FromRgb(0x050905),
+        Text = ThemeColor.FromRgb(0xC2F7CC),
+        Accent = ThemeColor.FromRgb(0x39FF7A),
+        Accent2 = ThemeColor.FromRgb(0xFFB000),
+        Border = ThemeColor.FromRgb(0x1E5A2C),
+        CornerRadius = 0,
+        Buttons = ButtonShape.Square,
+        BorderWidth = 1,
+        PanelGap = 6,
+        Shadow = ShadowStyle.None,
+        DisplayFont = "JetBrains Mono",
+        TextFont = "JetBrains Mono",
+        PlayerLayout = PlayerLayout.Top,
+        Progress = ProgressStyle.Minimal,
+        PlayButton = PlayButtonStyle.Plain,
+        Cover = CoverStyle.Square,
+    };
+
+    public static IReadOnlyList<ThemeDefinition> All { get; } = [Midnight, Daylight, Glass, PureBlack, Synthwave, Paper, Fluent, Studio, Bubblegum, Terminal];
 
     public static ThemeDefinition Default => Midnight;
 

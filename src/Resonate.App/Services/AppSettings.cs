@@ -28,7 +28,7 @@ public sealed class AppSettings
     /// <summary>Looks with the song cover backdrop show the cover itself, blurred (off: only its colours).</summary>
     public bool BlurredCoverBackground { get; set; } = true;
 
-    /// <summary>The library sidebar runs to the bottom of the window, beside the player (off unless the user switches it on).</summary>
+    /// <summary>The library sidebar runs the window's full height, beside the player (off unless the user switches it on).</summary>
     public bool SidebarFullHeight { get; set; }
 
     /// <summary>Links the user hid from the sidebar (Settings, Layout), by page key. Home always shows; Local Files has <see cref="ShowLocalFiles"/>.</summary>
@@ -36,6 +36,15 @@ public sealed class AppSettings
 
     /// <summary>The mini player button in the title bar (Ctrl+M opens the mini player either way).</summary>
     public bool ShowMiniPlayerButton { get; set; } = true;
+
+    /// <summary>The sections of Settings the user folded away, by their headings (see Controls/SettingsGroup).</summary>
+    public List<string> CollapsedSettingsSections { get; set; } = [];
+
+    /// <summary>
+    /// New versions download by themselves and install when Resonate closes
+    /// (on unless the user switches it off; then only Check for updates looks).
+    /// </summary>
+    public bool AutoUpdate { get; set; } = true;
 
     /// <summary>How large everything under the title bar is drawn, in percent (one of <see cref="AppScale.AppSizes"/>).</summary>
     public int AppSize { get; set; } = AppScale.Normal;

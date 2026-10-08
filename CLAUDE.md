@@ -351,7 +351,7 @@ Windows:
   theme dictionary of `Tokens.xaml` and are used with `ThemeResource`:
   `ThemeService` replaces their values, then switches the window's
   `RequestedTheme` away and back so every `ThemeResource` is read again
-  (a known workaround; CI's screenshots switch all six presets at run time
+  (a known workaround; CI's screenshots switch every preset at run time
   to check it). New XAML must use `ThemeResource` for those tokens.
 - `RenderTargetBitmap` (used by CI's screenshots and by the theme
   transitions' snapshots) does not draw visuals added with
@@ -702,15 +702,27 @@ Ripple, and a more interesting Home):
   test reports each switch's first motion and end. Measure: the cost of the
   rounded-rectangle clip at 5K and 165 Hz. Pictures lack the soft shadows,
   so the old look's shadows vanish on the first frame of a switch.
-- Player layouts: a look's player is Docked, Floating or Hovering. Hovering
+  A switch on screen always plays to its end (the owner's request,
+  8 October 2026): `ThemeService.Switch` queues the newest switch asked
+  for meanwhile and skips any between; a quick edit keeps the animation of
+  a look clicked before it; while a switch waits, `ThemeService.Current`
+  is the look on screen, so nothing mixes two looks; a switch still on
+  screen after 10 s is ended.
+- Player layouts (saved by name: append, never rename): a look's player is
+  Docked or Floating under the panels, Top or FloatingTop above them
+  (under the title bar), Hovering, or Corner. Hovering
   is a centred pill at most 912 wide over the bottom of the page, at least
   0.9 opaque so text keeps 4.5:1 (`ThemePalette.PlayerFill`); Liquid Glass
-  uses it. Over a page too narrow for it and its gaps (360 for the bar,
-  the skin and cover for the classic player; Settings open in a small
-  window), it sits under the panels instead (`PlayerPlacement.HoveringFits`).
-  A global switch, "Sidebar reaches the bottom"
-  (`SidebarFullHeight`, off at first), puts the player under the page
-  only. The player and the classic player live in one `PlayerSlot` inside
+  uses it. Corner is the same over the page's bottom-right corner, at most
+  440 wide, so it is the Mini bar. Over a page too narrow for them and their
+  gaps (360 for the bar, the skin and cover for the classic player; Settings
+  open in a small window), they sit under the panels instead
+  (`PlayerPlacement.HoveringFits`). `ShellGrid` has three rows: the top
+  player's, the panels' and the bottom player's (`PlayerPlacement.TopRow`,
+  `PanelsRow`, `BottomRow`); anything added to it goes in `PanelsRow`.
+  A window shape without the page puts a top player underneath. A global
+  switch, "Sidebar runs full height" (`SidebarFullHeight`, off at first),
+  puts the player under or above the page only. The player and the classic player live in one `PlayerSlot` inside
   `ShellGrid`, moved only by attached properties
   (`MainWindow.PlayerPlacement.cs`, maths in
   `Resonate.Themes/PlayerPlacement.cs`), so the classic player is never
@@ -827,6 +839,14 @@ GitHub automation:
 - The in-app updater reads GitHub releases without a token, which only
   works once the repository is public. The owner chose to make it public
   for this (7 October 2026). Never embed a token in the app instead.
+- "Update automatically" (Settings, About, `AutoUpdate`, on at first; the
+  owner's request, 8 October 2026): an installed copy looks for a new
+  version 8 s after start and every 4 hours, downloads it, and has
+  Velopack install it quietly once Resonate closes
+  (`UpdateService.InstallOnExit`, `WaitExitThenApplyUpdates` without a
+  restart); "Restart now" still installs at once. Off, only "Check for
+  updates" looks. Velopack also installs a downloaded update at the next
+  start.
 - CI packages the app with Velopack exactly like a release, installs it
   silently, starts the installed copy, and checks that it downloads a newer
   local version (`--update-check <feed folder> <result file>`), so a broken
@@ -1332,8 +1352,9 @@ when the work first needs them, then tick them off here.
   cover, so that switch is now on at first. Cover, song and artist always stay
   visible, also in the classic player.
 - Decided (7 October 2026): a Winamp-style classic player, chosen in
-  Settings (Classic player, "Use the classic player"), with Resonate's own
-  skin and any classic skins the user adds.
+  Settings, with Resonate's own skin and any classic skins the user adds.
+  On 8 October 2026 the owner asked to call it Winamp: Settings shows
+  "Winamp" and "Use the Winamp player"; the code keeps `ClassicPlayer`.
 - Decided (7 October 2026): Local Files are played by Resonate itself,
   because Spotify refuses to start them for other apps; the owner asked
   for Local Files "just like in Spotify". Only the user's own files.
@@ -1342,16 +1363,23 @@ when the work first needs them, then tick them off here.
   (`prefs.resonate-backup`). A change made while Spotify runs waits
   (`EqualizerPendingForSpotify` in settings) until Resonate next starts
   Spotify or the user restarts it from Settings.
-- Themes (asked 7 October 2026, "akin to Spicetify"): six presets that
+- Themes (asked 7 October 2026, "akin to Spicetify"): presets that
   differ in shape and material, not just colour: Midnight (the default),
   Daylight, Liquid Glass (the song's cover, blurred, or as a wash of its
   colours once that is switched off, behind see-through panels), Pure
-  Black, Synthwave and Paper. Under them, Customize edits
+  Black, Synthwave and Paper, and since 8 October 2026 (the owner asked
+  for four more) Fluent (Mica, calm), Studio (console grey, floating
+  player on top), Bubblegum (pastel gradient, corner player) and Terminal
+  (green on black, monospace, player docked on top). A test keeps every
+  two presets apart in at least two shapes and every player position shown
+  by one. Under them, Customize edits
   everything a look sets: colours, light, dark or black, backdrop
   (colour, gradient, song cover, Mica, acrylic), corners, button shape,
-  outlines, spacing, shadows, fonts, and the player (docked, floating or
-  hovering, progress bar style, play button, cover). Editing a preset makes
-  a custom copy; looks can be saved, renamed, and copied or pasted as text.
+  outlines, spacing, shadows, fonts, and the player (where it sits,
+  progress bar style, play button, cover). Editing a preset makes
+  a custom copy; looks can be saved, renamed, copied or pasted as text,
+  and deleted (a bin button on each of the user's own cards, after a
+  confirmation).
   Switching looks animates (morph, cross-fade, spread from the middle,
   ripple from the click, split, blinds, wipe, a random one, or none; the
   owner asked for animated switching, then on 8 October 2026 for 1 to 2 s
@@ -1411,6 +1439,11 @@ when the work first needs them, then tick them off here.
   the name does not, in a few words. Hidden sidebar links are kept in
   `HiddenSidebarLinks` (Home always shows; Local Files keeps
   `ShowLocalFiles`), the mini player button in `ShowMiniPlayerButton`.
+  Every section folds away under its heading (the owner's request,
+  8 October 2026): `Controls/SettingsGroup` (template in
+  `Themes/Controls.xaml`) wraps each one, and folded headings are kept in
+  `CollapsedSettingsSections`, so a renamed heading opens again. Opening
+  Settings at the equalizer or the Winamp player unfolds its section.
 - Decided (8 October 2026, the owner's request): App size and Text size
   are the user's own, not part of a look; the title bar keeps Windows'
   size; Ctrl+Plus, Ctrl+Minus and Ctrl+0 change App size as in a browser.
