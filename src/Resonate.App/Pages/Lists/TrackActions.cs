@@ -296,7 +296,8 @@ public static class TrackActions
         }
     }
 
-    private static MenuFlyoutItem Item(string text, string? glyph, Action action)
+    /// <summary>A menu item with an icon (a glyph of the icon font) that runs <paramref name="action"/>.</summary>
+    public static MenuFlyoutItem Item(string text, string? glyph, Action action)
     {
         var item = new MenuFlyoutItem { Text = text };
         if (glyph is not null)

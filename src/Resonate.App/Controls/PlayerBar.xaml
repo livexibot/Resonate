@@ -67,7 +67,10 @@
                 <TextBlock
                     x:Name="TitleText"
                     FontWeight="SemiBold"
+                    PointerEntered="OnTitlePointerEntered"
+                    PointerExited="OnTitlePointerExited"
                     Style="{StaticResource ResonateBodyTextStyle}"
+                    Tapped="OnTitleTapped"
                     Text="Nothing playing" />
                 <TextBlock
                     x:Name="ArtistText"

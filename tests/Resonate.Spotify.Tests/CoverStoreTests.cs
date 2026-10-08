@@ -166,17 +166,19 @@ public sealed class CoverStoreTests : IDisposable
         Assert.Equal(CoverStore.MaxPrefetchDownloads, _server.Asked.Count());
 
         // Shown now: it starts at once, ahead of the others still waiting.
-        var shown = store.GetAsync(ahead[^1]);
+        // (Which ones wait depends on which looked on disk first.)
+        var waiting = ahead.Where(url => !_server.Asked.Contains(url)).ToList();
+        var shown = store.GetAsync(waiting[^1]);
         await _server.WaitForAsync(CoverStore.MaxPrefetchDownloads + 1);
-        Assert.Equal(ahead[^1], _server.Asked.Last());
-        Assert.DoesNotContain(ahead[^2], _server.Asked);
+        Assert.Equal(waiting[^1], _server.Asked.Last());
+        Assert.DoesNotContain(waiting[0], _server.Asked);
 
         // And a shown cover never waits for covers fetched ahead.
         var other = store.GetAsync(OtherCover);
         Assert.Equal(PictureServer.BytesFor(OtherCover), await other);
 
         ahead.ForEach(_server.Release);
-        Assert.Equal(PictureServer.BytesFor(ahead[^1]), await shown);
+        Assert.Equal(PictureServer.BytesFor(waiting[^1]), await shown);
     }
 
     [Fact]

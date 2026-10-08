@@ -77,9 +77,9 @@ public sealed partial class MainWindow : Window
         SetTitleBar(AppTitleBar);
         BackButton.SizeChanged += (_, _) => UpdateTitleBarPassthrough();
         AppTitleBar.SizeChanged += (_, _) => UpdateTitleBarPassthrough();
-        AppWindow.Title = "Resonate";
+        AppWindow.Title = AppName;
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Resonate.ico"));
-        PlaceWindow(1280, 820);
+        RestorePlacement();
 
         // The look's backdrop goes behind the content, and switching looks animates above it.
         var content = RootGrid;
@@ -98,6 +98,7 @@ public sealed partial class MainWindow : Window
         SetUpSplitters();
 
         PlayerBar.Attach(services.Player);
+        services.Player.StateChanged += OnNowPlayingChanged;
         PlayerBar.QueueRequested += (_, _) => ToggleQueue();
         QueuePane.CloseRequested += (_, _) => ShowQueue(false);
         services.Player.ErrorOccurred += (_, message) =>
@@ -369,9 +370,10 @@ public sealed partial class MainWindow : Window
     /// <summary>The page on show, such as a <see cref="SettingsPage"/>.</summary>
     internal object? CurrentPage => ContentFrame.Content;
 
-    /// <summary>A list was played; remembered for the "Recently played" playlist order.</summary>
-    public void NoteListPlayed(string key)
+    /// <summary>A list was played; remembered for the "Recently played" playlist order, and so the player bar can open it.</summary>
+    public void NoteListPlayed(string key, string? name)
     {
+        _lastPlayed = (key, name);
         if (!Playlists.Any(p => p.Id == key))
         {
             return;
@@ -509,7 +511,9 @@ public sealed partial class MainWindow : Window
             Playlists.Clear();
             foreach (var playlist in sorted)
             {
-                Playlists.Add(new PlaylistNavItem(playlist));
+                var item = new PlaylistNavItem(playlist);
+                MarkNowPlaying(item);
+                Playlists.Add(item);
             }
 
             PlaylistList.SelectedItem = Playlists.FirstOrDefault(p => p.Id == selected);
@@ -935,8 +939,7 @@ public sealed partial class MainWindow : Window
     /// <summary>Sizes the window in device-independent pixels and centres it on its screen.</summary>
     private void PlaceWindow(int width, int height)
     {
-        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-        var scale = GetDpiForWindow(hwnd) / 96.0;
+        var scale = GetDpiForWindow(Hwnd) / 96.0;
         var area = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
         var w = Math.Min((int)(width * scale), area.Width);
         var h = Math.Min((int)(height * scale), area.Height);
@@ -945,7 +948,8 @@ public sealed partial class MainWindow : Window
 
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
     {
-        var shown = sender.IsVisible && !IsIconic(WinRT.Interop.WindowNative.GetWindowHandle(this));
+        NotePlacement(args);
+        var shown = sender.IsVisible && !IsIconic(Hwnd);
         if (shown != IsShown)
         {
             IsShown = shown;

@@ -172,9 +172,11 @@ public sealed partial class TrackRow : ObservableObject
 }
 
 /// <summary>A playlist in the sidebar.</summary>
-public sealed partial class PlaylistNavItem
+public sealed partial class PlaylistNavItem : ObservableObject
 {
     private ImageSource? _image;
+    private bool _isCurrent;
+    private bool _isPlaying;
 
     public PlaylistNavItem(SimplifiedPlaylist playlist)
     {
@@ -201,6 +203,37 @@ public sealed partial class PlaylistNavItem
     public Brush PlaceholderBrush { get; }
 
     public ImageSource? Image => _image ??= Artwork.FromUrl(ImagePicker.Pick(Playlist.Images, 64), 40);
+
+    /// <summary>The music plays from this playlist (or did, if it is paused): its name is drawn in the accent colour.</summary>
+    public bool IsCurrent
+    {
+        get => _isCurrent;
+        set
+        {
+            if (Set(ref _isCurrent, value))
+            {
+                OnPropertyChanged(nameof(NameBrush));
+                OnPropertyChanged(nameof(SpeakerVisibility));
+            }
+        }
+    }
+
+    /// <summary>The music is playing (not paused): the current playlist shows a speaker.</summary>
+    public bool IsPlaying
+    {
+        get => _isPlaying;
+        set
+        {
+            if (Set(ref _isPlaying, value))
+            {
+                OnPropertyChanged(nameof(SpeakerVisibility));
+            }
+        }
+    }
+
+    public Brush NameBrush => App.Services.Theme.GetBrush(IsCurrent ? "ResonateAccentBrush" : "ResonateTextPrimaryBrush");
+
+    public Visibility SpeakerVisibility => IsCurrent && IsPlaying ? Visibility.Visible : Visibility.Collapsed;
 }
 
 /// <summary>A square card for an album or playlist (search results).</summary>

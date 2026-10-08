@@ -309,7 +309,7 @@ internal static class TagText
             : null;
     }
 
-    /// <summary>"image/jpeg" or "image/png" from a picture's first bytes, or null.</summary>
+    /// <summary>A picture's type ("image/jpeg", "image/png" and so on) from its first bytes, or null.</summary>
     public static string? SniffImage(ReadOnlySpan<byte> bytes) => bytes switch
     {
         [0xFF, 0xD8, 0xFF, ..] => "image/jpeg",

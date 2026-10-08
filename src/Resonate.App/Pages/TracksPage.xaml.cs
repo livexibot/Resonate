@@ -672,7 +672,7 @@ public sealed partial class TracksPage : Page
             Shuffle = shuffle,
             IsPartial = !_complete,
         };
-        App.MainWindow?.NoteListPlayed(_source.Key);
+        App.MainWindow?.NoteListPlayed(_source.Key, request.SourceName);
         await _services.Player.PlayAsync(request);
     }
 

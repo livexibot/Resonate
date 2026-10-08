@@ -130,6 +130,7 @@
                         <DataTemplate x:DataType="vm:NavItem">
                             <StackPanel
                                 Height="40"
+                                Background="{StaticResource ResonateTransparentBrush}"
                                 Orientation="Horizontal"
                                 Spacing="14">
                                 <FontIcon
@@ -194,6 +195,8 @@
                     AllowDrop="True"
                     CanDragItems="True"
                     CanReorderItems="True"
+                    ContextRequested="OnPlaylistContextRequested"
+                    DoubleTapped="OnPlaylistDoubleTapped"
                     DragItemsCompleted="OnPlaylistDragCompleted"
                     ItemsSource="{x:Bind Playlists}"
                     PointerExited="OnPlaylistPointerExited"
@@ -202,10 +205,14 @@
                     SelectionMode="Single">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="vm:PlaylistNavItem">
-                            <Grid Height="54" ColumnSpacing="12">
+                            <Grid
+                                Height="54"
+                                Background="{StaticResource ResonateTransparentBrush}"
+                                ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="40" />
                                     <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <Grid
                                     Width="40"
@@ -218,9 +225,22 @@
                                     Grid.Column="1"
                                     VerticalAlignment="Center"
                                     Spacing="1">
-                                    <TextBlock Style="{StaticResource ResonateBodyTextStyle}" Text="{x:Bind Name}" />
+                                    <TextBlock
+                                        Foreground="{x:Bind NameBrush, Mode=OneWay}"
+                                        Style="{StaticResource ResonateBodyTextStyle}"
+                                        Text="{x:Bind Name}" />
                                     <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="{x:Bind Details}" />
                                 </StackPanel>
+                                <FontIcon
+                                    Grid.Column="2"
+                                    Margin="0,0,6,0"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.Name="Playing"
+                                    FontFamily="{StaticResource ResonateIconFont}"
+                                    FontSize="14"
+                                    Foreground="{StaticResource ResonateAccentBrush}"
+                                    Glyph="&#xE767;"
+                                    Visibility="{x:Bind SpeakerVisibility, Mode=OneWay}" />
                             </Grid>
                         </DataTemplate>
                     </ListView.ItemTemplate>

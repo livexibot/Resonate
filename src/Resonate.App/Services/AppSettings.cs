@@ -89,6 +89,9 @@ public sealed class AppSettings
     /// <summary>The queue pane's width as the user dragged it; null for the usual width.</summary>
     public double? QueueWidth { get; set; }
 
+    /// <summary>Where the window was left; null to open it centred.</summary>
+    public WindowPlacement? Window { get; set; }
+
     /// <summary>The time range of "Your top on Spotify" on Home.</summary>
     public Resonate.Spotify.WebApi.TopRange HomeTopRange { get; set; } = Resonate.Spotify.WebApi.TopRange.ShortTerm;
 
@@ -106,6 +109,23 @@ public sealed class AppSettings
         Enum.TryParse<Resonate.Spotify.Library.PlaylistSortMode>(PlaylistSort, ignoreCase: true, out var mode)
             ? mode
             : Resonate.Spotify.Library.PlaylistSortMode.Spotify;
+}
+
+/// <summary>
+/// The window's size and place on the screen (in pixels, as Windows counts
+/// them) when it was last not maximised, and whether it was maximised.
+/// </summary>
+public sealed record WindowPlacement
+{
+    public int X { get; init; }
+
+    public int Y { get; init; }
+
+    public int Width { get; init; }
+
+    public int Height { get; init; }
+
+    public bool Maximized { get; init; }
 }
 
 [JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]

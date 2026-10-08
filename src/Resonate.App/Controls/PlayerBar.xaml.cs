@@ -500,6 +500,20 @@ public sealed partial class PlayerBar : UserControl
 
     private void OnQueueClick(object sender, RoutedEventArgs e) => QueueRequested?.Invoke(this, EventArgs.Empty);
 
+    // The song's title opens what it plays from; underlined under the pointer when it can.
+    private void OnTitleTapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e) => App.MainWindow?.OpenNowPlaying();
+
+    private void OnTitlePointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (App.MainWindow?.CanOpenNowPlaying(_shown) == true)
+        {
+            TitleText.TextDecorations = global::Windows.UI.Text.TextDecorations.Underline;
+        }
+    }
+
+    private void OnTitlePointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e) =>
+        TitleText.TextDecorations = global::Windows.UI.Text.TextDecorations.None;
+
     private void OnLikeClick(object sender, RoutedEventArgs e)
     {
         if (_shown.TrackUri is not { } uri)
