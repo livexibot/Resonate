@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/livexibot/Resonate/compare/v0.4.0...v0.5.0) (2026-10-08)
+
+
+### New features
+
+* resizable sidebar, faster covers, local song fixes and a true Web API only mode ([#20](https://github.com/livexibot/Resonate/issues/20)) ([7142033](https://github.com/livexibot/Resonate/commit/71420335b33a29141e13f7cf7eeca22fe7676321))
+
 ## [0.4.0](https://github.com/livexibot/Resonate/compare/v0.3.0...v0.4.0) (2026-10-07)
 
 
