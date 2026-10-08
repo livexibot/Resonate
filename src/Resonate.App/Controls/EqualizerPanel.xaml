@@ -13,11 +13,6 @@
 
     <controls:SettingsGroup x:Name="Group" Header="Equalizer">
         <StackPanel Spacing="12">
-            <TextBlock
-                Style="{StaticResource ResonateSecondaryTextStyle}"
-                Text="For Spotify and Local Files. Double-click a slider to reset it."
-                TextWrapping="Wrap" />
-
             <InfoBar
                 x:Name="LosslessWarning"
                 Title="Spotify is not set to Lossless"

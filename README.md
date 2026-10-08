@@ -3,12 +3,13 @@
 A fast, modern Windows interface for Spotify, with themes and smooth
 animations, that keeps Spotify's own lossless playback.
 
-> **Status: early versions in testing.** Home with listening stats, your
-> top artists and songs on Spotify and daily mixes, the library,
-> playlists, search, Local Files, DJ, sorting, truly random shuffle,
-> repeat, the queue, the equalizer, themes, a Winamp player,
-> optional plugins and automatic updates are built. It has not been tried with a real Spotify account yet.
-> The plan is in [CLAUDE.md](CLAUDE.md).
+> **Status: early versions in testing.** Home with the playing song on
+> stage, listening stats, your top artists and songs on Spotify and daily
+> mixes, the library, playlists, search, synced lyrics, Local Files, DJ,
+> sorting, truly random shuffle, repeat, the queue, the equalizer, themes,
+> a Winamp player, optional plugins and automatic updates are built. It
+> has not been tried with a real Spotify account yet. The plan is in
+> [CLAUDE.md](CLAUDE.md).
 
 ## Why
 
@@ -19,19 +20,19 @@ you theme every part of it.
 
 ## Themes
 
-Ten looks to start from (Midnight, Daylight, Liquid Glass, Pure Black,
-Synthwave, Paper, Fluent, Studio, Bubblegum and Terminal), and a customizer
-for everything: colours, light or dark, the backdrop, corners, shadows,
+Fourteen looks to start from, in three groups: Dark (Midnight, Liquid
+Glass, Ember, Fluent, Studio, Synthwave), Light (Daylight, Paper, Sage,
+Bubblegum) and OLED (Black, Aurora, Pure Black, Terminal). A customizer
+covers everything: colours, light or dark, the backdrop, corners, shadows,
 fonts (Windows' own plus 18 open-licence fonts that come with Resonate),
-and how the player, its progress bar and buttons look. The player can sit
-docked or floating along the bottom or the top, hover as a centred pill
-over the page, or sit as a mini bar in the page's corner, and the sidebar
-can run the window's full height. Save your own looks, share them as text,
-delete the ones you no longer want, and pick how switching animates: a
-morph, a cross-fade, a spread from the middle, a ripple from the click and
-more, each eased over one to two seconds and always played to the end. Liquid
-Glass puts the playing song's cover, blurred, behind the window, and if you
-like, the cover can spin like a record; both are switches in Settings.
+and how the player, its progress bar and buttons look. The player sits
+at the top, bottom, left or right of the page, docked, inset or floating
+over it, with its own size and offset if you like, and the sidebar can
+run the window's full height. Save your own looks, share them as text,
+and delete the ones you no longer want; switching looks ripples out from
+the click. Liquid Glass puts the playing song's cover, blurred, behind the
+window, and if you like, the cover can spin like a record; both are
+switches in Settings.
 App size makes everything in the window larger or smaller (Ctrl+Plus and
 Ctrl+Minus too), and Text size makes just the text larger.
 
@@ -49,10 +50,13 @@ Winamp's equalizer and playlist windows docked under the player, at 1x to
 
 ## Plugins
 
-Optional extras that are downloaded only when you turn them on in Settings,
-and deleted when you turn them off: a sleep timer that fades out, and skip
-rules for artists, versions (live, remix, sped up) or lengths you never
-want to hear. See [docs/plugins.md](docs/plugins.md).
+Optional extras, off until you turn them on in Settings, Plugins. Built
+in: an away screen, Rediscover on Home, an editable Up next, artist
+orbits, smart playlists, window shapes, a summon bar and a signal path
+badge. Downloaded only when turned on, and deleted when turned off: a
+sleep timer that fades out, and skip rules for artists, versions (live,
+remix, sped up) or lengths you never want to hear. See
+[docs/plugins.md](docs/plugins.md).
 
 ## How it works
 

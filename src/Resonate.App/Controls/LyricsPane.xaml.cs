@@ -96,6 +96,22 @@ public sealed partial class LyricsPane : UserControl
             }
         };
 
+        // Text size reaches the lines too, which are sized in code.
+        App.Services.Theme.SizeChanged += (_, _) =>
+        {
+            var size = LineFontSize * App.Services.Theme.TextScale;
+            foreach (var line in _lines)
+            {
+                line.FontSize = size;
+            }
+
+            if (_lines.Count > 0)
+            {
+                LinesPanel.UpdateLayout();
+                Follow(animate: false);
+            }
+        };
+
         // Room under the last line, so it too can rise to where the sung line sits.
         LinesScroller.SizeChanged += (_, e) =>
         {
@@ -341,12 +357,13 @@ public sealed partial class LyricsPane : UserControl
 
         var style = (Style)Application.Current.Resources["ResonateSectionTextStyle"];
         var animate = App.Services.Theme.AnimationsEnabled;
+        var fontSize = LineFontSize * App.Services.Theme.TextScale;
         foreach (var line in lyrics.Lines)
         {
             var block = new TextBlock
             {
                 Style = style,
-                FontSize = LineFontSize,
+                FontSize = fontSize,
                 TextWrapping = TextWrapping.Wrap,
                 TextTrimming = TextTrimming.None,
 

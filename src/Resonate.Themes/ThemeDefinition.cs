@@ -164,6 +164,13 @@ public sealed record ThemeDefinition
     public const int MaxNameLength = 40;
     public const int MaxFontLength = 100;
 
+    // The player's own size and offset, as Settings, Layout, Advanced allows them.
+    public const double MinPlayerWidth = 200;
+    public const double MaxPlayerWidth = 4000;
+    public const double MinPlayerHeight = 48;
+    public const double MaxPlayerHeight = 400;
+    public const double MaxPlayerOffset = 4000;
+
     public const string DefaultDisplayFont = "Segoe UI Variable Display";
     public const string DefaultTextFont = "Segoe UI Variable Text";
 
@@ -272,6 +279,10 @@ public sealed record ThemeDefinition
         CornerRadius = Clamp(CornerRadius, 0, MaxCornerRadius, 12),
         BorderWidth = Clamp(BorderWidth, 0, MaxBorderWidth, 0),
         PanelGap = Clamp(PanelGap, 0, MaxPanelGap, 8),
+        PlayerWidth = ClampOrNull(PlayerWidth, MinPlayerWidth, MaxPlayerWidth),
+        PlayerHeight = ClampOrNull(PlayerHeight, MinPlayerHeight, MaxPlayerHeight),
+        PlayerOffsetX = ClampOrNull(PlayerOffsetX, -MaxPlayerOffset, MaxPlayerOffset),
+        PlayerOffsetY = ClampOrNull(PlayerOffsetY, -MaxPlayerOffset, MaxPlayerOffset),
         DisplayFont = string.IsNullOrWhiteSpace(DisplayFont) ? DefaultDisplayFont : Clean(DisplayFont, MaxFontLength),
         TextFont = string.IsNullOrWhiteSpace(TextFont) ? DefaultTextFont : Clean(TextFont, MaxFontLength),
         Backdrop = Enum.IsDefined(Backdrop) ? Backdrop : WindowBackdrop.Solid,
@@ -342,6 +353,9 @@ public sealed record ThemeDefinition
 
     private static double Clamp(double value, double min, double max, double fallback) =>
         double.IsFinite(value) ? Math.Clamp(value, min, max) : fallback;
+
+    private static double? ClampOrNull(double? value, double min, double max) =>
+        value is { } v && double.IsFinite(v) ? Math.Clamp(v, min, max) : null;
 
     private static string Clean(string text, int maxLength)
     {

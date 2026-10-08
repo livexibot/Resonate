@@ -162,7 +162,7 @@ public sealed partial class PlayerBar
         }
     }
 
-    /// <summary>The verdict, a sentence about it, the chain from the music to the output, and the caveat.</summary>
+    /// <summary>The verdict, a sentence about it, and the chain from the music to the output, at the user's Text size.</summary>
     private void FillSignalFlyout(SignalReport report)
     {
         if (_signalFlyout is null)
@@ -170,30 +170,31 @@ public sealed partial class PlayerBar
             return;
         }
 
-        var panel = new StackPanel { Width = 340, Spacing = 12 };
+        var text = App.Services.Theme.TextScale;
+        var panel = new StackPanel { Width = 340 * text, Spacing = 12 };
         var heading = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
         heading.Children.Add(Dot(VerdictColor(report.Verdict), 10));
-        heading.Children.Add(new TextBlock { Text = report.Title, FontSize = 16, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center });
+        heading.Children.Add(new TextBlock { Text = report.Title, FontSize = 16 * text, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center });
         panel.Children.Add(heading);
-        panel.Children.Add(new TextBlock { Text = report.Summary, TextWrapping = TextWrapping.Wrap, Opacity = 0.8 });
+        panel.Children.Add(new TextBlock { Text = report.Summary, FontSize = 14 * text, TextWrapping = TextWrapping.Wrap, Opacity = 0.8 });
 
         if (report.Steps.Count > 0)
         {
             var chain = new StackPanel { Spacing = 2 };
             foreach (var step in report.Steps)
             {
-                chain.Children.Add(StepRow(step));
+                chain.Children.Add(StepRow(step, text));
             }
 
             panel.Children.Add(chain);
         }
 
-        panel.Children.Add(new TextBlock { Text = SignalPath.Disclaimer, FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.6 });
         _signalFlyout.Content = panel;
     }
 
     /// <summary>One step: its dot, name and value; when it needs attention, a soft glow, a tip and a button.</summary>
-    private Grid StepRow(SignalStep step)
+    /// <param name="textScale">Text size, as a factor.</param>
+    private Grid StepRow(SignalStep step, double textScale)
     {
         var color = StateColor(step.State);
         var attention = step.State is SignalStepState.Adjusted or SignalStepState.Problem;
@@ -214,16 +215,16 @@ public sealed partial class PlayerBar
 
         var text = new StackPanel { Spacing = 2 };
         Grid.SetColumn(text, 1);
-        text.Children.Add(new TextBlock { Text = step.Name, FontSize = 12, Opacity = 0.7 });
-        text.Children.Add(new TextBlock { Text = step.Value, TextWrapping = TextWrapping.Wrap });
+        text.Children.Add(new TextBlock { Text = step.Name, FontSize = 12 * textScale, Opacity = 0.7 });
+        text.Children.Add(new TextBlock { Text = step.Value, FontSize = 14 * textScale, TextWrapping = TextWrapping.Wrap });
         if (step.State != SignalStepState.Good)
         {
             if (step.Tip is { } tip)
             {
-                text.Children.Add(new TextBlock { Text = tip, FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.85 });
+                text.Children.Add(new TextBlock { Text = tip, FontSize = 12 * textScale, TextWrapping = TextWrapping.Wrap, Opacity = 0.85 });
             }
 
-            if (FixButton(step.Fix) is { } fix)
+            if (FixButton(step.Fix, textScale) is { } fix)
             {
                 text.Children.Add(fix);
             }
@@ -234,7 +235,7 @@ public sealed partial class PlayerBar
     }
 
     /// <summary>A link to where the step is fixed: Spotify's settings, Resonate's equalizer, or Windows' sound settings.</summary>
-    private HyperlinkButton? FixButton(SignalFix fix)
+    private HyperlinkButton? FixButton(SignalFix fix, double textScale)
     {
         (string Text, Action Open)? link = fix switch
         {
@@ -249,7 +250,7 @@ public sealed partial class PlayerBar
             return null;
         }
 
-        var button = new HyperlinkButton { Content = chosen.Text, FontSize = 12, Padding = new Thickness(0), Margin = new Thickness(0, 2, 0, 0) };
+        var button = new HyperlinkButton { Content = chosen.Text, FontSize = 12 * textScale, Padding = new Thickness(0), Margin = new Thickness(0, 2, 0, 0) };
         button.Click += (_, _) =>
         {
             _signalFlyout?.Hide();
