@@ -199,7 +199,6 @@ internal sealed partial class NowPlayingStage : Grid
         _screenTimer = DispatcherQueue.GetForCurrentThread().CreateTimer();
         _screenTimer.Interval = ScreenCheck;
         _screenTimer.IsRepeating = true;
-        _screenTimer.Tick += (_, _) => CheckScreen();
 
         // The last cover's colours, so the very first frame is already in them.
         if (services.Settings.HomeStageColours is { Count: > 0 } saved)
@@ -279,6 +278,9 @@ internal sealed partial class NowPlayingStage : Grid
         }
 
         _attached = true;
+
+        // The timer's handler only while shown: one left on it keeps the stage, and the page around it, in memory.
+        _screenTimer.Tick += OnScreenTick;
         _services.Player.StateChanged += OnPlayerChanged;
         _services.Player.QueueChanged += OnQueueChanged;
         _services.Theme.Changed += OnThemeChanged;
@@ -313,6 +315,7 @@ internal sealed partial class NowPlayingStage : Grid
         }
 
         _screenTimer.Stop();
+        _screenTimer.Tick -= OnScreenTick;
         _colourLoading?.Cancel();
         _upNextLoading?.Cancel();
         _colourKey = null;
@@ -821,6 +824,8 @@ internal sealed partial class NowPlayingStage : Grid
             ShowUpNext(_services.Player.State);
         }
     }
+
+    private void OnScreenTick(DispatcherQueueTimer sender, object args) => CheckScreen();
 
     private void CheckScreen()
     {

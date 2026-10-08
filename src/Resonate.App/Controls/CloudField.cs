@@ -94,16 +94,25 @@ internal sealed partial class CloudField : Grid
         _resize = DispatcherQueue.GetForCurrentThread().CreateTimer();
         _resize.Interval = TimeSpan.FromMilliseconds(150);
         _resize.IsRepeating = false;
-        _resize.Tick += (_, _) => Build();
         SizeChanged += OnSizeChanged;
+
+        // The timer's handler only while shown: one left on it keeps the field, and the page around it, in memory.
         Unloaded += (_, _) =>
         {
             _resize.Stop();
+            _resize.Tick -= OnResizeTick;
             StopDrift();
             _builtFor = default;
         };
-        Loaded += (_, _) => Build();
+        Loaded += (_, _) =>
+        {
+            _resize.Tick -= OnResizeTick;
+            _resize.Tick += OnResizeTick;
+            Build();
+        };
     }
+
+    private void OnResizeTick(DispatcherQueueTimer sender, object args) => Build();
 
     /// <summary>Why the cloud mask could not be loaded; null while it loads or once it has.</summary>
     public static string? MaskError { get; private set; }

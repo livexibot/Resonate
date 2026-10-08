@@ -99,7 +99,14 @@ internal sealed partial class PerformanceTour
             Checkpoint("measuring memory and idle use");
             _memory.Add(("After start", await SampleMemoryAsync()));
 
-            // Doing nothing should cost (almost) nothing, also while music plays.
+            // Home's stage moves with the music on purpose (drifting colours, the
+            // bars): measured, not limited. Doing nothing elsewhere should cost
+            // (almost) nothing, also while music plays.
+            await WithinAsync(player.PlayAsync());
+            await Task.Delay(1000);
+            await MeasureIdleAsync("Playing, Home stage");
+            _window.Open(MainWindow.SearchKey);
+            await Task.Delay(1000);
             await WithinAsync(player.PauseAsync());
             await Task.Delay(1000);
             await MeasureIdleAsync("Paused");
@@ -383,7 +390,7 @@ internal sealed partial class PerformanceTour
             double? limit = name switch
             {
                 "Playing" => PlayingCpuLimitPercent,
-                "Playing, Liquid Glass (moving cover)" => null,
+                "Playing, Liquid Glass (moving cover)" or "Playing, Home stage" => null,
                 _ => IdleCpuLimitPercent,
             };
 
