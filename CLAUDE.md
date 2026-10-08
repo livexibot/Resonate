@@ -13,12 +13,14 @@ visitors; keep it short and in step with this file.
 
 - The first milestone is built and merged (pull request #1, 7 October
   2026; see "First milestone"). Releases are published with x64 and arm64
-  installers (`Resonate-win-x64-Setup.exe`); the latest is v0.6.0
-  (8 October 2026: the classic player, Settings in a side pane, bundled
-  fonts, the hovering player, eased look switching and a livelier Home;
-  v0.5.0 brought the resizable sidebar, faster covers and the Web API
-  only mode, v0.4.0 "Your top on Spotify" and plugins, v0.3.0 the
-  feature update and themes).
+  installers (`Resonate-win-x64-Setup.exe`); the latest is v0.7.0
+  (8 October 2026: swiping the playing song to skip, Web API only closing
+  the Spotify app, the Winamp mini player, App size and Text size, and
+  ten built-in plugins with synced lyrics; v0.6.0 brought the classic
+  player, Settings in a side pane, bundled fonts, the hovering player,
+  eased look switching and a livelier Home, v0.5.0 the resizable
+  sidebar, faster covers and the Web API only mode, v0.4.0 "Your top on
+  Spotify" and plugins, v0.3.0 the feature update and themes).
   CI proves on every pull
   request that an installed copy can install and update. The Spotify logic is tested on Linux; the
   WinUI 3 app is only compiled, timed and photographed on GitHub's Windows
@@ -113,7 +115,13 @@ Building and testing:
   playing), a page still alive after leaving it, memory growing over
   10 MB in the last round (read on Search, which shows no pictures; read
   on Home it also counted memory given back once another page opened), a
-  warm start over 1 s, or a build warning.
+  warm start over 1 s, or a build warning. Memory is read on Search after
+  every step of every round, so the report's growth table and the error
+  name the step that keeps memory. Single steps swing by up to 10 MB as
+  memory comes back a step or two later, so judge a round's total. Open
+  (8 October 2026, pull request #32): rounds still grow 3 to 5 MB, about
+  4 MB each time the queue opens and closes and each time Settings does
+  (all native; no page stays alive). Not yet explained.
   GitHub's machines draw without a graphics card, so judge drawing cost
   on a real PC. WinUI lets go of a closed page only on a later frame, and
   an idle window draws none, so the test asks for frames between
@@ -1101,6 +1109,8 @@ when the work first needs them, then tick them off here.
 - [x] Delete the leftover branches and tag from the reset.
 - [ ] Settings, General, Pull Requests: allow squash merging only, and turn
   on "Automatically delete head branches".
+- [ ] Settings, General, Features: tick "Issues". It was off on 8 October
+  2026, so follow-ups are noted in this file until it is on.
 - [x] Settings, Actions, General, Workflow permissions: "Read and write
   permissions" and "Allow GitHub Actions to create and approve pull
   requests" (release-please needs both). Done 7 October 2026.
