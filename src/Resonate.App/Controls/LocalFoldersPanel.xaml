@@ -10,7 +10,7 @@
         <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Local Files" />
         <TextBlock
             Style="{StaticResource ResonateSecondaryTextStyle}"
-            Text="Music files in these folders and the folders inside them:"
+            Text="Your music files in these folders:"
             TextWrapping="Wrap" />
 
         <ItemsControl ItemsSource="{x:Bind Folders}">
@@ -77,12 +77,5 @@
             x:Name="StatusText"
             Style="{StaticResource ResonateCaptionTextStyle}"
             TextWrapping="Wrap" />
-
-        <ToggleSwitch
-            x:Name="SidebarSwitch"
-            Header="Show Local Files in the sidebar"
-            OffContent="Off"
-            OnContent="On"
-            Toggled="OnSidebarToggled" />
     </StackPanel>
 </UserControl>

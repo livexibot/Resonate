@@ -582,7 +582,7 @@ Classic player and cover art (checked 2026-10-08):
   `IMemoryBufferByteAccess` is called through the raw COM vtable, which
   works under Native AOT. For Spotify songs it stays still: Resonate cannot
   see Spotify's audio and must not capture it (see the hard rules).
-- Cover art switches (Settings, Look, Cover art) are global, not part of a
+- Cover art switches (Settings, Themes, Effects) are global, not part of a
   look. Spinning cover (off until the user turns it on): the playing
   cover is drawn round and turns once every 7 s while a song plays and the
   window shows (composition rotation, paused otherwise; still when Windows
@@ -709,7 +709,7 @@ Ripple, and a more interesting Home):
 
 Size (checked 2026-10-08; the owner asked for a setting to scale the whole
 app and make text bigger):
-- Settings, Look, Size has App size (80 to 200 %, also Ctrl+Plus, Ctrl+Minus
+- Settings, Layout, Size has App size (80 to 200 %, also Ctrl+Plus, Ctrl+Minus
   and Ctrl+0) and Text size (90 to 150 %). Both belong to the user, not to
   a look; the steps live in `Resonate.Themes/AppScale.cs` and are tested.
 - App size: `Controls/ScaleBox` lays out everything under the title bar at
@@ -1114,7 +1114,8 @@ Keep it obvious what is what:
 - `src/Resonate.App/` the WinUI 3 app: windows, pages, controls, the
   updater, demo mode, and the theme engine (`Themes/Tokens.xaml` holds every
   token, `ThemeService.cs` applies looks, `ThemeTransitions.cs` animates
-  switching, `Controls/ThemeStudio` is the Look section of Settings,
+  switching, `Controls/ThemeStudio` is the Themes tab of Settings and
+  `Controls/LayoutSettings` its Layout tab,
   `MainWindow.PlayerPlacement.cs` places the player, `MainWindow.AppSize.cs`
   and `Controls/ScaleBox.cs` apply App size), and
   the classic player (`Controls/ClassicPlayer`, its Settings section
@@ -1322,7 +1323,21 @@ when the work first needs them, then tick them off here.
   Setting descriptions stay short: the owner found them too wordy, for
   example the plugins' permission line, which is gone. A downloading
   update shows a progress bar with the size, speed and time left, in the
-  corner and in Settings, Updates (`UpdateProgress.cs`).
+  corner and in Settings, About (`UpdateProgress.cs`).
+- Decided (8 October 2026, the owner's request): the Settings button (a
+  gear) sits in the title bar at the top right, left of the mini player
+  button, instead of at the foot of the sidebar. Settings has five tabs
+  along its top (`SettingsTab`, the last one used is kept while Resonate
+  runs): Themes (looks, Customize, effects such as the switching animation
+  and cover art, the classic player), Layout (player position, which is
+  part of the look; sidebar reaching the bottom; which sidebar links and
+  title bar buttons show; App size and Text size), Plugins, Misc (playback
+  and the Spotify app, equalizer, Local Files) and About (updates, Spotify
+  account, help with the keyboard shortcuts, credits). Only the chosen
+  tab is laid out. Rows show a description only when it says something
+  the name does not, in a few words. Hidden sidebar links are kept in
+  `HiddenSidebarLinks` (Home always shows; Local Files keeps
+  `ShowLocalFiles`), the mini player button in `ShowMiniPlayerButton`.
 - Decided (8 October 2026, the owner's request): App size and Text size
   are the user's own, not part of a look; the title bar keeps Windows'
   size; Ctrl+Plus, Ctrl+Minus and Ctrl+0 change App size as in a browser.

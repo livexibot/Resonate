@@ -118,7 +118,7 @@ internal sealed class ScreenshotTour
             await Task.Delay(1500);
             await CaptureAsync("4-settings-look.png");
 
-            // Further down the same page (demo values; there are no Spotify settings to find in CI).
+            // The Misc tab, at the equalizer (demo values; there are no Spotify settings to find in CI).
             var settings = _window.SettingsPage;
             settings?.ShowSection(SettingsSection.Equalizer);
             await Task.Delay(800);
@@ -126,6 +126,22 @@ internal sealed class ScreenshotTour
 
             if (settings is not null)
             {
+                // The Layout tab, with Search and DJ hidden from the sidebar for a moment.
+                var hidden = App.Services.Settings.HiddenSidebarLinks;
+                List<string> before = [.. hidden];
+                hidden.AddRange([MainWindow.SearchKey, MainWindow.DjKey]);
+                _window.ShowSidebarLinks();
+                settings.ShowTab(SettingsTab.Layout);
+                await Task.Delay(800);
+                await CaptureAsync("4c-layout.png");
+                hidden.Clear();
+                hidden.AddRange(before);
+                _window.ShowSidebarLinks();
+
+                settings.ShowTab(SettingsTab.About);
+                await Task.Delay(600);
+                await CaptureAsync("4d-about.png");
+
                 settings.ShowCustomize();
                 await Task.Delay(600);
                 await CaptureAsync("5-customize.png");

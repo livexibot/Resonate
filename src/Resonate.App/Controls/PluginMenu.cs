@@ -54,7 +54,7 @@ internal static class PluginMenu
 
         menu.Items.Add(new MenuFlyoutSeparator());
         var settings = new MenuFlyoutItem { Text = "Plugin settings" };
-        settings.Click += (_, _) => App.MainWindow?.OpenSettings();
+        settings.Click += (_, _) => App.MainWindow?.OpenSettings(Pages.SettingsSection.Plugins);
         menu.Items.Add(settings);
         return menu;
     }

@@ -10,7 +10,7 @@ using Resonate.Plugins;
 namespace Resonate.App.Controls;
 
 /// <summary>
-/// The Plugins section of Settings: the plugins built into Resonate (see
+/// The Plugins tab of Settings: the plugins built into Resonate (see
 /// <see cref="BuiltInPlugins"/>), then every plugin this release offers to
 /// download, with a switch that downloads and starts it (or stops it and
 /// deletes its files), and its own settings, drawn from its plugin.json. Built in code, like the theme cards, so Native AOT never has
@@ -33,8 +33,8 @@ internal sealed partial class PluginsPanel : StackPanel
         _builtIns = services.BuiltIns;
         Spacing = 12;
 
+        // The tab above is called Plugins, so no heading here.
         var resources = Application.Current.Resources;
-        Children.Add(new TextBlock { Text = "Plugins", Style = (Style)resources["ResonateTitleTextStyle"] });
         Children.Add(new TextBlock
         {
             Text = "Optional extras, off until you turn them on.",

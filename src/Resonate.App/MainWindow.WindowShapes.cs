@@ -552,7 +552,7 @@ public sealed partial class MainWindow
 
     // ---- Picking a shape ----
 
-    /// <summary>A button in the title bar, beside the caption buttons, that picks a shape.</summary>
+    /// <summary>A button in the title bar, left of Settings and the mini player button, that picks a shape.</summary>
     private void AddShapeButton()
     {
         var menu = new MenuFlyout { Placement = FlyoutPlacementMode.BottomEdgeAlignedRight };
@@ -580,16 +580,12 @@ public sealed partial class MainWindow
             Height = 32,
             FontSize = 13,
             Content = "",
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center,
             Flyout = menu,
         };
         AutomationProperties.SetName(_shapeButton, "Window shape");
         ToolTipService.SetToolTip(_shapeButton, "Window shape");
         _shapeButton.SizeChanged += (_, _) => UpdateTitleBarPassthrough();
-        AppTitleBar.SizeChanged += OnShapeTitleBarSizeChanged;
-        AppTitleBar.Children.Add(_shapeButton);
-        PlaceShapeButton();
+        TitleBarButtons.Children.Insert(0, _shapeButton);
     }
 
     private void RemoveShapeButton()
@@ -599,27 +595,9 @@ public sealed partial class MainWindow
             return;
         }
 
-        AppTitleBar.SizeChanged -= OnShapeTitleBarSizeChanged;
-        AppTitleBar.Children.Remove(_shapeButton);
+        TitleBarButtons.Children.Remove(_shapeButton);
         _shapeButton = null;
         UpdateTitleBarPassthrough();
-    }
-
-    private void OnShapeTitleBarSizeChanged(object sender, SizeChangedEventArgs e) => PlaceShapeButton();
-
-    /// <summary>Just left of the caption buttons (whose width Windows reports in pixels) and of the mini player button.</summary>
-    private void PlaceShapeButton()
-    {
-        if (_shapeButton is not null)
-        {
-            var scale = GetDpiForWindow(Hwnd) / 96.0;
-            var miniPlayer = MiniPlayerButton.Visibility == Visibility.Visible ? MiniPlayerButton.Width + 4 : 0;
-            var margin = new Thickness(0, 0, (AppWindow.TitleBar.RightInset / scale) + 4 + miniPlayer, 0);
-            if (!_shapeButton.Margin.Equals(margin))
-            {
-                _shapeButton.Margin = margin;
-            }
-        }
     }
 
     /// <summary>Sizes the window for <paramref name="shape"/>; the shape follows once the size settles.</summary>

@@ -14,11 +14,12 @@ using Windows.Foundation;
 namespace Resonate.App.Controls;
 
 /// <summary>
-/// The Look section of Settings. Picking a card switches looks with the
+/// The Themes tab of Settings. Picking a card switches looks with the
 /// chosen animation; everything under Customize edits the look in use
 /// (a preset is copied first, so presets never change). Sliders and the
-/// colour picker apply continuously; choices animate briefly. The cover art
-/// switches are the user's own and apply to every look.
+/// colour picker apply continuously; choices animate briefly. The effects
+/// (switching animation, cover art) are the user's own and apply to every
+/// look. Where the player sits is under Layout (see LayoutSettings).
 /// </summary>
 public sealed partial class ThemeStudio : UserControl
 {
@@ -98,7 +99,6 @@ public sealed partial class ThemeStudio : UserControl
             [BackdropChoice] = (look, tag) => look with { Backdrop = Enum.Parse<WindowBackdrop>(tag) },
             [ButtonsChoice] = (look, tag) => look with { Buttons = Enum.Parse<ButtonShape>(tag) },
             [ShadowChoice] = (look, tag) => look with { Shadow = Enum.Parse<ShadowStyle>(tag) },
-            [LayoutChoice] = (look, tag) => look with { PlayerLayout = Enum.Parse<PlayerLayout>(tag) },
             [ProgressChoice] = (look, tag) => look with { Progress = Enum.Parse<ProgressStyle>(tag) },
             [PlayButtonChoice] = (look, tag) => look with { PlayButton = Enum.Parse<PlayButtonStyle>(tag) },
             [CoverChoice] = (look, tag) => look with { Cover = Enum.Parse<CoverStyle>(tag) },
@@ -143,16 +143,6 @@ public sealed partial class ThemeStudio : UserControl
         foreach (var preset in ThemePresets.All)
         {
             PresetGrid.Items.Add(Card(preset, PresetBlurbs.GetValueOrDefault(preset.Id, string.Empty), menu: null));
-        }
-
-        foreach (var size in AppScale.AppSizes)
-        {
-            AppSizeChoice.Items.Add(AppScale.Label(size));
-        }
-
-        foreach (var size in AppScale.TextSizes)
-        {
-            TextSizeChoice.Items.Add(AppScale.Label(size));
         }
 
         _looksTimer = DispatcherQueue.CreateTimer();
@@ -212,7 +202,6 @@ public sealed partial class ThemeStudio : UserControl
             Select(BackdropChoice, look.Backdrop.ToString());
             Select(ButtonsChoice, look.Buttons.ToString());
             Select(ShadowChoice, look.Shadow.ToString());
-            Select(LayoutChoice, look.PlayerLayout.ToString());
             Select(ProgressChoice, look.Progress.ToString());
             Select(PlayButtonChoice, look.PlayButton.ToString());
             Select(CoverChoice, look.Cover.ToString());
@@ -241,8 +230,8 @@ public sealed partial class ThemeStudio : UserControl
             ProgressPreview.BarStyle = look.Progress;
 
             CustomizeHint.Text = _theme.Library.ActiveIsPreset
-                ? $"Changing {look.Name} makes your own copy; the preset stays as it is."
-                : $"Editing {look.Name}. Changes are kept as you go.";
+                ? $"Changes make your own copy of {look.Name}."
+                : $"Editing {look.Name}.";
 
             SelectCard(PresetGrid);
             SelectCard(YourLooksGrid);
@@ -269,16 +258,12 @@ public sealed partial class ThemeStudio : UserControl
     {
         SpinningCoverSwitch.IsOn = _theme.SpinningCover;
         BlurredCoverSwitch.IsOn = _theme.BlurredCoverBackground;
-        SidebarFullHeightSwitch.IsOn = _theme.SidebarFullHeight;
-        AppSizeChoice.SelectedIndex = IndexOf(AppScale.AppSizes, _theme.AppSize);
-        TextSizeChoice.SelectedIndex = IndexOf(AppScale.TextSizes, _theme.TextSize);
 
         var hint = _blurredCoverSwitchedOn && _theme.BlurredCoverBackground && look.Backdrop != WindowBackdrop.Artwork;
         BlurredCoverHint.Visibility = hint ? Visibility.Visible : Visibility.Collapsed;
         if (hint)
         {
-            BlurredCoverHint.Text = $"{look.Name} has its own background, so there is no cover to blur. "
-                + $"{ThemePresets.Glass.Name} shows the song cover, or pick Song cover under Customize, Backdrop.";
+            BlurredCoverHint.Text = $"{look.Name} has its own background. Try {ThemePresets.Glass.Name}, or Song cover under Customize, Backdrop.";
         }
     }
 
@@ -519,45 +504,6 @@ public sealed partial class ThemeStudio : UserControl
             _blurredCoverSwitchedOn = BlurredCoverSwitch.IsOn;
             _theme.BlurredCoverBackground = BlurredCoverSwitch.IsOn;
         }
-    }
-
-    // Like the cover art switches, the layout switch belongs to the user, not to a look.
-    private void OnSidebarFullHeightToggled(object sender, RoutedEventArgs e)
-    {
-        if (!_loading)
-        {
-            _theme.SidebarFullHeight = SidebarFullHeightSwitch.IsOn;
-        }
-    }
-
-    // Like the layout switch, the sizes belong to the user, not to a look.
-    private void OnAppSizeChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (!_loading && AppSizeChoice.SelectedIndex >= 0)
-        {
-            _theme.AppSize = AppScale.AppSizes[AppSizeChoice.SelectedIndex];
-        }
-    }
-
-    private void OnTextSizeChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (!_loading && TextSizeChoice.SelectedIndex >= 0)
-        {
-            _theme.TextSize = AppScale.TextSizes[TextSizeChoice.SelectedIndex];
-        }
-    }
-
-    private static int IndexOf(IReadOnlyList<int> steps, int step)
-    {
-        for (var i = 0; i < steps.Count; i++)
-        {
-            if (steps[i] == step)
-            {
-                return i;
-            }
-        }
-
-        return -1;
     }
 
     private void OnFontChanged(object sender, SelectionChangedEventArgs e)

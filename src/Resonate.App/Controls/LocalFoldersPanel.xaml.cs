@@ -10,11 +10,10 @@ using Resonate.Spotify.LocalFiles;
 
 namespace Resonate.App.Controls;
 
-/// <summary>Settings, Local Files: which folders are looked in, adding and removing them, and the sidebar entry.</summary>
+/// <summary>Settings, Local Files: which folders are looked in, adding and removing them (the sidebar entry is under Layout).</summary>
 public sealed partial class LocalFoldersPanel : UserControl
 {
     private readonly LocalFilesService _localFiles = App.Services.LocalFiles;
-    private bool _loading;
     private int _statusQueued;
 
     public LocalFoldersPanel()
@@ -31,9 +30,6 @@ public sealed partial class LocalFoldersPanel : UserControl
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         ShowFolders();
-        _loading = true;
-        SidebarSwitch.IsOn = _localFiles.ShowInSidebar;
-        _loading = false;
         AddFolderButton.IsEnabled = !IsDemo;
         ShowStatus();
         _localFiles.Library.Changed += OnLibraryChanged;
@@ -135,14 +131,6 @@ public sealed partial class LocalFoldersPanel : UserControl
     {
         _localFiles.UseDefaultFolders();
         ShowFolders();
-    }
-
-    private void OnSidebarToggled(object sender, RoutedEventArgs e)
-    {
-        if (!_loading)
-        {
-            _localFiles.ShowInSidebar = SidebarSwitch.IsOn;
-        }
     }
 }
 
