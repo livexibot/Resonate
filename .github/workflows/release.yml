@@ -3,6 +3,11 @@
 # optional plugins and their helper, which the app downloads only when one
 # is turned on. Called by the Release workflow when a release is created;
 # can also be re-run for an existing tag from the Actions tab.
+#
+# Only for ordinary Windows PCs (x64), the owner's choice: no arm64 build
+# and no portable zip. A release holds the installer, the update packages
+# (full, and a small delta from the previous release), the update feed,
+# and the plugins with their helper.
 name: Build installer
 
 on:
@@ -28,19 +33,9 @@ env:
 
 jobs:
   build:
-    name: Installer (${{ matrix.rid }})
+    name: Installer (win-x64)
     runs-on: windows-latest
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      # One at a time: both add files to the same GitHub release.
-      max-parallel: 1
-      matrix:
-        include:
-          - rid: win-x64
-            platform: x64
-          - rid: win-arm64
-            platform: ARM64
     steps:
       - uses: actions/checkout@v7
         with:
@@ -62,19 +57,20 @@ jobs:
       - name: Publish and pack the plugins
         shell: pwsh
         run: |
-          dotnet publish src/Resonate.PluginHost/Resonate.PluginHost.csproj -c Release -r ${{ matrix.rid }} -p:Version=${{ steps.version.outputs.value }} -o plugin-host
+          dotnet publish src/Resonate.PluginHost/Resonate.PluginHost.csproj -c Release -r win-x64 -p:Version=${{ steps.version.outputs.value }} -o plugin-host
           if ($LASTEXITCODE -ne 0) { throw 'Publishing the plugin helper failed.' }
           $source = "https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/"
-          dotnet run --project tools/Resonate.PluginPack -c Release -- --plugins plugins --host plugin-host --runtime ${{ matrix.rid }} --source $source --out plugins-out
+          dotnet run --project tools/Resonate.PluginPack -c Release -- --plugins plugins --host plugin-host --runtime win-x64 --source $source --out plugins-out
           if ($LASTEXITCODE -ne 0) { throw 'Packing the plugins failed.' }
 
       - name: Publish (Native AOT)
-        run: dotnet publish src/Resonate.App/Resonate.App.csproj -c Release -r ${{ matrix.rid }} -p:Platform=${{ matrix.platform }} -p:Version=${{ steps.version.outputs.value }} "-p:PluginCatalog=${{ github.workspace }}/plugins-out/plugin-catalog.json" -o publish
+        run: dotnet publish src/Resonate.App/Resonate.App.csproj -c Release -r win-x64 -p:Platform=x64 -p:Version=${{ steps.version.outputs.value }} "-p:PluginCatalog=${{ github.workspace }}/plugins-out/plugin-catalog.json" -o publish
 
       # Before the update feed, so an updated copy never looks for plugins
-      # that are not there yet. Both processors pack the same plugin files
-      # byte for byte (fixed dates, no compression), so the second run finds
-      # them there already and checks they match instead of replacing them.
+      # that are not there yet. Plugins are packed byte for byte the same
+      # every time (fixed dates, no compression), so a re-run for the same
+      # tag finds them there already and checks they match instead of
+      # replacing them.
       - name: Attach the plugins
         shell: pwsh
         env:
@@ -105,6 +101,6 @@ jobs:
           dotnet tool install -g vpk --version $env:VPK_VERSION
           $repo = "https://github.com/${{ github.repository }}"
           # The previous release lets Velopack build a small delta update.
-          vpk download github --repoUrl $repo --channel ${{ matrix.rid }} --token $env:GH_TOKEN
-          vpk pack --packId Resonate --packVersion ${{ steps.version.outputs.value }} --packDir publish --mainExe Resonate.exe --packTitle Resonate --packAuthors livexibot --icon src/Resonate.App/Assets/Resonate.ico --runtime ${{ matrix.rid }} --channel ${{ matrix.rid }}
-          vpk upload github --repoUrl $repo --channel ${{ matrix.rid }} --tag ${{ inputs.tag }} --merge --publish --token $env:GH_TOKEN
+          vpk download github --repoUrl $repo --channel win-x64 --token $env:GH_TOKEN
+          vpk pack --packId Resonate --packVersion ${{ steps.version.outputs.value }} --packDir publish --mainExe Resonate.exe --packTitle Resonate --packAuthors livexibot --icon src/Resonate.App/Assets/Resonate.ico --runtime win-x64 --channel win-x64 --noPortable
+          vpk upload github --repoUrl $repo --channel win-x64 --tag ${{ inputs.tag }} --merge --publish --token $env:GH_TOKEN
