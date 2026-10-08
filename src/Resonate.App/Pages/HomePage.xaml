@@ -401,11 +401,20 @@
                         BorderBrush="{StaticResource ResonateBorderBrush}"
                         BorderThickness="1"
                         CornerRadius="{ThemeResource ResonateCornerLarge}">
-                        <Image
+                        <!-- A brush, not an Image: an Image would make the card as tall as the square picture. -->
+                        <Border
                             x:Name="HeroWash"
-                            Opacity="0"
-                            Stretch="UniformToFill" />
-                        <Border x:Name="HeroScrim" IsHitTestVisible="False" />
+                            CornerRadius="{ThemeResource ResonateCornerLarge}"
+                            IsHitTestVisible="False"
+                            Opacity="0">
+                            <Border.Background>
+                                <ImageBrush x:Name="HeroWashBrush" Stretch="UniformToFill" />
+                            </Border.Background>
+                        </Border>
+                        <Border
+                            x:Name="HeroScrim"
+                            CornerRadius="{ThemeResource ResonateCornerLarge}"
+                            IsHitTestVisible="False" />
                         <Grid
                             x:Name="HeroContent"
                             Padding="32,26,26,26"

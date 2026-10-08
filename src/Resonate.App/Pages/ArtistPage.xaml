@@ -32,17 +32,23 @@
     <Grid>
         <ScrollViewer>
             <StackPanel Padding="{StaticResource ResonatePagePadding}" Spacing="{StaticResource ResonateSectionSpacing}">
-                <Grid ColumnSpacing="28">
+                <!-- The buttons have a row of their own under the picture, as on a playlist, so they fit a narrow window. -->
+                <Grid ColumnSpacing="28" RowSpacing="24">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="232" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
                     <!--
                       The picture's colour, fading towards the releases (Helpers/CoverHero.cs).
                       It reaches past the page's padding to the panel's edges.
                     -->
                     <Border
                         x:Name="Hero"
+                        Grid.RowSpan="2"
                         Grid.ColumnSpan="2"
                         Margin="-32,-32,-32,-36"
                         CornerRadius="{ThemeResource ResonateCornerLarge}"
@@ -72,28 +78,29 @@
                             x:Name="GenresText"
                             Style="{StaticResource ResonateCaptionTextStyle}"
                             Visibility="Collapsed" />
-                        <StackPanel
-                            Margin="0,10,0,0"
-                            Orientation="Horizontal"
-                            Spacing="12">
-                            <Button Click="OnPlayClick" Style="{StaticResource ResonateAccentButtonStyle}">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon
-                                        FontFamily="{StaticResource ResonateIconFont}"
-                                        FontSize="14"
-                                        Glyph="&#xF5B0;" />
-                                    <TextBlock Text="Play" />
-                                </StackPanel>
-                            </Button>
-                            <Button
-                                Click="OnLikedSongsClick"
-                                Content="Liked songs by this artist"
-                                Style="{StaticResource ResonateSubtleButtonStyle}" />
-                            <Button
-                                Click="OnOpenInSpotifyClick"
-                                Content="Open in Spotify"
-                                Style="{StaticResource ResonateSubtleButtonStyle}" />
-                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel
+                        Grid.Row="1"
+                        Grid.ColumnSpan="2"
+                        Orientation="Horizontal"
+                        Spacing="12">
+                        <Button Click="OnPlayClick" Style="{StaticResource ResonateAccentButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon
+                                    FontFamily="{StaticResource ResonateIconFont}"
+                                    FontSize="14"
+                                    Glyph="&#xF5B0;" />
+                                <TextBlock Text="Play" />
+                            </StackPanel>
+                        </Button>
+                        <Button
+                            Click="OnLikedSongsClick"
+                            Content="Liked songs by this artist"
+                            Style="{StaticResource ResonateSubtleButtonStyle}" />
+                        <Button
+                            Click="OnOpenInSpotifyClick"
+                            Content="Open in Spotify"
+                            Style="{StaticResource ResonateSubtleButtonStyle}" />
                     </StackPanel>
                 </Grid>
 

@@ -627,7 +627,7 @@ public sealed partial class HomePage : Page
         }
 
         _shownWash = wash;
-        HeroWash.Source = wash;
+        HeroWashBrush.ImageSource = wash;
         HeroWash.Opacity = 1;
     }
 
