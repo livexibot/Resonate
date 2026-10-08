@@ -9,8 +9,9 @@ namespace Resonate.App.Controls;
 /// <summary>
 /// The devices button, shown with "Spotify Web API only": Resonate then
 /// closes the Spotify app on this computer and plays on a Spotify Connect
-/// device (a phone, a speaker, the web player, or a Spotify the user opened
-/// again), and this is where the user picks it, as in Spotify's own apps.
+/// device (its own player on this PC, "Resonate", a phone, a speaker, the
+/// web player, or a Spotify the user opened again), and this is where the
+/// user picks it, as in Spotify's own apps.
 /// </summary>
 public sealed partial class PlayerBar
 {

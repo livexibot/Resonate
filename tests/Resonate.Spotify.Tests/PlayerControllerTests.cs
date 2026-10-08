@@ -424,6 +424,26 @@ public sealed class PlayerControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task Web_API_only_starts_music_on_Resonates_own_player()
+    {
+        _web.Devices.Insert(0, new Device { Id = "phone", Name = "Phone", Type = "Smartphone" });
+        var page = new FakeWebPlayerPage();
+        using var own = new OwnPlayer(() => page, new FakeTokens(), time: _time);
+        using var player = new PlayerController(
+            _local, _local, _web, new LocalDeviceResolver(_web, "MY-PC", _time), time: _time, webDevices: new WebDeviceResolver(_web, "MY-PC", own));
+        player.Channel = ControlChannel.WebApi;
+        await player.StartAsync(TestContext.Current.CancellationToken);
+        await own.StartAsync();
+
+        var playing = player.PlayTrackAsync(SongB, "spotify:playlist:p1");
+        Assert.DoesNotContain(_web.Commands, c => c.StartsWith("play", StringComparison.Ordinal));
+        page.Say("""{"type":"ready","deviceId":"own"}""");
+        await playing;
+
+        Assert.Equal(["play@own"], _web.Commands);
+    }
+
+    [Fact]
     public async Task Web_API_only_starts_music_on_this_computer_when_Spotify_lists_it()
     {
         _web.Devices.Insert(0, new Device { Id = "phone", Name = "Phone", Type = "Smartphone" });

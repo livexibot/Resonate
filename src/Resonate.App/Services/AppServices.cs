@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.UI.Dispatching;
 using Resonate.App.Demo;
 using Resonate.App.Themes;
 using Resonate.Plugins;
@@ -18,6 +19,7 @@ namespace Resonate.App.Services;
 public sealed class AppServices : IDisposable
 {
     private readonly List<IDisposable> _owned = [];
+    private bool _ownPlayerAllowed;
 
     private AppServices(
         bool isDemo,
@@ -33,7 +35,8 @@ public sealed class AppServices : IDisposable
         HttpClient http,
         CoverStore? covers,
         LocalFilesService localFiles,
-        PluginManager plugins)
+        PluginManager plugins,
+        OwnPlayer? ownPlayer = null)
     {
         IsDemo = isDemo;
         SettingsStore = settingsStore;
@@ -77,6 +80,16 @@ public sealed class AppServices : IDisposable
         LocalFiles = localFiles;
         ConnectLocalPlayer();
 
+        OwnPlayer = ownPlayer;
+        if (ownPlayer is not null)
+        {
+            // Before the sign-in and the HTTP client: Spotify's player says goodbye first.
+            _owned.Add(ownPlayer);
+
+            // Its song or play state changed: the interface asks Spotify at once.
+            ownPlayer.PlaybackChanged += (_, _) => player.Spotify.RefreshSoon();
+        }
+
         // Demo mode has no Spotify settings to find, and nothing to restart.
         Equalizer = new EqualizerService(this, isDemo ? [] : SpotifyAppLauncher.SettingsFolders(), launcher as ISpotifyAppRestarter);
         _owned.Add(Equalizer);
@@ -118,6 +131,15 @@ public sealed class AppServices : IDisposable
     /// otherwise never starts, hides, reads or restarts it.
     /// </summary>
     public bool UsesSpotifyApp => Player.Spotify.Channel == ControlChannel.Local;
+
+    /// <summary>
+    /// Resonate's own player for "Spotify Web API only": Spotify's web player
+    /// (the Web Playback SDK) in a page nobody sees, so music plays on this
+    /// PC with the Spotify app closed, at the web player's quality. It runs
+    /// only in that mode, with "Play on this PC" on and someone signed in
+    /// (<see cref="FollowOwnPlayer"/>). Null in demo mode.
+    /// </summary>
+    public OwnPlayer? OwnPlayer { get; }
 
     /// <summary>Raised on the interface thread after <see cref="SetControlChannel"/> switched.</summary>
     public event EventHandler? ControlChannelChanged;
@@ -190,12 +212,20 @@ public sealed class AppServices : IDisposable
         var smtc = new SmtcMediaChannel();
         var background = new SpotifyBackground();
         var launcher = new SpotifyAppLauncher(background);
+
+        // "Spotify Web API only" plays on this PC through Spotify's web player, hidden (see OwnPlayer).
+        var interfaceThread = DispatcherQueue.GetForCurrentThread();
+        var ownPlayer = new OwnPlayer(
+            () => new WebPlayerPage(interfaceThread, AppPaths.WebPlayerFolder),
+            account,
+            canPlay: () => !account.MissingScopes.Contains(SpotifyAuthOptions.StreamingScope));
         var spotify = new PlayerController(
             smtc,
             new SpotifyMixerVolume(),
             api,
             new LocalDeviceResolver(api, Environment.MachineName),
-            launcher);
+            launcher,
+            webDevices: new WebDeviceResolver(api, Environment.MachineName, ownPlayer));
         var localControls = new LocalMediaControls();
         var local = new LocalPlayer(new AudioGraphEngine(), localControls);
         var player = new PlayerRouter(spotify, local);
@@ -217,7 +247,7 @@ public sealed class AppServices : IDisposable
             pluginPlayer);
 
         var covers = new CoverStore(http, Path.Combine(AppPaths.CacheFolder, "covers"));
-        var services = new AppServices(false, settingsStore, settings, account, api, library, home, player, launcher, background, http, covers, localFiles, plugins);
+        var services = new AppServices(false, settingsStore, settings, account, api, library, home, player, launcher, background, http, covers, localFiles, plugins, ownPlayer);
         services._owned.AddRange([pluginPlayer, player, spotify, local, localFiles, home, library, smtc, launcher, background, account, http]);
 
         // At once, so a Spotify already on the taskbar (started with Windows) disappears from it.
@@ -307,8 +337,59 @@ public sealed class AppServices : IDisposable
         SaveSettings();
         Player.Spotify.Channel = channel;
         Equalizer.OnChannelChanged();
+        FollowOwnPlayer();
         ControlChannelChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    /// <summary>
+    /// Lets Resonate's own player run from now on (once the window is up and
+    /// the player follows Spotify; never in demo or check runs), and starts it
+    /// if it should run.
+    /// </summary>
+    public void AllowOwnPlayer()
+    {
+        _ownPlayerAllowed = true;
+        FollowOwnPlayer();
+    }
+
+    /// <summary>
+    /// Starts Resonate's own player when it should run ("Spotify Web API
+    /// only", "Play on this PC" and signed in), else stops it. Call it after
+    /// any of those changed.
+    /// </summary>
+    public void FollowOwnPlayer()
+    {
+        if (OwnPlayer is not { } own)
+        {
+            return;
+        }
+
+        var run = _ownPlayerAllowed
+            && Player.Spotify.Channel == ControlChannel.WebApi
+            && Settings.WebApiPlayHere
+            && Account.IsSignedIn;
+        _ = run ? own.StartAsync() : own.StopAsync();
+    }
+
+    /// <summary>"Play on this PC" with "Spotify Web API only": Resonate's own player on or off.</summary>
+    public void SetWebApiPlayHere(bool on)
+    {
+        Settings.WebApiPlayHere = on;
+        SaveSettings();
+        FollowOwnPlayer();
+    }
+
+    /// <summary>A sentence about Resonate's own player for Settings, or null when there is nothing to say.</summary>
+    public static string? DescribeOwnPlayer(OwnPlayerStatus status) => status switch
+    {
+        OwnPlayerStatus.Starting => "Connecting to Spotify…",
+        OwnPlayerStatus.Ready => $"Ready. Spotify lists this PC as “{OwnPlayer.DefaultName}”.",
+        OwnPlayerStatus.NeedsSignIn => "Sign in again to play on this PC: Sign out below, then sign in. Still not working? Tick Web Playback SDK in your Spotify developer app.",
+        OwnPlayerStatus.NeedsPremium => "Spotify only plays on this PC with Premium.",
+        OwnPlayerStatus.Unsupported => "This PC cannot run Spotify's web player. Install Microsoft's WebView2 Runtime, or use Windows media controls.",
+        OwnPlayerStatus.Failed => "Spotify's web player stopped (offline?). Trying again…",
+        _ => null,
+    };
 
     /// <summary>Moves the music to another Spotify Connect device ("Spotify Web API only") and remembers it.</summary>
     public Task PlayOnDeviceAsync(string deviceId, string deviceName)

@@ -1,0 +1,153 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Resonate player</title>
+<script>
+'use strict';
+
+// Resonate's own player for "Spotify Web API only": Spotify's Web Playback
+// SDK, in a WebView2 nobody sees (Services/WebPlayerPage.cs). It shows
+// nothing. It talks to OwnPlayer (Resonate.Spotify) one JSON message at a
+// time; the access token it is given is used only for Spotify's player.
+
+const post = (message) => chrome.webview.postMessage(JSON.stringify(message));
+const tokenWaiters = [];
+let player = null;
+
+function loadSdk() {
+  return new Promise((resolve, reject) => {
+    if (window.Spotify) {
+      resolve();
+      return;
+    }
+
+    window.onSpotifyWebPlaybackSDKReady = () => resolve();
+    const script = document.createElement('script');
+    script.src = 'https://sdk.scdn.co/spotify-player.js';
+    script.onerror = () => {
+      script.remove();
+      reject(new Error("Spotify's player could not be downloaded."));
+    };
+    document.head.appendChild(script);
+  });
+}
+
+async function start(name, volume) {
+  if (player) {
+    return;
+  }
+
+  try {
+    await loadSdk();
+  } catch (e) {
+    post({ type: 'error', kind: 'script', message: e.message });
+    return;
+  }
+
+  player = new Spotify.Player({
+    name,
+    volume,
+    getOAuthToken: (callback) => {
+      tokenWaiters.push(callback);
+      post({ type: 'token' });
+    },
+  });
+
+  player.addListener('ready', ({ device_id }) => post({ type: 'ready', deviceId: device_id }));
+  player.addListener('not_ready', ({ device_id }) => post({ type: 'notReady', deviceId: device_id }));
+  for (const kind of ['initialization', 'authentication', 'account', 'playback']) {
+    player.addListener(`${kind}_error`, ({ message }) => post({ type: 'error', kind, message }));
+  }
+
+  // A new song, paused, resumed or moved: Resonate asks Spotify what plays at once.
+  let last = '';
+  player.addListener('player_state_changed', (state) => {
+    const key = state
+      ? `${state.paused}|${state.track_window?.current_track?.uri ?? ''}|${state.position}`
+      : 'none';
+    if (key !== last) {
+      last = key;
+      post({ type: 'state' });
+    }
+  });
+
+  player.connect();
+}
+
+async function stop() {
+  if (player) {
+    player.disconnect();
+    player = null;
+  }
+
+  post({ type: 'stopped' });
+}
+
+// CI's check (--web-player-check): protected audio works here, and Spotify's
+// player starts and turns down a made-up token rather than failing to start.
+async function check() {
+  const result = { type: 'check', widevine: 'no', sdk: 'nothing' };
+  try {
+    const access = await navigator.requestMediaKeySystemAccess('com.widevine.alpha', [{
+      initDataTypes: ['cenc'],
+      audioCapabilities: [{ contentType: 'audio/mp4; codecs="mp4a.40.2"' }],
+    }]);
+    await access.createMediaKeys();
+    result.widevine = 'ok';
+  } catch (e) {
+    result.widevine = `${e.name}: ${e.message}`;
+  }
+
+  try {
+    await loadSdk();
+    const probe = new Spotify.Player({ name: 'Resonate check', getOAuthToken: (callback) => callback('made-up-token') });
+    result.sdk = await new Promise((resolve) => {
+      for (const kind of ['initialization', 'authentication', 'account', 'playback']) {
+        probe.addListener(`${kind}_error`, () => resolve(`${kind}_error`));
+      }
+
+      probe.addListener('ready', () => resolve('ready'));
+      probe.connect();
+      setTimeout(() => resolve('no answer'), 60000);
+    });
+    probe.disconnect();
+  } catch (e) {
+    result.sdk = e.message;
+  }
+
+  post(result);
+}
+
+chrome.webview.addEventListener('message', (event) => {
+  let message;
+  try {
+    message = JSON.parse(event.data);
+  } catch {
+    return;
+  }
+
+  switch (message.type) {
+    case 'start':
+      start(message.name, message.volume);
+      break;
+    case 'token':
+      for (const callback of tokenWaiters.splice(0)) {
+        callback(message.token);
+      }
+      break;
+    case 'reconnect':
+      if (player) {
+        player.disconnect();
+        player.connect();
+      }
+      break;
+    case 'stop':
+      stop();
+      break;
+    case 'check':
+      check();
+      break;
+  }
+});
+
+post({ type: 'loaded' });
+</script>

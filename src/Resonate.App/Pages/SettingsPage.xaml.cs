@@ -28,8 +28,15 @@ public sealed partial class SettingsPage : Page
         PluginsHost.Children.Add(new PluginsPanel(_services.Plugins, _services));
         Loaded += OnLoaded;
 
-        // Only while on show, so the updater never keeps a closed page alive.
-        Unloaded += (_, _) => _services.Updates.ProgressChanged -= OnUpdateProgressChanged;
+        // Only while on show, so the updater and the player never keep a closed page alive.
+        Unloaded += (_, _) =>
+        {
+            _services.Updates.ProgressChanged -= OnUpdateProgressChanged;
+            if (_services.OwnPlayer is { } own)
+            {
+                own.StatusChanged -= OnOwnPlayerStatusChanged;
+            }
+        };
     }
 
     private int _updateProgressQueued;
@@ -62,6 +69,12 @@ public sealed partial class SettingsPage : Page
     {
         _services.Updates.ProgressChanged += OnUpdateProgressChanged;
         ShowUpdateProgress();
+        if (_services.OwnPlayer is { } own)
+        {
+            own.StatusChanged += OnOwnPlayerStatusChanged;
+        }
+
+        ShowOwnPlayerStatus();
 
         if (_pendingSection is not null)
         {
@@ -92,6 +105,8 @@ public sealed partial class SettingsPage : Page
         ChannelChoice.SelectedIndex = _services.Player.Spotify.Channel == ControlChannel.WebApi ? 1 : 0;
         KeepHiddenSwitch.IsOn = _services.SpotifyWindow.KeepHidden;
         SaveResourcesSwitch.IsOn = _services.SpotifyWindow.SaveResources;
+        PlayHereSwitch.IsOn = _services.Settings.WebApiPlayHere;
+        PlayHereSwitch.IsEnabled = _services.OwnPlayer is not null;
         ShowChannelOptions();
         _loading = false;
 
@@ -130,7 +145,30 @@ public sealed partial class SettingsPage : Page
     {
         var usesApp = _services.UsesSpotifyApp;
         SpotifyAppOptions.Visibility = usesApp ? Visibility.Visible : Visibility.Collapsed;
-        WebApiOnlyNote.Visibility = usesApp ? Visibility.Collapsed : Visibility.Visible;
+        WebApiOptions.Visibility = usesApp ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void OnPlayHereToggled(object sender, RoutedEventArgs e)
+    {
+        if (_loading)
+        {
+            return;
+        }
+
+        _services.SetWebApiPlayHere(PlayHereSwitch.IsOn);
+        ShowOwnPlayerStatus();
+    }
+
+    private void OnOwnPlayerStatusChanged(object? sender, EventArgs e) => DispatcherQueue.TryEnqueue(ShowOwnPlayerStatus);
+
+    /// <summary>How Resonate's own player is doing, under "Play on this PC".</summary>
+    private void ShowOwnPlayerStatus()
+    {
+        var text = _services.OwnPlayer is { } own
+            ? AppServices.DescribeOwnPlayer(own.Status)
+            : "Demo mode: nothing plays here.";
+        PlayHereStatus.Text = text ?? string.Empty;
+        PlayHereStatus.Visibility = text is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void OnKeepHiddenToggled(object sender, RoutedEventArgs e)

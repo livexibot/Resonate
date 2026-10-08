@@ -22,12 +22,25 @@
                     <RadioButton Content="Windows media controls (fastest)" />
                     <RadioButton Content="Spotify Web API only" />
                 </RadioButtons>
-                <TextBlock
-                    x:Name="WebApiOnlyNote"
-                    Style="{StaticResource ResonateCaptionTextStyle}"
-                    Text="Closes Spotify on this PC. Music plays on the device picked with the button next to the volume, such as your phone. Sound on this PC, media keys, Spotify's equalizer and DJ need Windows media controls."
-                    TextWrapping="Wrap"
-                    Visibility="Collapsed" />
+                <StackPanel
+                    x:Name="WebApiOptions"
+                    Spacing="12"
+                    Visibility="Collapsed">
+                    <TextBlock
+                        Style="{StaticResource ResonateCaptionTextStyle}"
+                        Text="Closes the Spotify app. Music plays here through Spotify's web player (256 kbps, not Lossless), or on the device picked with the button next to the volume. Lossless, Spotify's equalizer and DJ need Windows media controls."
+                        TextWrapping="Wrap" />
+                    <ToggleSwitch
+                        x:Name="PlayHereSwitch"
+                        Header="Play on this PC"
+                        OffContent="Off"
+                        OnContent="On"
+                        Toggled="OnPlayHereToggled" />
+                    <TextBlock
+                        x:Name="PlayHereStatus"
+                        Style="{StaticResource ResonateCaptionTextStyle}"
+                        TextWrapping="Wrap" />
+                </StackPanel>
 
                 <StackPanel x:Name="SpotifyAppOptions" Spacing="12">
                     <ToggleSwitch
