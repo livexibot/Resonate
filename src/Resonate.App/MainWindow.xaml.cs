@@ -73,6 +73,7 @@ public sealed partial class MainWindow : Window
     private bool _backgroundStarted;
     private OwnPlayerStatus _ownPlayerStatusShown;
     private bool _firstFrameSeen;
+    private bool _quitting;
     private double _dragStartWidth;
     private bool _dragMoved;
     private bool _updateBarDismissed;
@@ -136,6 +137,7 @@ public sealed partial class MainWindow : Window
         PlayerBar.AttachPlugins(services.Plugins);
         SetUpPlayerPlacement();
         AppWindow.Changed += OnAppWindowChanged;
+        AppWindow.Closing += (_, args) => args.Cancel = !ReadyToClose();
         Closed += OnClosed;
 
         if (services.Account.IsSignedIn)
@@ -776,7 +778,14 @@ public sealed partial class MainWindow : Window
         _ = KeepListeningHistoryAsync(token);
 
         // Updates last, quietly; an installed copy downloads them in the
-        // background, then keeps looking while Resonate stays open.
+        // background, then keeps looking while Resonate stays open. Never in
+        // demo mode, which CI's checks use: an installed copy that downloaded a
+        // real release would install it at its next start.
+        if (_services.IsDemo)
+        {
+            return;
+        }
+
         await Task.Delay(TimeSpan.FromSeconds(8), token);
         while (await Task.Run(() => _services.Updates.CheckAndDownloadAsync(token), token) != UpdateStatus.ReadyToRestart
             && _services.Updates.IsInstalled)
@@ -1112,6 +1121,7 @@ public sealed partial class MainWindow : Window
     {
         var clock = Stopwatch.StartNew();
         var gate = new Lock();
+        var dispatcher = DispatcherQueue;
         File.Delete(resultFile);
         void Write(string line)
         {
@@ -1131,8 +1141,9 @@ public sealed partial class MainWindow : Window
         string outcome;
         try
         {
+            // Finishes off the interface thread, so the outcome is written even if that thread hangs.
             var work = Path.Combine(Path.GetTempPath(), "resonate-web-player-check");
-            outcome = await WebPlayerPage.CheckAsync(DispatcherQueue, work, TimeSpan.FromMinutes(2), Write);
+            outcome = await WebPlayerPage.CheckAsync(dispatcher, work, TimeSpan.FromMinutes(2), Write).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -1145,7 +1156,10 @@ public sealed partial class MainWindow : Window
             File.AppendAllText(resultFile, outcome + Environment.NewLine);
         }
 
-        Application.Current.Exit();
+        dispatcher.TryEnqueue(() => Application.Current.Exit());
+        await Task.Delay(TimeSpan.FromSeconds(15)).ConfigureAwait(false);
+        Write("Resonate did not end by itself; ending it");
+        Environment.Exit(0);
     }
 
     /// <summary>Says once when Resonate's own player cannot play until the user does something.</summary>
@@ -1186,6 +1200,39 @@ public sealed partial class MainWindow : Window
         {
             Application.Current.Exit();
         }
+    }
+
+    /// <summary>Closes Resonate from one of its own buttons (see <see cref="ReadyToClose"/>).</summary>
+    public void Quit()
+    {
+        if (ReadyToClose())
+        {
+            Close();
+        }
+    }
+
+    /// <summary>
+    /// Before Resonate closes, Spotify's player on this PC says goodbye, so
+    /// Spotify drops "Resonate" from its devices at once; the window hides
+    /// meanwhile, and it waits 3 s at most.
+    /// </summary>
+    /// <returns>True when the window may close now; else it closes itself shortly.</returns>
+    private bool ReadyToClose()
+    {
+        if (_quitting || _services.OwnPlayer is not { Status: OwnPlayerStatus.Ready or OwnPlayerStatus.Starting } own)
+        {
+            return true;
+        }
+
+        _quitting = true;
+        AppWindow.Hide();
+        var dispatcher = DispatcherQueue;
+        _ = own.StopAsync().WaitAsync(TimeSpan.FromSeconds(3)).ContinueWith(
+            _ => dispatcher.TryEnqueue(Close),
+            CancellationToken.None,
+            TaskContinuationOptions.None,
+            TaskScheduler.Default);
+        return false;
     }
 
     private void OnClosed(object sender, WindowEventArgs args)

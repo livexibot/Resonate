@@ -101,6 +101,23 @@ public sealed class OwnPlayerTests : IDisposable
     }
 
     [Fact]
+    public async Task A_ready_player_whose_token_is_turned_down_has_no_device_until_it_connects_again()
+    {
+        await _player.StartAsync();
+        Page.Say("""{"type":"ready","deviceId":"dev-1"}""");
+
+        Page.Say("""{"type":"error","kind":"authentication","message":"Authentication failed"}""");
+
+        Assert.Equal(OwnPlayerStatus.Starting, _player.Status);
+        Assert.Null(_player.DeviceId);
+        Assert.Contains("reconnect", Page.Sent);
+
+        // Never connects again: it counts as failed.
+        _time.Advance(OwnPlayer.ConnectTimeout);
+        await WaitUntil(() => _player.Status == OwnPlayerStatus.Failed && Page.Disposed);
+    }
+
+    [Fact]
     public async Task Without_the_permission_to_play_it_asks_to_sign_in_again_and_opens_nothing()
     {
         _canPlay = false;
@@ -120,6 +137,20 @@ public sealed class OwnPlayerTests : IDisposable
         Page.Say("""{"type":"token"}""");
 
         await WaitUntil(() => _player.Status == OwnPlayerStatus.NeedsSignIn && Page.Disposed);
+    }
+
+    [Fact]
+    public async Task Spotifys_sign_in_service_failing_for_a_moment_is_tried_again_later()
+    {
+        _tokens.Failure = new SpotifyAuthException("http_503", "Spotify could not renew the sign-in.");
+        await _player.StartAsync();
+
+        Page.Say("""{"type":"token"}""");
+        await WaitUntil(() => _player.Status == OwnPlayerStatus.Failed && Page.Disposed);
+
+        _tokens.Failure = null;
+        _time.Advance(OwnPlayer.RetryDelays[0]);
+        await WaitUntil(() => PageCount == 2 && Page.Sent.Contains("start Resonate"));
     }
 
     [Theory]
@@ -202,6 +233,32 @@ public sealed class OwnPlayerTests : IDisposable
 
         Assert.Equal(1, PageCount);
         Assert.Equal(OwnPlayerStatus.Off, _player.Status);
+    }
+
+    [Fact]
+    public async Task Stopping_while_the_page_still_opens_gives_up_the_start()
+    {
+        _nextPage = () => new FakeWebPlayerPage { Hangs = true };
+        var starting = _player.StartAsync();
+        await WaitUntil(() => PageCount == 1);
+
+        await _player.StopAsync();
+
+        Assert.True(starting.IsCompleted);
+        Assert.Equal(OwnPlayerStatus.Off, _player.Status);
+        Assert.True(Page.Disposed);
+    }
+
+    [Fact]
+    public async Task A_page_that_never_opens_counts_as_failed()
+    {
+        _nextPage = () => new FakeWebPlayerPage { Hangs = true };
+        _ = _player.StartAsync();
+        await WaitUntil(() => PageCount == 1);
+
+        _time.Advance(OwnPlayer.ConnectTimeout);
+
+        await WaitUntil(() => _player.Status == OwnPlayerStatus.Failed && Page.Disposed);
     }
 
     [Fact]
@@ -351,6 +408,15 @@ public class OwnDeviceChoiceTests
     [Fact]
     public void Its_device_is_not_mistaken_for_the_Spotify_app_while_it_is_not_ready() =>
         Assert.Equal("kitchen", WebDeviceResolver.Pick([Kitchen], null, "MY-PC", ownDeviceId: null)?.Id);
+
+    [Fact]
+    public void Another_Resonate_is_never_taken_for_the_Spotify_app_on_this_computer()
+    {
+        var elsewhere = new Device { Id = "elsewhere", Name = "Resonate", Type = "Computer" };
+
+        Assert.Null(WebDeviceResolver.Pick([elsewhere, Phone], null, "MY-PC", ownDeviceId: null, "Resonate"));
+        Assert.Equal("here", WebDeviceResolver.Pick([elsewhere, ThisComputer], null, "OTHER-NAME", ownDeviceId: null, "Resonate")?.Id);
+    }
 
     [Fact]
     public async Task A_play_command_waits_for_it_while_it_starts()

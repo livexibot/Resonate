@@ -444,7 +444,7 @@ public sealed partial class MainWindow
         controls.Children.Add(_pinButton);
 
         var close = StripButton("", "Close");
-        close.Click += (_, _) => Close();
+        close.Click += (_, _) => Quit();
         Grid.SetColumn(close, 1);
         controls.Children.Add(close);
 

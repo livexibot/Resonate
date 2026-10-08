@@ -142,37 +142,22 @@ public sealed class OwnPlayer : IOwnDevice, IDisposable
     /// renewing. Also starts it again after it stopped for a reason
     /// (<see cref="OwnPlayerStatus.NeedsSignIn"/> and the rest).
     /// </summary>
-    public Task StartAsync()
-    {
-        bool changed;
-        lock (_gate)
-        {
-            if (_disposed)
-            {
-                return Task.CompletedTask;
-            }
-
-            _wanted = true;
-            changed = _page is null && SetStatusLocked(OwnPlayerStatus.Starting);
-        }
-
-        if (changed)
-        {
-            RaiseStatusChanged();
-        }
-
-        return _lane.Enqueue(StartInLaneAsync);
-    }
+    public Task StartAsync() => StartCore(retryAfterStops: null);
 
     /// <summary>Stops the player and closes its page; Spotify drops the device.</summary>
     public Task StopAsync()
     {
+        CancellationTokenSource? session;
         lock (_gate)
         {
             _wanted = false;
             _stops++;
+            session = _session;
         }
 
+        // A start still opening its page gives up rather than holding up the stop.
+        // (Its callbacks run on the thread pool, not on the caller's thread.)
+        _ = session?.CancelAsync();
         return _lane.Enqueue(_ => StopInLaneAsync());
     }
 
@@ -238,6 +223,34 @@ public sealed class OwnPlayer : IOwnDevice, IDisposable
 
     private static TaskCompletionSource<string?> NewWaiter() => new(TaskCreationOptions.RunContinuationsAsynchronously);
 
+    /// <param name="retryAfterStops">
+    /// For a try after a failure: the stop count when it failed. It then starts
+    /// only if it is still wanted, still failed, and was not stopped meanwhile.
+    /// </param>
+    private Task StartCore(int? retryAfterStops)
+    {
+        bool changed;
+        lock (_gate)
+        {
+            if (_disposed
+                || (retryAfterStops is { } stops
+                    && !(_wanted && _page is null && _status == OwnPlayerStatus.Failed && _stops == stops)))
+            {
+                return Task.CompletedTask;
+            }
+
+            _wanted = true;
+            changed = _page is null && SetStatusLocked(OwnPlayerStatus.Starting);
+        }
+
+        if (changed)
+        {
+            RaiseStatusChanged();
+        }
+
+        return _lane.Enqueue(StartInLaneAsync);
+    }
+
     private static async Task CloseQuietlyAsync(IWebPlayerPage page)
     {
         try
@@ -286,7 +299,8 @@ public sealed class OwnPlayer : IOwnDevice, IDisposable
 
         try
         {
-            await page.LoadAsync(session.Token).ConfigureAwait(false);
+            // A WebView2 that never finishes starting counts as failed too.
+            await page.LoadAsync(session.Token).WaitAsync(ConnectTimeout, _time, session.Token).ConfigureAwait(false);
         }
         catch (WebPlayerUnavailableException)
         {
@@ -396,17 +410,8 @@ public sealed class OwnPlayer : IOwnDevice, IDisposable
             return;
         }
 
-        bool again;
-        lock (_gate)
-        {
-            // Not when it was stopped (or stopped and started) meanwhile.
-            again = _wanted && !_disposed && _page is null && _status == OwnPlayerStatus.Failed && _stops == stops;
-        }
-
-        if (again)
-        {
-            await StartAsync().ConfigureAwait(false);
-        }
+        // Not when it was stopped (or stopped and started) meanwhile.
+        await StartCore(retryAfterStops: stops).ConfigureAwait(false);
     }
 
     /// <summary>Spotify's player that never connects counts as failed.</summary>
@@ -488,7 +493,7 @@ public sealed class OwnPlayer : IOwnDevice, IDisposable
         RaiseStatusChanged();
     }
 
-    /// <summary>Spotify's player lost its connection; it connects again by itself.</summary>
+    /// <summary>Spotify's player lost its connection (or connects again); until it is ready, it has no device and is watched.</summary>
     private void OnNotReady(IWebPlayerPage page)
     {
         int attempt;
@@ -534,6 +539,8 @@ public sealed class OwnPlayer : IOwnDevice, IDisposable
                 if (retry)
                 {
                     // Once with a renewed token; the sign-in may only have expired.
+                    // Its device is gone until it connects again.
+                    OnNotReady(page);
                     page.Post(WebPlayerCommands.Reconnect());
                 }
                 else
@@ -592,13 +599,13 @@ public sealed class OwnPlayer : IOwnDevice, IDisposable
         {
             // Stopped meanwhile.
         }
-        catch (SpotifyAuthException)
+        catch (SpotifyAuthException ex) when (ex.RequiresSignIn || ex.Error == "not_signed_in")
         {
             _ = _lane.Enqueue(_ => CloseInLaneAsync(page, OwnPlayerStatus.NeedsSignIn));
         }
         catch (Exception)
         {
-            // Offline, most likely: later, again.
+            // Offline, or Spotify's sign-in service busy for a moment: later, again.
             _ = _lane.Enqueue(_ => FailInLaneAsync(page));
         }
     }

@@ -83,7 +83,7 @@ public sealed class AppServices : IDisposable
         OwnPlayer = ownPlayer;
         if (ownPlayer is not null)
         {
-            // Before the sign-in and the HTTP client: Spotify's player says goodbye first.
+            // Closed before the sign-in it asks for tokens (MainWindow.Quit lets it say goodbye before that).
             _owned.Add(ownPlayer);
 
             // Its song or play state changed: the interface asks Spotify at once.

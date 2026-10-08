@@ -17,6 +17,9 @@ internal sealed class FakeWebPlayerPage : IWebPlayerPage
     /// <summary>Thrown by <see cref="LoadAsync"/>.</summary>
     public Exception? LoadFailure { get; init; }
 
+    /// <summary><see cref="LoadAsync"/> never finishes unless cancelled, like a WebView2 that never starts.</summary>
+    public bool Hangs { get; init; }
+
     public bool Loaded { get; private set; }
 
     public bool Disposed { get; private set; }
@@ -38,6 +41,11 @@ internal sealed class FakeWebPlayerPage : IWebPlayerPage
         if (LoadFailure is { } failure)
         {
             return Task.FromException(failure);
+        }
+
+        if (Hangs)
+        {
+            return Task.Delay(Timeout.Infinite, cancellationToken);
         }
 
         Loaded = true;

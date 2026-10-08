@@ -59,10 +59,16 @@ public sealed class WebDeviceResolver
                 // Spotify can take a moment to list a device that just connected.
                 ?? new Device { Id = ownDeviceId, Name = ownName ?? OwnPlayer.DefaultName, Type = "Computer" };
         var others = usable.Where(d => d.Id != ownDeviceId).ToList();
+
+        // Every copy of Resonate lists its player under the same name, so a
+        // "Resonate" that is not this one's (another PC's, or one from before
+        // a crash) is never taken for the Spotify app on this PC.
+        var name = ownName ?? OwnPlayer.DefaultName;
+        var apps = others.Where(d => !string.Equals(d.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
         return usable.FirstOrDefault(d => d.IsActive)
             ?? own
             ?? others.FirstOrDefault(d => preferredName is not null && string.Equals(d.Name, preferredName, StringComparison.OrdinalIgnoreCase))
-            ?? LocalDeviceResolver.Pick(others, machineName)
+            ?? LocalDeviceResolver.Pick(apps, machineName)
             ?? (others.Count == 1 ? others[0] : null);
     }
 }

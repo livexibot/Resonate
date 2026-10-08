@@ -32,8 +32,15 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
     private const string BrowserArguments =
         "--autoplay-policy=no-user-gesture-required --disable-background-timer-throttling --disable-renderer-backgrounding --disable-features=IntensiveWakeUpThrottling";
 
+    /// <summary>Starting WebView2 and opening the page each get this long.</summary>
     private static readonly TimeSpan LoadTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan StopWait = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// A page that does not answer for this long counts as failed; WebView2
+    /// says so every few seconds, also when the PC is only busy for a moment.
+    /// </summary>
+    private static readonly TimeSpan UnresponsiveLimit = TimeSpan.FromSeconds(30);
 
     private readonly DispatcherQueue _dispatcher;
     private readonly string _userDataFolder;
@@ -41,6 +48,10 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
     private readonly TaskCompletionSource _stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private CoreWebView2Controller? _controller;
     private int _disposed;
+
+    // On the interface thread: when the page stopped answering, and when WebView2 last said so.
+    private long _unresponsiveSince;
+    private long _unresponsiveLast;
 
     /// <param name="dispatcher">The interface thread's queue; WebView2 runs there.</param>
     /// <param name="userDataFolder">WebView2's own folder (it keeps no browsing data there, see InPrivate).</param>
@@ -72,7 +83,7 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
         var page = new WebPlayerPage(dispatcher, userDataFolder) { Trace = trace };
 
         // Says every 15 s whether the interface thread still answers, so a hang shows where it is.
-        using var watchdog = new Timer(
+        var watchdog = new Timer(
             _ =>
             {
                 var answered = new ManualResetEventSlim();
@@ -82,6 +93,9 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
             null,
             TimeSpan.FromSeconds(15),
             TimeSpan.FromSeconds(15));
+
+        // Both wait for what they started, so nothing is told after the outcome.
+        await using var stopWatchdog = watchdog.ConfigureAwait(false);
         await using (page.ConfigureAwait(false))
         {
             var answer = new TaskCompletionSource<WebPlayerMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -127,7 +141,7 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
             throw new ObjectDisposedException(nameof(WebPlayerPage), "Resonate is closing.");
         }
 
-        await opened.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await opened.Task.WaitAsync(LoadTimeout, cancellationToken).ConfigureAwait(false);
         await _loaded.Task.WaitAsync(LoadTimeout, cancellationToken).ConfigureAwait(false);
     }
 
@@ -172,8 +186,9 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
             var version = CoreWebView2Environment.GetAvailableBrowserVersionString();
             return string.IsNullOrEmpty(version) ? null : version;
         }
-        catch (COMException)
+        catch (Exception ex) when (ex is COMException or FileNotFoundException)
         {
+            // C#/WinRT turns "no runtime" (ERROR_FILE_NOT_FOUND) into FileNotFoundException.
             return null;
         }
     }
@@ -188,15 +203,29 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
 
         Trace?.Invoke($"WebView2 runtime {runtime}; starting it");
         Directory.CreateDirectory(_userDataFolder);
-        var environment = await CoreWebView2Environment.CreateWithOptionsAsync(
-            string.Empty,
-            _userDataFolder,
-            new CoreWebView2EnvironmentOptions { AdditionalBrowserArguments = BrowserArguments });
+        CoreWebView2Environment environment;
+        try
+        {
+            environment = await CoreWebView2Environment.CreateWithOptionsAsync(
+                string.Empty,
+                _userDataFolder,
+                new CoreWebView2EnvironmentOptions { AdditionalBrowserArguments = BrowserArguments });
+        }
+        catch (FileNotFoundException ex)
+        {
+            throw new WebPlayerUnavailableException("The WebView2 runtime is not installed.", ex);
+        }
+
         BrowserVersion = environment.BrowserVersionString;
 
         Trace?.Invoke("started; making the hidden view");
         var options = environment.CreateCoreWebView2ControllerOptions();
         options.IsInPrivateModeEnabled = true;
+        if (IsDisposed)
+        {
+            throw new OperationCanceledException("The player was stopped while it opened.");
+        }
+
         var controller = await environment.CreateCoreWebView2ControllerAsync(
             CoreWebView2ControllerWindowReference.CreateFromWindowHandle(MessageOnlyWindow),
             options);
@@ -263,6 +292,7 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
             return;
         }
 
+        _unresponsiveSince = 0;
         var type = WebPlayerMessage.Parse(json)?.Type;
         Trace?.Invoke($"the page says {type}");
         switch (type)
@@ -280,6 +310,11 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
 
     private void OnProcessFailed(CoreWebView2 sender, CoreWebView2ProcessFailedEventArgs e)
     {
+        if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessUnresponsive && !StaysUnresponsive())
+        {
+            return;
+        }
+
         // Spotify's player runs in the page and in a frame of its own; WebView2 starts its helpers again by itself.
         if (e.ProcessFailedKind is CoreWebView2ProcessFailedKind.BrowserProcessExited
             or CoreWebView2ProcessFailedKind.RenderProcessExited
@@ -291,6 +326,24 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
             _loaded.TrySetException(new InvalidOperationException(what));
             Failed?.Invoke(this, what);
         }
+    }
+
+    /// <summary>
+    /// Whether the page has not answered for <see cref="UnresponsiveLimit"/>:
+    /// a busy moment passes, and the music plays on meanwhile.
+    /// </summary>
+    private bool StaysUnresponsive()
+    {
+        var now = Environment.TickCount64;
+
+        // A new spell when WebView2 had stopped saying so (it repeats every few seconds while it lasts).
+        if (_unresponsiveSince == 0 || now - _unresponsiveLast > 15_000)
+        {
+            _unresponsiveSince = now;
+        }
+
+        _unresponsiveLast = now;
+        return now - _unresponsiveSince >= (long)UnresponsiveLimit.TotalMilliseconds;
     }
 
     private void Send(string json)

@@ -58,16 +58,19 @@ async function start(name, volume) {
     player.addListener(`${kind}_error`, ({ message }) => post({ type: 'error', kind, message }));
   }
 
-  // A new song, paused, resumed or moved: Resonate asks Spotify what plays at once.
-  let last = '';
+  // A new song, paused, resumed or moved: Resonate asks Spotify what plays at
+  // once. Spotify's player reports more often than that; the rest is dropped.
+  let last = { key: '', position: 0, at: 0, paused: true };
   player.addListener('player_state_changed', (state) => {
-    const key = state
-      ? `${state.paused}|${state.track_window?.current_track?.uri ?? ''}|${state.position}`
-      : 'none';
-    if (key !== last) {
-      last = key;
+    const key = state ? `${state.paused}|${state.track_window?.current_track?.uri ?? ''}` : 'none';
+    const now = performance.now();
+    const expected = last.paused ? last.position : last.position + (now - last.at);
+    const moved = Boolean(state) && Math.abs(state.position - expected) > 2000;
+    if (key !== last.key || moved) {
       post({ type: 'state' });
     }
+
+    last = { key, position: state?.position ?? 0, at: now, paused: state?.paused ?? true };
   });
 
   player.connect();

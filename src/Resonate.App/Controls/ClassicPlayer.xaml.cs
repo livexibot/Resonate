@@ -1481,7 +1481,7 @@ public sealed partial class ClassicPlayer : UserControl
             back.Click += (_, _) => mini.Leave();
             menu.Items.Add(back);
             var exit = new MenuFlyoutItem { Text = "Exit Resonate" };
-            exit.Click += (_, _) => App.MainWindow?.Close();
+            exit.Click += (_, _) => App.MainWindow?.Quit();
             menu.Items.Add(exit);
         }
         else
