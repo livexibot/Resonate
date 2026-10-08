@@ -8,78 +8,80 @@
 <UserControl
     x:Class="Resonate.App.Controls.EqualizerPanel"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Resonate.App.Controls">
 
-    <StackPanel Spacing="12">
-        <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Equalizer" />
-        <TextBlock
-            Style="{StaticResource ResonateSecondaryTextStyle}"
-            Text="For Spotify and Local Files. Double-click a slider to reset it."
-            TextWrapping="Wrap" />
+    <controls:SettingsGroup x:Name="Group" Header="Equalizer">
+        <StackPanel Spacing="12">
+            <TextBlock
+                Style="{StaticResource ResonateSecondaryTextStyle}"
+                Text="For Spotify and Local Files. Double-click a slider to reset it."
+                TextWrapping="Wrap" />
 
-        <InfoBar
-            x:Name="LosslessWarning"
-            Title="Spotify is not set to Lossless"
-            IsClosable="False"
-            IsOpen="False"
-            Message="Turn on Lossless in the Spotify app's settings, under Audio quality, so every song plays in full quality."
-            Severity="Warning">
-            <InfoBar.ActionButton>
-                <HyperlinkButton Click="OnOpenSpotifySettingsClick" Content="Open Spotify's settings" />
-            </InfoBar.ActionButton>
-        </InfoBar>
+            <InfoBar
+                x:Name="LosslessWarning"
+                Title="Spotify is not set to Lossless"
+                IsClosable="False"
+                IsOpen="False"
+                Message="Turn on Lossless in the Spotify app's settings, under Audio quality, so every song plays in full quality."
+                Severity="Warning">
+                <InfoBar.ActionButton>
+                    <HyperlinkButton Click="OnOpenSpotifySettingsClick" Content="Open Spotify's settings" />
+                </InfoBar.ActionButton>
+            </InfoBar>
 
-        <StackPanel Orientation="Horizontal" Spacing="12">
-            <ToggleSwitch
-                x:Name="EnabledSwitch"
-                MinWidth="0"
-                VerticalAlignment="Center"
-                AutomationProperties.Name="Equalizer"
-                OffContent="Off"
-                OnContent="On"
-                Toggled="OnEnabledToggled" />
-            <ComboBox
-                x:Name="PresetBox"
-                Width="180"
-                VerticalAlignment="Center"
-                AutomationProperties.Name="Preset"
-                SelectionChanged="OnPresetChanged" />
-            <Button
-                x:Name="ResetButton"
-                VerticalAlignment="Center"
-                Click="OnResetClick"
-                Content="Reset"
-                Style="{StaticResource ResonateSubtleButtonStyle}"
-                ToolTipService.ToolTip="Set every band back to 0 dB" />
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <ToggleSwitch
+                    x:Name="EnabledSwitch"
+                    MinWidth="0"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="Equalizer"
+                    OffContent="Off"
+                    OnContent="On"
+                    Toggled="OnEnabledToggled" />
+                <ComboBox
+                    x:Name="PresetBox"
+                    Width="180"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="Preset"
+                    SelectionChanged="OnPresetChanged" />
+                <Button
+                    x:Name="ResetButton"
+                    VerticalAlignment="Center"
+                    Click="OnResetClick"
+                    Content="Reset"
+                    Style="{StaticResource ResonateSubtleButtonStyle}"
+                    ToolTipService.ToolTip="Set every band back to 0 dB" />
+            </StackPanel>
+
+            <Border
+                Padding="12,16"
+                Background="{StaticResource ResonateSurfaceBrush}"
+                BorderBrush="{StaticResource ResonateBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="{ThemeResource ResonateCornerLarge}">
+                <Grid x:Name="BandsGrid" ColumnSpacing="8" />
+            </Border>
+
+            <TextBlock
+                x:Name="StatusText"
+                Style="{StaticResource ResonateCaptionTextStyle}"
+                TextWrapping="Wrap" />
+
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Button
+                    x:Name="RestartSpotifyButton"
+                    Click="OnRestartSpotifyClick"
+                    Content="Restart Spotify now"
+                    Style="{StaticResource ResonateAccentButtonStyle}"
+                    ToolTipService.ToolTip="Closes and reopens the Spotify app so it uses this equalizer now; your song carries on where it was."
+                    Visibility="Collapsed" />
+                <Button
+                    x:Name="OpenSpotifySettingsButton"
+                    Click="OnOpenSpotifySettingsClick"
+                    Content="Open Spotify's settings"
+                    Style="{StaticResource ResonateSubtleButtonStyle}" />
+            </StackPanel>
         </StackPanel>
-
-        <Border
-            Padding="12,16"
-            Background="{StaticResource ResonateSurfaceBrush}"
-            BorderBrush="{StaticResource ResonateBorderBrush}"
-            BorderThickness="1"
-            CornerRadius="{ThemeResource ResonateCornerLarge}">
-            <Grid x:Name="BandsGrid" ColumnSpacing="8" />
-        </Border>
-
-        <TextBlock
-            x:Name="StatusText"
-            Style="{StaticResource ResonateCaptionTextStyle}"
-            TextWrapping="Wrap" />
-
-        <StackPanel Orientation="Horizontal" Spacing="12">
-            <Button
-                x:Name="RestartSpotifyButton"
-                Click="OnRestartSpotifyClick"
-                Content="Restart Spotify now"
-                Style="{StaticResource ResonateAccentButtonStyle}"
-                ToolTipService.ToolTip="Closes and reopens the Spotify app so it uses this equalizer now; your song carries on where it was."
-                Visibility="Collapsed" />
-            <Button
-                x:Name="OpenSpotifySettingsButton"
-                Click="OnOpenSpotifySettingsClick"
-                Content="Open Spotify's settings"
-                Style="{StaticResource ResonateSubtleButtonStyle}" />
-        </StackPanel>
-    </StackPanel>
+    </controls:SettingsGroup>
 </UserControl>

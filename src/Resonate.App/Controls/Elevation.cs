@@ -117,7 +117,7 @@ public sealed partial class Elevation : ContentControl
         {
             ElevationLevel.Panel => palette.PanelShadow,
             ElevationLevel.Item => palette.ItemShadow,
-            ElevationLevel.Player when theme.Current.PlayerLayout is PlayerLayout.Floating or PlayerLayout.Hovering => palette.PanelShadow,
+            ElevationLevel.Player when PlayerPlacement.Floats(theme.Current.PlayerLayout) => palette.PanelShadow,
             ElevationLevel.PlayButton => palette.PlayButtonShadow,
             _ => ShadowSpec.None,
         };

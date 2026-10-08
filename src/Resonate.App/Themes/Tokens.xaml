@@ -329,6 +329,54 @@
         </Setter>
     </Style>
 
+    <!-- A heading that folds a section of Settings away (see SettingsGroup): plain text across the pane, with a hover fill. -->
+    <Style x:Key="ResonateSectionHeaderButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource ResonateTransparentBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource ResonateTextPrimaryBrush}" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="CornerRadius" Value="{ThemeResource ResonateCornerMedium}" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid
+                        x:Name="Root"
+                        Background="{TemplateBinding Background}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                        <Grid.BackgroundTransition>
+                            <BrushTransition Duration="0:0:0.12" />
+                        </Grid.BackgroundTransition>
+                        <ContentPresenter
+                            x:Name="ContentPresenter"
+                            Padding="{TemplateBinding Padding}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="Center"
+                            Content="{TemplateBinding Content}"
+                            Foreground="{TemplateBinding Foreground}" />
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Background" Value="{StaticResource ResonateSurfaceHoverBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters>
+                                        <Setter Target="Root.Background" Value="{StaticResource ResonateSurfacePressedBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Disabled" />
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- An icon that switches on and off (shuffle, repeat): the accent colour and a dot when on. -->
     <Style x:Key="ResonateToggleIconButtonStyle" TargetType="ToggleButton">
         <Setter Property="Background" Value="{StaticResource ResonateTransparentBrush}" />

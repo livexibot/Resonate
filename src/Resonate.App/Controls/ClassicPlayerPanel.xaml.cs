@@ -6,9 +6,10 @@ using Resonate.Themes.Skins;
 namespace Resonate.App.Controls;
 
 /// <summary>
-/// Settings, Classic player: use it or the player bar, pick, add and remove
-/// skins, double size, the mini player and the visualiser. Opening Settings does no skin work:
-/// only the skins folder is listed, in the background.
+/// Settings, Winamp (the classic player): use it or the player bar, pick,
+/// add and remove skins, double size, the mini player and the visualiser.
+/// Opening Settings does no skin work: only the skins folder is listed, in
+/// the background.
 /// </summary>
 public sealed partial class ClassicPlayerPanel : UserControl
 {
@@ -26,6 +27,9 @@ public sealed partial class ClassicPlayerPanel : UserControl
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
+
+    /// <summary>Unfolds the section, for links that open Settings here.</summary>
+    internal void Open() => Group.IsExpanded = true;
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {

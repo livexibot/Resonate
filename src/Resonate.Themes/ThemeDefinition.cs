@@ -66,6 +66,20 @@ public enum PlayerLayout
     /// underneath it (pages leave room at their end, so nothing stays hidden).
     /// </summary>
     Hovering,
+
+    // Saved by name: new layouts go at the end, and none is ever renamed.
+
+    /// <summary>Across the top of the window, under the title bar.</summary>
+    Top,
+
+    /// <summary>A rounded bar floating along the top, under the title bar.</summary>
+    FloatingTop,
+
+    /// <summary>
+    /// A small pill hovering in the page's bottom-right corner: the mini bar,
+    /// over the page like <see cref="Hovering"/>.
+    /// </summary>
+    Corner,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<ProgressStyle>))]

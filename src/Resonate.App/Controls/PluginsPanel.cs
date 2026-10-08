@@ -42,22 +42,20 @@ internal sealed partial class PluginsPanel : StackPanel
             TextWrapping = TextWrapping.Wrap,
         });
 
-        // Built into Resonate: nothing to download.
+        // Built into Resonate: nothing to download. Each kind in a section that folds away.
+        var builtIn = new StackPanel { Spacing = 12 };
         foreach (var plugin in BuiltInPlugins.All)
         {
             var card = new BuiltInCard(plugin, BuiltInPluginSettings.Create(plugin.Id, services));
             _builtInCards[plugin.Id] = card;
-            Children.Add(Build(card));
+            builtIn.Children.Add(Build(card));
             RefreshBuiltIn(card);
         }
 
-        Children.Add(new TextBlock
-        {
-            Margin = new Thickness(0, 8, 0, 0),
-            Text = "DOWNLOADED WHEN TURNED ON",
-            Style = (Style)resources["ResonateEyebrowTextStyle"],
-        });
-        Children.Add(new TextBlock
+        Children.Add(new SettingsGroup { Header = "Built in", Content = builtIn });
+
+        var downloaded = new StackPanel { Spacing = 12 };
+        downloaded.Children.Add(new TextBlock
         {
             Text = Intro(plugins),
             Style = (Style)resources["ResonateSecondaryTextStyle"],
@@ -68,9 +66,11 @@ internal sealed partial class PluginsPanel : StackPanel
         {
             var card = new Card(manifest);
             _cards[manifest.Id] = card;
-            Children.Add(Build(card));
+            downloaded.Children.Add(Build(card));
             Refresh(card);
         }
+
+        Children.Add(new SettingsGroup { Margin = new Thickness(0, 8, 0, 0), Header = "Downloaded when turned on", Content = downloaded });
 
         Loaded += (_, _) =>
         {

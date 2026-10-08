@@ -68,7 +68,7 @@
                 Grid.Column="1"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Center"
-                AutomationProperties.Name="Classic player"
+                AutomationProperties.Name="Winamp player"
                 Background="{StaticResource ResonateTransparentBrush}"
                 DoubleTapped="OnSkinDoubleTapped"
                 PointerCanceled="OnSkinPointerCanceled"

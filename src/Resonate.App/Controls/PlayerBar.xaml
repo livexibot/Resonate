@@ -6,8 +6,9 @@
     xmlns:controls="using:Resonate.App.Controls">
 
     <!--
-      Docked along the bottom, floating as a card, or hovering over the page as
-      a centred pill (the look decides; see ThemeService and
+      Docked along the bottom or the top, floating as a card under or above the
+      panels, or hovering over the page as a centred pill or a mini bar in its
+      corner (the look decides; see ThemeService and
       MainWindow.PlayerPlacement.cs), with the look's shadow behind it. A
       narrow bar leaves out the volume slider, then shrinks to the essentials
       (see ShowWidthClass). Its corners are set in code, as they follow its

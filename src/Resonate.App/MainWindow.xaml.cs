@@ -78,6 +78,7 @@ public sealed partial class MainWindow : Window
     private bool _dragMoved;
     private bool _updateBarDismissed;
     private int _updateProgressQueued;
+    private Task? _updateLoop;
 
     public MainWindow(AppServices services)
     {
@@ -789,20 +790,49 @@ public sealed partial class MainWindow : Window
         _ = LoadLikesAsync(token);
         _ = KeepListeningHistoryAsync(token);
 
-        // Updates last, quietly; an installed copy downloads them in the
-        // background, then keeps looking while Resonate stays open. Never in
-        // demo mode, which CI's checks use: an installed copy that downloaded a
-        // real release would install it at its next start.
+        // Updates last, quietly (see KeepUpdating).
         if (_services.IsDemo)
         {
             return;
         }
 
         await Task.Delay(TimeSpan.FromSeconds(8), token);
-        while (await Task.Run(() => _services.Updates.CheckAndDownloadAsync(token), token) != UpdateStatus.ReadyToRestart
-            && _services.Updates.IsInstalled)
+        KeepUpdating();
+    }
+
+    /// <summary>
+    /// With "Update automatically" on (Settings, About), an installed copy
+    /// downloads new versions in the background, then keeps looking while
+    /// Resonate stays open; the download installs when Resonate closes.
+    /// Switching it on starts looking at once. Never in demo mode, which
+    /// CI's checks use: an installed copy that downloaded a real release
+    /// would install it.
+    /// </summary>
+    internal void KeepUpdating()
+    {
+        if (_services.IsDemo || !_backgroundStarted || !_services.Settings.AutoUpdate || _updateLoop is { IsCompleted: false })
         {
-            await Task.Delay(UpdateService.CheckInterval, token);
+            return;
+        }
+
+        _updateLoop = KeepUpdatingAsync(_lifetime.Token);
+    }
+
+    private async Task KeepUpdatingAsync(CancellationToken token)
+    {
+        try
+        {
+            // Switched off, it stops at its next look.
+            while (_services.Settings.AutoUpdate
+                && await Task.Run(() => _services.Updates.CheckAndDownloadAsync(token), token) != UpdateStatus.ReadyToRestart
+                && _services.Updates.IsInstalled)
+            {
+                await Task.Delay(UpdateService.CheckInterval, token);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Resonate is closing.
         }
     }
 
@@ -945,7 +975,9 @@ public sealed partial class MainWindow : Window
         var restart = new Button { Content = "Restart now" };
         restart.Click += (_, _) => _services.Updates.RestartToUpdate();
         UpdateBar.Title = "Update ready";
-        UpdateBar.Message = $"Resonate {_services.Updates.PendingVersion} is downloaded.";
+        UpdateBar.Message = _services.Settings.AutoUpdate
+            ? $"Resonate {_services.Updates.PendingVersion} installs when you close Resonate."
+            : $"Resonate {_services.Updates.PendingVersion} is downloaded.";
         UpdateBar.Severity = InfoBarSeverity.Success;
         UpdateBar.ActionButton = restart;
         UpdateBarProgress.Visibility = Visibility.Collapsed;
@@ -1265,6 +1297,13 @@ public sealed partial class MainWindow : Window
 
         _lifetime.Cancel();
         _services.SaveSettings();
+
+        // "Update automatically": a downloaded version installs once Resonate has gone.
+        if (_services.Settings.AutoUpdate)
+        {
+            _services.Updates.InstallOnExit();
+        }
+
         _services.Dispose();
     }
 

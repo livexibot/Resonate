@@ -6,7 +6,7 @@ animations, that keeps Spotify's own lossless playback.
 > **Status: early versions in testing.** Home with listening stats, your
 > top artists and songs on Spotify and daily mixes, the library,
 > playlists, search, Local Files, DJ, sorting, truly random shuffle,
-> repeat, the queue, the equalizer, themes, a Winamp-style classic player,
+> repeat, the queue, the equalizer, themes, a Winamp player,
 > optional plugins and automatic updates are built. It has not been tried with a real Spotify account yet.
 > The plan is in [CLAUDE.md](CLAUDE.md).
 
@@ -19,21 +19,23 @@ you theme every part of it.
 
 ## Themes
 
-Six looks to start from (Midnight, Daylight, Liquid Glass, Pure Black,
-Synthwave and Paper), and a customizer for everything: colours, light or
-dark, the backdrop, corners, shadows, fonts (Windows' own plus 18
-open-licence fonts that come with Resonate), and how the player, its
-progress bar and buttons look. The player can sit docked along the bottom,
-float, or hover as a centred pill over the page, and the sidebar can reach
-the bottom of the window. Save your own looks, share them as text, and pick
-how switching animates: a morph, a cross-fade, a spread from the middle, a
-ripple from the click and more, each eased over one to two seconds. Liquid
+Ten looks to start from (Midnight, Daylight, Liquid Glass, Pure Black,
+Synthwave, Paper, Fluent, Studio, Bubblegum and Terminal), and a customizer
+for everything: colours, light or dark, the backdrop, corners, shadows,
+fonts (Windows' own plus 18 open-licence fonts that come with Resonate),
+and how the player, its progress bar and buttons look. The player can sit
+docked or floating along the bottom or the top, hover as a centred pill
+over the page, or sit as a mini bar in the page's corner, and the sidebar
+can run the window's full height. Save your own looks, share them as text,
+delete the ones you no longer want, and pick how switching animates: a
+morph, a cross-fade, a spread from the middle, a ripple from the click and
+more, each eased over one to two seconds and always played to the end. Liquid
 Glass puts the playing song's cover, blurred, behind the window, and if you
 like, the cover can spin like a record; both are switches in Settings.
 App size makes everything in the window larger or smaller (Ctrl+Plus and
 Ctrl+Minus too), and Text size makes just the text larger.
 
-## Classic player
+## Winamp player
 
 A player in the style of Winamp 2 can take the player bar's place, with
 its own original skin built in. Add any classic `.wsz` skin you have, show
@@ -85,7 +87,8 @@ media controls for Lossless.
 Every change is a pull request with a plain-language description, merged
 into `main` as one commit. Releases are automatic: each one lists its
 changes in `CHANGELOG.md` and on the Releases page, and
-installed copies update themselves.
+installed copies update themselves when you close Resonate (a switch in
+Settings, About).
 
 Resonate is an independent project for Spotify and is not affiliated with
 Spotify.

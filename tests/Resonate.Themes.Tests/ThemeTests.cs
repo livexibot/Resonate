@@ -58,12 +58,22 @@ public sealed class ThemeColorTests
 public sealed class PresetTests
 {
     [Fact]
-    public void There_are_six_presets_with_unique_ids_and_names()
+    public void There_are_ten_presets_with_unique_ids_and_names()
     {
-        Assert.Equal(6, ThemePresets.All.Count);
-        Assert.Equal(6, ThemePresets.All.Select(p => p.Id).Distinct().Count());
-        Assert.Equal(6, ThemePresets.All.Select(p => p.Name).Distinct().Count());
+        Assert.Equal(10, ThemePresets.All.Count);
+        Assert.Equal(10, ThemePresets.All.Select(p => p.Id).Distinct().Count());
+        Assert.Equal(10, ThemePresets.All.Select(p => p.Name).Distinct().Count());
     }
+
+    [Fact]
+    public void Every_player_position_is_shown_by_a_preset() =>
+        Assert.All(Enum.GetValues<PlayerLayout>(), layout => Assert.Contains(ThemePresets.All, p => p.PlayerLayout == layout));
+
+    [Fact]
+    public void The_presets_use_only_fonts_that_come_with_Resonate_or_Windows() =>
+        Assert.All(
+            ThemePresets.All.SelectMany(p => new[] { p.DisplayFont, p.TextFont }).Where(f => !f.StartsWith("Segoe", StringComparison.Ordinal) && !f.StartsWith("Sitka", StringComparison.Ordinal) && f != "Bahnschrift"),
+            font => Assert.NotNull(BundledFonts.Find(font)));
 
     [Fact]
     public void The_ids_the_first_release_saved_still_work()

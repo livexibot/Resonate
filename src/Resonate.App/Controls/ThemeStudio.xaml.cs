@@ -72,6 +72,10 @@ public sealed partial class ThemeStudio : UserControl
         ["pure-black"] = "True black, sharp edges",
         ["synthwave"] = "Neon glow on a dusk gradient",
         ["paper"] = "Ink on paper, hard shadows",
+        ["fluent"] = "Windows Mica, calm and rounded",
+        ["studio"] = "Console grey, player on top",
+        ["bubblegum"] = "Pastel and round, corner player",
+        ["terminal"] = "Green screen, monospace",
     };
 
     private readonly ThemeService _theme = App.Services.Theme;
@@ -142,7 +146,7 @@ public sealed partial class ThemeStudio : UserControl
 
         foreach (var preset in ThemePresets.All)
         {
-            PresetGrid.Items.Add(Card(preset, PresetBlurbs.GetValueOrDefault(preset.Id, string.Empty), menu: null));
+            PresetGrid.Items.Add(Card(preset, PresetBlurbs.GetValueOrDefault(preset.Id, string.Empty), menu: null, delete: null));
         }
 
         _looksTimer = DispatcherQueue.CreateTimer();
@@ -232,6 +236,7 @@ public sealed partial class ThemeStudio : UserControl
             CustomizeHint.Text = _theme.Library.ActiveIsPreset
                 ? $"Changes make your own copy of {look.Name}."
                 : $"Editing {look.Name}.";
+            ShowDeleteButton();
 
             SelectCard(PresetGrid);
             SelectCard(YourLooksGrid);
@@ -277,6 +282,49 @@ public sealed partial class ThemeStudio : UserControl
         GapText.Text = $"{GapSlider.Value:0}";
     }
 
+    /// <summary>Under Customize: delete the saved look in use, or discard the unsaved one. Presets never change.</summary>
+    private void ShowDeleteButton()
+    {
+        var library = _theme.Library;
+        var id = library.ActiveId;
+        var own = !library.ActiveIsPreset && library.Find(id) is not null;
+        DeleteLookButton.Visibility = own ? Visibility.Visible : Visibility.Collapsed;
+        if (own)
+        {
+            var name = library.Find(id)!.Name;
+            DeleteLookButton.Content = id == ThemeLibrary.CustomId ? "Discard these changes" : $"Delete {name}";
+        }
+    }
+
+    private async void OnDeleteLookClick(object sender, RoutedEventArgs e)
+    {
+        if (_theme.Library.Find(_theme.Library.ActiveId) is { } look && !_theme.Library.ActiveIsPreset)
+        {
+            await DeleteAsync(look);
+        }
+    }
+
+    /// <summary>Deletes one of the user's looks, once they say so; the default preset takes over if it was in use.</summary>
+    private async Task DeleteAsync(ThemeDefinition look)
+    {
+        var unsaved = look.Id == ThemeLibrary.CustomId;
+        var dialog = new ContentDialog
+        {
+            Title = unsaved ? "Discard your changes?" : $"Delete {look.Name}?",
+            Content = unsaved ? "This unsaved look goes away." : "This look goes away for good.",
+            PrimaryButtonText = unsaved ? "Discard" : "Delete",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = XamlRoot,
+            RequestedTheme = (XamlRoot.Content as FrameworkElement)?.ActualTheme ?? ElementTheme.Default,
+        };
+
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            _theme.Delete(look.Id);
+        }
+    }
+
     private void SelectCard(GridView grid)
     {
         var active = _theme.Library.ActiveId;
@@ -296,7 +344,7 @@ public sealed partial class ThemeStudio : UserControl
             menu.Items.Add(MenuItem("Copy as text", () => Copy(custom)));
             menu.Items.Add(new MenuFlyoutSeparator());
             menu.Items.Add(MenuItem("Discard", () => _theme.Delete(custom.Id)));
-            YourLooksGrid.Items.Add(Card(custom, "Not saved yet", menu));
+            YourLooksGrid.Items.Add(Card(custom, "Not saved yet", menu, async () => await DeleteAsync(custom)));
         }
 
         foreach (var look in library.Saved)
@@ -305,8 +353,8 @@ public sealed partial class ThemeStudio : UserControl
             menu.Items.Add(MenuItem("Rename…", async () => await RenameAsync(look)));
             menu.Items.Add(MenuItem("Copy as text", () => Copy(look)));
             menu.Items.Add(new MenuFlyoutSeparator());
-            menu.Items.Add(MenuItem("Delete", () => _theme.Delete(look.Id)));
-            YourLooksGrid.Items.Add(Card(look, Describe(look), menu));
+            menu.Items.Add(MenuItem("Delete…", async () => await DeleteAsync(look)));
+            YourLooksGrid.Items.Add(Card(look, Describe(look), menu, async () => await DeleteAsync(look)));
         }
 
         YourLooksPanel.Visibility = YourLooksGrid.Items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -336,11 +384,37 @@ public sealed partial class ThemeStudio : UserControl
         return $"{mode}, {backdrop}";
     }
 
-    private static StackPanel Card(ThemeDefinition look, string subtitle, MenuFlyout? menu)
+    /// <summary>A look's card: its miniature, name and a line about it; the user's own looks get a delete button on the miniature.</summary>
+    private StackPanel Card(ThemeDefinition look, string subtitle, MenuFlyout? menu, Action? delete)
     {
         var resources = Application.Current.Resources;
         var card = new StackPanel { Padding = new Thickness(6), Spacing = 8, Tag = look.Id, ContextFlyout = menu };
-        card.Children.Add(new LookPreview(look));
+        if (delete is null)
+        {
+            card.Children.Add(new LookPreview(look));
+        }
+        else
+        {
+            // On the current look's own colours, so it reads over any miniature.
+            var button = new Button
+            {
+                Content = "\uE74D",
+                Width = 28,
+                Height = 28,
+                Margin = new Thickness(5),
+                FontSize = 12,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Top,
+                Style = (Style)resources["ResonateIconButtonStyle"],
+                Background = _theme.GetBrush("ResonateSurfaceBrush"),
+                Foreground = _theme.GetBrush("ResonateTextPrimaryBrush"),
+            };
+            var label = look.Id == ThemeLibrary.CustomId ? $"Discard {look.Name}" : $"Delete {look.Name}";
+            AutomationProperties.SetName(button, label);
+            ToolTipService.SetToolTip(button, look.Id == ThemeLibrary.CustomId ? "Discard" : "Delete");
+            button.Click += (_, _) => delete();
+            card.Children.Add(new Grid { Children = { new LookPreview(look), button } });
+        }
 
         var text = new StackPanel { Padding = new Thickness(2, 0, 2, 2), Spacing = 1, MaxWidth = LookPreview.PreviewWidth };
         text.Children.Add(new TextBlock
