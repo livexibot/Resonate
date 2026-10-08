@@ -582,7 +582,6 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center" Spacing="2">
                             <TextBlock Style="{StaticResource ResonateSectionTextStyle}" Text="Made for you" />
-                            <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="Daily mixes from your Liked Songs, new every day." />
                         </StackPanel>
                         <Button
                             x:Name="MixesMoreButton"
@@ -624,7 +623,6 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center" Spacing="2">
                             <TextBlock Style="{StaticResource ResonateSectionTextStyle}" Text="Your top on Spotify" />
-                            <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="As Spotify counts them, from all your listening. Updated daily." />
                         </StackPanel>
                         <SelectorBar
                             x:Name="TopRangeBar"

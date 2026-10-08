@@ -146,7 +146,8 @@ public sealed partial class ThemeStudio : UserControl
 
         foreach (var preset in ThemePresets.All)
         {
-            PresetGrid.Items.Add(Card(preset, PresetBlurbs.GetValueOrDefault(preset.Id, string.Empty), menu: null, delete: null));
+            var grid = ThemePalette.From(preset).IsLight ? LightPresetGrid : DarkPresetGrid;
+            grid.Items.Add(Card(preset, PresetBlurbs.GetValueOrDefault(preset.Id, string.Empty), menu: null, delete: null));
         }
 
         _looksTimer = DispatcherQueue.CreateTimer();
@@ -238,7 +239,8 @@ public sealed partial class ThemeStudio : UserControl
                 : $"Editing {look.Name}.";
             ShowDeleteButton();
 
-            SelectCard(PresetGrid);
+            SelectCard(DarkPresetGrid);
+            SelectCard(LightPresetGrid);
             SelectCard(YourLooksGrid);
         }
         finally

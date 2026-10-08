@@ -95,11 +95,6 @@ public sealed partial class ArtistPage
         var resources = Application.Current.Resources;
         var titles = new StackPanel { Spacing = 2 };
         titles.Children.Add(new TextBlock { Text = "In your orbit", Style = (Style)resources["ResonateSectionTextStyle"] });
-        titles.Children.Add(new TextBlock
-        {
-            Text = "Artists you play alongside them, from your playlists and listening.",
-            Style = (Style)resources["ResonateCaptionTextStyle"],
-        });
 
         var name = _orbitName ?? view.ArtistName ?? string.Empty;
         _orbit = new ArtistOrbitPanel(_services);

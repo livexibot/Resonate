@@ -38,16 +38,31 @@
     </UserControl.Resources>
 
     <StackPanel Spacing="20">
-        <!-- The presets (the page scrolls, not the grid) -->
+        <!-- The presets, dark ones on the left and light ones on the right (the page scrolls, not the grids) -->
         <controls:SettingsGroup Header="Presets">
-            <GridView
-                x:Name="PresetGrid"
-                AutomationProperties.Name="Presets"
-                IsItemClickEnabled="True"
-                ItemClick="OnLookClick"
-                ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                ScrollViewer.VerticalScrollMode="Disabled"
-                SelectionMode="Single" />
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <GridView
+                    x:Name="DarkPresetGrid"
+                    AutomationProperties.Name="Dark presets"
+                    IsItemClickEnabled="True"
+                    ItemClick="OnLookClick"
+                    ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                    ScrollViewer.VerticalScrollMode="Disabled"
+                    SelectionMode="Single" />
+                <GridView
+                    x:Name="LightPresetGrid"
+                    Grid.Column="1"
+                    AutomationProperties.Name="Light presets"
+                    IsItemClickEnabled="True"
+                    ItemClick="OnLookClick"
+                    ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                    ScrollViewer.VerticalScrollMode="Disabled"
+                    SelectionMode="Single" />
+            </Grid>
         </controls:SettingsGroup>
 
         <!-- The user's own looks, each with a button to delete it -->

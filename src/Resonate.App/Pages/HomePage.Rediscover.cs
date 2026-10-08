@@ -187,11 +187,6 @@ public sealed partial class HomePage
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var titles = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 2 };
         titles.Children.Add(new TextBlock { Text = "Rediscover", Style = (Style)resources["ResonateSectionTextStyle"] });
-        titles.Children.Add(new TextBlock
-        {
-            Text = "Music you chose long ago, back for another listen. New every day.",
-            Style = (Style)resources["ResonateCaptionTextStyle"],
-        });
         header.Children.Add(titles);
 
         _rediscoverMore = new Button
