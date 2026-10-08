@@ -296,8 +296,9 @@ public sealed class PlayerControllerTests : IDisposable
         await _player.SeekAsync(TimeSpan.FromSeconds(30));
         await _player.SetVolumeAsync(0.4);
 
+        // To whichever device plays: no device named, so nothing is pulled to this computer.
         Assert.Empty(_local.Commands);
-        Assert.Equal(["pause@here", "next@here", "seek 30@here", "volume 40@here"], _web.Commands);
+        Assert.Equal(["pause@", "next@", "seek 30@", "volume 40@"], _web.Commands);
     }
 
     [Fact]
@@ -336,7 +337,141 @@ public sealed class PlayerControllerTests : IDisposable
 
         _player.Channel = ControlChannel.Local;
 
-        Assert.Equal("Song A", _player.State.Title);
+        await WaitUntil(() => _player.State.Title == "Song A");
+    }
+
+    [Fact]
+    public async Task Web_API_only_never_listens_to_the_media_session_or_reads_the_mixer()
+    {
+        _local.Volume = 0.9;
+        _player.Channel = ControlChannel.WebApi;
+
+        await _player.StartAsync(TestContext.Current.CancellationToken);
+        _time.Advance(PlayerController.WebOnlyPollWhilePaused);
+        await _player.SetVolumeAsync(0.4);
+
+        Assert.Equal(0, _local.StartCount);
+        Assert.False(_local.IsListening);
+        Assert.Equal(0, _local.VolumeReads);
+        Assert.Equal(["volume 40@"], _web.Commands);
+    }
+
+    [Fact]
+    public async Task Switching_to_Web_API_only_stops_listening_and_switching_back_starts_again()
+    {
+        await StartPlayingSongA();
+        Assert.True(_local.IsListening);
+
+        _player.Channel = ControlChannel.WebApi;
+        await WaitUntil(() => !_local.IsListening);
+
+        _player.Channel = ControlChannel.Local;
+        await WaitUntil(() => _local.IsListening && _local.StartCount == 2);
+    }
+
+    [Fact]
+    public async Task Web_API_only_never_starts_the_Spotify_app()
+    {
+        var app = new FakeSpotifyApp();
+        _web.Devices.Clear();
+        using var player = new PlayerController(_local, _local, _web, new LocalDeviceResolver(_web, "MY-PC", _time), app, _time);
+        var errors = new List<string>();
+        player.ErrorOccurred += (_, message) => errors.Add(message);
+        player.Channel = ControlChannel.WebApi;
+        await player.StartAsync(TestContext.Current.CancellationToken);
+
+        await player.PlayTrackAsync(SongB, "spotify:playlist:p1");
+        await player.NextAsync();
+
+        Assert.Equal(0, app.EnsureRunningCalls);
+        Assert.Equal(0, app.IsRunningReads);
+        Assert.Empty(app.Events);
+        Assert.DoesNotContain(_web.Commands, c => c.StartsWith("play", StringComparison.Ordinal));
+        Assert.All(errors, e => Assert.StartsWith("No Spotify device is online", e, StringComparison.Ordinal));
+        Assert.NotEmpty(errors);
+    }
+
+    [Fact]
+    public async Task Web_API_only_starts_music_on_the_device_that_already_plays()
+    {
+        _web.Devices.Add(new Device { Id = "phone", Name = "Phone", Type = "Smartphone", IsActive = true });
+        _web.Playback = OnTheWeb(isPlaying: false, new Device { Id = "phone", Name = "Phone", Type = "Smartphone", IsActive = true });
+        _player.Channel = ControlChannel.WebApi;
+        await _player.StartAsync(TestContext.Current.CancellationToken);
+
+        await _player.PlayTrackAsync(SongB, "spotify:playlist:p1");
+
+        Assert.Equal(["play@"], _web.Commands);
+        Assert.Equal("Phone", _player.State.DeviceName);
+    }
+
+    [Fact]
+    public async Task Web_API_only_starts_music_on_the_device_picked_last_when_nothing_plays()
+    {
+        _web.Devices.Add(new Device { Id = "kitchen", Name = "Kitchen", Type = "Speaker" });
+        _player.Channel = ControlChannel.WebApi;
+        _player.PreferredDeviceName = "Kitchen";
+        await _player.StartAsync(TestContext.Current.CancellationToken);
+
+        await _player.PlayTrackAsync(SongB, "spotify:playlist:p1");
+
+        Assert.Equal(["play@kitchen"], _web.Commands);
+    }
+
+    [Fact]
+    public async Task Web_API_only_starts_music_on_this_computer_when_Spotify_lists_it()
+    {
+        _web.Devices.Insert(0, new Device { Id = "phone", Name = "Phone", Type = "Smartphone" });
+        _player.Channel = ControlChannel.WebApi;
+        await _player.StartAsync(TestContext.Current.CancellationToken);
+
+        await _player.PlayTrackAsync(SongB, "spotify:playlist:p1");
+
+        Assert.Equal(["play@here"], _web.Commands);
+    }
+
+    [Fact]
+    public async Task Web_API_only_wakes_a_device_before_skipping_when_nothing_plays()
+    {
+        _player.Channel = ControlChannel.WebApi;
+        await _player.StartAsync(TestContext.Current.CancellationToken);
+        _web.FailNextCommand = new SpotifyApiException(HttpStatusCode.NotFound, "NO_ACTIVE_DEVICE", "No active device");
+
+        await _player.NextAsync();
+
+        Assert.Equal(["transfer@here", "next@here"], _web.Commands);
+        Assert.False(_web.LastTransferPlay);
+        Assert.Empty(_errors);
+    }
+
+    [Fact]
+    public async Task Web_API_only_pausing_with_nothing_playing_wakes_no_device()
+    {
+        _player.Channel = ControlChannel.WebApi;
+        await _player.StartAsync(TestContext.Current.CancellationToken);
+        _web.FailNextCommand = new SpotifyApiException(HttpStatusCode.NotFound, "NO_ACTIVE_DEVICE", "No active device");
+
+        await _player.PauseAsync();
+
+        Assert.Empty(_web.Commands);
+        Assert.Empty(_errors);
+    }
+
+    [Fact]
+    public async Task Playing_on_another_device_moves_the_music_there_and_shows_it_at_once()
+    {
+        _web.Devices.Add(new Device { Id = "kitchen", Name = "Kitchen", Type = "Speaker" });
+        _web.Playback = OnTheWeb(isPlaying: true);
+        _player.Channel = ControlChannel.WebApi;
+        await _player.StartAsync(TestContext.Current.CancellationToken);
+
+        var sent = _player.TransferToAsync("kitchen", "Kitchen");
+
+        Assert.Equal("Kitchen", _player.State.DeviceName);
+        await sent;
+        Assert.Equal(["transfer@kitchen"], _web.Commands);
+        Assert.True(_web.LastTransferPlay);
+        Assert.Equal("Kitchen", _player.PreferredDeviceName);
     }
 
     [Fact]
@@ -425,9 +560,9 @@ public sealed class PlayerControllerTests : IDisposable
         Assert.Contains("spotify:track:200", window);
     }
 
-    private static PlaybackState OnTheWeb(bool isPlaying) => new()
+    private static PlaybackState OnTheWeb(bool isPlaying, Device? device = null) => new()
     {
-        Device = new Device { Id = "here", Name = "MY-PC", Type = "Computer" },
+        Device = device ?? new Device { Id = "here", Name = "MY-PC", Type = "Computer" },
         IsPlaying = isPlaying,
         ProgressMs = 10_000,
         Item = new PlayableItem { Name = "Web Song", Uri = "spotify:track:w", DurationMs = 100_000 },
@@ -497,4 +632,40 @@ public class LocalDeviceResolverTests
     [Fact]
     public void A_long_computer_name_matches_its_15_character_NetBIOS_name() =>
         Assert.True(LocalDeviceResolver.NameMatches("DESKTOP-VERYLONGNAME", "DESKTOP-VERYLON"));
+}
+
+public class WebDeviceResolverTests
+{
+    private static readonly Device Phone = new() { Id = "phone", Name = "Phone", Type = "Smartphone" };
+    private static readonly Device Kitchen = new() { Id = "kitchen", Name = "Kitchen", Type = "Speaker" };
+    private static readonly Device ThisComputer = new() { Id = "here", Name = "MY-PC", Type = "Computer" };
+
+    [Fact]
+    public void The_device_that_plays_comes_first() =>
+        Assert.Equal("phone", WebDeviceResolver.Pick([ThisComputer, Kitchen, WithActive(Phone)], "Kitchen", "MY-PC")?.Id);
+
+    [Fact]
+    public void Then_the_device_picked_last() =>
+        Assert.Equal("kitchen", WebDeviceResolver.Pick([ThisComputer, Phone, Kitchen], "kitchen", "MY-PC")?.Id);
+
+    [Fact]
+    public void Then_this_computer_when_Spotify_lists_it() =>
+        Assert.Equal("here", WebDeviceResolver.Pick([Phone, ThisComputer, Kitchen], null, "MY-PC")?.Id);
+
+    [Fact]
+    public void Then_the_only_device_there_is() =>
+        Assert.Equal("kitchen", WebDeviceResolver.Pick([Kitchen], null, "MY-PC")?.Id);
+
+    [Fact]
+    public void Several_unknown_devices_are_not_guessed() =>
+        Assert.Null(WebDeviceResolver.Pick([Phone, Kitchen], null, "MY-PC"));
+
+    [Fact]
+    public void Restricted_devices_and_ones_without_an_ID_are_skipped() =>
+        Assert.Null(WebDeviceResolver.Pick(
+            [new Device { Id = "tv", Name = "TV", Type = "TV", IsRestricted = true, IsActive = true }, new Device { Name = "Ghost", Type = "Speaker" }],
+            null,
+            "MY-PC"));
+
+    private static Device WithActive(Device device) => new() { Id = device.Id, Name = device.Name, Type = device.Type, IsActive = true };
 }

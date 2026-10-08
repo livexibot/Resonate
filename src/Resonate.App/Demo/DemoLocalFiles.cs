@@ -53,6 +53,8 @@ public sealed class DemoLocalAudio : ILocalAudioEngine
 
     public TimeSpan Position => _start + _clock.Elapsed;
 
+    public TimeSpan Duration => TimeSpan.Zero;
+
     public Task<TimeSpan> OpenAsync(string path, TimeSpan position, bool play, CancellationToken cancellationToken)
     {
         _start = position;

@@ -38,8 +38,20 @@ public sealed partial class MainWindow : Window
 
     private const int HistoryLimit = 50;
 
-    /// <summary>The narrowest the page gets while the Settings pane is open beside it.</summary>
-    private const double MinPageWidth = 360;
+    /// <summary>The sidebar's usual width, and how narrow and wide it can be dragged.</summary>
+    private const double SidebarDefaultWidth = 272;
+    private const double SidebarMinWidth = 200;
+    private const double SidebarMaxWidth = 520;
+
+    /// <summary>How narrow and wide the queue pane can be dragged.</summary>
+    private const double QueueMinWidth = 280;
+    private const double QueueMaxWidth = 600;
+
+    /// <summary>How wide the Settings pane can be dragged (its narrowest is <see cref="SettingsPane.MinimumWidth"/>).</summary>
+    private const double SettingsMaxWidth = 960;
+
+    /// <summary>The page keeps at least this much room when a panel is dragged wider.</summary>
+    private const double PageMinWidth = 380;
 
     /// <summary>The update bar's width in the page's corner, when the page is wide enough.</summary>
     private const double UpdateBarWidth = 380;
@@ -55,14 +67,13 @@ public sealed partial class MainWindow : Window
     private readonly CancellationTokenSource _lifetime = new();
     private readonly DispatcherQueueTimer _messageTimer;
     private readonly List<string> _history = [];
-    private readonly ColumnDefinition _queueColumn = new() { Width = new GridLength(Controls.QueuePanel.PaneWidth) };
-    private readonly ColumnDefinition _settingsColumn = new();
+    private readonly ColumnDefinition _paneColumn = new() { Width = new GridLength(Controls.QueuePanel.PaneWidth) };
     private string? _currentKey;
     private bool _syncingSelection;
     private bool _backgroundStarted;
     private bool _firstFrameSeen;
-    private double _settingsDragStart;
-    private bool _settingsResized;
+    private double _dragStartWidth;
+    private bool _dragMoved;
     private bool _updateBarDismissed;
     private int _updateProgressQueued;
 
@@ -75,9 +86,9 @@ public sealed partial class MainWindow : Window
         SetTitleBar(AppTitleBar);
         BackButton.SizeChanged += (_, _) => UpdateTitleBarPassthrough();
         AppTitleBar.SizeChanged += (_, _) => UpdateTitleBarPassthrough();
-        AppWindow.Title = "Resonate";
+        AppWindow.Title = AppName;
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Resonate.ico"));
-        PlaceWindow(1280, 820);
+        RestorePlacement();
 
         // The look's backdrop goes behind the content, and switching looks animates above it.
         var content = RootGrid;
@@ -93,11 +104,22 @@ public sealed partial class MainWindow : Window
         _messageTimer.IsRepeating = false;
         _messageTimer.Tick += (_, _) => MessageBar.IsOpen = false;
 
+        SetUpSplitters();
+
         PlayerBar.Attach(services.Player);
+        services.Player.StateChanged += OnNowPlayingChanged;
         PlayerBar.QueueRequested += (_, _) => ToggleQueue();
         QueuePane.CloseRequested += (_, _) => ShowQueue(false);
         services.Player.ErrorOccurred += (_, message) =>
             DispatcherQueue.TryEnqueue(() => ShowMessage(message, InfoBarSeverity.Warning));
+        services.ControlChannelChanged += (_, _) =>
+        {
+            if (_services.UsesSpotifyApp)
+            {
+                // Back to Windows' media controls: Resonate starts the Spotify app again if needed.
+                _ = EnsureSpotifyAppAsync(_lifetime.Token);
+            }
+        };
         services.Library.PlaylistsChanged += (_, _) =>
             DispatcherQueue.TryEnqueue(() => ShowPlaylists(_services.Library.Snapshot));
         RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnRootPointerPressed), handledEventsToo: true);
@@ -169,16 +191,7 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>Opens the queue pane next to the pages, or closes it (the player bar's queue button).</summary>
-    public void ToggleQueue()
-    {
-        // One pane at a time on the right, so the page keeps its room.
-        if (!QueuePane.IsOpen)
-        {
-            ShowSettings(false);
-        }
-
-        ShowQueue(!QueuePane.IsOpen);
-    }
+    public void ToggleQueue() => ShowQueue(!QueuePane.IsOpen);
 
     /// <summary>Opens Settings in the pane on the right, or closes it (the gear in the sidebar).</summary>
     public void ToggleSettings() => ShowSettings(!SettingsPane.IsOpen);
@@ -191,44 +204,6 @@ public sealed partial class MainWindow : Window
     private void SetUpSettingsPane()
     {
         SettingsPane.CloseRequested += (_, _) => ShowSettings(false);
-        SettingsPane.ResizeStarted += (_, _) =>
-        {
-            _settingsDragStart = _settingsColumn.Width.Value;
-            _settingsResized = false;
-        };
-
-        // The pane is on the right: dragging its edge left makes it wider.
-        SettingsPane.Resizing += (_, distance) =>
-        {
-            _settingsColumn.Width = new GridLength(FitSettingsWidth(_settingsDragStart - distance));
-            _settingsResized = true;
-        };
-
-        // Only a drag changes the saved width: a click on the edge of a pane
-        // that a small window narrowed must not make that width the choice.
-        SettingsPane.ResizeCompleted += (_, _) =>
-        {
-            if (_settingsResized)
-            {
-                _services.Settings.SettingsPaneWidth = Math.Round(_settingsColumn.Width.Value);
-                _services.SaveSettings();
-            }
-        };
-        SettingsPane.ResetRequested += (_, _) =>
-        {
-            _services.Settings.SettingsPaneWidth = SettingsPane.DefaultWidth;
-            _services.SaveSettings();
-            _settingsColumn.Width = new GridLength(FitSettingsWidth(SettingsPane.DefaultWidth));
-        };
-
-        // A smaller window narrows the pane before the page; a larger one gives back the chosen width.
-        ShellGrid.SizeChanged += (_, _) =>
-        {
-            if (SettingsPane.IsOpen)
-            {
-                _settingsColumn.Width = new GridLength(FitSettingsWidth(_services.Settings.SettingsPaneWidth));
-            }
-        };
 
         // The update bar stays inside a page narrowed by Settings or the queue
         // (16 px from each edge, inside the page's outline).
@@ -239,53 +214,6 @@ public sealed partial class MainWindow : Window
         };
     }
 
-    private void ShowSettings(bool open)
-    {
-        if (open == SettingsPane.IsOpen)
-        {
-            return;
-        }
-
-        // Like the queue's, the pane's column exists only while it is open.
-        if (open)
-        {
-            ShowQueue(false);
-            _settingsColumn.Width = new GridLength(FitSettingsWidth(_services.Settings.SettingsPaneWidth));
-            ShellGrid.ColumnDefinitions.Add(_settingsColumn);
-            SettingsPane.Visibility = Visibility.Visible;
-            SettingsPane.Open();
-        }
-        else
-        {
-            SettingsPane.Visibility = Visibility.Collapsed;
-            ShellGrid.ColumnDefinitions.Remove(_settingsColumn);
-            SettingsPane.Close();
-        }
-    }
-
-    /// <summary>
-    /// The Settings pane's width within its limits: no narrower than its
-    /// controls need, and leaving the page at least <see cref="MinPageWidth"/>.
-    /// </summary>
-    private double FitSettingsWidth(double width)
-    {
-        if (!double.IsFinite(width) || width <= 0)
-        {
-            width = SettingsPane.DefaultWidth;
-        }
-
-        var available = ShellGrid.ActualWidth - ShellGrid.Padding.Left - ShellGrid.Padding.Right;
-        if (available <= 0)
-        {
-            // Not laid out yet; SizeChanged fits it once it is.
-            return Math.Max(SettingsPane.MinimumWidth, width);
-        }
-
-        var sidebar = ShellGrid.ColumnDefinitions.Count > 0 ? ShellGrid.ColumnDefinitions[0].ActualWidth : 0;
-        var widest = available - sidebar - (2 * ShellGrid.ColumnSpacing) - MinPageWidth;
-        return Math.Clamp(width, SettingsPane.MinimumWidth, Math.Max(SettingsPane.MinimumWidth, widest));
-    }
-
     private void ShowQueue(bool open)
     {
         if (open == QueuePane.IsOpen)
@@ -293,19 +221,223 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        // The pane's column exists only while it is open: the grid's spacing
-        // would otherwise leave a gap for an empty column at the right edge.
+        // One pane at a time on the right, so the page keeps its room.
+        if (open)
+        {
+            ShowSettings(false);
+        }
+
         QueuePane.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
         if (open)
         {
-            ShellGrid.ColumnDefinitions.Add(_queueColumn);
             QueuePane.Open(_services.Player);
         }
         else
         {
-            ShellGrid.ColumnDefinitions.Remove(_queueColumn);
             QueuePane.Close();
         }
+
+        PlaceRightPane();
+    }
+
+    private void ShowSettings(bool open)
+    {
+        if (open == SettingsPane.IsOpen)
+        {
+            return;
+        }
+
+        if (open)
+        {
+            ShowQueue(false);
+        }
+
+        SettingsPane.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        if (open)
+        {
+            SettingsPane.Open();
+        }
+        else
+        {
+            SettingsPane.Close();
+        }
+
+        PlaceRightPane();
+    }
+
+    /// <summary>
+    /// The queue and Settings share the column on the right. It exists only
+    /// while one of them is open: the grid's spacing would otherwise leave a
+    /// gap for an empty column at the right edge.
+    /// </summary>
+    private void PlaceRightPane()
+    {
+        var open = QueuePane.IsOpen || SettingsPane.IsOpen;
+        RightSplitter.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        RightSplitter.Label = SettingsPane.IsOpen ? "Resize Settings" : "Resize the queue";
+        var shown = ShellGrid.ColumnDefinitions.Contains(_paneColumn);
+        if (open && !shown)
+        {
+            ShellGrid.ColumnDefinitions.Add(_paneColumn);
+        }
+        else if (!open && shown)
+        {
+            ShellGrid.ColumnDefinitions.Remove(_paneColumn);
+        }
+
+        LayOutPanes();
+    }
+
+    // ---- Resizing the sidebar and the pane on the right ----
+
+    private void SetUpSplitters()
+    {
+        SidebarSplitter.Label = "Resize the sidebar";
+        SidebarSplitter.DragStarted += (_, _) => StartDrag(SidebarColumn);
+        SidebarSplitter.Dragged += (_, moved) =>
+        {
+            _dragMoved = true;
+            LayOutPanes(sidebar: _dragStartWidth + moved);
+        };
+        SidebarSplitter.DragCompleted += (_, _) => EndDrag();
+        SidebarSplitter.Stepped += (_, step) =>
+        {
+            LayOutPanes(sidebar: SidebarColumn.Width.Value + step);
+            KeepPaneWidths();
+        };
+        SidebarSplitter.ResetRequested += (_, _) =>
+        {
+            _services.Settings.SidebarWidth = null;
+            _services.SaveSettings();
+            LayOutPanes();
+        };
+
+        // The queue or Settings is on the right, so moving the grip right makes it narrower.
+        RightSplitter.DragStarted += (_, _) => StartDrag(_paneColumn);
+        RightSplitter.Dragged += (_, moved) =>
+        {
+            _dragMoved = true;
+            LayOutPanes(pane: _dragStartWidth - moved);
+        };
+        RightSplitter.DragCompleted += (_, _) => EndDrag();
+        RightSplitter.Stepped += (_, step) =>
+        {
+            LayOutPanes(pane: _paneColumn.Width.Value - step);
+            KeepPaneWidths();
+        };
+        RightSplitter.ResetRequested += (_, _) =>
+        {
+            if (SettingsPane.IsOpen)
+            {
+                _services.Settings.SettingsPaneWidth = null;
+            }
+            else
+            {
+                _services.Settings.QueueWidth = null;
+            }
+
+            _services.SaveSettings();
+            LayOutPanes();
+        };
+
+        // The gap between panels belongs to the look, which can change at any time.
+        ShellGrid.RegisterPropertyChangedCallback(Grid.ColumnSpacingProperty, (_, _) => PlaceSplitters());
+        ShellGrid.SizeChanged += (_, e) =>
+        {
+            if (e.NewSize.Width != e.PreviousSize.Width)
+            {
+                LayOutPanes();
+            }
+        };
+        PlaceSplitters();
+        LayOutPanes();
+    }
+
+    private void StartDrag(ColumnDefinition column)
+    {
+        _dragStartWidth = column.Width.Value;
+        _dragMoved = false;
+    }
+
+    // A click on a grip is not a drag: it must not keep a width that a small window squeezed the panel to.
+    private void EndDrag()
+    {
+        if (_dragMoved)
+        {
+            KeepPaneWidths();
+        }
+    }
+
+    /// <summary>Centres each grip on the gap between its panels, however wide the look makes that gap.</summary>
+    private void PlaceSplitters()
+    {
+        var reach = -((ShellGrid.ColumnSpacing / 2) + (PaneSplitter.GripWidth / 2));
+        SidebarSplitter.Margin = new Thickness(0, 0, reach, 0);
+        RightSplitter.Margin = new Thickness(reach, 0, 0, 0);
+    }
+
+    /// <summary>
+    /// Sizes the sidebar and the pane on the right (the queue or Settings):
+    /// as the user last dragged them (or <paramref name="sidebar"/> or
+    /// <paramref name="pane"/> while dragging), within their limits, and never
+    /// so wide that the page between them has less than <see cref="PageMinWidth"/>.
+    /// The sidebar comes first; the pane takes what is left.
+    /// </summary>
+    private void LayOutPanes(double? sidebar = null, double? pane = null)
+    {
+        var settings = _services.Settings;
+        var gap = ShellGrid.ColumnSpacing;
+        var room = ShellGrid.ActualWidth - ShellGrid.Padding.Left - ShellGrid.Padding.Right;
+        var paneOpen = QueuePane.IsOpen || SettingsPane.IsOpen;
+        var (paneMin, paneMax, paneWanted) = SettingsPane.IsOpen
+            ? (SettingsPane.MinimumWidth, SettingsMaxWidth, settings.SettingsPaneWidth ?? SettingsPane.DefaultWidth)
+            : (QueueMinWidth, QueueMaxWidth, settings.QueueWidth ?? QueuePanel.PaneWidth);
+
+        double sidebarWidth;
+        if (pane is not null)
+        {
+            // Dragging the pane leaves the sidebar where it is.
+            sidebarWidth = SidebarColumn.Width.Value;
+        }
+        else
+        {
+            var others = gap + PageMinWidth + (paneOpen ? gap + paneMin : 0);
+            sidebarWidth = Fit(sidebar ?? settings.SidebarWidth ?? SidebarDefaultWidth, SidebarMinWidth, SidebarMaxWidth, room - others);
+        }
+
+        var paneWidth = Fit(pane ?? paneWanted, paneMin, paneMax, room - sidebarWidth - (2 * gap) - PageMinWidth);
+        SetWidth(SidebarColumn, sidebarWidth);
+        SetWidth(_paneColumn, paneWidth);
+
+        // Before the first layout there is no room to measure: only the limits apply.
+        static double Fit(double wanted, double min, double max, double room) =>
+            Math.Round(Math.Clamp(wanted, min, room > 0 ? Math.Clamp(room, min, max) : max));
+
+        static void SetWidth(ColumnDefinition column, double width)
+        {
+            if (column.Width.Value != width || !column.Width.IsAbsolute)
+            {
+                column.Width = new GridLength(width);
+            }
+        }
+    }
+
+    /// <summary>A drag or an arrow key ended: the panels keep these widths, next time too.</summary>
+    private void KeepPaneWidths()
+    {
+        var settings = _services.Settings;
+        settings.SidebarWidth = SidebarColumn.Width.Value == SidebarDefaultWidth ? null : SidebarColumn.Width.Value;
+        var paneWidth = _paneColumn.Width.Value;
+        if (SettingsPane.IsOpen)
+        {
+            settings.SettingsPaneWidth = paneWidth == SettingsPane.DefaultWidth ? null : paneWidth;
+        }
+        else if (QueuePane.IsOpen)
+        {
+            settings.QueueWidth = paneWidth == QueuePanel.PaneWidth ? null : paneWidth;
+        }
+
+        _services.SaveSettings();
     }
 
     public void ShowSignIn()
@@ -365,9 +497,10 @@ public sealed partial class MainWindow : Window
     /// <summary>The page on show, such as a <see cref="HomePage"/>.</summary>
     internal object? CurrentPage => ContentFrame.Content;
 
-    /// <summary>A list was played; remembered for the "Recently played" playlist order.</summary>
-    public void NoteListPlayed(string key)
+    /// <summary>A list was played; remembered for the "Recently played" playlist order, and so the player bar can open it.</summary>
+    public void NoteListPlayed(string key, string? name)
     {
+        _lastPlayed = (key, name);
         if (!Playlists.Any(p => p.Id == key))
         {
             return;
@@ -502,7 +635,9 @@ public sealed partial class MainWindow : Window
             Playlists.Clear();
             foreach (var playlist in sorted)
             {
-                Playlists.Add(new PlaylistNavItem(playlist));
+                var item = new PlaylistNavItem(playlist);
+                MarkNowPlaying(item);
+                Playlists.Add(item);
             }
 
             PlaylistList.SelectedItem = Playlists.FirstOrDefault(p => p.Id == selected);
@@ -579,21 +714,11 @@ public sealed partial class MainWindow : Window
         // Let the first frame appear before doing anything else.
         await Task.Yield();
 
-        try
+        // Follows Spotify; with "Spotify Web API only" it never touches the Spotify app.
+        await Task.Run(() => _services.Player.Spotify.StartAsync(token), token);
+        if (_services.UsesSpotifyApp)
         {
-            await Task.Run(() => _services.Player.Spotify.StartAsync(token), token);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            ShowMessage("Resonate could not reach Windows' media controls; playback goes through Spotify's servers instead.", InfoBarSeverity.Informational);
-        }
-
-        var spotify = await Task.Run(() => _services.Launcher.EnsureRunningAsync(token), token);
-        if (spotify == SpotifyAppStatus.NotInstalled)
-        {
-            ShowMessage(
-                "The Spotify app is not installed. Resonate plays music through it: install it from spotify.com/download or the Microsoft Store, sign in, then come back.",
-                InfoBarSeverity.Error);
+            await EnsureSpotifyAppAsync(token);
         }
 
         // Plugins that are on start in their helper, off the interface thread;
@@ -611,6 +736,25 @@ public sealed partial class MainWindow : Window
             && _services.Updates.IsInstalled)
         {
             await Task.Delay(UpdateService.CheckInterval, token);
+        }
+    }
+
+    /// <summary>Starts the Spotify app hidden when it is not running, or says it is not installed. Never with "Spotify Web API only".</summary>
+    private async Task EnsureSpotifyAppAsync(CancellationToken token)
+    {
+        try
+        {
+            var spotify = await Task.Run(() => _services.Launcher.EnsureRunningAsync(token), token);
+            if (spotify == SpotifyAppStatus.NotInstalled)
+            {
+                ShowMessage(
+                    "The Spotify app is not installed. Resonate plays music through it: install it from spotify.com/download or the Microsoft Store, sign in, then come back. (Or pick Spotify Web API only in Settings to play on your other devices.)",
+                    InfoBarSeverity.Error);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Closing.
         }
     }
 
@@ -875,6 +1019,12 @@ public sealed partial class MainWindow : Window
         {
             _ = CheckPluginsAndQuitAsync(pluginFeed, pluginResult);
         }
+
+        // Covers nobody has looked at for a while make room, once the window is up.
+        if (_services.Covers.Store is { } covers)
+        {
+            _ = Task.Run(covers.Prune);
+        }
     }
 
     private static async Task CheckPluginsAndQuitAsync(string feed, string resultFile)
@@ -962,8 +1112,7 @@ public sealed partial class MainWindow : Window
     /// <summary>Sizes the window in device-independent pixels and centres it on its screen.</summary>
     private void PlaceWindow(int width, int height)
     {
-        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-        var scale = GetDpiForWindow(hwnd) / 96.0;
+        var scale = GetDpiForWindow(Hwnd) / 96.0;
         var area = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
         var w = Math.Min((int)(width * scale), area.Width);
         var h = Math.Min((int)(height * scale), area.Height);
@@ -972,7 +1121,8 @@ public sealed partial class MainWindow : Window
 
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
     {
-        var shown = sender.IsVisible && !IsIconic(WinRT.Interop.WindowNative.GetWindowHandle(this));
+        NotePlacement(args);
+        var shown = sender.IsVisible && !IsIconic(Hwnd);
         if (shown != IsShown)
         {
             IsShown = shown;

@@ -76,6 +76,7 @@
                 ToolTipService.ToolTip="Closes and reopens the Spotify app so it uses this equalizer now; your song carries on where it was."
                 Visibility="Collapsed" />
             <Button
+                x:Name="OpenSpotifySettingsButton"
                 Click="OnOpenSpotifySettingsClick"
                 Content="Open Spotify's settings"
                 Style="{StaticResource ResonateSubtleButtonStyle}" />

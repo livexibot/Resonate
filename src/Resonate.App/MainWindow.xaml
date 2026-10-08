@@ -94,9 +94,12 @@
             Grid.Row="1"
             Padding="{ThemeResource ResonateShellPadding}"
             ColumnSpacing="{ThemeResource ResonatePanelGap}">
-            <!-- A third column for the queue pane is added while it is open (see ShowQueue). -->
+            <!--
+                A third column for the queue pane is added while it is open (see ShowQueue).
+                The sidebar and the queue can be dragged wider or narrower (see LayOutPanes).
+            -->
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="272" />
+                <ColumnDefinition x:Name="SidebarColumn" Width="272" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
@@ -127,6 +130,7 @@
                         <DataTemplate x:DataType="vm:NavItem">
                             <StackPanel
                                 Height="40"
+                                Background="{StaticResource ResonateTransparentBrush}"
                                 Orientation="Horizontal"
                                 Spacing="14">
                                 <FontIcon
@@ -191,16 +195,24 @@
                     AllowDrop="True"
                     CanDragItems="True"
                     CanReorderItems="True"
+                    ContextRequested="OnPlaylistContextRequested"
+                    DoubleTapped="OnPlaylistDoubleTapped"
                     DragItemsCompleted="OnPlaylistDragCompleted"
                     ItemsSource="{x:Bind Playlists}"
+                    PointerExited="OnPlaylistPointerExited"
+                    PointerMoved="OnPlaylistPointerMoved"
                     SelectionChanged="OnPlaylistSelectionChanged"
                     SelectionMode="Single">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="vm:PlaylistNavItem">
-                            <Grid Height="54" ColumnSpacing="12">
+                            <Grid
+                                Height="54"
+                                Background="{StaticResource ResonateTransparentBrush}"
+                                ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="40" />
                                     <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <Grid
                                     Width="40"
@@ -213,9 +225,22 @@
                                     Grid.Column="1"
                                     VerticalAlignment="Center"
                                     Spacing="1">
-                                    <TextBlock Style="{StaticResource ResonateBodyTextStyle}" Text="{x:Bind Name}" />
+                                    <TextBlock
+                                        Foreground="{x:Bind NameBrush, Mode=OneWay}"
+                                        Style="{StaticResource ResonateBodyTextStyle}"
+                                        Text="{x:Bind Name}" />
                                     <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="{x:Bind Details}" />
                                 </StackPanel>
+                                <FontIcon
+                                    Grid.Column="2"
+                                    Margin="0,0,6,0"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.Name="Playing"
+                                    FontFamily="{StaticResource ResonateIconFont}"
+                                    FontSize="14"
+                                    Foreground="{StaticResource ResonateAccentBrush}"
+                                    Glyph="&#xE767;"
+                                    Visibility="{x:Bind SpeakerVisibility, Mode=OneWay}" />
                             </Grid>
                         </DataTemplate>
                     </ListView.ItemTemplate>
@@ -291,10 +316,18 @@
                 Grid.Column="2"
                 Visibility="Collapsed" />
 
-            <!-- Settings, next to the page; a column is added for it while it is open (see ShowSettings). -->
+            <!-- Settings, next to the page in the queue's place (see ShowSettings). -->
             <controls:SettingsPane
                 x:Name="SettingsPane"
                 Grid.Column="2"
+                Visibility="Collapsed" />
+
+            <!-- Grips in the gaps between the panels, above them (placed by PlaceSplitters). -->
+            <controls:PaneSplitter x:Name="SidebarSplitter" HorizontalAlignment="Right" />
+            <controls:PaneSplitter
+                x:Name="RightSplitter"
+                Grid.Column="2"
+                HorizontalAlignment="Left"
                 Visibility="Collapsed" />
         </Grid>
 

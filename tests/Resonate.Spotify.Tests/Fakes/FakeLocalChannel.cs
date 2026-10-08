@@ -18,13 +18,28 @@ internal sealed class FakeLocalChannel : ILocalMediaChannel, IAppVolume
 
     public List<string> Commands { get; } = [];
 
+    /// <summary>How often listening was started.</summary>
+    public int StartCount { get; private set; }
+
+    public bool IsListening { get; private set; }
+
+    /// <summary>How often the mixer volume was read.</summary>
+    public int VolumeReads { get; private set; }
+
     public void Report(LocalMediaSnapshot snapshot)
     {
         Current = snapshot;
         Changed?.Invoke(this, snapshot);
     }
 
-    public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        StartCount++;
+        IsListening = true;
+        return Task.CompletedTask;
+    }
+
+    public void Stop() => IsListening = false;
 
     public Task<bool> PlayAsync(CancellationToken cancellationToken) => Record("play");
 
@@ -37,7 +52,11 @@ internal sealed class FakeLocalChannel : ILocalMediaChannel, IAppVolume
     public Task<bool> SeekAsync(TimeSpan position, CancellationToken cancellationToken) =>
         Record($"seek {position.TotalSeconds:0.##}");
 
-    public double? TryGetVolume() => Volume;
+    public double? TryGetVolume()
+    {
+        VolumeReads++;
+        return Volume;
+    }
 
     public bool TrySetVolume(double volume)
     {

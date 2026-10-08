@@ -7,8 +7,11 @@ using Resonate.App.Controls;
 using Resonate.App.Demo;
 using Resonate.App.Pages;
 using Resonate.App.Pages.Lists;
+using Resonate.Spotify.LocalFiles;
 using Resonate.Spotify.WebApi;
 using Resonate.Themes;
+using Resonate.Windows;
+using Resonate.Windows.LocalAudio;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
 
@@ -45,6 +48,7 @@ internal sealed class ScreenshotTour
         try
         {
             Directory.CreateDirectory(_folder);
+            await CheckCoversAsync();
 
             // Resonate opens on Home.
             await Task.Delay(2500);
@@ -239,6 +243,96 @@ internal sealed class ScreenshotTour
         {
             host.Children.Remove(sheet);
         }
+    }
+
+    /// <summary>
+    /// Covers made from bytes (local files' own covers) go through Windows'
+    /// image decoder, which only the installed app can show works: a
+    /// picture next to a song is made into a row's thumbnail, shown, and
+    /// read for the cover colours. Demo mode has no real files, so this is
+    /// the only place CI sees it.
+    /// </summary>
+    private async Task CheckCoversAsync()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "resonate-cover-check");
+        if (Directory.Exists(folder))
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+
+        Directory.CreateDirectory(folder);
+        var picture = await MakePictureAsync(320, 200);
+        await File.WriteAllBytesAsync(Path.Combine(folder, "cover.jpg"), picture);
+        var song = Path.Combine(folder, "song.mp3");
+        await File.WriteAllBytesAsync(song, new byte[4096]);
+        var info = new FileInfo(song);
+
+        using var cache = new LocalCoverCache(Path.Combine(folder, "thumbnails"), new WindowsCoverShrinker());
+        var thumbnail = await cache.GetAsync(new LocalFile { Path = song, Size = info.Length, LastWriteTicks = info.LastWriteTimeUtc.Ticks, Title = "song" });
+        if (thumbnail is null)
+        {
+            Record("A local song's cover could not be made into a thumbnail (LocalCoverCache with WindowsCoverShrinker).");
+        }
+
+        // A cover inside the file (an ID3 tag's picture), taller than wide.
+        var embeddedFolder = Path.Combine(folder, "embedded");
+        Directory.CreateDirectory(embeddedFolder);
+        var embedded = Path.Combine(embeddedFolder, "song.mp3");
+        await File.WriteAllBytesAsync(embedded, [.. Id3WithCover(await MakePictureAsync(200, 320)), .. new byte[4096]]);
+        var embeddedInfo = new FileInfo(embedded);
+        if (await cache.GetAsync(new LocalFile { Path = embedded, Size = embeddedInfo.Length, LastWriteTicks = embeddedInfo.LastWriteTimeUtc.Ticks, Title = "song" }) is null)
+        {
+            Record("The cover inside a local song could not be made into a thumbnail (LocalCoverCache with WindowsCoverShrinker).");
+        }
+
+        var (image, loaded) = await CoverImages.FromBytesAsync(thumbnail ?? picture, 40);
+        if (!loaded || image is not BitmapImage { PixelWidth: > 0 })
+        {
+            Record("A cover made from bytes could not be shown (CoverImages.FromBytesAsync).");
+        }
+
+        if (await CoverDecoder.DecodeAsync(picture, 40, CancellationToken.None) is not { Length: 40 * 40 * 4 })
+        {
+            Record("A cover could not be read for its colours (CoverDecoder).");
+        }
+    }
+
+    /// <summary>The start of an MP3 file: an ID3v2.3 tag with <paramref name="cover"/> as its front cover.</summary>
+    private static byte[] Id3WithCover(byte[] cover)
+    {
+        byte[] picture = [0, .. "image/jpeg"u8, 0, 3, 0, .. cover];
+        var frame = new byte[10 + picture.Length];
+        "APIC"u8.CopyTo(frame);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(frame.AsSpan(4), picture.Length);
+        picture.CopyTo(frame, 10);
+
+        // The tag's size is "synchsafe": seven bits a byte.
+        var size = frame.Length;
+        byte[] header = [.. "ID3"u8, 3, 0, 0, (byte)((size >> 21) & 0x7F), (byte)((size >> 14) & 0x7F), (byte)((size >> 7) & 0x7F), (byte)(size & 0x7F)];
+        return [.. header, .. frame];
+    }
+
+    /// <summary>A JPEG of a simple gradient, made with Windows' encoder.</summary>
+    private static async Task<byte[]> MakePictureAsync(int width, int height)
+    {
+        var pixels = new byte[width * height * 4];
+        for (var y = 0; y < height; y++)
+        {
+            for (var x = 0; x < width; x++)
+            {
+                var i = ((y * width) + x) * 4;
+                pixels[i] = (byte)(x * 255 / width);
+                pixels[i + 1] = (byte)(y * 255 / height);
+                pixels[i + 2] = 160;
+                pixels[i + 3] = 255;
+            }
+        }
+
+        using var stream = new InMemoryRandomAccessStream();
+        var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.JpegEncoderId, stream);
+        encoder.SetPixelData(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Ignore, (uint)width, (uint)height, 96, 96, pixels);
+        await encoder.FlushAsync();
+        return await ImageStreams.ToBytesAsync(stream);
     }
 
     private void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)

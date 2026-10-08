@@ -19,24 +19,32 @@
                     <RadioButton Content="Windows media controls (fastest)" />
                     <RadioButton Content="Spotify Web API only" />
                 </RadioButtons>
+                <TextBlock
+                    x:Name="WebApiOnlyNote"
+                    Style="{StaticResource ResonateCaptionTextStyle}"
+                    Text="Music plays on the device picked with the button next to the volume. Media keys, Spotify's equalizer and DJ need Windows media controls."
+                    TextWrapping="Wrap"
+                    Visibility="Collapsed" />
 
-                <ToggleSwitch
-                    x:Name="KeepHiddenSwitch"
-                    Header="Keep the Spotify app hidden"
-                    OffContent="Off"
-                    OnContent="On"
-                    Toggled="OnKeepHiddenToggled" />
-                <ToggleSwitch
-                    x:Name="SaveResourcesSwitch"
-                    Header="Save power while Spotify is hidden"
-                    OffContent="Off"
-                    OnContent="On"
-                    Toggled="OnSaveResourcesToggled" />
-                <Button
-                    Click="OnShowSpotifyClick"
-                    Content="Show the Spotify app"
-                    Style="{StaticResource ResonateSubtleButtonStyle}"
-                    ToolTipService.ToolTip="It hides again when you switch away" />
+                <StackPanel x:Name="SpotifyAppOptions" Spacing="12">
+                    <ToggleSwitch
+                        x:Name="KeepHiddenSwitch"
+                        Header="Keep the Spotify app hidden"
+                        OffContent="Off"
+                        OnContent="On"
+                        Toggled="OnKeepHiddenToggled" />
+                    <ToggleSwitch
+                        x:Name="SaveResourcesSwitch"
+                        Header="Save power while Spotify is hidden"
+                        OffContent="Off"
+                        OnContent="On"
+                        Toggled="OnSaveResourcesToggled" />
+                    <Button
+                        Click="OnShowSpotifyClick"
+                        Content="Show the Spotify app"
+                        Style="{StaticResource ResonateSubtleButtonStyle}"
+                        ToolTipService.ToolTip="It hides again when you switch away" />
+                </StackPanel>
             </StackPanel>
 
             <!-- Equalizer: the Spotify app's own, and the same setting for local files -->

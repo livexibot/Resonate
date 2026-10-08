@@ -25,6 +25,9 @@ public interface ILocalAudioEngine : IDisposable
     /// <summary>Where the open file is now (zero when none is open).</summary>
     TimeSpan Position { get; }
 
+    /// <summary>How long the open file is (zero when none is open, or unknown); after a song ended without a gap, the length of the one that followed.</summary>
+    TimeSpan Duration { get; }
+
     /// <summary>
     /// Opens <paramref name="path"/> at <paramref name="position"/>, playing or
     /// paused, in place of what was open, and returns its length (zero when

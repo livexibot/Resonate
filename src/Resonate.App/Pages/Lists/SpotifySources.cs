@@ -31,8 +31,9 @@ public sealed class LikedSongsSource : TrackListSource
     public override Task<FullTrackList> LoadAllAsync(CancellationToken cancellationToken) =>
         LoadAsync(_services.Library, cancellationToken);
 
+    // The stored list shows at once; Spotify is asked only when there is none.
     public override async Task<IReadOnlyList<TrackInfo>?> LoadPreviewAsync(CancellationToken cancellationToken) =>
-        (await _services.Library.GetLikedSongsAsync(0, cancellationToken)).Tracks;
+        _services.Library.GetStoredLikedSongs() ?? (await _services.Library.GetLikedSongsAsync(0, cancellationToken)).Tracks;
 
     private static async Task<FullTrackList> LoadAsync(LibraryService library, CancellationToken cancellationToken) =>
         new(await library.GetAllLikedSongsAsync(cancellationToken), ItemsHidden: false);
@@ -85,6 +86,13 @@ public sealed class PlaylistSource : TrackListSource
 
     public override async Task<IReadOnlyList<TrackInfo>?> LoadPreviewAsync(CancellationToken cancellationToken)
     {
+        // The songs as last stored show at once, even if the playlist changed
+        // since (rearranging waits for the current list); Spotify is asked only when there are none.
+        if (_services.Library.PeekStoredPlaylistTracks(_id) is { Count: > 0 } stored)
+        {
+            return stored;
+        }
+
         var page = await _services.Library.GetPlaylistTracksAsync(_id, 0, cancellationToken);
         return page.ItemsHidden ? null : page.Tracks;
     }

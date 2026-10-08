@@ -5,8 +5,9 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Hosting;
-using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.UI.Xaml.Media;
 using Resonate.App.Helpers;
+using Resonate.App.Services;
 using Resonate.Plugins;
 using Resonate.Spotify.Playback;
 using Resonate.Spotify.WebApi;
@@ -103,6 +104,7 @@ public sealed partial class PlayerBar : UserControl
     {
         _player = player;
         player.StateChanged += OnStateChanged;
+        App.Services.ControlChannelChanged += (_, _) => ShowDevice(_shown);
         Show(player.State);
     }
 
@@ -228,6 +230,7 @@ public sealed partial class PlayerBar : UserControl
         }
 
         ShowModes(state);
+        ShowDevice(state);
         ShowArtwork(state);
         UpdateClock();
         RunClockWhenNeeded();
@@ -346,11 +349,11 @@ public sealed partial class PlayerBar : UserControl
 
         if (state.ArtworkUrl is { } url)
         {
-            ArtworkImage.Source = Artwork.FromUrl(url, 56);
+            _ = ShowCoverAsync(key, App.Services.Covers.GetReadyAsync(url, 56));
         }
         else if (state.ArtworkBytes is { } bytes)
         {
-            _ = LoadArtworkBytesAsync(bytes);
+            _ = ShowCoverAsync(key, CoverImages.FromBytesAsync(bytes, 56));
         }
         else
         {
@@ -358,22 +361,20 @@ public sealed partial class PlayerBar : UserControl
         }
     }
 
-    private async Task LoadArtworkBytesAsync(byte[] bytes)
+    private async Task ShowCoverAsync(object key, Task<(ImageSource? Image, bool Loaded)> loading)
     {
-        var bitmap = new BitmapImage { DecodePixelWidth = 56, DecodePixelType = DecodePixelType.Logical };
-        try
-        {
-            using var stream = new MemoryStream(bytes, writable: false);
-            await bitmap.SetSourceAsync(stream.AsRandomAccessStream());
-        }
-        catch (Exception)
+        var (image, loaded) = await loading;
+        if (!ReferenceEquals(_artworkKey, key))
         {
             return;
         }
 
-        if (ReferenceEquals(_artworkKey, bytes))
+        ArtworkImage.Source = image;
+
+        // A picture that already has its pixels may not raise ImageOpened, so it is shown here.
+        if (loaded)
         {
-            ArtworkImage.Source = bitmap;
+            OnArtworkOpened(ArtworkImage, new RoutedEventArgs());
         }
     }
 
@@ -470,6 +471,20 @@ public sealed partial class PlayerBar : UserControl
     }
 
     private void OnQueueClick(object sender, RoutedEventArgs e) => QueueRequested?.Invoke(this, EventArgs.Empty);
+
+    // The song's title opens what it plays from; underlined under the pointer when it can.
+    private void OnTitleTapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e) => App.MainWindow?.OpenNowPlaying();
+
+    private void OnTitlePointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (App.MainWindow?.CanOpenNowPlaying(_shown) == true)
+        {
+            TitleText.TextDecorations = global::Windows.UI.Text.TextDecorations.Underline;
+        }
+    }
+
+    private void OnTitlePointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e) =>
+        TitleText.TextDecorations = global::Windows.UI.Text.TextDecorations.None;
 
     private void OnSeekDragCompleted(object? sender, EventArgs e) =>
         _ = _player?.SeekAsync(TimeSpan.FromSeconds(PositionBar.Value));

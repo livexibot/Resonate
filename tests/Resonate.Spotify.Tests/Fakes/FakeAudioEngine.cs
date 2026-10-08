@@ -28,6 +28,11 @@ internal sealed class FakeAudioEngine : ILocalAudioEngine
 
     public TimeSpan Length { get; set; } = TimeSpan.FromMinutes(3);
 
+    public TimeSpan Duration => Length;
+
+    /// <summary>When set, a song played to its end never says so, as if Windows' report were lost.</summary>
+    public bool LoseEnds { get; set; }
+
     public string? Next { get; private set; }
 
     public bool Looping { get; private set; }
@@ -105,6 +110,28 @@ internal sealed class FakeAudioEngine : ILocalAudioEngine
     }
 
     public void End(string path, string? nextPath) => TrackEnded?.Invoke(this, new LocalTrackEnded(path, nextPath));
+
+    /// <summary>
+    /// Plays the open song to its end as the real engine does: it starts the
+    /// next song given to <see cref="SetNext"/> at once, and says so, unless
+    /// <see cref="LoseEnds"/> is set (then it just sits at the end).
+    /// </summary>
+    public void PlayToEnd(string path)
+    {
+        Position = Length;
+        if (LoseEnds)
+        {
+            return;
+        }
+
+        var next = Looping ? null : Next;
+        if (next is not null)
+        {
+            Position = TimeSpan.Zero;
+        }
+
+        End(path, next);
+    }
 
     public void Fail(string message) => Failed?.Invoke(this, message);
 

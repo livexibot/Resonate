@@ -13,7 +13,6 @@ using Resonate.App.ViewModels;
 using Resonate.Spotify.Library;
 using Resonate.Spotify.Playback;
 using DataPackageOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation;
-using Launcher = Windows.System.Launcher;
 using VirtualKey = Windows.System.VirtualKey;
 
 namespace Resonate.App.Pages;
@@ -673,7 +672,7 @@ public sealed partial class TracksPage : Page
             Shuffle = shuffle,
             IsPartial = !_complete,
         };
-        App.MainWindow?.NoteListPlayed(_source.Key);
+        App.MainWindow?.NoteListPlayed(_source.Key, request.SourceName);
         await _services.Player.PlayAsync(request);
     }
 
@@ -728,13 +727,7 @@ public sealed partial class TracksPage : Page
         ToolTipService.SetToolTip(OpenInSpotifyButton, compact ? OpenInSpotifyLabel : null);
     }
 
-    private void OnOpenInSpotifyClick(object sender, RoutedEventArgs e)
-    {
-        if (_source.SpotifyLink is { } link && Uri.TryCreate(link, UriKind.Absolute, out var uri))
-        {
-            _ = Launcher.LaunchUriAsync(uri);
-        }
-    }
+    private void OnOpenInSpotifyClick(object sender, RoutedEventArgs e) => TrackActions.OpenInSpotify(_source.SpotifyLink);
 
     // ---- Likes, the menu, rearranging ----
 

@@ -60,7 +60,15 @@ public interface ILocalMediaChannel : IDisposable
 
     LocalMediaSnapshot Current { get; }
 
+    /// <summary>Starts listening to Spotify's session. Does nothing while already listening.</summary>
     Task StartAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Stops listening (with "Spotify Web API only"): nothing is read from
+    /// Spotify's session until <see cref="StartAsync"/> is called again, and
+    /// <see cref="Current"/> becomes <see cref="LocalMediaSnapshot.None"/>.
+    /// </summary>
+    void Stop();
 
     Task<bool> PlayAsync(CancellationToken cancellationToken);
 
@@ -97,6 +105,10 @@ public sealed class NoLocalMediaChannel : ILocalMediaChannel, IAppVolume
     public LocalMediaSnapshot Current => LocalMediaSnapshot.None;
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public void Stop()
+    {
+    }
 
     public Task<bool> PlayAsync(CancellationToken cancellationToken) => Task.FromResult(false);
 

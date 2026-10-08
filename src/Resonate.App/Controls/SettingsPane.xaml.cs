@@ -11,7 +11,7 @@ namespace Resonate.App.Controls;
 /// Settings, in a pane on the right of the window instead of in place of the
 /// page, so the page stays in view while settings change. The Settings page
 /// is made when the pane opens and let go when it closes, like any page. The
-/// pane only reports drags on its edge; the window sets and keeps its width.
+/// window sizes the pane and resizes it with the grip on its left.
 /// </summary>
 public sealed partial class SettingsPane : UserControl
 {
@@ -33,27 +33,10 @@ public sealed partial class SettingsPane : UserControl
         Translation = ClosedOffset;
         OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(180) };
         TranslationTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(220) };
-
-        Resizer.DragStarted += (_, _) => ResizeStarted?.Invoke(this, EventArgs.Empty);
-        Resizer.Dragged += (_, distance) => Resizing?.Invoke(this, distance);
-        Resizer.DragCompleted += (_, _) => ResizeCompleted?.Invoke(this, EventArgs.Empty);
-        Resizer.ResetRequested += (_, _) => ResetRequested?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Raised when the close button is clicked.</summary>
     public event EventHandler? CloseRequested;
-
-    /// <summary>Raised when the user starts dragging the pane's edge.</summary>
-    public event EventHandler? ResizeStarted;
-
-    /// <summary>Raised while the edge is dragged: how far right the pointer is from where it started.</summary>
-    public event EventHandler<double>? Resizing;
-
-    /// <summary>Raised when the user lets go of the edge.</summary>
-    public event EventHandler? ResizeCompleted;
-
-    /// <summary>Raised when the edge is double-clicked.</summary>
-    public event EventHandler? ResetRequested;
 
     public bool IsOpen { get; private set; }
 

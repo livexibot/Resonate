@@ -124,7 +124,7 @@ public sealed partial class TrackRow : ObservableObject
     public Brush PlaceholderBrush { get; }
 
     /// <summary>Created on first use, on the interface thread, at the size it is shown (local files read their own cover).</summary>
-    public ImageSource? Image => _image ??= Track.FilePath is not null ? LocalArtwork.For(Track, 80) : Artwork.FromUrl(Track.SmallImageUrl, 80);
+    public ImageSource? Image => _image ??= Track.FilePath is not null ? LocalArtwork.For(Track, 40) : Artwork.FromUrl(Track.SmallImageUrl, 40);
 
     /// <summary>Only Spotify songs can be liked (not local files or podcast episodes).</summary>
     public Visibility HeartVisibility => CanLike(Track) ? Visibility.Visible : Visibility.Collapsed;
@@ -172,9 +172,11 @@ public sealed partial class TrackRow : ObservableObject
 }
 
 /// <summary>A playlist in the sidebar.</summary>
-public sealed partial class PlaylistNavItem
+public sealed partial class PlaylistNavItem : ObservableObject
 {
     private ImageSource? _image;
+    private bool _isCurrent;
+    private bool _isPlaying;
 
     public PlaylistNavItem(SimplifiedPlaylist playlist)
     {
@@ -200,7 +202,38 @@ public sealed partial class PlaylistNavItem
 
     public Brush PlaceholderBrush { get; }
 
-    public ImageSource? Image => _image ??= Artwork.FromUrl(ImagePicker.Pick(Playlist.Images, 64), 80);
+    public ImageSource? Image => _image ??= Artwork.FromUrl(ImagePicker.Pick(Playlist.Images, 64), 40);
+
+    /// <summary>The music plays from this playlist (or did, if it is paused): its name is drawn in the accent colour.</summary>
+    public bool IsCurrent
+    {
+        get => _isCurrent;
+        set
+        {
+            if (Set(ref _isCurrent, value))
+            {
+                OnPropertyChanged(nameof(NameBrush));
+                OnPropertyChanged(nameof(SpeakerVisibility));
+            }
+        }
+    }
+
+    /// <summary>The music is playing (not paused): the current playlist shows a speaker.</summary>
+    public bool IsPlaying
+    {
+        get => _isPlaying;
+        set
+        {
+            if (Set(ref _isPlaying, value))
+            {
+                OnPropertyChanged(nameof(SpeakerVisibility));
+            }
+        }
+    }
+
+    public Brush NameBrush => App.Services.Theme.GetBrush(IsCurrent ? "ResonateAccentBrush" : "ResonateTextPrimaryBrush");
+
+    public Visibility SpeakerVisibility => IsCurrent && IsPlaying ? Visibility.Visible : Visibility.Collapsed;
 }
 
 /// <summary>A square card for an album or playlist (search results).</summary>
@@ -233,7 +266,7 @@ public sealed partial class CardItem
 
     public Brush PlaceholderBrush { get; }
 
-    public ImageSource? Image => _image ??= Artwork.FromUrl(ImageUrl, 300);
+    public ImageSource? Image => _image ??= Artwork.FromUrl(ImageUrl, 160);
 }
 
 /// <summary>A navigation entry at the top of the sidebar.</summary>
