@@ -36,6 +36,14 @@ internal sealed partial class PerformanceTour
     private static readonly TimeSpan SettleLimit = TimeSpan.FromSeconds(8);
     private static readonly TimeSpan IdleSpan = TimeSpan.FromSeconds(5);
 
+    /// <summary>
+    /// How much longer a page still alive at the check gets to go. WinUI lets
+    /// go of a large page's elements over several ticks and collections, so
+    /// the page left last (Settings, closed moments before) can still be alive
+    /// at first. A page that is really kept stays alive however long this is.
+    /// </summary>
+    private static readonly TimeSpan LateReleaseLimit = TimeSpan.FromSeconds(12);
+
     // Limits that fail CI. GitHub's machines draw without a graphics card, so
     // these are several times what they measure there; a real PC is faster.
     private const double PageHeldLimitMs = 250;
@@ -57,6 +65,8 @@ internal sealed partial class PerformanceTour
     private readonly List<StepResult> _looks = [];
     private readonly List<ScrollResult> _scrolls = [];
     private readonly List<string> _leftAlive = [];
+    private readonly List<string> _releasedLate = [];
+    private double _lateReleaseSeconds;
     private readonly List<double> _privateMbAfterRound = [];
     private readonly List<string> _errors = [];
     private string _stage = "starting";
@@ -233,15 +243,15 @@ internal sealed partial class PerformanceTour
         var before = await SampleMemoryAsync();
         _memory.Add(("Before visiting every page 4 more times", before));
 
-        var visited = new List<(string Name, WeakReference Page)>();
-        for (var round = 0; round < LeakRounds; round++)
+        var visited = new List<Visit>();
+        for (var round = 1; round <= LeakRounds; round++)
         {
             foreach (var (name, key) in Pages)
             {
                 _window.Open(key);
                 if (_window.CurrentPage is { } page)
                 {
-                    visited.Add((name, new WeakReference(page)));
+                    visited.Add(new Visit(name, round, new WeakReference(page)));
                 }
 
                 await SettleAsync(TimeSpan.FromSeconds(3));
@@ -255,7 +265,7 @@ internal sealed partial class PerformanceTour
             _window.OpenSettings();
             if (_window.SettingsPage is { } settings)
             {
-                visited.Add(("Settings", new WeakReference(settings)));
+                visited.Add(new Visit("Settings", round, new WeakReference(settings)));
             }
 
             await SettleAsync(TimeSpan.FromSeconds(3));
@@ -269,11 +279,30 @@ internal sealed partial class PerformanceTour
 
         var current = _window.CurrentPage;
         _memory.Add(("After visiting every page 4 more times", await SampleMemoryAsync()));
-        _leftAlive.AddRange(visited
-            .Where(v => v.Page.Target is { } page && !ReferenceEquals(page, current))
-            .GroupBy(v => v.Name)
-            .Select(g => $"{g.Key} ×{g.Count()}"));
+
+        // Only weak references are kept here, so the check itself holds no page.
+        var aliveAtCheck = visited.Where(v => v.IsAlive(current)).ToList();
+        var alive = aliveAtCheck;
+        var waited = Stopwatch.StartNew();
+        while (alive.Count > 0 && waited.Elapsed < LateReleaseLimit)
+        {
+            await SettleAsync(TimeSpan.FromSeconds(1));
+            await SampleMemoryAsync();
+            alive = alive.Where(v => v.IsAlive(current)).ToList();
+        }
+
+        _leftAlive.AddRange(Describe(alive));
+        if (aliveAtCheck.Count > alive.Count)
+        {
+            _releasedLate.AddRange(Describe(aliveAtCheck.Except(alive)));
+            _lateReleaseSeconds = waited.Elapsed.TotalSeconds;
+        }
     }
+
+    /// <summary>"Settings ×1 (round 4)": how many of a page, and from which rounds.</summary>
+    private static IEnumerable<string> Describe(IEnumerable<Visit> visits) => visits
+        .GroupBy(v => v.Name)
+        .Select(g => $"{g.Key} ×{g.Count()} (round {string.Join(", ", g.Select(v => v.Round))})");
 
     /// <summary>Anything over its limit is an error, so CI fails and shows it.</summary>
     private void CheckLimits()
@@ -612,6 +641,13 @@ internal sealed partial class PerformanceTour
             }
 
             json.WriteEndArray();
+            json.WriteStartArray("pagesReleasedLate");
+            foreach (var page in _releasedLate)
+            {
+                json.WriteStringValue(page);
+            }
+
+            json.WriteEndArray();
             json.WriteNumber("errors", _errors.Count);
             json.WriteEndObject();
         }
@@ -694,6 +730,12 @@ internal sealed partial class PerformanceTour
         md.AppendLine(_leftAlive.Count == 0
             ? "Pages kept in memory after leaving them: **none**."
             : $"Pages kept in memory after leaving them: **{string.Join(", ", _leftAlive)}**.");
+        if (_releasedLate.Count > 0)
+        {
+            md.AppendLine();
+            md.AppendLine(CultureInfo.InvariantCulture, $"Let go only after waiting up to {_lateReleaseSeconds:N1} s more (not kept): {string.Join(", ", _releasedLate)}.");
+        }
+
         if (_errors.Count > 0)
         {
             md.AppendLine();
@@ -739,6 +781,12 @@ internal sealed partial class PerformanceTour
     private static partial uint GetGuiResources(nint process, uint flags);
 
     private sealed record MemorySample(double WorkingSetMb, double PrivateMb, double ManagedMb, int Handles, int Threads, uint GdiObjects, uint UserObjects);
+
+    /// <summary>A page visited in the leak rounds, held only weakly.</summary>
+    private sealed record Visit(string Name, int Round, WeakReference Page)
+    {
+        public bool IsAlive(object? current) => Page.Target is { } page && !ReferenceEquals(page, current);
+    }
 
     private sealed record StepResult(string Name, double HeldMs, double FirstFrameMs, double SettledMs, double LongestFrameMs, double AllocatedMb, double? FirstMotionMs = null, double? FinishedMs = null);
 
