@@ -57,6 +57,9 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
     /// <summary>The WebView2 runtime's version, once the page is open.</summary>
     public string? BrowserVersion { get; private set; }
 
+    /// <summary>Told each step of opening the page, for CI's check; never anything a message carries.</summary>
+    public Action<string>? Trace { get; init; }
+
     private bool IsDisposed => Volatile.Read(ref _disposed) != 0;
 
     /// <summary>
@@ -64,9 +67,21 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
     /// audio works and that Spotify's player starts and turns down a made-up
     /// token, and says how it went in one line starting with "OK " or "FAIL ".
     /// </summary>
-    public static async Task<string> CheckAsync(DispatcherQueue dispatcher, string userDataFolder, TimeSpan timeout)
+    public static async Task<string> CheckAsync(DispatcherQueue dispatcher, string userDataFolder, TimeSpan timeout, Action<string> trace)
     {
-        var page = new WebPlayerPage(dispatcher, userDataFolder);
+        var page = new WebPlayerPage(dispatcher, userDataFolder) { Trace = trace };
+
+        // Says every 15 s whether the interface thread still answers, so a hang shows where it is.
+        using var watchdog = new Timer(
+            _ =>
+            {
+                var answered = new ManualResetEventSlim();
+                var queued = dispatcher.TryEnqueue(answered.Set);
+                trace(queued && answered.Wait(TimeSpan.FromSeconds(2)) ? "still waiting; the interface thread answers" : "still waiting; the interface thread does not answer");
+            },
+            null,
+            TimeSpan.FromSeconds(15),
+            TimeSpan.FromSeconds(15));
         await using (page.ConfigureAwait(false))
         {
             var answer = new TaskCompletionSource<WebPlayerMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -80,9 +95,12 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
             page.Failed += (_, what) => answer.TrySetException(new InvalidOperationException(what));
 
             using var cancel = new CancellationTokenSource(timeout);
+            trace("opening the page");
             await page.LoadAsync(cancel.Token).ConfigureAwait(false);
+            trace("the page listens; checking");
             page.Post(WebPlayerCommands.Check());
             var result = await answer.Task.WaitAsync(cancel.Token).ConfigureAwait(false);
+            trace("the page answered; closing it");
 
             // A made-up token: Spotify's player started, reached Spotify and was turned down.
             var ok = result is { Widevine: "ok", Sdk: "authentication_error" };
@@ -162,11 +180,13 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
 
     private async Task OpenAsync()
     {
-        if (FindRuntime() is null)
+        Trace?.Invoke("looking for the WebView2 runtime");
+        if (FindRuntime() is not { } runtime)
         {
             throw new WebPlayerUnavailableException("The WebView2 runtime is not installed.");
         }
 
+        Trace?.Invoke($"WebView2 runtime {runtime}; starting it");
         Directory.CreateDirectory(_userDataFolder);
         var environment = await CoreWebView2Environment.CreateWithOptionsAsync(
             string.Empty,
@@ -174,11 +194,13 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
             new CoreWebView2EnvironmentOptions { AdditionalBrowserArguments = BrowserArguments });
         BrowserVersion = environment.BrowserVersionString;
 
+        Trace?.Invoke("started; making the hidden view");
         var options = environment.CreateCoreWebView2ControllerOptions();
         options.IsInPrivateModeEnabled = true;
         var controller = await environment.CreateCoreWebView2ControllerAsync(
             CoreWebView2ControllerWindowReference.CreateFromWindowHandle(MessageOnlyWindow),
             options);
+        Trace?.Invoke("the hidden view exists; opening the page");
         if (IsDisposed)
         {
             controller.Close();
@@ -208,6 +230,7 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
         web.NavigationStarting += (_, e) => e.Cancel = !string.Equals(e.Uri, PageUri, StringComparison.Ordinal);
         web.NavigationCompleted += (_, e) =>
         {
+            Trace?.Invoke($"page opened: {e.IsSuccess} ({e.WebErrorStatus})");
             if (!e.IsSuccess)
             {
                 _loaded.TrySetException(new InvalidOperationException($"The player page did not open ({e.WebErrorStatus})."));
@@ -240,7 +263,9 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
             return;
         }
 
-        switch (WebPlayerMessage.Parse(json)?.Type)
+        var type = WebPlayerMessage.Parse(json)?.Type;
+        Trace?.Invoke($"the page says {type}");
+        switch (type)
         {
             case "loaded":
                 _loaded.TrySetResult();
@@ -262,6 +287,7 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
             or CoreWebView2ProcessFailedKind.FrameRenderProcessExited)
         {
             var what = $"The player's {e.ProcessFailedKind} ({e.Reason}).";
+            Trace?.Invoke(what);
             _loaded.TrySetException(new InvalidOperationException(what));
             Failed?.Invoke(this, what);
         }

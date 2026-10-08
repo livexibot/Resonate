@@ -218,9 +218,16 @@ jobs:
           $installed = Join-Path $env:LOCALAPPDATA 'Resonate/current/Resonate.exe'
           $result = Join-Path $env:RUNNER_TEMP 'web-player-result.txt'
           $process = Start-Process $installed -ArgumentList '--web-player-check', $result -PassThru
-          if (-not $process.WaitForExit(180000)) { $process.Kill(); throw 'The web player check did not finish.' }
+          $finished = $process.WaitForExit(180000)
+          # Each step it took, then the outcome as the last line.
+          if (Test-Path $result) { Get-Content $result | ForEach-Object { Write-Output "  $_" } }
+          if (-not $finished) {
+            Get-Process Resonate, msedgewebview2 -ErrorAction SilentlyContinue | Format-Table Id, ProcessName, CPU, WorkingSet64 | Out-String | Write-Output
+            $process.Kill()
+            throw 'The web player check did not finish.'
+          }
           if (-not (Test-Path $result)) { throw "The web player check wrote no result (exit code $($process.ExitCode))." }
-          $outcome = (Get-Content $result -Raw).Trim()
+          $outcome = (Get-Content $result | Select-Object -Last 1).Trim()
           Write-Output "Web player: $outcome"
           "### Web player`n`n$outcome" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
           if (-not $outcome.StartsWith('OK ')) { throw "The web player check failed: $outcome" }

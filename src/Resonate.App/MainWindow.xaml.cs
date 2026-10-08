@@ -1104,22 +1104,48 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>CI's check that Spotify's web player can run in the installed copy (see <see cref="WebPlayerPage.CheckAsync"/>).</summary>
+    /// <remarks>
+    /// Writes each step as a line as it happens (from any thread, so a stuck
+    /// interface thread still shows), and the outcome as the last line.
+    /// </remarks>
     private async Task CheckWebPlayerAndQuitAsync(string resultFile)
     {
+        var clock = Stopwatch.StartNew();
+        var gate = new Lock();
+        File.Delete(resultFile);
+        void Write(string line)
+        {
+            lock (gate)
+            {
+                try
+                {
+                    File.AppendAllText(resultFile, $"{clock.Elapsed.TotalSeconds:0.0} s: {line}{Environment.NewLine}");
+                }
+                catch (IOException)
+                {
+                    // A step less in the log.
+                }
+            }
+        }
+
+        string outcome;
         try
         {
             var work = Path.Combine(Path.GetTempPath(), "resonate-web-player-check");
-            var outcome = await WebPlayerPage.CheckAsync(DispatcherQueue, work, TimeSpan.FromMinutes(2));
-            await File.WriteAllTextAsync(resultFile, outcome);
+            outcome = await WebPlayerPage.CheckAsync(DispatcherQueue, work, TimeSpan.FromMinutes(2), Write);
         }
         catch (Exception ex)
         {
-            await File.WriteAllTextAsync(resultFile, $"Error {ex.GetType().Name}: {ex.Message}");
+            outcome = $"Error {ex.GetType().Name}: {ex.Message}";
         }
-        finally
+
+        Write("closing Resonate");
+        lock (gate)
         {
-            Application.Current.Exit();
+            File.AppendAllText(resultFile, outcome + Environment.NewLine);
         }
+
+        Application.Current.Exit();
     }
 
     /// <summary>Says once when Resonate's own player cannot play until the user does something.</summary>
