@@ -228,7 +228,7 @@ public static class TrackActions
 
     public static string ArtistKey(string artistId) => "artist:" + artistId;
 
-    /// <summary>The open.spotify.com address of a song or episode, for sharing.</summary>
+    /// <summary>The open.spotify.com address of a song, list or artist, for sharing.</summary>
     public static string? SpotifyWebLink(string? uri)
     {
         if (uri is null)
@@ -236,10 +236,28 @@ public static class TrackActions
             return null;
         }
 
+        if (uri.EndsWith(":collection", StringComparison.Ordinal) || uri.EndsWith(":collection:tracks", StringComparison.Ordinal))
+        {
+            return "https://open.spotify.com/collection/tracks";
+        }
+
         var parts = uri.Split(':');
         return parts is ["spotify", "track" or "episode" or "album" or "playlist" or "artist", { Length: > 0 } id]
             ? $"https://open.spotify.com/{parts[1]}/{id}"
             : null;
+    }
+
+    /// <summary>
+    /// "Open in Spotify": in the Spotify app, or with "Spotify Web API only"
+    /// (which leaves the Spotify app alone) on open.spotify.com in the browser.
+    /// </summary>
+    public static void OpenInSpotify(string? uri)
+    {
+        var link = App.Services.UsesSpotifyApp ? uri : SpotifyWebLink(uri);
+        if (link is not null && Uri.TryCreate(link, UriKind.Absolute, out var target))
+        {
+            _ = global::Windows.System.Launcher.LaunchUriAsync(target);
+        }
     }
 
     public static void CopyText(string text)

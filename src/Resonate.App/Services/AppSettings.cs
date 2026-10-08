@@ -25,6 +25,9 @@ public sealed class AppSettings
     /// <summary>"local" (Windows' media controls first) or "webapi" (the Spotify Web API only).</summary>
     public string ControlChannel { get; set; } = "local";
 
+    /// <summary>The Spotify Connect device picked last with "Spotify Web API only" (by name), for when nothing plays.</summary>
+    public string? WebApiDeviceName { get; set; }
+
     /// <summary>Keep the Spotify app's window hidden and off the taskbar.</summary>
     public bool KeepSpotifyHidden { get; set; } = true;
 

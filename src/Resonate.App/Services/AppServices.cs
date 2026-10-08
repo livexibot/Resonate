@@ -60,6 +60,8 @@ public sealed class AppServices : IDisposable
         _owned.Add(Artwork);
 
         player.Spotify.Channel = settings.ParsedControlChannel;
+        player.Spotify.PreferredDeviceName = settings.WebApiDeviceName;
+        spotifyWindow.Enabled = UsesSpotifyApp;
         spotifyWindow.KeepHidden = settings.KeepSpotifyHidden;
         spotifyWindow.SaveResources = settings.SaveSpotifyResources;
         LocalFiles = localFiles;
@@ -95,6 +97,16 @@ public sealed class AppServices : IDisposable
 
     /// <summary>The Spotify app's window: hidden in the background, shown on request.</summary>
     public ISpotifyAppWindow SpotifyWindow { get; }
+
+    /// <summary>
+    /// Whether Resonate works with the Spotify app on this computer (Windows'
+    /// media controls, the default). False with "Spotify Web API only": then
+    /// Resonate never starts, hides, reads or restarts the Spotify app.
+    /// </summary>
+    public bool UsesSpotifyApp => Player.Spotify.Channel == ControlChannel.Local;
+
+    /// <summary>Raised on the interface thread after <see cref="SetControlChannel"/> switched.</summary>
+    public event EventHandler? ControlChannelChanged;
 
     /// <summary>The equalizer: the Spotify app's own for Spotify's songs, and the same setting for local files.</summary>
     public EqualizerService Equalizer { get; }
@@ -252,6 +264,35 @@ public sealed class AppServices : IDisposable
     {
         using var stream = typeof(AppServices).Assembly.GetManifestResourceStream("plugin-catalog.json");
         return PluginCatalog.Load(stream);
+    }
+
+    /// <summary>
+    /// Switches how Resonate talks to Spotify, at once and without a
+    /// restart: the player starts or stops listening to Spotify's media
+    /// session, the Spotify app's window is looked after or given back, and
+    /// the equalizer follows.
+    /// </summary>
+    public void SetControlChannel(ControlChannel channel)
+    {
+        if (Player.Spotify.Channel == channel)
+        {
+            return;
+        }
+
+        Settings.ControlChannel = channel == ControlChannel.WebApi ? "webapi" : "local";
+        SaveSettings();
+        Player.Spotify.Channel = channel;
+        SpotifyWindow.Enabled = UsesSpotifyApp;
+        Equalizer.OnChannelChanged();
+        ControlChannelChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Moves the music to another Spotify Connect device ("Spotify Web API only") and remembers it.</summary>
+    public Task PlayOnDeviceAsync(string deviceId, string deviceName)
+    {
+        Settings.WebApiDeviceName = deviceName;
+        SaveSettings();
+        return Player.Spotify.TransferToAsync(deviceId, deviceName);
     }
 
     public void SaveSettings()

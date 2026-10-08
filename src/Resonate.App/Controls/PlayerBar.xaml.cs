@@ -106,6 +106,7 @@ public sealed partial class PlayerBar : UserControl
     {
         _player = player;
         player.StateChanged += OnStateChanged;
+        App.Services.ControlChannelChanged += (_, _) => ShowDevice(_shown);
         App.Services.Likes.Changed += (_, change) =>
         {
             if (change.Uri is null || change.Uri == _shown.TrackUri)
@@ -239,6 +240,7 @@ public sealed partial class PlayerBar : UserControl
 
         ShowModes(state);
         ShowLike(state);
+        ShowDevice(state);
         ShowArtwork(state);
         UpdateClock();
         RunClockWhenNeeded();

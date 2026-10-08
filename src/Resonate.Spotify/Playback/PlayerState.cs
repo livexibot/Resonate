@@ -51,7 +51,7 @@ public sealed record PlayerState
 
     public PlaybackSource Source { get; init; } = PlaybackSource.Spotify;
 
-    /// <summary>The Spotify Connect device that plays, when it is not the Spotify app on this computer.</summary>
+    /// <summary>The name of the Spotify Connect device that plays, as the Web API last reported it (or as just picked).</summary>
     public string? DeviceName { get; init; }
 
     /// <summary>What the music plays from, in words ("Liked Songs", a playlist's name), when Resonate knows.</summary>

@@ -225,6 +225,36 @@ public sealed class SpotifyEqualizerSyncTests : IDisposable
     }
 
     [Fact]
+    public async Task With_Web_API_only_the_Spotify_app_and_its_settings_are_left_alone()
+    {
+        var allowed = false;
+        var sync = new SpotifyEqualizerSync([Path.Combine(_root, "Spotify")], _app, _app, _player, time: _time, mayUseSpotifyApp: () => allowed);
+        var before = File.ReadAllText(_prefs);
+        var written = File.GetLastWriteTimeUtc(_prefs);
+
+        Assert.Equal(EqualizerApplyResult.SpotifyAppLeftAlone, sync.Apply(Rock));
+        var status = sync.Refresh();
+        sync.ApplyPendingBeforeStart();
+        var restart = await sync.RestartSpotifyAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(status.SpotifyAppLeftAlone);
+        Assert.Null(status.Spotify);
+        Assert.Equal(Rock, sync.Pending);
+        Assert.False(sync.CanRestart);
+        Assert.Null(sync.Watch(() => { }));
+        Assert.Equal(SpotifyRestartStatus.CouldNotClose, restart.Restart);
+        Assert.Equal(0, _app.IsRunningReads);
+        Assert.Empty(_app.Events);
+        Assert.Equal(before, File.ReadAllText(_prefs));
+        Assert.Equal(written, File.GetLastWriteTimeUtc(_prefs));
+
+        // Back with Windows' media controls, Spotify (closed) gets the waiting change.
+        allowed = true;
+        Assert.Null(sync.Refresh().Pending);
+        Assert.Equal(Rock, SpotifyPrefsFile.TryRead(_prefs)!.Equalizer);
+    }
+
+    [Fact]
     public void Without_Spotifys_settings_the_change_is_kept_for_later()
     {
         var sync = new SpotifyEqualizerSync([Path.Combine(_root, "Missing")], _app, restarter: null, player: null);

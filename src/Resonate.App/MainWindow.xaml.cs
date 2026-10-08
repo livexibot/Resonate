@@ -102,6 +102,14 @@ public sealed partial class MainWindow : Window
         QueuePane.CloseRequested += (_, _) => ShowQueue(false);
         services.Player.ErrorOccurred += (_, message) =>
             DispatcherQueue.TryEnqueue(() => ShowMessage(message, InfoBarSeverity.Warning));
+        services.ControlChannelChanged += (_, _) =>
+        {
+            if (_services.UsesSpotifyApp)
+            {
+                // Back to Windows' media controls: Resonate starts the Spotify app again if needed.
+                _ = EnsureSpotifyAppAsync(_lifetime.Token);
+            }
+        };
         services.Library.PlaylistsChanged += (_, _) =>
             DispatcherQueue.TryEnqueue(() => ShowPlaylists(_services.Library.Snapshot));
         RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnRootPointerPressed), handledEventsToo: true);
@@ -578,21 +586,11 @@ public sealed partial class MainWindow : Window
         // Let the first frame appear before doing anything else.
         await Task.Yield();
 
-        try
+        // Follows Spotify; with "Spotify Web API only" it never touches the Spotify app.
+        await Task.Run(() => _services.Player.Spotify.StartAsync(token), token);
+        if (_services.UsesSpotifyApp)
         {
-            await Task.Run(() => _services.Player.Spotify.StartAsync(token), token);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            ShowMessage("Resonate could not reach Windows' media controls; playback goes through Spotify's servers instead.", InfoBarSeverity.Informational);
-        }
-
-        var spotify = await Task.Run(() => _services.Launcher.EnsureRunningAsync(token), token);
-        if (spotify == SpotifyAppStatus.NotInstalled)
-        {
-            ShowMessage(
-                "The Spotify app is not installed. Resonate plays music through it: install it from spotify.com/download or the Microsoft Store, sign in, then come back.",
-                InfoBarSeverity.Error);
+            await EnsureSpotifyAppAsync(token);
         }
 
         // Plugins that are on start in their helper, off the interface thread;
@@ -610,6 +608,25 @@ public sealed partial class MainWindow : Window
             && _services.Updates.IsInstalled)
         {
             await Task.Delay(UpdateService.CheckInterval, token);
+        }
+    }
+
+    /// <summary>Starts the Spotify app hidden when it is not running, or says it is not installed. Never with "Spotify Web API only".</summary>
+    private async Task EnsureSpotifyAppAsync(CancellationToken token)
+    {
+        try
+        {
+            var spotify = await Task.Run(() => _services.Launcher.EnsureRunningAsync(token), token);
+            if (spotify == SpotifyAppStatus.NotInstalled)
+            {
+                ShowMessage(
+                    "The Spotify app is not installed. Resonate plays music through it: install it from spotify.com/download or the Microsoft Store, sign in, then come back. (Or pick Spotify Web API only in Settings to play on your other devices.)",
+                    InfoBarSeverity.Error);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Closing.
         }
     }
 

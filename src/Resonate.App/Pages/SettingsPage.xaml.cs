@@ -33,6 +33,7 @@ public sealed partial class SettingsPage : Page
         ChannelChoice.SelectedIndex = _services.Player.Spotify.Channel == ControlChannel.WebApi ? 1 : 0;
         KeepHiddenSwitch.IsOn = _services.SpotifyWindow.KeepHidden;
         SaveResourcesSwitch.IsOn = _services.SpotifyWindow.SaveResources;
+        ShowChannelOptions();
         _loading = false;
 
         var user = _services.Library.Snapshot?.User;
@@ -61,10 +62,16 @@ public sealed partial class SettingsPage : Page
             return;
         }
 
-        var channel = ChannelChoice.SelectedIndex == 1 ? ControlChannel.WebApi : ControlChannel.Local;
-        _services.Player.Spotify.Channel = channel;
-        _services.Settings.ControlChannel = channel == ControlChannel.WebApi ? "webapi" : "local";
-        _services.SaveSettings();
+        _services.SetControlChannel(ChannelChoice.SelectedIndex == 1 ? ControlChannel.WebApi : ControlChannel.Local);
+        ShowChannelOptions();
+    }
+
+    /// <summary>The Spotify app's options only while Resonate works with it; with Web API only, what that mode means.</summary>
+    private void ShowChannelOptions()
+    {
+        var usesApp = _services.UsesSpotifyApp;
+        SpotifyAppOptions.Visibility = usesApp ? Visibility.Visible : Visibility.Collapsed;
+        WebApiOnlyNote.Visibility = usesApp ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void OnKeepHiddenToggled(object sender, RoutedEventArgs e)
