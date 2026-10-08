@@ -370,12 +370,15 @@
         </DataTemplate>
     </Page.Resources>
 
-    <ScrollViewer>
+    <ScrollViewer x:Name="Scroller">
         <StackPanel
             x:Name="Body"
             Padding="28,28,28,28"
             SizeChanged="OnBodySizeChanged"
             Spacing="40">
+            <!-- The Home stage, a built-in plugin (HomePage.Stage.cs): shown only while it is on. -->
+            <Border x:Name="StageSlot" Visibility="Collapsed" />
+
             <StackPanel Spacing="12">
                 <!--
                   The greeting with what plays (or played last), on a wash of
@@ -605,6 +608,12 @@
                         ItemsSource="{x:Bind Mixes}"
                         SelectionMode="None" />
                 </StackPanel>
+
+                <!-- Rediscover, a built-in plugin (HomePage.Rediscover.cs): shown only while it is on. -->
+                <StackPanel
+                    x:Name="RediscoverSection"
+                    Spacing="12"
+                    Visibility="Collapsed" />
 
                 <!-- Spotify's own top artists and songs, over the time range picked on the right. -->
                 <StackPanel x:Name="TopSection" Spacing="12">

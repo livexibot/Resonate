@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Lyrics, a built-in plugin, in the pane on the right that the queue and
+  Settings share (see MainWindow.Lyrics.cs). The lines are made in code
+  (LyricsPane.xaml.cs).
+-->
+<UserControl
+    x:Class="Resonate.App.Controls.LyricsPane"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid
+        Background="{StaticResource ResonateSurfaceBrush}"
+        BorderBrush="{StaticResource ResonateBorderBrush}"
+        BorderThickness="{ThemeResource ResonatePanelBorderThickness}"
+        CornerRadius="{ThemeResource ResonateCornerLarge}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Padding="20,14,10,6" ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center" Spacing="2">
+                <TextBlock Style="{StaticResource ResonateSectionTextStyle}" Text="Lyrics" />
+                <TextBlock
+                    x:Name="NoteText"
+                    Style="{StaticResource ResonateCaptionTextStyle}"
+                    Text="Not synced"
+                    Visibility="Collapsed" />
+            </StackPanel>
+            <Button
+                Grid.Column="1"
+                AutomationProperties.Name="Close the lyrics"
+                Click="OnCloseClick"
+                Content="&#xE711;"
+                Style="{StaticResource ResonateIconButtonStyle}"
+                ToolTipService.ToolTip="Close" />
+        </Grid>
+
+        <ScrollViewer
+            x:Name="LinesScroller"
+            Grid.Row="1"
+            HorizontalScrollBarVisibility="Disabled"
+            VerticalScrollBarVisibility="Auto">
+            <StackPanel
+                x:Name="LinesPanel"
+                Padding="20,12,20,0"
+                Spacing="14" />
+        </ScrollViewer>
+
+        <!-- Nothing playing, no lyrics, instrumental, or the lookup failed. -->
+        <StackPanel
+            x:Name="MessagePanel"
+            Grid.Row="1"
+            Margin="28,0,28,60"
+            VerticalAlignment="Center"
+            Spacing="6"
+            Visibility="Collapsed">
+            <FontIcon
+                x:Name="MessageIcon"
+                Margin="0,0,0,8"
+                HorizontalAlignment="Center"
+                FontFamily="{StaticResource ResonateIconFont}"
+                FontSize="28"
+                Foreground="{StaticResource ResonateTextTertiaryBrush}"
+                Glyph="&#xE8D6;" />
+            <TextBlock
+                x:Name="MessageTitle"
+                HorizontalAlignment="Center"
+                Style="{StaticResource ResonateTitleTextStyle}"
+                TextAlignment="Center"
+                TextWrapping="Wrap" />
+            <TextBlock
+                x:Name="MessageText"
+                HorizontalAlignment="Center"
+                Style="{StaticResource ResonateSecondaryTextStyle}"
+                TextAlignment="Center"
+                TextWrapping="Wrap" />
+            <Button
+                x:Name="RetryButton"
+                Margin="0,10,0,0"
+                HorizontalAlignment="Center"
+                Click="OnRetryClick"
+                Content="Try again"
+                Style="{StaticResource ResonateSubtleButtonStyle}"
+                Visibility="Collapsed" />
+        </StackPanel>
+
+        <ProgressRing
+            x:Name="LoadingRing"
+            Grid.Row="1"
+            Width="28"
+            Height="28"
+            IsActive="False" />
+    </Grid>
+</UserControl>

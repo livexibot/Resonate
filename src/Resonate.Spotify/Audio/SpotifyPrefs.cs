@@ -18,6 +18,13 @@ public static class SpotifyPrefs
 
     public const int LosslessQuality = 5;
 
+    /// <summary>
+    /// Spotify's "Normalize volume" switch, "true" or "false"; a best guess
+    /// at the key, still to be measured on the owner's PC (Signal path shows
+    /// "Unknown" while the file does not have it).
+    /// </summary>
+    public const string NormalizeKey = "audio.normalize_v2";
+
     /// <summary>One key per band of <see cref="EqualizerSettings.Bands"/>, in the same order.</summary>
     public static readonly IReadOnlyList<string> EqualizerGainKeys =
     [
@@ -73,6 +80,16 @@ public static class SpotifyPrefs
         prefs.TryGetValue(StreamingQualityKey, out var raw) && int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var quality)
             ? quality == LosslessQuality
             : null;
+
+    /// <summary>The streaming quality as Spotify stores it (5 is Lossless), or null when the file does not say.</summary>
+    public static int? ReadQuality(IReadOnlyDictionary<string, string> prefs) =>
+        prefs.TryGetValue(StreamingQualityKey, out var raw) && int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var quality)
+            ? quality
+            : null;
+
+    /// <summary>Whether Spotify's "Normalize volume" is on; null when the file does not say.</summary>
+    public static bool? ReadNormalize(IReadOnlyDictionary<string, string> prefs) =>
+        prefs.TryGetValue(NormalizeKey, out var raw) ? raw switch { "true" => true, "false" => false, _ => null } : null;
 
     /// <summary>
     /// The file with the equalizer's seven keys set to <paramref name="settings"/>

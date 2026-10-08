@@ -20,7 +20,7 @@ namespace Resonate.Spotify.Playback;
 /// commands go to whichever Spotify Connect device plays (see
 /// <see cref="WebDeviceResolver"/>).
 /// </summary>
-public sealed class PlayerController : IPlayer, IDisposable
+public sealed partial class PlayerController : IPlayer, IDisposable
 {
     internal static readonly TimeSpan PlayStateHold = TimeSpan.FromSeconds(2.5);
     internal static readonly TimeSpan PositionHold = TimeSpan.FromSeconds(2.5);
@@ -288,10 +288,16 @@ public sealed class PlayerController : IPlayer, IDisposable
         }
 
         RaiseStateChanged();
+        var edits = TakeUpNextForPlay();
         return RunTransportAsync(
             async ct =>
             {
-                if (!await TryLocalAsync(_local.PlayAsync, ct).ConfigureAwait(false))
+                if (edits is not null)
+                {
+                    // Up next: the edited order starts where the song was paused, in one command.
+                    await WithDeviceAsync((id, c) => SendUpNextAsync(edits, id, c), ct, starts: true).ConfigureAwait(false);
+                }
+                else if (!await TryLocalAsync(_local.PlayAsync, ct).ConfigureAwait(false))
                 {
                     await WithDeviceAsync((id, c) => _api.StartPlaybackAsync(null, id, c), ct, starts: true).ConfigureAwait(false);
                 }
@@ -327,6 +333,11 @@ public sealed class PlayerController : IPlayer, IDisposable
 
     public Task NextAsync()
     {
+        if (NextInUpNext() is { } edited)
+        {
+            return edited;
+        }
+
         CountUserCommand();
         RestartPositionOptimistically();
         return RunTransportAsync(
@@ -818,6 +829,7 @@ public sealed class PlayerController : IPlayer, IDisposable
                     TrackUri = track.Uri,
                     ArtworkUrl = track.LargeImageUrl,
                     ArtworkBytes = null,
+                    FullArtworkUrl = track.FullImageUrl,
                     Duration = track.Duration,
                     Position = TimeSpan.Zero,
                     PositionTimestamp = now,
@@ -942,6 +954,7 @@ public sealed class PlayerController : IPlayer, IDisposable
                 ContextUri = before.ContextUri,
                 ArtworkUrl = before.ArtworkUrl,
                 ArtworkBytes = before.ArtworkBytes,
+                FullArtworkUrl = before.FullArtworkUrl,
                 Duration = before.Duration,
                 Position = position,
                 PositionTimestamp = now,
@@ -1004,6 +1017,11 @@ public sealed class PlayerController : IPlayer, IDisposable
     /// </summary>
     private void FollowSession()
     {
+        if (FollowUpNext())
+        {
+            return;
+        }
+
         StartPlaybackBody? body = null;
         var shuffleOff = false;
         lock (_gate)
@@ -1213,6 +1231,7 @@ public sealed class PlayerController : IPlayer, IDisposable
     {
         _local.Changed -= OnLocalChanged;
         _stopping.Cancel();
+        _upNextTimer?.Dispose();
         _transport.Dispose();
         _volumeLane.Dispose();
         _localLane.Dispose();
@@ -1285,6 +1304,7 @@ public sealed class PlayerController : IPlayer, IDisposable
                         TrackUri = null,
                         ArtworkUrl = null,
                         ArtworkBytes = snapshot.Artwork,
+                        FullArtworkUrl = null,
                         Duration = snapshot.Duration,
                     };
                     _needsWebDetails = true;
@@ -1383,7 +1403,7 @@ public sealed class PlayerController : IPlayer, IDisposable
         }
 
         var context = playback.Context?.Uri;
-        if (context is null || SameContext(context, session.InContext ? session.ContextUri : null))
+        if (context is null || SameContext(context, session.InContext || session.EditsPending ? session.ContextUri : null))
         {
             return false;
         }
@@ -1436,6 +1456,7 @@ public sealed class PlayerController : IPlayer, IDisposable
                     TrackUri = item.Uri,
                     ContextUri = playback.Context?.Uri,
                     ArtworkUrl = s.ArtworkUrl ?? (s.ArtworkBytes is null ? item.LargeImageUrl : null),
+                    FullArtworkUrl = item.FullImageUrl,
                 };
             }
         }
@@ -1452,6 +1473,7 @@ public sealed class PlayerController : IPlayer, IDisposable
                 ContextUri = playback.Context?.Uri,
                 ArtworkUrl = item?.LargeImageUrl,
                 ArtworkBytes = sameTrack ? s.ArtworkBytes : null,
+                FullArtworkUrl = item?.FullImageUrl,
                 Duration = item?.Duration ?? TimeSpan.Zero,
                 CanSeek = item is not null,
             };

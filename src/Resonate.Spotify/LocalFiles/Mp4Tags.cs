@@ -187,7 +187,7 @@ internal static class Mp4Tags
 
     private static int? Positive(int value) => value > 0 ? value : null;
 
-    private static IEnumerable<Atom> Atoms(IByteSource file, long pos, long end)
+    internal static IEnumerable<Atom> Atoms(IByteSource file, long pos, long end)
     {
         for (var i = 0; i < MaxAtoms && pos + 8 <= end; i++)
         {
@@ -214,5 +214,5 @@ internal static class Mp4Tags
         }
     }
 
-    private readonly record struct Atom(uint Type, long Data, long End);
+    internal readonly record struct Atom(uint Type, long Data, long End);
 }

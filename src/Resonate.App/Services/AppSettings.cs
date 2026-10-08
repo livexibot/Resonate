@@ -167,6 +167,51 @@ public sealed class AppSettings
     /// <summary>The local files player's volume, from 0 to 1 (the Spotify app keeps its own).</summary>
     public double LocalVolume { get; set; } = 1;
 
+    // ---- Built-in plugins (Settings, Plugins; see BuiltInPlugins). Each keeps its settings under its own heading. ----
+
+    /// <summary>The built-in plugins that are on, by ID.</summary>
+    public List<string> BuiltInPlugins { get; set; } = [];
+
+    // Lyrics
+
+    // Home stage
+
+    /// <summary>The Home stage shows the playing cover blurred behind its clouds (the user's choice, off at first).</summary>
+    public bool HomeStageBlurredCover { get; set; }
+
+    /// <summary>The last cover's colours (#RRGGBB), so the stage opens in them before any cover is read.</summary>
+    public List<string> HomeStageColours { get; set; } = [];
+
+    // Away screen
+
+    /// <summary>Minutes without touching the mouse or keyboard before the away screen shows (2, 5, 10 or 15).</summary>
+    public int AwayScreenMinutes { get; set; } = 5;
+
+    // Rediscover
+
+    // Up next
+
+    // Artist orbit
+
+    // Smart playlists
+
+    /// <summary>The user's smart playlists: their rules, and the playlist on Spotify each one keeps up to date.</summary>
+    public List<Resonate.Spotify.Library.SmartPlaylist> SmartPlaylists { get; set; } = [];
+
+    // Window shapes
+
+    /// <summary>The strip window shape stays above other windows.</summary>
+    public bool WindowShapesPinned { get; set; }
+
+    // Summon bar
+
+    /// <summary>The keys that open the summon bar from any app, such as "Ctrl+Shift+K"; null for none (nothing is taken until the user picks).</summary>
+    public string? SummonBarShortcut { get; set; }
+
+    // Signal path
+
+    // ---- End of built-in plugins ----
+
     [JsonIgnore]
     public bool UsesClassicPlayer => PlayerStyle == "classic";
 

@@ -1,11 +1,33 @@
 # Plugins
 
-Plugins are optional extras for Resonate. Nothing about them is in the
-installer: a plugin is downloaded the first time you turn it on in
-Settings, and its files are deleted when you turn it off. With no plugin
-on, Resonate has nothing extra on disk and nothing extra running.
+Plugins are optional extras for Resonate, off until you turn them on in
+Settings, Plugins. Some are built into the app; the others are not in the
+installer: such a plugin is downloaded the first time you turn it on, and
+its files are deleted when you turn it off. With no plugin on, Resonate
+has nothing extra on disk and nothing extra running.
 
 ## The plugins
+
+### Built into Resonate
+
+These come with the app instead of being downloaded, because they need
+Resonate's own pages and your library. They are off until you turn them on
+in Settings, Plugins, and while off they do nothing at all.
+
+| Plugin | What it does |
+| --- | --- |
+| Lyrics | Words that follow the song, from LRCLIB, a free lyrics library. The song's name is sent to LRCLIB only while the lyrics pane is open. Click a line to jump there. |
+| Home stage | Home opens on the song playing, large, over drifting clouds of its colours (or its cover, blurred). |
+| Away screen | After a few idle minutes with music playing, the window shows the song and a clock. Any touch brings Resonate back. |
+| Rediscover | A row on Home: songs liked on this day in past years, ones you haven't played in a long time, and albums you love with songs you haven't liked yet. |
+| Up next | Drag songs in the queue into a new order, remove them, shuffle, clear or save what's coming. |
+| Artist orbit | Artist pages show the artists you play alongside them, from your own playlists and listening. |
+| Smart playlists | Playlists that fill themselves from rules, such as "saved this month" or "released in the 90s", and can be kept up to date on Spotify. |
+| Window shapes | The window turns into a compact view, a column or a one-line strip that can stay on top. |
+| Summon bar | A shortcut you choose opens a search box over any app; Enter plays. Ctrl+K opens it inside Resonate. |
+| Signal path | A badge in the player says whether what you hear is lossless, and what to change if not. |
+
+### Downloaded when turned on
 
 | Plugin | What it does | It can |
 | --- | --- | --- |

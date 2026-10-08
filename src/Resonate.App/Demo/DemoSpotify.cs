@@ -60,6 +60,7 @@ public static class DemoCatalog
                 Id = AlbumId(album),
                 Uri = $"demo:album:{AlbumId(album)}",
                 Artists = [new SimplifiedArtist { Name = artist, Id = ArtistId(artist) }],
+                ReleaseDate = (1968 + (StableHash(album) % 58)).ToString(System.Globalization.CultureInfo.InvariantCulture),
             },
             TrackNumber = (index % 12) + 1,
         };
@@ -149,7 +150,7 @@ public sealed class DemoWebApi : ISpotifyWebApi
         var items = Enumerable.Range(offset, Math.Max(0, Math.Min(limit, total - offset)))
             .Select(i => new SavedTrack
             {
-                Track = DemoCatalog.Track("liked", i),
+                Track = LikedTrack(i),
                 AddedAt = DateTimeOffset.UtcNow.AddDays(-i * 3).ToString("O", System.Globalization.CultureInfo.InvariantCulture),
             })
             .ToList<SavedTrack?>();
@@ -161,6 +162,21 @@ public sealed class DemoWebApi : ISpotifyWebApi
             Limit = limit,
             Next = offset + items.Count < total ? "more" : null,
         });
+    }
+
+    /// <summary>
+    /// A song in Liked Songs. Further down the list, a few albums have three
+    /// liked songs each, so Rediscover has favourite albums to show.
+    /// </summary>
+    public static PlayableItem LikedTrack(int index)
+    {
+        var track = DemoCatalog.Track("liked", index);
+        if (index >= 60 && index % 30 is 1 or 2)
+        {
+            track.Album = DemoCatalog.Track("liked", index - (index % 30)).Album;
+        }
+
+        return track;
     }
 
     public Task<Playlist> GetPlaylistAsync(string playlistId, CancellationToken cancellationToken)
@@ -241,7 +257,7 @@ public sealed class DemoWebApi : ISpotifyWebApi
 
     public Task StartPlaybackAsync(StartPlaybackBody? body, string? deviceId, CancellationToken cancellationToken)
     {
-        var uri = body?.Offset?.Uri ?? body?.Uris?.FirstOrDefault();
+        var uri = body?.Offset?.Uri ?? body?.Uris?.ElementAtOrDefault(body.Offset?.Position ?? 0);
         if (DemoCatalog.FindByUri(uri) is { } track)
         {
             _player.Start(track);
@@ -369,9 +385,18 @@ public sealed class DemoWebApi : ISpotifyWebApi
             Owner = new PlaylistOwner { Id = "demo", DisplayName = "Demo listener" },
         });
 
+    public Task<string?> ReplacePlaylistItemsAsync(string playlistId, IReadOnlyList<string> uris, CancellationToken cancellationToken) =>
+        Task.FromResult<string?>("demo-2");
+
+    public Task ChangePlaylistDetailsAsync(string playlistId, string name, CancellationToken cancellationToken) => Task.CompletedTask;
+
     public Task<Album> GetAlbumAsync(string albumId, CancellationToken cancellationToken)
     {
-        var tracks = DemoCatalog.AllTracks().Where(t => t.Album?.Id == albumId).ToList();
+        var tracks = DemoCatalog.AllTracks()
+            .Concat(Enumerable.Range(0, Math.Min(LikedCount, 240)).Select(LikedTrack))
+            .Where(t => t.Album?.Id == albumId)
+            .DistinctBy(t => t.Name + t.Artists![0].Name)
+            .ToList();
         if (tracks.Count == 0)
         {
             tracks = DemoCatalog.TracksOf("focus", 9).ToList();

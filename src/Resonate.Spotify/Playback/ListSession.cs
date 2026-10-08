@@ -14,7 +14,7 @@ namespace Resonate.Spotify.Playback;
 /// A new plan (shuffle switched, a fallback) is a new instance, so the old
 /// one can be put back if Spotify refuses.
 /// </summary>
-internal sealed class ListSession
+internal sealed partial class ListSession
 {
     /// <summary>
     /// Songs sent to Spotify in one play command. Spotify documents no limit
@@ -65,7 +65,7 @@ internal sealed class ListSession
     public bool Shuffle { get; }
 
     /// <summary>Spotify plays <see cref="ContextUri"/> itself, in the list's own order; otherwise it plays windows of <see cref="Order"/>.</summary>
-    public bool InContext { get; }
+    public bool InContext { get; private set; }
 
     /// <summary>
     /// The songs in the order they play: <see cref="All"/> inside a context,
@@ -262,7 +262,7 @@ internal sealed class ListSession
                 return null;
             }
 
-            var spotifyLoops = !Shuffle && WindowEnd - WindowStart == Playable.Count && WindowStart % Playable.Count == 0;
+            var spotifyLoops = !Shuffle && !Edited && WindowEnd - WindowStart == Playable.Count && WindowStart % Playable.Count == 0;
             AddPass();
             if (spotifyLoops)
             {
@@ -462,6 +462,7 @@ internal sealed class ListSession
         {
             Order.RemoveRange(0, count);
             Index -= count;
+            _queueEnd = Math.Max(0, _queueEnd - count);
             WindowStart -= count;
             WindowEnd -= count;
         }

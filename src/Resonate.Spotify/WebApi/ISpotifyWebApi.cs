@@ -73,6 +73,12 @@ public interface ISpotifyWebApi
 
     Task<SimplifiedPlaylist> CreatePlaylistAsync(string name, string? description, bool isPublic, CancellationToken cancellationToken);
 
+    /// <summary>Replaces all of a playlist's songs with these (at most 100; none empties it). Returns the new snapshot ID.</summary>
+    Task<string?> ReplacePlaylistItemsAsync(string playlistId, IReadOnlyList<string> uris, CancellationToken cancellationToken);
+
+    /// <summary>Renames a playlist the user owns.</summary>
+    Task ChangePlaylistDetailsAsync(string playlistId, string name, CancellationToken cancellationToken);
+
     Task<Album> GetAlbumAsync(string albumId, CancellationToken cancellationToken);
 
     Task<Page<PlayableItem>> GetAlbumTracksAsync(string albumId, int offset, int limit, CancellationToken cancellationToken);

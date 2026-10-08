@@ -6,7 +6,14 @@ namespace Resonate.Spotify.Audio;
 /// <param name="Path">The file it came from.</param>
 /// <param name="Equalizer">Spotify's equalizer as the file has it.</param>
 /// <param name="IsLossless">Whether Spotify streams in Lossless; null when the file does not say.</param>
-public sealed record SpotifyAudioPrefs(string Path, EqualizerSettings Equalizer, bool? IsLossless);
+public sealed record SpotifyAudioPrefs(string Path, EqualizerSettings Equalizer, bool? IsLossless)
+{
+    /// <summary>The streaming quality as Spotify stores it (5 is Lossless); null when the file does not say.</summary>
+    public int? Quality { get; init; }
+
+    /// <summary>Whether Spotify's "Normalize volume" is on; null when the file does not say.</summary>
+    public bool? Normalize { get; init; }
+}
 
 /// <summary>
 /// Finds, reads and writes the Spotify app's per-account settings file,
@@ -75,7 +82,11 @@ public static class SpotifyPrefsFile
         try
         {
             var prefs = SpotifyPrefs.Parse(ReadText(path, out _));
-            return new SpotifyAudioPrefs(path, SpotifyPrefs.ReadEqualizer(prefs), SpotifyPrefs.IsLossless(prefs));
+            return new SpotifyAudioPrefs(path, SpotifyPrefs.ReadEqualizer(prefs), SpotifyPrefs.IsLossless(prefs))
+            {
+                Quality = SpotifyPrefs.ReadQuality(prefs),
+                Normalize = SpotifyPrefs.ReadNormalize(prefs),
+            };
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DecoderFallbackException)
         {
@@ -133,6 +144,31 @@ public static class SpotifyPrefsFile
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Calls <paramref name="changed"/> (on a background thread) whenever the
+    /// settings file at <paramref name="path"/> is written, created or swapped
+    /// in. Null when it can not be watched. Dispose to stop.
+    /// </summary>
+    public static IDisposable? Watch(string path, Action changed)
+    {
+        try
+        {
+            var watcher = new FileSystemWatcher(Path.GetDirectoryName(path)!, Path.GetFileName(path))
+            {
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName | NotifyFilters.CreationTime,
+            };
+            watcher.Changed += (_, _) => changed();
+            watcher.Created += (_, _) => changed();
+            watcher.Renamed += (_, _) => changed();
+            watcher.EnableRaisingEvents = true;
+            return watcher;
+        }
+        catch (Exception ex) when (ex is IOException or ArgumentException or PlatformNotSupportedException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private static string ReadText(string path, out bool hasBom)

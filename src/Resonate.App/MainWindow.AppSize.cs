@@ -96,6 +96,13 @@ public sealed partial class MainWindow
             return;
         }
 
+        if (WindowShapesOn)
+        {
+            // The Window shapes plugin lets the window shrink to a strip (MainWindow.WindowShapes.cs).
+            SetShapeMinimumSize(WindowShapes.MinimumWidth, WindowShapes.MinimumHeight);
+            return;
+        }
+
         _minimumDpi = GetDpiForWindow(Hwnd);
         var dpi = _minimumDpi / 96.0;
         var display = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary);

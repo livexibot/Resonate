@@ -42,6 +42,9 @@ public sealed class LibraryService : IDisposable
 
     public const string LikedSongsKey = "liked";
 
+    /// <summary>The <see cref="CachedTrackList.Format"/> of lists read in full now (songs carry their release year).</summary>
+    internal const int ListFormat = 1;
+
     /// <summary>Whole lists are loaded this many pages at a time.</summary>
     private const int ParallelPages = 4;
 
@@ -154,12 +157,21 @@ public sealed class LibraryService : IDisposable
     /// this costs one request, and newly liked songs are added from the
     /// first page without reloading the rest.
     /// </summary>
-    public async Task<IReadOnlyList<TrackInfo>> GetAllLikedSongsAsync(CancellationToken cancellationToken)
+    public Task<IReadOnlyList<TrackInfo>> GetAllLikedSongsAsync(CancellationToken cancellationToken) =>
+        GetAllLikedSongsAsync(withReleaseYears: false, cancellationToken);
+
+    /// <param name="withReleaseYears">Reads the whole list again if it was stored before songs carried their release year.</param>
+    public async Task<IReadOnlyList<TrackInfo>> GetAllLikedSongsAsync(bool withReleaseYears, CancellationToken cancellationToken)
     {
         await _likedLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             var cached = _lists.Load(LikedSongsKey);
+            if (withReleaseYears && cached?.Format < ListFormat)
+            {
+                cached = null;
+            }
+
             var first = await GetLikedSongsAsync(0, cancellationToken).ConfigureAwait(false);
             if (cached is not null && TryExtend(cached.Tracks, first) is { } extended)
             {
@@ -167,14 +179,14 @@ public sealed class LibraryService : IDisposable
                 // (a song liked with only its address and names is stored with less detail).
                 if (extended.Count != cached.Tracks.Count || !SameDetails(extended, cached.Tracks, first.Tracks.Count))
                 {
-                    SaveList(LikedSongsKey, null, extended);
+                    SaveList(LikedSongsKey, null, extended, cached.Format);
                 }
 
                 return extended;
             }
 
             var all = await LoadRestAsync(first, (offset, ct) => GetLikedSongsAsync(offset, ct), cancellationToken).ConfigureAwait(false);
-            SaveList(LikedSongsKey, null, all);
+            SaveList(LikedSongsKey, null, all, ListFormat);
             return all;
         }
         finally
@@ -188,11 +200,16 @@ public sealed class LibraryService : IDisposable
     /// playlist version (<paramref name="snapshotId"/>, from the sidebar), so
     /// an unchanged playlist costs no requests at all.
     /// </summary>
-    public async Task<FullTrackList> GetAllPlaylistTracksAsync(string playlistId, string? snapshotId, CancellationToken cancellationToken)
+    public Task<FullTrackList> GetAllPlaylistTracksAsync(string playlistId, string? snapshotId, CancellationToken cancellationToken) =>
+        GetAllPlaylistTracksAsync(playlistId, snapshotId, withReleaseYears: false, cancellationToken);
+
+    /// <param name="withReleaseYears">Reads the playlist again if it was stored before songs carried their release year.</param>
+    public async Task<FullTrackList> GetAllPlaylistTracksAsync(string playlistId, string? snapshotId, bool withReleaseYears, CancellationToken cancellationToken)
     {
         var key = "playlist-" + playlistId;
         snapshotId ??= Snapshot?.Playlists.FirstOrDefault(p => p.Id == playlistId)?.SnapshotId;
-        if (snapshotId is not null && _lists.Load(key) is { } cached && cached.Version == snapshotId)
+        if (snapshotId is not null && _lists.Load(key) is { } cached && cached.Version == snapshotId
+            && (!withReleaseYears || cached.Format >= ListFormat))
         {
             return new FullTrackList(cached.Tracks, ItemsHidden: false);
         }
@@ -206,7 +223,7 @@ public sealed class LibraryService : IDisposable
         var all = await LoadRestAsync(first, (offset, ct) => GetPlaylistTracksAsync(playlistId, offset, ct), cancellationToken).ConfigureAwait(false);
         if (snapshotId is not null)
         {
-            SaveList(key, snapshotId, all);
+            SaveList(key, snapshotId, all, ListFormat);
         }
 
         return new FullTrackList(all, ItemsHidden: false);
@@ -369,9 +386,13 @@ public sealed class LibraryService : IDisposable
     }
 
     /// <summary>Creates a private playlist and puts it at the top of the sidebar's list.</summary>
-    public async Task<SimplifiedPlaylist> CreatePlaylistAsync(string name, CancellationToken cancellationToken)
+    public Task<SimplifiedPlaylist> CreatePlaylistAsync(string name, CancellationToken cancellationToken) =>
+        CreatePlaylistAsync(name, description: null, cancellationToken);
+
+    /// <inheritdoc cref="CreatePlaylistAsync(string, CancellationToken)"/>
+    public async Task<SimplifiedPlaylist> CreatePlaylistAsync(string name, string? description, CancellationToken cancellationToken)
     {
-        var playlist = await _api.CreatePlaylistAsync(name, description: null, isPublic: false, cancellationToken).ConfigureAwait(false);
+        var playlist = await _api.CreatePlaylistAsync(name, description, isPublic: false, cancellationToken).ConfigureAwait(false);
         playlist.Owner ??= new PlaylistOwner { Id = Snapshot?.User?.Id ?? string.Empty, DisplayName = Snapshot?.User?.DisplayName };
         if (Snapshot is { } snapshot)
         {
@@ -381,6 +402,43 @@ public sealed class LibraryService : IDisposable
         }
 
         return playlist;
+    }
+
+    /// <summary>
+    /// Replaces every song of the user's own playlist with <paramref name="uris"/>
+    /// (Spotify takes a hundred at a time: the first hundred replace, the rest
+    /// are added in order). Returns the playlist's new version.
+    /// </summary>
+    public async Task<string?> ReplacePlaylistItemsAsync(string playlistId, IReadOnlyList<string> uris, CancellationToken cancellationToken)
+    {
+        var batches = uris.Chunk(SpotifyWebApi.MaxPlaylistUris).ToList();
+        var snapshot = await _api.ReplacePlaylistItemsAsync(playlistId, batches.Count > 0 ? batches[0] : [], cancellationToken).ConfigureAwait(false);
+        foreach (var batch in batches.Skip(1))
+        {
+            snapshot = await _api.AddPlaylistItemsAsync(playlistId, batch, null, cancellationToken).ConfigureAwait(false);
+        }
+
+        var listed = Snapshot?.Playlists.FirstOrDefault(p => p.Id == playlistId);
+        if (listed is { Items: null, Tracks: null })
+        {
+            // Just made: Spotify's answer gave no count to change.
+            listed.Items = new ItemsReference();
+        }
+
+        Remember(playlistId, snapshot, countChange: uris.Count - (listed?.ItemCount ?? uris.Count));
+        return snapshot;
+    }
+
+    /// <summary>Renames the user's own playlist, on Spotify and in the sidebar.</summary>
+    public async Task RenamePlaylistAsync(string playlistId, string name, CancellationToken cancellationToken)
+    {
+        await _api.ChangePlaylistDetailsAsync(playlistId, name, cancellationToken).ConfigureAwait(false);
+        if (Snapshot?.Playlists.FirstOrDefault(p => p.Id == playlistId) is { } playlist && playlist.Name != name)
+        {
+            playlist.Name = name;
+            _cache?.Save(Snapshot);
+            PlaylistsChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     /// <summary>
@@ -401,7 +459,7 @@ public sealed class LibraryService : IDisposable
                     tracks.Insert(0, track with { AddedAt = _time.GetUtcNow() });
                 }
 
-                SaveList(LikedSongsKey, null, Renumber(tracks));
+                SaveList(LikedSongsKey, null, Renumber(tracks), cached.Format);
             }
         }
         finally
@@ -559,8 +617,8 @@ public sealed class LibraryService : IDisposable
         }
     }
 
-    private void SaveList(string key, string? version, List<TrackInfo> tracks) =>
-        _lists.Save(new CachedTrackList { Key = key, Version = version, SavedAt = _time.GetUtcNow(), Tracks = tracks });
+    private void SaveList(string key, string? version, List<TrackInfo> tracks, int format) =>
+        _lists.Save(new CachedTrackList { Key = key, Version = version, SavedAt = _time.GetUtcNow(), Format = format, Tracks = tracks });
 
     private static TrackListPage ToPage(Page<PlaylistEntry> page, int offset)
     {

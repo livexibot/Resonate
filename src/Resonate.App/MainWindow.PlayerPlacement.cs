@@ -58,16 +58,19 @@ public sealed partial class MainWindow
         var theme = _services.Theme;
         var layout = theme.Current.PlayerLayout;
         var gap = theme.Palette.PanelGap;
+        // A window shape without the page (Window shapes plugin) has the player under everything.
         var hovers = layout == PlayerLayout.Hovering
+            && !ShapeHidesPanels
             && PlayerPlacement.HoveringFits(ContentPanel.ActualWidth, NarrowestPlayerWidth, gap);
-        var placement = (layout, gap, theme.SidebarFullHeight, hovers);
+        var fullHeight = theme.SidebarFullHeight && !ShapeHidesPanels;
+        var placement = (layout, gap, fullHeight, hovers);
         if (_placement == placement)
         {
             return;
         }
 
         _placement = placement;
-        var slot = PlayerPlacement.Slot(layout, gap, theme.SidebarFullHeight, hoveringFits: hovers);
+        var slot = PlayerPlacement.Slot(layout, gap, fullHeight, hoveringFits: hovers);
         Grid.SetRowSpan(Sidebar, slot.SidebarRowSpan);
         Grid.SetRowSpan(SidebarElevation, slot.SidebarRowSpan);
         Grid.SetRowSpan(SidebarSplitter, slot.SidebarRowSpan);

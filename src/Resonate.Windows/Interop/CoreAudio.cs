@@ -27,6 +27,12 @@ internal partial interface IMMDeviceEnumerator
     void EnumAudioEndpoints(int dataFlow, uint stateMask, out nint devices);
 
     IMMDevice GetDefaultAudioEndpoint(int dataFlow, int role);
+
+    void GetDevice(nint id, out nint device);
+
+    void RegisterEndpointNotificationCallback(IMMNotificationClient client);
+
+    void UnregisterEndpointNotificationCallback(IMMNotificationClient client);
 }
 
 [GeneratedComInterface]
@@ -34,6 +40,8 @@ internal partial interface IMMDeviceEnumerator
 internal partial interface IMMDevice
 {
     IAudioSessionManager2 Activate(in Guid iid, uint clsCtx, nint activationParams);
+
+    IPropertyStore OpenPropertyStore(uint access);
 }
 
 [GeneratedComInterface]

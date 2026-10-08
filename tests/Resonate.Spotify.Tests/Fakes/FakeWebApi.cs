@@ -283,11 +283,32 @@ internal sealed class FakeWebApi : ISpotifyWebApi
         return "snapshot-after-remove";
     }
 
+    /// <summary>The description of the last playlist made.</summary>
+    public string? CreatedDescription { get; private set; }
+
     public async Task<SimplifiedPlaylist> CreatePlaylistAsync(string name, string? description, bool isPublic, CancellationToken cancellationToken)
     {
         await Record($"create {name}");
+        CreatedDescription = description;
         return new SimplifiedPlaylist { Id = "new", Name = name, Uri = "spotify:playlist:new", Owner = new PlaylistOwner { Id = "me" } };
     }
+
+    /// <summary>Thrown by every replacing of a playlist's songs while set.</summary>
+    public Exception? FailReplace { get; set; }
+
+    public async Task<string?> ReplacePlaylistItemsAsync(string playlistId, IReadOnlyList<string> uris, CancellationToken cancellationToken)
+    {
+        if (FailReplace is { } failure)
+        {
+            throw failure;
+        }
+
+        await Record($"replace {playlistId} {string.Join(',', uris)}");
+        return "snapshot-after-replace";
+    }
+
+    public Task ChangePlaylistDetailsAsync(string playlistId, string name, CancellationToken cancellationToken) =>
+        Record($"rename {playlistId} {name}");
 
     public Task<Album> GetAlbumAsync(string albumId, CancellationToken cancellationToken) =>
         Task.FromResult(Albums.TryGetValue(albumId, out var album) ? album : new Album { Id = albumId, Name = "Album", Uri = "spotify:album:" + albumId });

@@ -84,10 +84,45 @@
                         Style="{StaticResource ResonateCaptionTextStyle}"
                         TextTrimming="CharacterEllipsis"
                         Visibility="Collapsed" />
-                    <TextBlock
-                        Margin="0,14,0,0"
-                        Style="{StaticResource ResonateEyebrowTextStyle}"
-                        Text="NEXT UP" />
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            Style="{StaticResource ResonateEyebrowTextStyle}"
+                            Text="NEXT UP" />
+                        <!-- Up next, a built-in plugin (QueuePanel.UpNext.cs): shown only while it is on. -->
+                        <StackPanel
+                            x:Name="UpNextTools"
+                            Grid.Column="1"
+                            Margin="0,-8,0,-8"
+                            Orientation="Horizontal"
+                            Visibility="Collapsed">
+                            <Button
+                                x:Name="UpNextShuffleButton"
+                                AutomationProperties.Name="Shuffle what's next"
+                                Click="OnUpNextShuffleClick"
+                                Content="&#xE8B1;"
+                                Style="{StaticResource ResonateIconButtonStyle}"
+                                ToolTipService.ToolTip="Shuffle" />
+                            <Button
+                                x:Name="UpNextClearButton"
+                                AutomationProperties.Name="Clear what's next"
+                                Click="OnUpNextClearClick"
+                                Content="&#xE74D;"
+                                Style="{StaticResource ResonateIconButtonStyle}"
+                                ToolTipService.ToolTip="Clear" />
+                            <Button
+                                x:Name="UpNextSaveButton"
+                                AutomationProperties.Name="Save as playlist"
+                                Click="OnUpNextSaveClick"
+                                Content="&#xE74E;"
+                                Style="{StaticResource ResonateIconButtonStyle}"
+                                ToolTipService.ToolTip="Save as playlist" />
+                        </StackPanel>
+                    </Grid>
                 </StackPanel>
             </ListView.Header>
 
@@ -97,7 +132,10 @@
                         MinHeight="56"
                         Background="{StaticResource ResonateTransparentBrush}"
                         ColumnSpacing="12"
-                        Opacity="{x:Bind RowOpacity}">
+                        Opacity="{x:Bind RowOpacity}"
+                        PointerCanceled="OnUpNextRowPointerExited"
+                        PointerEntered="OnUpNextRowPointerEntered"
+                        PointerExited="OnUpNextRowPointerExited">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="40" />
                             <ColumnDefinition Width="*" />
@@ -128,6 +166,20 @@
                             VerticalAlignment="Center"
                             Style="{StaticResource ResonateSecondaryTextStyle}"
                             Text="{x:Bind Duration}" />
+                        <!-- Up next: shown in place of the length while the pointer is on the row. -->
+                        <Button
+                            Grid.Column="2"
+                            Width="32"
+                            Height="32"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            AutomationProperties.Name="Remove from the queue"
+                            Click="OnUpNextRemoveClick"
+                            Content="&#xE711;"
+                            FontSize="12"
+                            Style="{StaticResource ResonateIconButtonStyle}"
+                            ToolTipService.ToolTip="Remove"
+                            Visibility="Collapsed" />
                     </Grid>
                 </DataTemplate>
             </ListView.ItemTemplate>

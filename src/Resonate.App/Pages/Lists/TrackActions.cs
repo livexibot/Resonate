@@ -45,6 +45,11 @@ public static class TrackActions
 
         if (track.FilePath is not null || track.IsPlayable)
         {
+            if (UpNextActions.IsOn)
+            {
+                menu.Items.Add(Item("Play next", "\uE893", () => UpNextActions.Add(track, playNext: true)));
+            }
+
             menu.Items.Add(Item("Add to queue", "", () => AddToQueue(track)));
         }
 
@@ -151,6 +156,12 @@ public static class TrackActions
 
     public static void AddToQueue(TrackInfo track)
     {
+        if (UpNextActions.IsOn)
+        {
+            UpNextActions.Add(track, playNext: false);
+            return;
+        }
+
         _ = App.Services.Player.AddToQueueAsync(track);
         App.MainWindow?.ShowMessage($"Added “{track.Title}” to the queue.", InfoBarSeverity.Informational);
     }

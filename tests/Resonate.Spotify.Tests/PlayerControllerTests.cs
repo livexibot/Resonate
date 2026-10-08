@@ -25,7 +25,10 @@ public sealed class PlayerControllerTests : IDisposable
 
     private static readonly TrackInfo SongB = new(
         "spotify:track:b", "Song B", "Band", "Record", "spotify:album:r",
-        TimeSpan.FromSeconds(180), "small-b", "large-b", IsExplicit: false, IsPlayable: true);
+        TimeSpan.FromSeconds(180), "small-b", "large-b", IsExplicit: false, IsPlayable: true)
+    {
+        FullImageUrl = "full-b",
+    };
 
     private readonly FakeTimeProvider _time = new(DateTimeOffset.Parse("2026-10-07T12:00:00Z", System.Globalization.CultureInfo.InvariantCulture));
     private readonly FakeLocalChannel _local = new();
@@ -146,6 +149,7 @@ public sealed class PlayerControllerTests : IDisposable
 
         Assert.Equal("Song B", _player.State.Title);
         Assert.Equal("large-b", _player.State.ArtworkUrl);
+        Assert.Equal("full-b", _player.State.FullArtworkUrl);
         Assert.Equal(TimeSpan.Zero, _player.State.PositionAt(_time.GetUtcNow()));
         await sent;
 
@@ -177,6 +181,7 @@ public sealed class PlayerControllerTests : IDisposable
         Assert.Equal("Song B", _player.State.Title);
         Assert.Equal("spotify:track:b", _player.State.TrackUri);
         Assert.Equal("large-b", _player.State.ArtworkUrl);
+        Assert.Equal("full-b", _player.State.FullArtworkUrl);
         Assert.Equal(TimeSpan.FromSeconds(0.2), _player.State.PositionAt(_time.GetUtcNow()));
     }
 

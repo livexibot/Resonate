@@ -1,4 +1,5 @@
 using System.Globalization;
+using Microsoft.UI.Xaml;
 using Resonate.App.Services;
 using Resonate.Spotify.Library;
 
@@ -52,6 +53,12 @@ public abstract class TrackListSource
     /// <summary>What the sort menu calls the list's own order.</summary>
     public virtual string OwnOrderName => "Custom order";
 
+    /// <summary>The list shows its song count and length itself (in its panel), not in the header.</summary>
+    public virtual bool ShowsOwnTotals => false;
+
+    /// <summary>Controls of the list's own, shown under its title (a smart playlist's rules); null for none.</summary>
+    public virtual FrameworkElement? CreatePanel() => null;
+
     /// <summary>The header from what is known at once (the sidebar's cache), before anything loads.</summary>
     public abstract ListHeader CachedHeader { get; }
 
@@ -103,6 +110,7 @@ public abstract class TrackListSource
             new DailyMixSource(services, number),
         _ when key.StartsWith(AlbumSource.Prefix, StringComparison.Ordinal) => new AlbumSource(services, key[AlbumSource.Prefix.Length..]),
         _ when key.StartsWith(LikedByArtistSource.Prefix, StringComparison.Ordinal) => new LikedByArtistSource(services, key[LikedByArtistSource.Prefix.Length..]),
+        _ when key.StartsWith(SmartPlaylistSource.Prefix, StringComparison.Ordinal) => new SmartPlaylistSource(key[SmartPlaylistSource.Prefix.Length..]),
         _ => new PlaylistSource(services, key),
     };
 }

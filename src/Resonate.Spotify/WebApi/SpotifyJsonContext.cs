@@ -38,6 +38,7 @@ namespace Resonate.Spotify.WebApi;
 [JsonSerializable(typeof(RemoveItemsBody))]
 [JsonSerializable(typeof(SnapshotResponse))]
 [JsonSerializable(typeof(CreatePlaylistBody))]
+[JsonSerializable(typeof(ChangePlaylistDetailsBody))]
 [JsonSerializable(typeof(SimplifiedPlaylist))]
 [JsonSerializable(typeof(CachedTrackList))]
 [JsonSerializable(typeof(HistoryFile))]
