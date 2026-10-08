@@ -56,7 +56,7 @@ A plugin is a folder under `plugins/` with a `plugin.json` and a script.
   "id": "sleep-timer",
   "name": "Sleep timer",
   "version": "1.0.0",
-  "description": "One or two sentences for Settings.",
+  "description": "One short line for Settings.",
   "author": "Resonate",
   "main": "main.js",
   "permissions": ["player.read", "player.control", "player.volume"],

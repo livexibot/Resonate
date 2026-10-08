@@ -84,7 +84,7 @@ public sealed partial class LocalFoldersPanel : UserControl
                         ? $"Reading {status.Read:N0} of {status.ToRead:N0} new or changed files…"
                         : "Looking through the folders…"
                     : status.HasScanned
-                        ? $"{Format.SongCount(library.Files.Count)} found. New files show up by themselves."
+                        ? $"{Format.SongCount(library.Files.Count)} found."
                         : "Resonate looks through the folders a moment after it starts.";
         RescanButton.IsEnabled = !IsDemo && !status.IsScanning;
     }

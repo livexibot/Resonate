@@ -26,7 +26,6 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="56" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <Grid
                 x:Name="ArtworkFrame"
@@ -77,19 +76,6 @@
                     Style="{StaticResource ResonateSecondaryTextStyle}"
                     Text="Pick a song to start" />
             </StackPanel>
-            <Button
-                x:Name="LikeButton"
-                Grid.Column="2"
-                Width="32"
-                Height="32"
-                VerticalAlignment="Center"
-                AutomationProperties.Name="Save to Liked Songs"
-                Click="OnLikeClick"
-                Content="&#xEB51;"
-                FontSize="14"
-                Style="{StaticResource ResonateIconButtonStyle}"
-                ToolTipService.ToolTip="Save to Liked Songs"
-                Visibility="Collapsed" />
         </Grid>
 
         <!-- Transport controls and the seek bar -->

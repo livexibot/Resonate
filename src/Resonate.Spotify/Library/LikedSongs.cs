@@ -3,8 +3,8 @@ using Resonate.Spotify.WebApi;
 namespace Resonate.Spotify.Library;
 
 /// <summary>
-/// Which songs are in Liked Songs, so every list and the player bar can
-/// show a heart without asking Spotify song by song. Built from the stored
+/// Which songs are in Liked Songs, so every list can show a heart without
+/// asking Spotify song by song. Built from the stored
 /// copy of Liked Songs (one request when nothing changed). Liking and
 /// unliking are optimistic: the heart changes at once and changes back if
 /// Spotify refuses.

@@ -95,14 +95,4 @@ public sealed class ManifestTests
         var settings = manifest.EffectiveSettings(new JsonObject { ["customMinutes"] = 45, ["stray"] = 1 });
         Assert.Equal("{\"fade\":true,\"customMinutes\":45}", settings.ToJsonString());
     }
-
-    [Fact]
-    public void Permissions_read_as_a_sentence()
-    {
-        Assert.Equal("see what is playing", PluginPermissions.Describe(["player.read"]));
-        Assert.Equal(
-            "see what is playing, control playback and change the volume",
-            PluginPermissions.Describe(["player.read", "player.control", "player.volume"]));
-        Assert.Equal("nothing beyond its own settings", PluginPermissions.Describe([]));
-    }
 }

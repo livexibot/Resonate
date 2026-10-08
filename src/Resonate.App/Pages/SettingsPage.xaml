@@ -6,17 +6,9 @@
     xmlns:controls="using:Resonate.App.Controls"
     Background="{StaticResource ResonateTransparentBrush}">
 
+    <!-- Shown in the Settings pane on the right of the window (see Controls/SettingsPane). -->
     <ScrollViewer>
-        <StackPanel
-            MaxWidth="760"
-            Padding="36,36,36,48"
-            HorizontalAlignment="Left"
-            Spacing="28">
-            <TextBlock
-                FontSize="32"
-                Style="{StaticResource ResonateDisplayTextStyle}"
-                Text="Settings" />
-
+        <StackPanel Padding="24,8,24,40" Spacing="28">
             <!-- Look: presets, your own looks and the customizer -->
             <controls:ThemeStudio x:Name="Studio" />
 
@@ -26,18 +18,14 @@
             <!-- Playback and the Spotify app -->
             <StackPanel Spacing="12">
                 <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Playback" />
-                <TextBlock
-                    Style="{StaticResource ResonateSecondaryTextStyle}"
-                    Text="How Resonate talks to Spotify."
-                    TextWrapping="Wrap" />
                 <RadioButtons x:Name="ChannelChoice" SelectionChanged="OnChannelChanged">
-                    <RadioButton Content="Windows' media controls, with the Web API as backup (fastest; plays in the Spotify app on this computer)" />
-                    <RadioButton Content="Spotify Web API only (every control goes through Spotify's servers; Resonate leaves the Spotify app alone)" />
+                    <RadioButton Content="Windows media controls (fastest)" />
+                    <RadioButton Content="Spotify Web API only" />
                 </RadioButtons>
                 <TextBlock
                     x:Name="WebApiOnlyNote"
                     Style="{StaticResource ResonateCaptionTextStyle}"
-                    Text="Resonate never starts, hides or reads the Spotify app in this mode. Music plays on a Spotify device you have open (this computer's Spotify app, your phone, a speaker or open.spotify.com): pick it with the devices button next to the volume. Lossless depends on that device. The media keys, the equalizer for Spotify's songs and starting DJ need the Spotify app, so they work only with Windows' media controls."
+                    Text="Music plays on the device picked with the button next to the volume. Media keys, Spotify's equalizer and DJ need Windows media controls."
                     TextWrapping="Wrap"
                     Visibility="Collapsed" />
 
@@ -45,26 +33,20 @@
                     <ToggleSwitch
                         x:Name="KeepHiddenSwitch"
                         Header="Keep the Spotify app hidden"
-                        OffContent="Off: Spotify stays on the taskbar, minimised"
-                        OnContent="On: no taskbar button; it shows only while you use it"
+                        OffContent="Off"
+                        OnContent="On"
                         Toggled="OnKeepHiddenToggled" />
                     <ToggleSwitch
                         x:Name="SaveResourcesSwitch"
-                        Header="Let the hidden Spotify app use less power and memory"
+                        Header="Save power while Spotify is hidden"
                         OffContent="Off"
-                        OnContent="On: only the parts that draw its window slow down; playback is untouched"
+                        OnContent="On"
                         Toggled="OnSaveResourcesToggled" />
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <Button
-                            Click="OnShowSpotifyClick"
-                            Content="Show the Spotify app"
-                            Style="{StaticResource ResonateSubtleButtonStyle}" />
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            Style="{StaticResource ResonateCaptionTextStyle}"
-                            Text="For example to sign in to it or set Lossless. It hides again when you switch away."
-                            TextWrapping="Wrap" />
-                    </StackPanel>
+                    <Button
+                        Click="OnShowSpotifyClick"
+                        Content="Show the Spotify app"
+                        Style="{StaticResource ResonateSubtleButtonStyle}"
+                        ToolTipService.ToolTip="It hides again when you switch away" />
                 </StackPanel>
             </StackPanel>
 
@@ -92,7 +74,7 @@
             </StackPanel>
 
             <!-- Updates -->
-            <StackPanel Spacing="12">
+            <StackPanel x:Name="UpdatesSection" Spacing="12">
                 <TextBlock Style="{StaticResource ResonateTitleTextStyle}" Text="Updates" />
                 <TextBlock
                     x:Name="VersionText"
@@ -111,6 +93,17 @@
                         Style="{StaticResource ResonateAccentButtonStyle}"
                         Visibility="Collapsed" />
                 </StackPanel>
+                <!-- While a new version downloads (see UpdateService.Progress) -->
+                <StackPanel
+                    x:Name="UpdateProgressPanel"
+                    Spacing="6"
+                    Visibility="Collapsed">
+                    <ProgressBar x:Name="UpdateProgressBar" Maximum="1" />
+                    <TextBlock
+                        x:Name="UpdateProgressText"
+                        Style="{StaticResource ResonateCaptionTextStyle}"
+                        TextWrapping="Wrap" />
+                </StackPanel>
                 <TextBlock
                     x:Name="UpdateStatusText"
                     Style="{StaticResource ResonateCaptionTextStyle}"
@@ -124,9 +117,10 @@
                     x:Name="StartupText"
                     Style="{StaticResource ResonateSecondaryTextStyle}"
                     TextWrapping="Wrap" />
+                <!-- Spotify's terms ask apps to credit Spotify for its content; this is that credit. -->
                 <TextBlock
                     Style="{StaticResource ResonateSecondaryTextStyle}"
-                    Text="Resonate is an independent app for Spotify and is not affiliated with or endorsed by Spotify. Music, cover art and song details come from Spotify, and every Spotify song plays in the Spotify app."
+                    Text="Songs, covers and details come from Spotify. Resonate is not affiliated with Spotify."
                     TextWrapping="Wrap" />
                 <HyperlinkButton
                     Padding="0"

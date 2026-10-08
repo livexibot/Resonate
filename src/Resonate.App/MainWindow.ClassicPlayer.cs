@@ -30,13 +30,10 @@ public sealed partial class MainWindow
     /// <summary>Opens Settings at one of its sections.</summary>
     public void OpenSettings(SettingsSection section)
     {
-        // Already in Settings: glide there; arriving: jump straight to it.
-        var alreadyOpen = CurrentPage is SettingsPage;
-        Open(SettingsKey);
-        if (CurrentPage is SettingsPage page)
-        {
-            page.ShowSection(section, animate: alreadyOpen);
-        }
+        // Settings already open: glide there; opening: jump straight to it.
+        var alreadyOpen = SettingsPane.IsOpen;
+        ShowSettings(true);
+        SettingsPage?.ShowSection(section, animate: alreadyOpen);
     }
 
     /// <summary>Opens Search with the cursor in its box (Ctrl+F, and the classic player's eject button).</summary>

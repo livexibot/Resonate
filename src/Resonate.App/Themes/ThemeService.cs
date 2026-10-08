@@ -397,8 +397,9 @@ public sealed class ThemeService
                 dictionary["ResonatePlayerMargin"] = floating ? new Thickness(floatGap, 0, floatGap, floatGap) : new Thickness(0);
                 dictionary["ResonatePlayerBorderThickness"] = floating ? new Thickness(palette.BorderWidth) : new Thickness(0, palette.BorderWidth, 0, 0);
                 dictionary["ResonatePlayerCorner"] = floating ? new CornerRadius(Math.Max(palette.CornerLarge, 4)) : new CornerRadius(0);
-                dictionary["ResonateDisplayFont"] = new FontFamily(look.DisplayFont);
-                dictionary["ResonateTextFont"] = new FontFamily(look.TextFont);
+                // Fonts that come with Resonate load from its own folder (see BundledFonts).
+                dictionary["ResonateDisplayFont"] = new FontFamily(BundledFonts.Resolve(look.DisplayFont));
+                dictionary["ResonateTextFont"] = new FontFamily(BundledFonts.Resolve(look.TextFont));
             }
         }
 

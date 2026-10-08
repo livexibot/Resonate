@@ -2,7 +2,7 @@
   "id": "sleep-timer",
   "name": "Sleep timer",
   "version": "1.0.0",
-  "description": "Pauses the music after a while or at the end of the song, fading out gently first. Start it from the plugin button in the player bar.",
+  "description": "Pauses the music after a while or at the end of the song.",
   "author": "Resonate",
   "main": "main.js",
   "permissions": ["player.read", "player.control", "player.volume"],
@@ -11,7 +11,7 @@
       "key": "fade",
       "type": "toggle",
       "title": "Fade out before pausing",
-      "description": "Lowers the volume over the last minute, then puts it back once the music is paused.",
+      "description": "Lowers the volume over the last minute.",
       "default": true
     },
     {

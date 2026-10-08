@@ -26,8 +26,6 @@ public sealed partial class PlayerBar : UserControl
     private const string MutedGlyph = "";
     private const string RepeatAllGlyph = "\uE8EE";
     private const string RepeatOneGlyph = "\uE8ED";
-    private const string HeartGlyph = "\uEB51";
-    private const string HeartFilledGlyph = "\uEB52";
     private const float ArtworkSize = 56;
 
     // The clock moves the progress bar on about one screen pixel a tick: at
@@ -106,13 +104,6 @@ public sealed partial class PlayerBar : UserControl
         _player = player;
         player.StateChanged += OnStateChanged;
         App.Services.ControlChannelChanged += (_, _) => ShowDevice(_shown);
-        App.Services.Likes.Changed += (_, change) =>
-        {
-            if (change.Uri is null || change.Uri == _shown.TrackUri)
-            {
-                DispatcherQueue.TryEnqueue(() => ShowLike(_shown));
-            }
-        };
         Show(player.State);
     }
 
@@ -196,7 +187,6 @@ public sealed partial class PlayerBar : UserControl
         }
 
         ShowModes(state);
-        ShowLike(state);
         ShowDevice(state);
         ShowArtwork(state);
         UpdateClock();
@@ -260,24 +250,6 @@ public sealed partial class PlayerBar : UserControl
             RepeatMode.One => "Repeat this song",
             _ => "Repeat off",
         });
-    }
-
-    /// <summary>The heart for the playing song (Spotify songs only).</summary>
-    private void ShowLike(PlayerState state)
-    {
-        var canLike = state.TrackUri?.StartsWith("spotify:track:", StringComparison.Ordinal) == true;
-        LikeButton.Visibility = canLike ? Visibility.Visible : Visibility.Collapsed;
-        if (!canLike)
-        {
-            return;
-        }
-
-        var liked = App.Services.Likes.IsLiked(state.TrackUri);
-        LikeButton.Content = liked ? HeartFilledGlyph : HeartGlyph;
-        LikeButton.Foreground = App.Services.Theme.GetBrush(liked ? "ResonateAccentBrush" : "ResonateTextSecondaryBrush");
-        var label = liked ? "Remove from Liked Songs" : "Save to Liked Songs";
-        AutomationPropertiesHelper.SetName(LikeButton, label);
-        ToolTipService.SetToolTip(LikeButton, label);
     }
 
     private void ShowArtwork(PlayerState state)
@@ -437,28 +409,6 @@ public sealed partial class PlayerBar : UserControl
 
     private void OnTitlePointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e) =>
         TitleText.TextDecorations = global::Windows.UI.Text.TextDecorations.None;
-
-    private void OnLikeClick(object sender, RoutedEventArgs e)
-    {
-        if (_shown.TrackUri is not { } uri)
-        {
-            return;
-        }
-
-        // The bar knows the song by its address; that is all liking needs.
-        var track = new Resonate.Spotify.Library.TrackInfo(
-            uri,
-            _shown.Title ?? string.Empty,
-            _shown.Artists ?? string.Empty,
-            _shown.Album ?? string.Empty,
-            null,
-            _shown.Duration,
-            _shown.ArtworkUrl,
-            _shown.ArtworkUrl,
-            false,
-            true);
-        _ = Pages.Lists.TrackActions.SetLikedAsync(track, !App.Services.Likes.IsLiked(uri));
-    }
 
     private void OnSeekDragCompleted(object? sender, EventArgs e) =>
         _ = _player?.SeekAsync(TimeSpan.FromSeconds(PositionBar.Value));
