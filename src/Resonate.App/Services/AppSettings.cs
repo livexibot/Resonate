@@ -143,7 +143,16 @@ public sealed class AppSettings
 
     // Home stage
 
+    /// <summary>The Home stage shows the playing cover blurred behind its clouds (the user's choice, off at first).</summary>
+    public bool HomeStageBlurredCover { get; set; }
+
+    /// <summary>The last cover's colours (#RRGGBB), so the stage opens in them before any cover is read.</summary>
+    public List<string> HomeStageColours { get; set; } = [];
+
     // Away screen
+
+    /// <summary>Minutes without touching the mouse or keyboard before the away screen shows (2, 5, 10 or 15).</summary>
+    public int AwayScreenMinutes { get; set; } = 5;
 
     // Rediscover
 

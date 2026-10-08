@@ -828,6 +828,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                     TrackUri = track.Uri,
                     ArtworkUrl = track.LargeImageUrl,
                     ArtworkBytes = null,
+                    FullArtworkUrl = track.FullImageUrl,
                     Duration = track.Duration,
                     Position = TimeSpan.Zero,
                     PositionTimestamp = now,
@@ -952,6 +953,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                 ContextUri = before.ContextUri,
                 ArtworkUrl = before.ArtworkUrl,
                 ArtworkBytes = before.ArtworkBytes,
+                FullArtworkUrl = before.FullArtworkUrl,
                 Duration = before.Duration,
                 Position = position,
                 PositionTimestamp = now,
@@ -1301,6 +1303,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                         TrackUri = null,
                         ArtworkUrl = null,
                         ArtworkBytes = snapshot.Artwork,
+                        FullArtworkUrl = null,
                         Duration = snapshot.Duration,
                     };
                     _needsWebDetails = true;
@@ -1452,6 +1455,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                     TrackUri = item.Uri,
                     ContextUri = playback.Context?.Uri,
                     ArtworkUrl = s.ArtworkUrl ?? (s.ArtworkBytes is null ? item.LargeImageUrl : null),
+                    FullArtworkUrl = item.FullImageUrl,
                 };
             }
         }
@@ -1468,6 +1472,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                 ContextUri = playback.Context?.Uri,
                 ArtworkUrl = item?.LargeImageUrl,
                 ArtworkBytes = sameTrack ? s.ArtworkBytes : null,
+                FullArtworkUrl = item?.FullImageUrl,
                 Duration = item?.Duration ?? TimeSpan.Zero,
                 CanSeek = item is not null,
             };
