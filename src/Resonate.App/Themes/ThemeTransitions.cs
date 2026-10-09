@@ -113,7 +113,7 @@ internal sealed class ThemeTransitions
             _picture = new RenderTargetBitmap();
         }
 
-        var rendering = RenderAsync(_picture, _host);
+        var rendering = RenderAsync(_picture, _host.Pictured);
         _rendering = rendering;
         var taken = await rendering;
         if (run != _run)
@@ -132,7 +132,7 @@ internal sealed class ThemeTransitions
     /// uncovered. <paramref name="moving"/> gets the time of the first frame
     /// drawn after the switch. Without a picture, the new look shows at once.
     /// </summary>
-    public async Task PlayAsync(ThemeTransitionKind kind, Point? origin, ThemePalette palette, ThemeTransitionSpec spec, Action apply, Action<long> moving)
+    public async Task PlayAsync(ThemeTransitionKind kind, Point? origin, ThemePalette palette, ThemeTransitionSpec spec, Action apply, Action<long> moving, bool newScene = false)
     {
         if (!_covered)
         {
@@ -159,7 +159,7 @@ internal sealed class ThemeTransitions
         {
             try
             {
-                spec = Build(kind, size, origin, palette, spec);
+                spec = Build(kind, size, origin, palette, spec, newScene);
             }
             catch (Exception ex)
             {
@@ -171,6 +171,8 @@ internal sealed class ThemeTransitions
                 return;
             }
 
+            // The picture now on screen leaves out the weather that passes behind the player; with the same scene it stays in front meanwhile.
+            _host.KeepWeatherInFront(!newScene);
             apply();
             _done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             _spec = spec;
@@ -244,6 +246,7 @@ internal sealed class ThemeTransitions
         if (Showing is not null)
         {
             ElementCompositionPreview.GetElementVisual(_host.Scene).Clip = null;
+            ElementCompositionPreview.GetElementVisual(_host.Decor).Clip = null;
             _host.Scene.Background = null;
             var edge = ElementCompositionPreview.GetElementVisual(_host.Edge);
             edge.Clip = null;
@@ -252,6 +255,7 @@ internal sealed class ThemeTransitions
             _host.Edge.Visibility = Visibility.Collapsed;
             Empty(_host.Overlay);
             Empty(_host.Underlay);
+            _host.KeepWeatherInFront(false);
             Showing = null;
         }
 
@@ -264,13 +268,13 @@ internal sealed class ThemeTransitions
     }
 
     /// <summary>Puts up what the kind animates, bound to the progress; a ripple's duration depends on its reach.</summary>
-    private ThemeTransitionSpec Build(ThemeTransitionKind kind, Vector2 size, Point? origin, ThemePalette palette, ThemeTransitionSpec spec)
+    private ThemeTransitionSpec Build(ThemeTransitionKind kind, Vector2 size, Point? origin, ThemePalette palette, ThemeTransitionSpec spec, bool newScene)
     {
         switch (kind)
         {
             case ThemeTransitionKind.Ripple:
             case ThemeTransitionKind.Grow:
-                return Reveal(kind, size, origin, palette, spec);
+                return Reveal(kind, size, origin, palette, spec, newScene);
             case ThemeTransitionKind.Split:
                 Split(size);
                 break;
@@ -303,9 +307,10 @@ internal sealed class ThemeTransitions
     /// The new look grows over the old one: in a circle from where the user
     /// clicked (Ripple), or in the window's own shape from its middle (Grow),
     /// with a thin edge in the new accent colour. The old look is a picture
-    /// underneath; the new one is the window itself, clipped.
+    /// underneath; the new one is the window itself, clipped, and with a new
+    /// scene (<paramref name="newScene"/>) its decorations too.
     /// </summary>
-    private ThemeTransitionSpec Reveal(ThemeTransitionKind kind, Vector2 size, Point? origin, ThemePalette palette, ThemeTransitionSpec spec)
+    private ThemeTransitionSpec Reveal(ThemeTransitionKind kind, Vector2 size, Point? origin, ThemePalette palette, ThemeTransitionSpec spec, bool newScene)
     {
         _host.Underlay.Children.Add(Picture());
 
@@ -318,14 +323,12 @@ internal sealed class ThemeTransitions
         var compositor = Compositor;
         RectangleClip shape, edge;
         Vector2 center;
-        float across, down;
+        float across, down, round;
         if (kind == ThemeTransitionKind.Ripple)
         {
             center = origin is { } point ? new Vector2((float)point.X, (float)point.Y) : size / 2;
             var reach = (float)ThemeTransitionCatalog.Reach(size.X, size.Y, center.X, center.Y);
-            shape = Rounded(compositor, center, reach, reach, reach);
-            edge = Rounded(compositor, center, reach + EdgeWidth, reach + EdgeWidth, reach + EdgeWidth);
-            (across, down) = (reach, reach);
+            (across, down, round) = (reach, reach, reach);
             spec = spec with { Duration = ThemeTransitionCatalog.RippleDuration(reach) };
         }
         else
@@ -334,16 +337,25 @@ internal sealed class ThemeTransitions
             var (corner, margin) = ThemeTransitionCatalog.GrowShape(size.X, size.Y);
             across = center.X + (float)margin;
             down = center.Y + (float)margin;
-            shape = Rounded(compositor, center, across, down, (float)corner);
-            edge = Rounded(compositor, center, across + EdgeWidth, down + EdgeWidth, (float)corner + EdgeWidth);
+            round = (float)corner;
         }
 
+        shape = Rounded(compositor, center, across, down, round);
+        edge = Rounded(compositor, center, across + EdgeWidth, down + EdgeWidth, round + EdgeWidth);
         ElementCompositionPreview.GetElementVisual(_host.Scene).Clip = shape;
         var edgeVisual = ElementCompositionPreview.GetElementVisual(_host.Edge);
         edgeVisual.Clip = edge;
 
         // The shape's area follows the curve (see RevealScale in the catalog).
         Bind(shape, "Scale", $"Vector2({RevealScale}, {RevealScale})");
+
+        // A new scene's decorations grow in with it (the old one's are not in the picture: they go at once).
+        if (newScene)
+        {
+            var decor = Rounded(compositor, center, across, down, round);
+            ElementCompositionPreview.GetElementVisual(_host.Decor).Clip = decor;
+            Bind(decor, "Scale", $"Vector2({RevealScale}, {RevealScale})");
+        }
 
         // The edge keeps its width while the shape grows: its half-size is
         // always the shape's plus the edge.

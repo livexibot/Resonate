@@ -446,12 +446,20 @@ public sealed partial class PlaylistNavItem : ObservableObject
 
     public GridLength CoverColumnWidth => ShowCovers || Compact ? new GridLength(48) : new GridLength(0);
 
+    /// <summary>While <see cref="Compact"/> the cover alone sits in the middle of the row, with no gaps beside it.</summary>
+    public HorizontalAlignment RowAlignment => Compact ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
+
+    public double ColumnGap => Compact ? 0 : 12;
+
     /// <summary>Picks up a change of <see cref="Compact"/> or <see cref="ShowCovers"/>.</summary>
     public void RefreshCompact()
     {
         OnPropertyChanged(nameof(TextVisibility));
         OnPropertyChanged(nameof(CoverVisibility));
         OnPropertyChanged(nameof(CoverColumnWidth));
+        OnPropertyChanged(nameof(RowAlignment));
+        OnPropertyChanged(nameof(ColumnGap));
+        OnPropertyChanged(nameof(SpeakerVisibility));
     }
 
     public Brush PlaceholderBrush { get; }
@@ -489,7 +497,7 @@ public sealed partial class PlaylistNavItem : ObservableObject
 
     public Brush NameBrush => App.Services.Theme.GetBrush(IsCurrent ? "ResonateAccentBrush" : "ResonateTextPrimaryBrush");
 
-    public Visibility SpeakerVisibility => IsCurrent && IsPlaying ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility SpeakerVisibility => IsCurrent && IsPlaying && !Compact ? Visibility.Visible : Visibility.Collapsed;
 }
 
 /// <summary>A square card for an album or playlist (search results).</summary>
@@ -559,7 +567,14 @@ public sealed partial class NavItem : ObservableObject
     /// <summary>Hidden while the sidebar shows only icons and covers (see <see cref="PlaylistNavItem.Compact"/>).</summary>
     public Visibility LabelVisibility => PlaylistNavItem.Compact ? Visibility.Collapsed : Visibility.Visible;
 
-    public void RefreshCompact() => OnPropertyChanged(nameof(LabelVisibility));
+    /// <summary>The icon sits in the middle of the row while the sidebar is narrow, like the covers under it.</summary>
+    public HorizontalAlignment ContentAlignment => PlaylistNavItem.Compact ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+
+    public void RefreshCompact()
+    {
+        OnPropertyChanged(nameof(LabelVisibility));
+        OnPropertyChanged(nameof(ContentAlignment));
+    }
 
     public string Key { get; }
 

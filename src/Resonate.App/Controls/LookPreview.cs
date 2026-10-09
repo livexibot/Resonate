@@ -26,6 +26,35 @@ internal sealed partial class LookPreview : Grid
     private readonly ThemeDefinition _look;
     private readonly ThemePalette _palette;
 
+    /// <summary>A special look's card shows its scene's sign in the corner: a blossom or a snowflake.</summary>
+    private void AddSceneMark()
+    {
+        var mark = _look.Scene switch
+        {
+            ThemeScene.Japan => "\U0001F338",
+            ThemeScene.Snow => "❄️",
+            _ => null,
+        };
+        if (mark is null)
+        {
+            return;
+        }
+
+        var sign = new TextBlock
+        {
+            Text = mark,
+            FontFamily = new FontFamily("Segoe UI Emoji"),
+            FontSize = 15,
+            IsColorFontEnabled = true,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0, 12, 8, 0),
+        };
+        SetRowSpan(sign, 4);
+        Canvas.SetZIndex(sign, 10);
+        Children.Add(sign);
+    }
+
     public LookPreview(ThemeDefinition look)
     {
         _look = look;
@@ -35,6 +64,7 @@ internal sealed partial class LookPreview : Grid
         CornerRadius = new CornerRadius(6);
         Background = BackdropBrush();
         IsHitTestVisible = false;
+        AddSceneMark();
 
         var gap = _palette.PanelGap <= 0 ? 0 : Math.Round(Math.Clamp(2 + (_palette.PanelGap * MiniatureScale), 3, 8));
         var layout = look.PlayerLayout;

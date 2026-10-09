@@ -15,7 +15,9 @@ visitors; keep it short and in step with this file.
   2026; see "First milestone"). Releases are published with one
   installer, for ordinary (x64) Windows PCs (`Resonate-win-x64-Setup.exe`;
   the owner dropped arm64 and the portable zip on 8 October 2026 to save
-  build time); the latest is v0.9.0
+  build time); the latest is v0.13.0 (9 October 2026: Settings in six
+  tabs, colours that follow the cover, new visualizers, reset buttons and
+  a new Search); before it v0.9.0
   (8 October 2026: the owner's live edits, see below; v0.8.0 brought
   Resonate's own player for Web API only, the Home stage's visualizer
   and Settings in tabs, v0.7.0 swiping the playing song to skip, Web API only closing
@@ -80,7 +82,10 @@ visitors; keep it short and in step with this file.
   fit it, and Settings, Player can change them; the player bar's is a faint
   `StageVisualizer` along its bottom in the look's accents, running only
   while music plays and the window shows. Visualizers take a new height at
-  most every 15 ms. Spotify's saving renderer and GPU processes are trimmed
+  most every 15 ms. With no sound heard, Sensitivity makes the swaying
+  levels taller (a `Gain` in the level expression) and Smoothing slows
+  their clock (`StageBars.SwayPace`; the default 60 % keeps the old pace).
+  Spotify's saving renderer and GPU processes are trimmed
   again every 2 minutes, and Resonate hands back its own memory 4 s after
   its window is hidden or minimised (`MainWindow.MemoryTrim.cs`). Song
   cover backdrops are darkened just enough for white text on their panels
@@ -102,7 +107,11 @@ visitors; keep it short and in step with this file.
   recolours the whole look (`CoverLook.Follow`: every colour takes the
   cover's hue with its own lightness and saturation, greys stay grey, the
   gradient runs between the cover's two colours from
-  `ArtworkColors.PickAccents`, a coloured outline follows the accent); the
+  `ArtworkColors.PickAccents`, a coloured outline follows the accent;
+  it also decides whether Home's stage, its visualizer, the away screen
+  and the greeting card take the song's cover colours or the look's own,
+  `StageColours.FollowsCover`, the owner's request of the same evening:
+  "make sure its consistent"); the
   visualizer's Bars and Bar width became Amount and Size, which every
   style reads (bars, dots, sparks, columns, rings: `VisualizerShapes`);
   and Visualizer, Advanced has Home's Width (20 to 100 %, centred),
@@ -126,6 +135,25 @@ visitors; keep it short and in step with this file.
   playing, failures; never names or tokens) go to `playback.log` in the
   cache folder (256 KB, then `playback.old.log`): read it first when the
   owner reports playback trouble.
+- Crashes (9 October 2026, the owner: "make sure the app never crashes,
+  ever"): since pull request #36 the title bar's button margin was
+  compared exactly with a computed value, and XAML keeps a margin as a
+  float, so at 125 % display scaling (the owner's) it set itself again
+  for ever at low priority. That starved the interface thread: the
+  beta froze, Resonate's own player never finished opening, and closing
+  its half-open WebView2 page then crashed Resonate (an access violation
+  in Microsoft.Web.WebView2.Core.dll, in a loop at every start).
+  `UpdateTitleBarPassthrough` now rounds and compares loosely; never
+  compare a computed double with a value read back from XAML. Closed
+  pages detach their handlers and keep their WebView2 objects 5 minutes;
+  a page open when Resonate ended is counted (`open.count` in the
+  webplayer folder): the next start waits 10 s, and after three in a row
+  the own player waits until "Play on this PC" is switched on again.
+  `CrashGuard` marks every interface-thread and unobserved task
+  exception handled and writes it to `crash.log` in the cache folder
+  (512 KB, then `crash.old.log`; at most 100 a run); read it with
+  `playback.log` when the owner reports a crash. The web player's
+  opening steps go to `playback.log` ("web player: ...").
 - The feature update (pull request #9, 7 October 2026) adds Home with
   listening stats and daily mixes, Local Files, DJ, sorting and filtering
   of every list, likes, album and artist pages, truly random shuffle,
@@ -267,6 +295,11 @@ Building and testing:
   running, waiting to save) and remove it when done. `Loaded` can come
   twice in a row, so unsubscribe before subscribing there. Never call
   `GC.WaitForPendingFinalizers` on the interface thread (it deadlocks).
+  CI runs at 100 % display scaling, so a loop that only an odd scale
+  starts is invisible there; `--web-player-check` with `--data
+  %LocalAppData%\Resonate-local` on the owner's PC is a quick test that
+  the interface thread keeps answering (it touches neither the installed
+  copy nor its settings).
 - Cloud sessions cannot download CI artifacts or logs (their storage host is
   blocked). CI therefore also stores each pull request's screenshots as a
   commit under the hidden ref `refs/screenshots/pr-<number>`. Fetch them
@@ -465,7 +498,10 @@ Windows:
   `SetElementChildVisual` (the soft shadows) or Mica and acrylic. It does
   draw an element's own composition properties (clips, translation, scale),
   including running animations. Anything scaled past the edges makes the
-  whole picture larger, which is why `BackdropLayer` clips itself. The hard
+  whole picture larger, which is why `BackdropLayer` clips itself and
+  `ThemeHost` clips the special looks' scenery, decorations and weather
+  (`ClipToSize`; Snow's sky overflowed and switching squeezed the old
+  look into part of the window, 9 October 2026). The hard
   shadow is plain XAML so it shows. Judge the transitions and the soft
   shadows on a real PC.
 
@@ -631,7 +667,11 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
 - Home stage: the top of Home is the playing song, large, over five
   drifting clouds of the cover's colours (`Controls/CloudField`,
   `NowPlayingStage`, colours kept readable by `StageColours.ForText`, 7:1
-  and 4.5:1), or the blurred cover (its own switch, on at first). The
+  and 4.5:1), or the blurred cover (its own switch, on at first). Only
+  while the look's "Colours follow the cover" is on; otherwise the clouds
+  and bars take the look's two accents and the blurred cover becomes a
+  soft field of them (`StageColours.Pick`, `LookPicture`; the cover is
+  still read, so turning the switch on shows it at once). The
   640 px cover is `TrackInfo.FullImageUrl` / `PlayerState.FullArtworkUrl`.
   Each cloud is a colour brush through one dithered alpha mask
   (`Resonate.Themes/CloudMask`, 512 px, triangular noise of 4 alpha steps,
@@ -681,7 +721,8 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   minutes (`GetLastInputInfo`, checked every 5 s only while music plays),
   with Resonate in front, nothing open or typed into and nothing
   full-screen (`SHQueryUserNotificationState`), the stage covers the window
-  (in `ThemeHost.Scene`) with a clock; the input that wakes it is
+  (the top child of `ThemeHost`, over the special looks' decorations too)
+  with a clock; the input that wakes it is
   swallowed, media keys pass. Measure: the clouds' and bars' cost at 5K
   and 165 Hz, that the rings are gone, `PowerManager.DisplayStatus`
   unpackaged, that accelerators are blocked.
@@ -841,7 +882,11 @@ Ripple, and a more interesting Home):
   new look through a composition `RectangleClip` scaled by the square root
   of the progress, so the revealed area follows the curve; with Mica or
   acrylic they cross-fade instead. Anything that changes with the look must
-  live inside `ThemeHost.Scene`. Switches apply at once while the window is
+  live inside `ThemeHost.Scene` (pictured with `ThemeHost.Pictured`). The
+  special looks' decorations and weather lie above the picture in
+  `ThemeHost.Decor`: a switch between two looks with the same scene leaves
+  them as they are, and one to another scene drops the old ones at once
+  and reveals the new ones through the same clip (`newScene`). Switches apply at once while the window is
   hidden or Windows animations are off. The kind is saved by name through
   a tolerant converter (unknown values read as Morph), so never rename a
   member; add new ones at the end. CI's tour holds Spread, Ripple and
@@ -885,6 +930,95 @@ Ripple, and a more interesting Home):
   Bubblegum Pulse (Pills in its bar), Terminal Retro (and in its bar),
   Velvet and Aurora Aurora (Silk in Aurora's bar), Sage Silk. CI's tour
   starts every style (`StageVisualizer.CheckMotion`).
+- Special looks (the owner's request, 9 October 2026: "themes around a
+  certain aesthetic ... extremely good and custom made", tried in the demo
+  first): a fourth preset group, Special, with Japan and Snow. A look's
+  `Scene` (`ThemeScene`, saved by name: append, never rename; also under
+  Customize, Background) draws scenery behind the panels
+  (`Controls/SceneArt.xaml`, XAML paths written by
+  `tools/scenes/build_scene_art.py`, redrawn with more detail on
+  9 October 2026 when the owner found them "a little basic": Japan's
+  full moon behind clouds with birds, Mount Fuji with a fingered snow
+  cap, misty ridges, cherry trees, a lit five-storey pagoda, stone
+  lanterns and a torii in a lake; Snow's aurora, stars and crescent moon,
+  two snow-capped ranges, a frozen lake, a lit cabin with smoke and
+  snow-laden spruces; plain shapes and gradients, under 120 elements a
+  scene, the top right left calm for the branch; each made only while
+  shown, `x:Load`), decorations over the panels and weather over the whole
+  window. Decorations (`Controls/SceneDecorLayer.cs`, the owner asked on
+  9 October 2026 for petals that gather on the player and a branch that
+  overlaps the app, "flawless and stylish", and the same for Snow;
+  shapes in `Resonate.Themes/SceneDecor.cs`, placed by `SceneLayout.cs`
+  from `MainWindow.SceneFrameFor`, tested): a cherry branch, or a snowy
+  spruce bough with cones, hoarfrost and icicles, over the page's top
+  right corner, cut off at the window's edge or beside a side pane,
+  swaying slightly and now and then shedding a petal or a little snow,
+  never under the title bar's buttons (`SceneDecor.ButtonRoom`; it stays
+  large enough at small App sizes, or goes on a page too narrow); for
+  Japan, petals that fall one by one into piles on the player's two
+  shoulders and on the page's top edge under the branch, the top ones
+  stirring when a breeze passes; for Snow, snow that settles on the
+  sidebar, the page, a side pane and the player, icicles that grow under
+  it and under the player, and frost ferns spreading in the sidebar's
+  bottom left and the page's bottom right corners. Snow settles in four
+  layers that fade in one after another, each thinner one lying along the
+  edge and round its corners (`SnowCap.Settling`), so it follows the
+  player's and the panels' rounded corners while it gathers, not a
+  squashed copy of the finished cap. Depth, back to front: frost, piles
+  and snow, the branch, the player's icicles; each pile's and cap's
+  pictures (petals, glints) ride on its own element, so the branch covers
+  them too. Nothing reaches up among the title bar's content: snow keeps
+  low under the back button and name (`TitleBarStart`) and the buttons
+  (`SceneDecor.CapLow`, from `SceneFrame.TitleEnd` and `TitleBottom`), a
+  pile there is left out, and the branch is left out where it would lie
+  over the player (a player at the top or a short window). With the
+  Winamp player, piles and snow sit on its skin (`ClassicPlayer.Frame`),
+  not its row. Everything gathers
+  over the first 150 s after the scene appears (`SceneDecor.GatherSeconds`;
+  it starts again each time the app opens or the scene changes) and then
+  rests. Shapes are XAML paths built in code; petals, blossoms, crystals
+  and glints are pictures drawn in code (`Resonate.Themes/SceneSprites.cs`,
+  sampled 6 x 6, at 24, 48 or 96 px, whichever is just above the size
+  shown; `Helpers/SceneSpriteBrushes.cs`). Snow on an edge keeps what
+  lies by each corner while the edge grows, and is drawn again at most
+  every 120 ms while the window is resized. Weather
+  (`Controls/SceneWeatherLayer.cs`): 26 sakura petals (pictures) that
+  turn, flutter and blow left from the branch, or 62 snowflakes, 10
+  crystals that turn and tilt slowly and 8 soft out-of-focus flakes
+  (`Resonate.Themes/SceneWeather.cs`, tested). The smaller, farther part
+  (`SceneWeather.Particle.Behind`: 10 petals, two in five, smaller,
+  fainter and slower, blowing in to end over the page's middle where the
+  player floats; 31 flakes and 5 crystals, never a soft flake) passes
+  behind the player (the owner's request, 9 October 2026, for depth): it
+  hangs under the player in `MainWindow.WeatherHost` (a Canvas in
+  `ShellGrid` just before `PlayerSlot`, so over the panels; Window
+  shapes' column goes before it), counter-scaled by App size and falling
+  from the top of `ShellGrid` (behind a player on top). Being in the live
+  scene, it is revealed with a new look; during a switch that keeps the
+  scene (quick edits too), the old look's picture, which leaves it out,
+  stands wherever the new look has not reached (under the clipped window
+  for Ripple, over it for a cross-fade), so for the switch's length it
+  falls over everything from where it was (`ThemeHost.KeepWeatherInFront`,
+  from `ThemeTransitions`). While the panels are hidden (signing in) it
+  falls over the whole window. Both layers move by
+  compositor expressions on one clock (`Helpers/SceneClock.cs`: `Time`
+  repeats every 20 minutes, `Gather` counts the gathering), which ticks
+  on a 15 ms `DispatcherQueueTimer` (about 64 times a second; not
+  `CompositionTarget.Rendering`, which would make XAML draw every frame)
+  and only while the window shows and Windows' animations are on
+  (`ThemeService.AnimationsChanged` follows that switch at once);
+  otherwise every animation stops and the decorations rest as they are
+  once all has gathered. Pictures are drawn again for a new display
+  scale (`XamlRoot.Changed`) when the window moves to another screen. If anything in the
+  decorations fails they go, and the window stays as it was. The special
+  looks' panels are see-through (0.68 and 0.6) so the scenery shows, and
+  their cards carry a blossom or a snowflake. CI's tour starts both
+  weathers' and every decoration's motion (`SceneWeatherLayer.CheckMotion`,
+  `SceneDecorLayer.CheckMotion`) and decodes every picture
+  (`SceneSpriteBrushes.CheckAsync`). Measure: the cost of the weather and
+  the decorations at 5K and 165 Hz, that the branch and the piles sit
+  right at 80 to 200 % App size, with the Winamp player and with the
+  player on top, and that nothing reaches under the title bar's buttons.
 - Reset buttons (the owner's request, 9 October 2026): every slider and
   number box in Settings shows a small reset button while its value is
   not the default (`Controls/ResetButton`); drop-downs and switches have
@@ -946,7 +1080,8 @@ Ripple, and a more interesting Home):
   `ThemePalette.AccentSoft`. Text fields are rounded
   (`ResonateCornerInput`) and outlined in the accent while typing.
 - Home: a greeting card (first name, date, a line about today) beside what
-  plays or played last, on a wash of the cover's colours
+  plays or played last, on a wash of the cover's colours (the look's
+  accents while "Colours follow the cover" is off)
   (`ArtworkSampler.GetWashAsync`, cached, mixed towards the background on
   light looks). The day and week cards have bar charts (`Controls/BarStrip`,
   plain elements built in code, rising once on first load) from
@@ -1635,7 +1770,7 @@ when the work first needs them, then tick them off here.
 - Decided (8 October 2026, the owner's requests): Settings opens in a
   pane on the right of the window beside the page, not in place of it.
   It shares the queue's column and grip (`MainWindow.LayOutPanes`; its
-  width is kept in `SettingsPaneWidth`, 440 to 960), so opening one closes
+  width is kept in `SettingsPaneWidth`, 480 to 960, so two preset cards always fit side by side), so opening one closes
   the other; a click on a grip without dragging keeps no width. The player
   bar has no like button (songs are still liked from lists and menus).
   Setting descriptions stay short: the owner found them too wordy, for

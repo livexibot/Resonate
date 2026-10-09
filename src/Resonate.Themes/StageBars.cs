@@ -136,6 +136,13 @@ public static class StageBars
     }
 
     /// <summary>
+    /// How fast the sway's clock runs for a Smoothing of
+    /// <paramref name="smoothing"/> (0 to 1): 1.9 times as fast with none,
+    /// as usual at the default 0.6, and 0.4 times at most smoothing.
+    /// </summary>
+    public static float SwayPace(double smoothing) => (float)(1 + (1.5 * (0.6 - Math.Clamp(smoothing, 0, 1))));
+
+    /// <summary>
     /// <see cref="Synthetic"/> as a composition expression, with the clock
     /// read from <paramref name="clock"/> (for example "p.Time"). Numbers are
     /// written the same way in every language.

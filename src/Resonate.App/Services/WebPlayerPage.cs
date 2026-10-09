@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.InteropServices;
 using Microsoft.UI.Dispatching;
 using Microsoft.Web.WebView2.Core;
@@ -42,6 +43,17 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
     /// </summary>
     private static readonly TimeSpan UnresponsiveLimit = TimeSpan.FromSeconds(30);
 
+    /// <summary>
+    /// How long a closed page's WebView2 objects are kept: WebView2 crashed
+    /// Resonate when they were let go while a page that had not finished
+    /// opening was closed (9 October 2026, an access violation in
+    /// Microsoft.Web.WebView2.Core.dll), so they outlive their page a while.
+    /// </summary>
+    private static readonly TimeSpan KeepClosed = TimeSpan.FromMinutes(5);
+
+    // Closed pages' WebView2 objects and when they closed; on the interface thread.
+    private static readonly List<(long At, object?[] Objects)> Closed = [];
+
     // The open page's WebView2 browser process, for the Home stage's visualizer.
     private static int _browserProcessId;
 
@@ -49,7 +61,10 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
     private readonly string _userDataFolder;
     private readonly TaskCompletionSource _loaded = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource _stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private CoreWebView2Environment? _environment;
     private CoreWebView2Controller? _controller;
+    private CoreWebView2? _web;
+    private bool _marked;
     private int _ownProcessId;
     private string? _crashReports;
     private int _disposed;
@@ -80,8 +95,44 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
     /// </summary>
     public static int BrowserProcessId => Volatile.Read(ref _browserProcessId);
 
-    /// <summary>Told each step of opening the page, for CI's check; never anything a message carries.</summary>
+    /// <summary>Told each step of opening the page, for CI's check and the playback log; never anything a message carries.</summary>
     public Action<string>? Trace { get; init; }
+
+    /// <summary>
+    /// How many runs of Resonate in a row ended while a page was open in
+    /// <paramref name="userDataFolder"/> without closing it: Resonate itself
+    /// ended unexpectedly then, maybe because of the page. Any thread.
+    /// </summary>
+    public static int UncleanEnds(string userDataFolder)
+    {
+        try
+        {
+            var file = MarkerFile(userDataFolder);
+            if (!File.Exists(file))
+            {
+                return 0;
+            }
+
+            return int.TryParse(File.ReadAllText(file), NumberStyles.Integer, CultureInfo.InvariantCulture, out var count) ? Math.Max(1, count) : 1;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>Starts counting <see cref="UncleanEnds"/> again from none.</summary>
+    public static void ForgetUncleanEnds(string userDataFolder)
+    {
+        try
+        {
+            File.Delete(MarkerFile(userDataFolder));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Counted again next time.
+        }
+    }
 
     private bool IsDisposed => Volatile.Read(ref _disposed) != 0;
 
@@ -215,6 +266,7 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
 
         Trace?.Invoke($"WebView2 runtime {runtime}; starting it");
         Directory.CreateDirectory(_userDataFolder);
+        MarkOpen();
         CoreWebView2Environment environment;
         try
         {
@@ -229,6 +281,7 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
             throw new WebPlayerUnavailableException("The WebView2 runtime is not installed.", ex);
         }
 
+        _environment = environment;
         BrowserVersion = environment.BrowserVersionString;
         _crashReports = environment.FailureReportFolderPath;
         DeleteCrashReports(_crashReports);
@@ -245,17 +298,17 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
             CoreWebView2ControllerWindowReference.CreateFromWindowHandle(MessageOnlyWindow),
             options);
         Trace?.Invoke("the hidden view exists; opening the page");
+        _controller = controller;
         if (IsDisposed)
         {
-            controller.Close();
+            Close();
             throw new OperationCanceledException("The player was stopped while it opened.");
         }
-
-        _controller = controller;
 
         // Hidden for good: nothing is drawn, and sound plays as it does in a background tab.
         controller.IsVisible = false;
         var web = controller.CoreWebView2;
+        _web = web;
         _ownProcessId = (int)web.BrowserProcessId;
         Volatile.Write(ref _browserProcessId, _ownProcessId);
         var settings = web.Settings;
@@ -276,23 +329,35 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
             Path.Combine(AppContext.BaseDirectory, "Assets", "WebPlayer"),
             CoreWebView2HostResourceAccessKind.DenyCors);
         web.WebMessageReceived += OnWebMessageReceived;
-        web.NavigationStarting += (_, e) => e.Cancel = !string.Equals(e.Uri, PageUri, StringComparison.Ordinal);
-        web.NavigationCompleted += (_, e) =>
-        {
-            Trace?.Invoke($"page opened: {e.IsSuccess} ({e.WebErrorStatus})");
-            if (!e.IsSuccess)
-            {
-                _loaded.TrySetException(new InvalidOperationException($"The player page did not open ({e.WebErrorStatus})."));
-            }
-        };
-        web.NewWindowRequested += (_, e) => e.Handled = true;
-        web.DownloadStarting += (_, e) => e.Cancel = true;
-        web.PermissionRequested += (_, e) => e.State = e.PermissionKind == CoreWebView2PermissionKind.Autoplay
-            ? CoreWebView2PermissionState.Allow
-            : CoreWebView2PermissionState.Deny;
+        web.NavigationStarting += OnNavigationStarting;
+        web.NavigationCompleted += OnNavigationCompleted;
+        web.NewWindowRequested += OnNewWindowRequested;
+        web.DownloadStarting += OnDownloadStarting;
+        web.PermissionRequested += OnPermissionRequested;
         web.ProcessFailed += OnProcessFailed;
         web.Navigate(PageUri);
     }
+
+    private static void OnNavigationStarting(CoreWebView2 sender, CoreWebView2NavigationStartingEventArgs e) =>
+        e.Cancel = !string.Equals(e.Uri, PageUri, StringComparison.Ordinal);
+
+    private void OnNavigationCompleted(CoreWebView2 sender, CoreWebView2NavigationCompletedEventArgs e)
+    {
+        Trace?.Invoke($"page opened: {e.IsSuccess} ({e.WebErrorStatus})");
+        if (!e.IsSuccess)
+        {
+            _loaded.TrySetException(new InvalidOperationException($"The player page did not open ({e.WebErrorStatus})."));
+        }
+    }
+
+    private static void OnNewWindowRequested(CoreWebView2 sender, CoreWebView2NewWindowRequestedEventArgs e) => e.Handled = true;
+
+    private static void OnDownloadStarting(CoreWebView2 sender, CoreWebView2DownloadStartingEventArgs e) => e.Cancel = true;
+
+    private static void OnPermissionRequested(CoreWebView2 sender, CoreWebView2PermissionRequestedEventArgs e) =>
+        e.State = e.PermissionKind == CoreWebView2PermissionKind.Autoplay
+            ? CoreWebView2PermissionState.Allow
+            : CoreWebView2PermissionState.Deny;
 
     private void OnWebMessageReceived(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
@@ -314,7 +379,11 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
 
         _unresponsiveSince = 0;
         var type = WebPlayerMessage.Parse(json)?.Type;
-        Trace?.Invoke($"the page says {type}");
+        if (type != "state")
+        {
+            Trace?.Invoke($"the page says {type}");
+        }
+
         switch (type)
         {
             case "loaded":
@@ -409,16 +478,79 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
         }
     }
 
+    /// <summary>
+    /// Closes the page, once: its handlers go first, so WebView2 tells this
+    /// page nothing more, and its WebView2 objects are kept a while (see
+    /// <see cref="KeepClosed"/>). On the interface thread.
+    /// </summary>
     private void Close()
     {
-        if (_controller is { } controller)
+        var web = _web;
+        var controller = _controller;
+        var environment = _environment;
+        _web = null;
+        _controller = null;
+        _environment = null;
+        if (web is not null)
         {
-            _controller = null;
-            controller.Close();
+            try
+            {
+                web.WebMessageReceived -= OnWebMessageReceived;
+                web.NavigationStarting -= OnNavigationStarting;
+                web.NavigationCompleted -= OnNavigationCompleted;
+                web.NewWindowRequested -= OnNewWindowRequested;
+                web.DownloadStarting -= OnDownloadStarting;
+                web.PermissionRequested -= OnPermissionRequested;
+                web.ProcessFailed -= OnProcessFailed;
+            }
+            catch (COMException)
+            {
+                // Its browser is gone, and with it every handler.
+            }
+        }
+
+        if (controller is not null)
+        {
+            try
+            {
+                controller.Close();
+            }
+            catch (COMException)
+            {
+                // Already closed by its browser.
+            }
+        }
+
+        if (web is not null || controller is not null || environment is not null)
+        {
+            var now = Environment.TickCount64;
+            Closed.RemoveAll(closed => now - closed.At > (long)KeepClosed.TotalMilliseconds);
+            Closed.Add((now, [web, controller, environment]));
         }
 
         // Only this page's: a newer page may already have taken its place.
         Interlocked.CompareExchange(ref _browserProcessId, 0, _ownProcessId);
         DeleteCrashReports(_crashReports);
+        if (_marked)
+        {
+            _marked = false;
+            ForgetUncleanEnds(_userDataFolder);
+        }
+    }
+
+    private static string MarkerFile(string userDataFolder) => Path.Combine(userDataFolder, "open.count");
+
+    /// <summary>Counts this run as one that ended with a page open, until <see cref="Close"/> says otherwise.</summary>
+    private void MarkOpen()
+    {
+        try
+        {
+            File.WriteAllText(MarkerFile(_userDataFolder), (UncleanEnds(_userDataFolder) + 1).ToString(CultureInfo.InvariantCulture));
+            _marked = true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Not counted.
+        }
     }
 }

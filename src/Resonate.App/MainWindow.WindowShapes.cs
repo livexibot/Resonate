@@ -291,7 +291,8 @@ public sealed partial class MainWindow
         _column = new NowPlayingColumn(_services);
         Grid.SetRow(_column, PlayerPlacement.PanelsRow);
         Grid.SetColumnSpan(_column, ToTheLastColumn);
-        ShellGrid.Children.Insert(ShellGrid.Children.IndexOf(PlayerSlot), _column);
+        // Under the weather that passes behind the player, as the page is.
+        ShellGrid.Children.Insert(ShellGrid.Children.IndexOf(WeatherBehindPlayer), _column);
     }
 
     /// <summary>Hides the sidebar and the page, closing the queue, Settings or the lyrics for now.</summary>

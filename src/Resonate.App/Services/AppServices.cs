@@ -21,6 +21,7 @@ public sealed class AppServices : IDisposable
 {
     private readonly List<IDisposable> _owned = [];
     private bool _ownPlayerAllowed;
+    private bool _ownPlayerHeld;
 
     private AppServices(
         bool isDemo,
@@ -232,7 +233,7 @@ public sealed class AppServices : IDisposable
         // "Spotify Web API only" plays on this PC through Spotify's web player, hidden (see OwnPlayer).
         var interfaceThread = DispatcherQueue.GetForCurrentThread();
         var ownPlayer = new OwnPlayer(
-            () => new WebPlayerPage(interfaceThread, AppPaths.WebPlayerFolder),
+            () => new WebPlayerPage(interfaceThread, AppPaths.WebPlayerFolder) { Trace = step => PlaybackLog.Note($"web player: {step}") },
             account,
             canPlay: () => !account.MissingScopes.Contains(SpotifyAuthOptions.StreamingScope));
         var spotify = new PlayerController(
@@ -367,6 +368,42 @@ public sealed class AppServices : IDisposable
     public void AllowOwnPlayer()
     {
         _ownPlayerAllowed = true;
+
+        // Resonate ended while the page was open last time, maybe because of
+        // it: its browser gets a moment to go first, and after three such
+        // runs in a row it waits for "Play on this PC" to be switched on again.
+        var uncleanEnds = WebPlayerPage.UncleanEnds(AppPaths.WebPlayerFolder);
+        if (uncleanEnds > 0 && OwnPlayer is not null)
+        {
+            PlaybackLog.Note($"own player: Resonate ended {uncleanEnds} time(s) in a row while it was open");
+        }
+
+        if (uncleanEnds >= MostUncleanEnds)
+        {
+            _ownPlayerHeld = true;
+        }
+        else if (uncleanEnds > 0)
+        {
+            _ = FollowOwnPlayerLaterAsync();
+            return;
+        }
+
+        FollowOwnPlayer();
+    }
+
+    /// <summary>Runs of Resonate in a row that may end while its own player's page is open before it no longer starts by itself.</summary>
+    public const int MostUncleanEnds = 3;
+
+    /// <summary>
+    /// Whether Resonate's own player waits for "Play on this PC" to be
+    /// switched on again, because Resonate ended while it was open
+    /// <see cref="MostUncleanEnds"/> runs in a row.
+    /// </summary>
+    public bool OwnPlayerHeld => _ownPlayerHeld;
+
+    private async Task FollowOwnPlayerLaterAsync()
+    {
+        await Task.Delay(TimeSpan.FromSeconds(10));
         FollowOwnPlayer();
     }
 
@@ -383,6 +420,7 @@ public sealed class AppServices : IDisposable
         }
 
         var run = _ownPlayerAllowed
+            && !_ownPlayerHeld
             && Player.Spotify.Channel == ControlChannel.WebApi
             && Settings.WebApiPlayHere
             && Account.IsSignedIn;
@@ -418,6 +456,13 @@ public sealed class AppServices : IDisposable
     {
         Settings.WebApiPlayHere = on;
         SaveSettings();
+        if (on && _ownPlayerHeld)
+        {
+            // Asked for again: it starts as if nothing had happened.
+            _ownPlayerHeld = false;
+            WebPlayerPage.ForgetUncleanEnds(AppPaths.WebPlayerFolder);
+        }
+
         FollowOwnPlayer();
     }
 

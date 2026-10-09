@@ -64,7 +64,11 @@
 
         <!-- Title bar (the whole strip drags the window, except the back button) -->
         <Grid x:Name="AppTitleBar" Background="{StaticResource ResonateTransparentBrush}">
-            <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+            <StackPanel
+                x:Name="TitleBarStart"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Orientation="Horizontal">
                 <Button
                     x:Name="BackButton"
                     Width="40"
@@ -217,6 +221,7 @@
                             <DataTemplate x:DataType="vm:NavItem">
                                 <StackPanel
                                     Height="40"
+                                    HorizontalAlignment="{x:Bind ContentAlignment, Mode=OneWay}"
                                     Background="{StaticResource ResonateTransparentBrush}"
                                     Orientation="Horizontal"
                                     Spacing="14">
@@ -295,8 +300,9 @@
                             <DataTemplate x:DataType="vm:PlaylistNavItem">
                                 <Grid
                                     MinHeight="64"
+                                    HorizontalAlignment="{x:Bind RowAlignment, Mode=OneWay}"
                                     Background="{StaticResource ResonateTransparentBrush}"
-                                    ColumnSpacing="12">
+                                    ColumnSpacing="{x:Bind ColumnGap, Mode=OneWay}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="{x:Bind CoverColumnWidth, Mode=OneWay}" />
                                         <ColumnDefinition Width="*" />
@@ -411,6 +417,16 @@
                     Grid.Row="1"
                     Grid.Column="2"
                     Visibility="Collapsed" />
+
+                <!--
+                  A special look's farther petals and snow, over the panels and
+                  under the player, so they pass behind it (see SceneWeatherLayer).
+                -->
+                <Canvas
+                    x:Name="WeatherBehindPlayer"
+                    Grid.RowSpan="3"
+                    Grid.ColumnSpan="99"
+                    IsHitTestVisible="False" />
 
                 <!--
                   The player, or the classic player in its place (added in code,

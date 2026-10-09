@@ -86,6 +86,7 @@ internal sealed partial class NowPlayingStage : Grid
     private readonly TextBlock? _upNextLine;
     private readonly DispatcherQueueTimer _screenTimer;
     private readonly ScalarTransition _fade = new() { Duration = CoverFade };
+    private int _frontVersion;
 
     private bool _attached;
     private bool _onScreen = true;
@@ -383,6 +384,12 @@ internal sealed partial class NowPlayingStage : Grid
 
     private void OnThemeChanged(object? sender, EventArgs e)
     {
+        // With nothing playing the stage shows the look's accents, so a new look or accent reads them again.
+        if (_songShown && _shown is null)
+        {
+            ShowColours(null, null, null, null);
+        }
+
         ApplyLook();
         UpdateRunning();
     }
@@ -600,16 +607,48 @@ internal sealed partial class NowPlayingStage : Grid
     {
         _coverFront.OpacityTransition = _services.Theme.AnimationsEnabled ? _fade : null;
         _coverFront.Opacity = 1;
+        _ = SettleFrontAsync(++_frontVersion);
     }
 
     /// <summary>Hides the front picture at once (the old cover stays behind it until the new one fades in).</summary>
     private void HideFront()
     {
+        _frontVersion++;
         _coverFront.OpacityTransition = null;
         _coverFront.Opacity = 0;
     }
 
-    /// <summary>Reads the cover's colours (off this thread) for the clouds and the blurred cover; the look's accents with no song.</summary>
+    /// <summary>
+    /// Once the new cover has faded in, it becomes the one behind and the
+    /// front empties, so a single picture is left. The old cover showed
+    /// through the new one while Home's stage faded on scrolling (the
+    /// owner's picture, 9 October 2026): a fading panel fades each of its
+    /// pictures, not the two together.
+    /// </summary>
+    private async Task SettleFrontAsync(int version)
+    {
+        await Task.Delay(CoverFade + TimeSpan.FromMilliseconds(50));
+        if (version != _frontVersion || _coverFront.Source is not { } shown)
+        {
+            return;
+        }
+
+        _coverBack.Source = shown;
+
+        // The picture behind draws it first, so nothing blinks.
+        await Task.Delay(TimeSpan.FromMilliseconds(100));
+        if (version == _frontVersion)
+        {
+            HideFront();
+            _coverFront.Source = null;
+        }
+    }
+
+    /// <summary>
+    /// Reads the cover's colours (off this thread) for the clouds, the bars and
+    /// the blurred cover, which show them while the look's "Colours follow the
+    /// cover" is on (<see cref="FollowsCover"/>); the look's accents with no song.
+    /// </summary>
     private void ShowColours(string? url, byte[]? bytes, string? name, object? key)
     {
         var look = _services.Theme.Current;
@@ -678,8 +717,13 @@ internal sealed partial class NowPlayingStage : Grid
 
         _raw = raw;
         _pixels = pixels;
-        PaintClouds(animate: true);
-        ShowBlur();
+
+        // Kept while the look keeps its own colours, so turning "Colours follow the cover" on shows them at once.
+        if (FollowsCover)
+        {
+            PaintClouds(animate: true);
+            ShowBlur();
+        }
 
         // Kept for the next start, so the stage opens in these colours.
         var saved = raw.Select(c => c.Opaque.ToString()).ToList();
@@ -690,11 +734,13 @@ internal sealed partial class NowPlayingStage : Grid
         }
     }
 
+    /// <summary>The song's colours only while the look's "Colours follow the cover" is on; the look's own otherwise.</summary>
+    private bool FollowsCover => StageColours.FollowsCover(_services.Theme.Current);
+
     private void PaintClouds(bool animate)
     {
         var palette = _services.Theme.Palette;
-        var look = _services.Theme.Current;
-        var raw = _raw ?? [look.Accent.Opaque, look.Accent2.Opaque];
+        var raw = StageColours.Pick(FollowsCover, _raw, palette);
         var safe = raw.Select(c => StageColours.ForText(c, palette)).ToList();
 
         // Dimmer on true black, for OLED screens; softer over the blurred cover.
@@ -706,22 +752,28 @@ internal sealed partial class NowPlayingStage : Grid
 
         _clouds.SetColours(safe, strength, animate && _services.Theme.AnimationsEnabled);
 
-        // The bars never sit under text, so they keep the cover's own colours, made to stand out from the page.
+        // The bars never sit under text, so they keep their own colours (the cover's or the look's), made to stand out from the page.
         _visualizer.SetColours(raw.Select(c => StageColours.ForBars(c, _page)).ToList(), animate && _services.Theme.AnimationsEnabled);
     }
 
-    /// <summary>The cover blurred, made vivid and then safe for the text, as one tiny picture the GPU stretches (if the user chose it).</summary>
+    /// <summary>
+    /// The cover blurred, made vivid and then safe for the text, as one tiny
+    /// picture the GPU stretches (if the user chose it); while the look keeps
+    /// its own colours, a soft field of its accents in the cover's place.
+    /// </summary>
     private void ShowBlur()
     {
         var version = ++_blurVersion;
-        if (!_services.Settings.HomeStageBlurredCover || _pixels is not { } pixels)
+        var palette = _services.Theme.Palette;
+        var pixels = FollowsCover ? _pixels : StageColours.LookPicture(palette, SampleSize);
+        if (!_services.Settings.HomeStageBlurredCover || pixels is null)
         {
             _blur.Visibility = Visibility.Collapsed;
             _blur.Source = null;
             return;
         }
 
-        _ = ShowBlurAsync(pixels, _services.Theme.Palette, version);
+        _ = ShowBlurAsync(pixels, palette, version);
     }
 
     private async Task ShowBlurAsync(byte[] pixels, ThemePalette palette, int version)

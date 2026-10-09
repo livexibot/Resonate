@@ -135,6 +135,31 @@ public static class StageColours
     }
 
     /// <summary>
+    /// Whether the stage, and the greeting on Home, take the playing song's
+    /// cover colours: only while <paramref name="look"/>'s "Colours follow
+    /// the cover" is on; otherwise they keep the look's own (the owner's
+    /// choice, 9 October 2026).
+    /// </summary>
+    public static bool FollowsCover(ThemeDefinition look) => look.AdaptiveAccent;
+
+    /// <summary>
+    /// The colours the stage paints its clouds and bars in: the cover's
+    /// (<paramref name="cover"/>) while it follows the cover and they are
+    /// known, otherwise the look's two accents as <paramref name="palette"/>
+    /// shows them (as the player bar's visualizer does). Opaque.
+    /// </summary>
+    public static IReadOnlyList<ThemeColor> Pick(bool followsCover, IReadOnlyList<ThemeColor>? cover, ThemePalette palette) =>
+        followsCover && cover is { Count: > 0 } ? cover : [palette.Accent.Opaque, palette.Accent2.Opaque];
+
+    /// <summary>
+    /// The stage's soft background while it keeps the look's colours, in place
+    /// of the blurred cover: the look's two accents as a diagonal gradient,
+    /// <paramref name="size"/> square, BGRA.
+    /// </summary>
+    public static byte[] LookPicture(ThemePalette palette, int size) =>
+        ArtworkColors.Gradient(palette.Accent.Opaque, palette.Accent2.Opaque, size);
+
+    /// <summary>
     /// <paramref name="colour"/>, darkened on a dark look (lightened on a
     /// light one) just enough that the look's main text keeps 7:1 and its
     /// secondary text 4.5:1 over it, so a cloud or a blurred cover of that

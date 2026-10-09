@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Resonate.App.Controls;
 using Resonate.App.Demo;
+using Resonate.App.Helpers;
 using Resonate.App.Pages;
 using Resonate.App.Pages.Lists;
 using Resonate.Spotify.LocalFiles;
@@ -262,6 +263,26 @@ internal sealed class ScreenshotTour
         if (StageVisualizer.CheckMotion(Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(_root).Compositor) is { } motionError)
         {
             Record("The Home stage's visualizer could not move: " + motionError);
+        }
+
+        if (SceneWeatherLayer.CheckMotion(Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(_root).Compositor) is { } weatherError)
+        {
+            Record("The special looks' weather could not move: " + weatherError);
+        }
+
+        if (SceneDecorLayer.CheckMotion(Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(_root).Compositor) is { } decorError)
+        {
+            Record("The special looks' decorations could not move: " + decorError);
+        }
+
+        var sprites = SceneSpriteBrushes.CheckAsync();
+        if (await Task.WhenAny(sprites, Task.Delay(10_000)) != sprites)
+        {
+            Record("The special looks' pictures did not load within 10 seconds.");
+        }
+        else if (await sprites is { } spriteError)
+        {
+            Record("The special looks' pictures did not load: " + spriteError);
         }
 
         if (_window.CurrentPage is HomePage home)

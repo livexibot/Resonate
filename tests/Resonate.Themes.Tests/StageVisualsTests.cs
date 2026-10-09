@@ -168,6 +168,15 @@ public sealed class StageVisualsTests
     }
 
     [Fact]
+    public void Smoothing_slows_the_sway_and_the_default_keeps_its_pace()
+    {
+        Assert.Equal(1f, StageBars.SwayPace(0.6), 4);
+        Assert.True(StageBars.SwayPace(0) > 1.5f);
+        Assert.True(StageBars.SwayPace(1) is > 0.3f and < 0.5f);
+        Assert.Equal(StageBars.SwayPace(1), StageBars.SwayPace(3));
+    }
+
+    [Fact]
     public void Bars_reach_a_quarter_of_the_stage_at_most() =>
         Assert.Equal([0, 26, StageBars.MaxHeight], new[] { 0.0, 100, 4000 }.Select(StageBars.Height));
 

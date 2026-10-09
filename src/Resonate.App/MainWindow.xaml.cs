@@ -860,6 +860,10 @@ public sealed partial class MainWindow : Window
         if (StartupOptions.Current is { StartupBenchmarkFile: null, UpdateCheckFeed: null })
         {
             _services.AllowOwnPlayer();
+            if (_services.OwnPlayerHeld)
+            {
+                ShowMessage("Playing on this PC is paused: Resonate closed unexpectedly while it ran. To try again, switch Play on this PC off and on in Settings, Playback.", InfoBarSeverity.Warning);
+            }
         }
 
         // Starts the Spotify app hidden, or with "Spotify Web API only" closes
@@ -1449,10 +1453,13 @@ public sealed partial class MainWindow : Window
     {
         if (AppTitleBar.XamlRoot is { RasterizationScale: > 0 } titleRoot)
         {
-            var margin = new Thickness(0, 0, (AppWindow.TitleBar.RightInset / titleRoot.RasterizationScale) + 4, 0);
-            if (!TitleBarButtons.Margin.Equals(margin))
+            // Whole pixels, compared loosely: XAML keeps a margin as a float, so
+            // at 125 % an exact comparison never matched and this ran for ever,
+            // starving the interface thread (9 October 2026).
+            var right = Math.Ceiling(AppWindow.TitleBar.RightInset / titleRoot.RasterizationScale) + 4;
+            if (Math.Abs(TitleBarButtons.Margin.Right - right) >= 0.5)
             {
-                TitleBarButtons.Margin = margin;
+                TitleBarButtons.Margin = new Thickness(0, 0, right, 0);
 
                 // The buttons move once laid out; their areas follow then.
                 DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, UpdateTitleBarPassthrough);
