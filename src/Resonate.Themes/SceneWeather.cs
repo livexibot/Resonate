@@ -2,9 +2,10 @@ namespace Resonate.Themes;
 
 /// <summary>
 /// The weather a special look's scenery drifts over the window
-/// (<see cref="ThemeScene"/>): sakura petals that fall slowly with the wind,
-/// turning and fluttering, for Japan; snowflakes of every size, and a few
-/// soft out-of-focus ones, for Snow. Every motion turns a whole number of
+/// (<see cref="ThemeScene"/>): sakura petals that fall slowly with the wind
+/// (from the right, where the branch is), turning and fluttering, for Japan;
+/// snowflakes of every size, a few crystals that turn slowly and a few soft
+/// out-of-focus flakes, for Snow. Every motion turns a whole number of
 /// times per <see cref="LoopSeconds"/>, so the clock can start again with no
 /// jump. The same every time.
 /// </summary>
@@ -18,14 +19,18 @@ public static class SceneWeather
 
     public const double FlakeSize = 7;
 
-    // Snow's last few flakes are large, soft and faint, as if out of focus.
+    /// <summary>A snow crystal's size at its largest, in pixels.</summary>
+    public const double CrystalSize = 20;
+
+    // Snow's last few flakes are large, soft and faint, as if out of focus; a few before them are crystals.
     private const int SoftFlakes = 8;
+    private const int Crystals = 10;
 
     /// <summary>How many petals or flakes a scene drifts.</summary>
     public static int Count(ThemeScene scene) => scene switch
     {
         ThemeScene.Japan => 26,
-        ThemeScene.Snow => 72,
+        ThemeScene.Snow => 80,
         _ => 0,
     };
 
@@ -33,9 +38,12 @@ public static class SceneWeather
     /// Particle <paramref name="index"/> of <paramref name="scene"/>: where it
     /// starts across (0 to 1), how many times a second it falls (whole falls
     /// per loop) and where in its fall it starts, how far the wind carries it
-    /// right as it falls (a share of the width), its sideways sway in pixels
+    /// as it falls (a share of the width, to the left when below 0), its
+    /// sideways sway in pixels
     /// with its speed and angle, its size in pixels and its opacity, and for
-    /// a petal its spin in degrees a second and its flutter's speed.
+    /// a petal or a crystal its spin in degrees a second and how fast it
+    /// flutters or tilts, and the picture it is drawn with (none for a plain
+    /// flake, a soft dot).
     /// </summary>
     public static Particle Get(ThemeScene scene, int index)
     {
@@ -44,20 +52,46 @@ public static class SceneWeather
         {
             var spinTurns = Math.Round(60 + (120 * H(7))) * (H(8) < 0.5 ? -1 : 1);
             return new Particle(
-                X: (H(1) * 1.2) - 0.2,
+                X: H(1) * 1.2,
                 Fall: Math.Round(46 + (40 * H(2))) / LoopSeconds,
                 Start: H(3),
-                Wind: 0.16 + (0.18 * H(4)),
+                Wind: -(0.16 + (0.18 * H(4))),
                 Sway: 14 + (20 * H(5)),
                 SwaySpeed: StageBars.Turns(0.6 + (0.6 * H(6))),
                 SwayPhase: Math.Tau * H(9),
                 Size: PetalSize * (0.7 + (0.5 * H(10))),
                 Opacity: 0.7 + (0.25 * H(11)),
                 Spin: 360 * spinTurns / LoopSeconds,
-                Flutter: StageBars.Turns(1.5 + (1.5 * H(12))));
+                Flutter: StageBars.Turns(1.5 + (1.5 * H(12))),
+                Sprite: H(13) switch
+                {
+                    < 0.34 => SceneSprite.PetalPink,
+                    < 0.64 => SceneSprite.PetalPale,
+                    < 0.84 => SceneSprite.PetalWhite,
+                    _ => SceneSprite.PetalDeep,
+                });
         }
 
         var soft = index >= Count(ThemeScene.Snow) - SoftFlakes;
+        if (!soft && index >= Count(ThemeScene.Snow) - SoftFlakes - Crystals)
+        {
+            // A crystal falls a little slower than the flakes around it, turning once every half minute to a minute and tilting slowly.
+            var turns = Math.Round(16 + (30 * H(7))) * (H(8) < 0.5 ? -1 : 1);
+            return new Particle(
+                X: H(1),
+                Fall: Math.Round(34 + (24 * H(2))) / LoopSeconds,
+                Start: H(3),
+                Wind: (0.1 * H(4)) - 0.04,
+                Sway: 10 + (16 * H(5)),
+                SwaySpeed: StageBars.Turns(0.25 + (0.4 * H(6))),
+                SwayPhase: Math.Tau * H(9),
+                Size: CrystalSize * (0.6 + (0.4 * H(10))),
+                Opacity: 0.55 + (0.35 * H(11)),
+                Spin: 360 * turns / LoopSeconds,
+                Flutter: StageBars.Turns(0.12 + (0.14 * H(13))),
+                Sprite: H(12) < 0.6 ? SceneSprite.Crystal : SceneSprite.CrystalPlate);
+        }
+
         var size = soft ? 2.6 + (1.6 * H(10)) : 0.35 + (0.85 * H(10));
         return new Particle(
             X: H(1),
@@ -70,7 +104,8 @@ public static class SceneWeather
             Size: FlakeSize * size,
             Opacity: soft ? 0.12 + (0.08 * H(11)) : 0.45 + (0.5 * H(11)),
             Spin: 0,
-            Flutter: 0);
+            Flutter: 0,
+            Sprite: null);
     }
 
     /// <summary>One petal or flake (see <see cref="Get"/>).</summary>
@@ -85,5 +120,6 @@ public static class SceneWeather
         double Size,
         double Opacity,
         double Spin,
-        double Flutter);
+        double Flutter,
+        SceneSprite? Sprite);
 }

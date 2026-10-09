@@ -1,6 +1,8 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media;
+using Resonate.App.Helpers;
 using Resonate.App.Services;
 using Windows.Foundation;
 
@@ -17,8 +19,19 @@ internal sealed partial class ThemeHost : Grid
     {
         Underlay = new Grid { IsHitTestVisible = false };
         Edge = new Border { IsHitTestVisible = false, Visibility = Visibility.Collapsed };
-        // A special look's scenery sits behind the panels and its weather over them.
-        Scene = new Grid { Children = { new BackdropLayer(services.Theme, services.Artwork), new SceneArt(), content, new SceneWeatherLayer(services.Theme) } };
+        // A special look's scenery sits behind the panels, its decorations and weather over them, all on one clock.
+        var clock = new SceneClock(ElementCompositionPreview.GetElementVisual(this).Compositor);
+        Scene = new Grid
+        {
+            Children =
+            {
+                new BackdropLayer(services.Theme, services.Artwork),
+                new SceneArt(),
+                content,
+                new SceneDecorLayer(services.Theme, clock),
+                new SceneWeatherLayer(services.Theme, clock),
+            },
+        };
         Overlay = new Grid { IsHitTestVisible = false };
         Children.Add(Underlay);
         Children.Add(Edge);

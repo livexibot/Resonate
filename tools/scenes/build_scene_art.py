@@ -85,33 +85,6 @@ def torii(cx, base, width=320, height=250):
     return pillars + ' ' + nuki + ' ' + shimaki + ' ' + gakuzuka, kasagi + ' ' + bases
 
 
-def blossom(cx, cy, r, rnd):
-    """Five round petals around a centre, turned a little."""
-    turn = rnd.uniform(0, math.tau)
-    figures = []
-    for i in range(5):
-        a = turn + i * math.tau / 5
-        figures.append(circle(cx + math.cos(a) * r * 0.62, cy + math.sin(a) * r * 0.62, r * 0.52))
-    return ' '.join(figures)
-
-
-def branch_shape(points, start_width, end_width):
-    """A tapered branch along a line of points."""
-    left, right = [], []
-    n = len(points)
-    for i, (x, y) in enumerate(points):
-        if i < n - 1:
-            dx, dy = points[i + 1][0] - x, points[i + 1][1] - y
-        else:
-            dx, dy = x - points[i - 1][0], y - points[i - 1][1]
-        length = math.hypot(dx, dy) or 1
-        nx, ny = -dy / length, dx / length
-        w = start_width + (end_width - start_width) * i / (n - 1)
-        left.append((x + nx * w / 2, y + ny * w / 2))
-        right.append((x - nx * w / 2, y - ny * w / 2))
-    return 'M ' + pts(left) + ' L ' + pts(list(reversed(right))) + ' Z'
-
-
 def japan():
     rnd = random.Random(7)
     parts = []
@@ -126,44 +99,6 @@ def japan():
         '<GradientStop Offset="0" Color="#FFFFF6E6" /><GradientStop Offset="0.7" Color="#FFF6DDB8" /><GradientStop Offset="1" Color="#FFE9C79A" />'
         '</RadialGradientBrush></Ellipse.Fill></Ellipse>'
         '</Grid>')
-
-    # The cherry branch reaching in from the top left.
-    main = [(-30, 40), (90, 66), (210, 92), (330, 104), (450, 126), (570, 136), (690, 166), (800, 182)]
-    twigs = [
-        [(210, 92), (260, 150), (300, 210), (330, 250)],
-        [(330, 104), (380, 60), (430, 34), (470, 20)],
-        [(450, 126), (500, 190), (540, 236)],
-        [(570, 136), (620, 100), (670, 84)],
-        [(120, 70), (150, 130), (170, 172)],
-        [(690, 166), (720, 222), (740, 262)],
-    ]
-    wood = [branch_shape(main, 30, 4)]
-    wood += [branch_shape(t, 9, 2) for t in twigs]
-    along = []
-    for line in [main] + twigs:
-        for (x1, y1), (x2, y2) in zip(line, line[1:]):
-            for k in range(3):
-                t = rnd.random()
-                along.append((x1 + (x2 - x1) * t, y1 + (y2 - y1) * t))
-    colours = {'#FFF6B7CB': [], '#FFF199B6': [], '#FFFAD6E2': [], '#FFE77DA4': []}
-    centres = []
-    keys = list(colours)
-    for (x, y) in along:
-        for _ in range(2):
-            bx, by = x + rnd.uniform(-34, 34), y + rnd.uniform(-26, 30)
-            r = rnd.uniform(8, 15)
-            colours[rnd.choice(keys)].append(blossom(bx, by, r, rnd))
-            centres.append(circle(bx, by, r * 0.18))
-    buds = ' '.join(circle(x + rnd.uniform(-40, 40), y + rnd.uniform(-30, 34), rnd.uniform(2.5, 4.5)) for (x, y) in along[::2])
-    branch = ['<Viewbox HorizontalAlignment="Right" VerticalAlignment="Top" Width="540" Stretch="Uniform" RenderTransformOrigin="0.5,0.5">',
-              '<Viewbox.RenderTransform><ScaleTransform ScaleX="-1" /></Viewbox.RenderTransform>',
-              '<Canvas Width="860" Height="320">',
-              path(' '.join(wood), '#FF1A0F16', 0.96)]
-    for colour, figures in colours.items():
-        branch.append(path(' '.join(figures), colour, 0.72))
-    branch.append(path(' '.join(centres), '#FFB3245E', 0.75))
-    branch.append(path(buds, '#FFEE8FB0', 0.8))
-    branch.append('</Canvas></Viewbox>')
 
     # The landscape along the bottom.
     W, H = 2400, 500
@@ -199,7 +134,7 @@ def japan():
             path(torii_black, '#FF17090D', 0.97),
             path(ground, '#FF0B0810'),
             '</Canvas></Viewbox>']
-    return moon + ''.join(branch) + ''.join(land)
+    return moon + ''.join(land)
 
 
 # ---------------------------------------------------------------- Snow
@@ -305,7 +240,7 @@ xaml = f'''<?xml version="1.0" encoding="utf-8"?>
 <!--
   The special looks' scenery, behind the panels (see SceneArt.xaml.cs).
   Drawn as XAML paths: written by a script from simple shapes (pagoda,
-  torii, blossoms, peaks, pines), so it is crisp at any size and costs
+  torii, trees, peaks, pines), so it is crisp at any size and costs
   nothing once drawn. Only the scene in use is in the tree.
 -->
 <UserControl

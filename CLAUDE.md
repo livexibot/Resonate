@@ -893,19 +893,53 @@ Ripple, and a more interesting Home):
   `Scene` (`ThemeScene`, saved by name: append, never rename; also under
   Customize, Background) draws scenery behind the panels
   (`Controls/SceneArt.xaml`, XAML paths written by
-  `tools/scenes/build_scene_art.py`: Japan's moon, cherry branch over it,
-  Mount Fuji, hills, a lit pagoda and a torii; Snow's stars, crescent moon,
-  two snow-capped ranges, a pine forest and drifts; each made only while
-  shown, `x:Load`) and weather over the whole window
-  (`Controls/SceneWeatherLayer.cs`: 26 sakura petals that turn and
-  flutter, or 72 snowflakes with 8 soft out-of-focus ones; compositor
-  expressions on one 20-minute clock, maths in
-  `Resonate.Themes/SceneWeather.cs`, tested; moving only while the window
-  shows and Windows' animations are on, every animation stopped
-  otherwise). The special looks' panels are see-through (0.68 and 0.6) so
-  the scenery shows, and their cards carry a blossom or a snowflake. CI's
-  tour starts both weathers' motion (`SceneWeatherLayer.CheckMotion`).
-  Measure: the weather's cost at 5K and 165 Hz.
+  `tools/scenes/build_scene_art.py`: Japan's moon, Mount Fuji, hills, a
+  lit pagoda and a torii; Snow's stars, crescent moon, two snow-capped
+  ranges, a pine forest and drifts; each made only while shown,
+  `x:Load`), decorations over the panels and weather over the whole
+  window. Decorations (`Controls/SceneDecorLayer.cs`, the owner asked on
+  9 October 2026 for petals that gather on the player and a branch that
+  overlaps the app, "flawless and stylish", and the same for Snow;
+  shapes in `Resonate.Themes/SceneDecor.cs`, placed by `SceneLayout.cs`
+  from `MainWindow.SceneFrameFor`, tested): a cherry branch, or a snowy
+  spruce bough with cones, hoarfrost and icicles, over the page's top
+  right corner, cut off at the window's edge or beside a side pane,
+  swaying slightly and now and then shedding a petal or a little snow,
+  never under the title bar's buttons (`SceneDecor.ButtonRoom`; it stays
+  large enough at small App sizes, or goes on a page too narrow); for
+  Japan, petals that fall one by one into piles on the player's two
+  shoulders and on the page's top edge under the branch, the top ones
+  stirring when a breeze passes; for Snow, snow that settles on the
+  sidebar, the page, a side pane and the player, icicles that grow under
+  it and under the player, and frost ferns spreading in the sidebar's
+  bottom left and the page's bottom right corners. Everything gathers
+  over the first 150 s after the scene appears (`SceneDecor.GatherSeconds`;
+  it starts again each time the app opens or the scene changes) and then
+  rests. Shapes are XAML paths built in code; petals, blossoms, crystals
+  and glints are pictures drawn in code (`Resonate.Themes/SceneSprites.cs`,
+  sampled 6 x 6, at 24, 48 or 96 px, whichever is just above the size
+  shown; `Helpers/SceneSpriteBrushes.cs`). Snow on an edge keeps what
+  lies by each corner while the edge grows, and is drawn again at most
+  every 120 ms while the window is resized. Weather
+  (`Controls/SceneWeatherLayer.cs`): 26 sakura petals (pictures) that
+  turn, flutter and blow left from the branch, or 62 snowflakes, 10
+  crystals that turn and tilt slowly and 8 soft out-of-focus flakes
+  (`Resonate.Themes/SceneWeather.cs`, tested). Both layers move by
+  compositor expressions on one clock (`Helpers/SceneClock.cs`: `Time`
+  repeats every 20 minutes, `Gather` counts the gathering), which ticks
+  on `CompositionTarget.Rendering` at most every 15 ms (every third
+  frame at 165 Hz) and only while the window shows and Windows'
+  animations are on; otherwise every animation stops and the decorations
+  rest as they are once all has gathered. If anything in the
+  decorations fails they go, and the window stays as it was. The special
+  looks' panels are see-through (0.68 and 0.6) so the scenery shows, and
+  their cards carry a blossom or a snowflake. CI's tour starts both
+  weathers' and every decoration's motion (`SceneWeatherLayer.CheckMotion`,
+  `SceneDecorLayer.CheckMotion`) and decodes every picture
+  (`SceneSpriteBrushes.CheckAsync`). Measure: the cost of the weather and
+  the decorations at 5K and 165 Hz, that the branch and the piles sit
+  right at 80 to 200 % App size, with the Winamp player and with the
+  player on top, and that nothing reaches under the title bar's buttons.
 - Reset buttons (the owner's request, 9 October 2026): every slider and
   number box in Settings shows a small reset button while its value is
   not the default (`Controls/ResetButton`); drop-downs and switches have
