@@ -5,10 +5,11 @@ using Microsoft.UI.Xaml.Controls;
 namespace Resonate.App.Controls;
 
 /// <summary>
-/// A small reset button beside a slider or number box in Settings, shown
-/// only while its value differs from the default (the owner's request,
-/// 9 October 2026); a click puts the default back, through the control's
-/// own change handler. Drop-downs and switches have none.
+/// A small reset button beside a slider, number box or colour in Settings,
+/// shown only while its value differs from the default (the owner's
+/// requests, 9 October 2026; a look's colours and sliders go back to the
+/// preset the look came from); a click puts the default back, through the
+/// control's own change handler. Drop-downs and switches have none.
 /// </summary>
 internal static class ResetButton
 {
@@ -49,6 +50,21 @@ internal static class ResetButton
 
         void Show() => button.Visibility = Math.Abs(slider.Value - defaultValue()) > 0.001 ? Visibility.Visible : Visibility.Collapsed;
         slider.ValueChanged += (_, _) => Show();
+        Show();
+        return Show;
+    }
+
+    /// <summary>The same for a number box with a default number (a plugin's setting).</summary>
+    public static Action Attach(NumberBox box, Func<double> defaultValue, string name)
+    {
+        var button = Create(name, () => box.Value = defaultValue());
+        if (box.Parent is Panel panel)
+        {
+            panel.Children.Insert(panel.Children.IndexOf(box), button);
+        }
+
+        void Show() => button.Visibility = double.IsNaN(box.Value) || Math.Abs(box.Value - defaultValue()) <= 0.001 ? Visibility.Collapsed : Visibility.Visible;
+        box.ValueChanged += (_, _) => Show();
         Show();
         return Show;
     }

@@ -67,6 +67,7 @@ public sealed class SpotifySoundListener : ISoundSink, IDisposable
     private int _lookAgain;
     private int _updateQueued;
     private float[] _levelled = [];
+    private string? _lastNote;
 
     /// <param name="player">Says whether a Spotify song plays.</param>
     /// <param name="capture">Windows' process loopback, or a fake.</param>
@@ -249,6 +250,7 @@ public sealed class SpotifySoundListener : ISoundSink, IDisposable
             _listening = false;
             _program = null;
             WaitBeforeRetry();
+            Note("visualizer: Windows stopped the capture; trying again");
         }
 
         SetHearing(false);
@@ -349,6 +351,7 @@ public sealed class SpotifySoundListener : ISoundSink, IDisposable
         var program = _findProgram();
         if (program is not { } found || found <= 0)
         {
+            Note("visualizer: nothing plays Spotify on this PC");
             StopListening();
             _lookAfter = now + (long)(LookAgainAfter.TotalSeconds * _time.TimestampFrequency);
 
@@ -377,6 +380,7 @@ public sealed class SpotifySoundListener : ISoundSink, IDisposable
         Volatile.Write(ref _resetLeveller, 1);
         SetHearing(false);
         _listening = true;
+        Note("visualizer: listening");
         _capture.Start(found, this);
     }
 
@@ -399,7 +403,26 @@ public sealed class SpotifySoundListener : ISoundSink, IDisposable
         var value = hearing ? 1 : 0;
         if (Interlocked.Exchange(ref _hearing, value) != value)
         {
+            if (hearing)
+            {
+                PlaybackLog.Note("visualizer: hears the music");
+            }
+
             HearingChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>
+    /// What the listener does, in the playback log, once per change (the
+    /// owner asked why the bars were out of step, 9 October 2026): never a
+    /// program's name or anything heard.
+    /// </summary>
+    private void Note(string line)
+    {
+        if (line != _lastNote)
+        {
+            _lastNote = line;
+            PlaybackLog.Note(line);
         }
     }
 }

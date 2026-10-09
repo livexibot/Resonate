@@ -225,9 +225,11 @@ public sealed partial class ThemeStudio : UserControl
                 reset();
             }
 
+            var origin = ThemePresets.Origin(look);
             foreach (var swatch in _swatches)
             {
                 swatch.Dot.Fill = swatch.Get(look).Opaque.ToBrush();
+                swatch.Reset.Visibility = swatch.Get(look) == swatch.Get(origin) ? Visibility.Collapsed : Visibility.Visible;
             }
 
             GradientAngleRow.Visibility = look.Backdrop == WindowBackdrop.Gradient ? Visibility.Visible : Visibility.Collapsed;
@@ -519,7 +521,6 @@ public sealed partial class ThemeStudio : UserControl
         {
             Content = content,
             Height = 44,
-            Margin = new Thickness(0, 0, 8, 0),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Padding = new Thickness(10, 0, 10, 0),
             HorizontalContentAlignment = HorizontalAlignment.Left,
@@ -527,10 +528,20 @@ public sealed partial class ThemeStudio : UserControl
         };
         AutomationProperties.SetName(button, label + " colour");
 
-        var swatch = new Swatch(label, get, set, allowsAlpha, dot);
+        // Beside it, while the colour is not the preset's the look came from, a reset to that colour.
+        var reset = ResetButton.Create(label + " colour", () => _theme.Edit(look => set(look, get(ThemePresets.Origin(look)))));
+        Grid.SetColumn(reset, 1);
+        var cell = new Grid
+        {
+            Margin = new Thickness(0, 0, 8, 0),
+            ColumnDefinitions = { new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } },
+            Children = { button, reset },
+        };
+
+        var swatch = new Swatch(label, get, set, allowsAlpha, dot, reset);
         button.Click += (_, _) => EditColor(swatch, button);
         _swatches.Add(swatch);
-        SwatchGrid.Children.Add(button);
+        SwatchGrid.Children.Add(cell);
     }
 
     private void EditColor(Swatch swatch, FrameworkElement anchor)
@@ -781,5 +792,6 @@ public sealed partial class ThemeStudio : UserControl
         Func<ThemeDefinition, ThemeColor> Get,
         Func<ThemeDefinition, ThemeColor, ThemeDefinition> Set,
         bool AllowsAlpha,
-        Ellipse Dot);
+        Ellipse Dot,
+        Button Reset);
 }

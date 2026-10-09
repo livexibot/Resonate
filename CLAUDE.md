@@ -96,7 +96,9 @@ visitors; keep it short and in step with this file.
   light); dark covers are untouched. Ember was replaced by Velvet. New
   built-in plugins: Tray icon (closing hides to the tray; its menu plays,
   pauses, skips and quits; `MainWindow.Tray.cs`) and Lyrics in the player
-  (the sung line under the song; it asks LRCLIB once per song while on).
+  (it asks LRCLIB once per song while on; while a song has lines the
+  player shows "Song · Artist" on one line, the song bold, and the sung
+  line and the next one under it, the owner's layout of 9 October 2026).
 - The owner's choices of 9 October 2026, evening (no saved albums,
   followed artists or podcasts, "I dont want those"): the player bar's
   devices button shows in both modes, so any Spotify Connect device can be
@@ -156,7 +158,17 @@ visitors; keep it short and in step with this file.
   exception handled and writes it to `crash.log` in the cache folder
   (512 KB, then `crash.old.log`; at most 100 a run); read it with
   `playback.log` when the owner reports a crash. The web player's
-  opening steps go to `playback.log` ("web player: ...").
+  opening steps go to `playback.log` ("web player: ..."), and so does
+  what the visualizer hears ("visualizer: ...": listening, hears the
+  music, nothing plays Spotify on this PC). The bars can only follow
+  music that plays on this PC; on 9 October 2026 the owner's music played
+  elsewhere (Resonate's web player had played nothing, the Spotify app was
+  closed), so they swayed on their own.
+- Narrow sidebar (9 October 2026): WinUI's list rows are at least 88 wide
+  (`ListViewItemMinWidth`) and padded 16 and 12, wider than the 84 px
+  sidebar, which put the icons and covers 13 px right of centre. The
+  sidebar lists' rows now have no minimum width or padding, and each
+  template carries the padding itself (`RowPadding`, none while narrow).
 - The feature update (pull request #9, 7 October 2026) adds Home with
   listening stats and daily mixes, Local Files, DJ, sorting and filtering
   of every list, likes, album and artist pages, truly random shuffle,
@@ -1029,7 +1041,9 @@ Ripple, and a more interesting Home):
   (`ThemeDefinition.BasedOn`, set when a preset is first edited;
   `ThemePresets.Origin`), the user's own settings to a new
   `AppSettings`'s values, and the player's size and place boxes to
-  automatic.
+  automatic. Since the evening (the owner found some missing) a look's
+  colours have one too, back to the preset's colour, and plugins' number
+  settings back to the plugin's default.
 - Search (rebuilt 9 October 2026, the owner asked for it "more modern",
   with the last searches): a pill-shaped box with a search icon, filter
   chips (All, and only the kinds found), the top result

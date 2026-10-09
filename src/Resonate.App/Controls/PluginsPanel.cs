@@ -232,13 +232,21 @@ internal sealed partial class PluginsPanel : StackPanel
                 box.Value = number;
             }
         };
-        if (string.IsNullOrEmpty(setting.Unit))
-        {
-            return box;
-        }
 
+        // A reset to the plugin's own default, shown while the number is another.
+        var fallback = setting.Default is JsonValue dv && dv.TryGetValue(out double dn) ? dn : double.NaN;
         var withUnit = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         withUnit.Children.Add(box);
+        if (!double.IsNaN(fallback))
+        {
+            ResetButton.Attach(box, () => fallback, setting.Title);
+        }
+
+        if (string.IsNullOrEmpty(setting.Unit))
+        {
+            return withUnit;
+        }
+
         withUnit.Children.Add(new TextBlock
         {
             Text = setting.Unit,

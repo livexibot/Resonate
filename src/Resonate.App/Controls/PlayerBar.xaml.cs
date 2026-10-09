@@ -51,6 +51,7 @@ public sealed partial class PlayerBar : UserControl
     private string? _positionLabel;
     private string? _durationLabel;
     private PlayerWidthClass _widthClass = PlayerWidthClass.Full;
+    private bool _lyricsShown;
     private float _artworkSize = 56;
 
     public PlayerBar()
@@ -77,11 +78,42 @@ public sealed partial class PlayerBar : UserControl
         _clock.Tick += (_, _) => UpdateClock();
     }
 
-    /// <summary>The line being sung (Lyrics in the player), or null for none.</summary>
-    public void ShowLyricLine(string? line)
+    /// <summary>
+    /// Lyrics in the player: the line being sung and the next one, or nulls
+    /// for none. While there are lines the song and its artists share the top
+    /// line, "Song · Artist" (the owner's request, 9 October 2026), and the two
+    /// lines of lyrics sit under it; the mini bar keeps the song alone.
+    /// </summary>
+    public void ShowLyricLine(string? line, string? next = null)
     {
+        var lyrics = (!string.IsNullOrWhiteSpace(line) || !string.IsNullOrWhiteSpace(next)) && _widthClass != PlayerWidthClass.Mini;
         LyricLineText.Text = line ?? string.Empty;
-        LyricLineText.Visibility = string.IsNullOrWhiteSpace(line) || _widthClass == PlayerWidthClass.Mini ? Visibility.Collapsed : Visibility.Visible;
+        NextLyricText.Text = next ?? string.Empty;
+        LyricLineText.Visibility = lyrics ? Visibility.Visible : Visibility.Collapsed;
+        NextLyricText.Visibility = lyrics && !string.IsNullOrWhiteSpace(next) ? Visibility.Visible : Visibility.Collapsed;
+        if (lyrics == _lyricsShown)
+        {
+            return;
+        }
+
+        _lyricsShown = lyrics;
+        Grid.SetColumnSpan(TitleText, lyrics ? 1 : 3);
+        TitleText.FontWeight = lyrics ? Microsoft.UI.Text.FontWeights.Bold : Microsoft.UI.Text.FontWeights.SemiBold;
+        SongDotText.Visibility = lyrics ? Visibility.Visible : Visibility.Collapsed;
+        Grid.SetRow(ArtistText, lyrics ? 0 : 1);
+        Grid.SetColumn(ArtistText, lyrics ? 2 : 0);
+        Grid.SetColumnSpan(ArtistText, lyrics ? 1 : 3);
+        foreach (var text in (TextBlock[])[TitleText, ArtistText])
+        {
+            if (lyrics)
+            {
+                text.TextTrimming = TextTrimming.CharacterEllipsis;
+            }
+            else
+            {
+                text.ClearValue(TextBlock.TextTrimmingProperty);
+            }
+        }
     }
 
     /// <summary>The window says when it is minimised or hidden, so the clock can rest.</summary>
