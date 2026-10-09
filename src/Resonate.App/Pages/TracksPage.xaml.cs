@@ -757,6 +757,10 @@ public sealed partial class TracksPage : Page
         AlbumHeadingColumn.Width = _columns.AlbumWidth;
         AddedHeadingColumn.Width = _columns.AddedWidth;
         YearHeadingColumn.Width = _columns.YearWidth;
+        BpmHeadingColumn.Width = _columns.BpmWidth;
+        KeyHeadingColumn.Width = _columns.KeyWidth;
+        LoudnessHeadingColumn.Width = _columns.LoudnessWidth;
+        EnergyHeadingColumn.Width = _columns.EnergyWidth;
 
         var compact = width < CompactWidth * text;
         if (compact == _compact)

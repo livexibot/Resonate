@@ -65,6 +65,12 @@ public sealed class AppServices : IDisposable
         Artwork = new ArtworkSampler(player, Theme, http, covers);
         _owned.Add(Artwork);
 
+        // Song stats ask ReccoBeats only while switched on; the demo makes them up.
+        SongStats = new SongStatsService(
+            isDemo ? null : new ReccoBeatsClient(http),
+            new SongStatsCache(isDemo ? null : Path.Combine(AppPaths.CacheFolder, "song-stats.json")),
+            settings);
+
         // Demo mode (CI's screenshots) never touches the user's own skins.
         Skins = new SkinLibrary(settings, isDemo ? Path.Combine(Path.GetTempPath(), "Resonate demo skins") : AppPaths.SkinsFolder);
 
@@ -155,6 +161,9 @@ public sealed class AppServices : IDisposable
 
     /// <summary>The user's own music files (Local Files) and the folders they come from.</summary>
     public LocalFilesService LocalFiles { get; }
+
+    /// <summary>BPM, key, loudness and energy for song lists (Settings, Layout, Song lists).</summary>
+    public SongStatsService SongStats { get; }
 
     /// <summary>Optional plugins, downloaded only when turned on in Settings.</summary>
     public PluginManager Plugins { get; }

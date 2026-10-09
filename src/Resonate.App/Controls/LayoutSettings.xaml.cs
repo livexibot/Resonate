@@ -82,6 +82,12 @@ public sealed partial class LayoutSettings : UserControl
             AlbumColumnSwitch.IsOn = _services.Settings.ShowAlbumColumn;
             YearColumnSwitch.IsOn = _services.Settings.ShowYearColumn;
             AddedColumnSwitch.IsOn = _services.Settings.ShowAddedColumn;
+            SongStatsSwitch.IsOn = _services.Settings.SongStats;
+            BpmColumnSwitch.IsOn = _services.Settings.ShowBpmColumn;
+            KeyColumnSwitch.IsOn = _services.Settings.ShowKeyColumn;
+            LoudnessColumnSwitch.IsOn = _services.Settings.ShowLoudnessColumn;
+            EnergyColumnSwitch.IsOn = _services.Settings.ShowEnergyColumn;
+            ShowStatColumns();
 
             AppSizeChoice.SelectedIndex = IndexOf(AppScale.AppSizes, _theme.AppSize);
             TextSizeChoice.SelectedIndex = IndexOf(AppScale.TextSizes, _theme.TextSize);
@@ -211,8 +217,24 @@ public sealed partial class LayoutSettings : UserControl
         settings.ShowYearColumn = YearColumnSwitch.IsOn;
         settings.ShowAddedColumn = AddedColumnSwitch.IsOn;
         settings.ShowPlaylistCovers = PlaylistCoversSwitch.IsOn;
+        settings.SongStats = SongStatsSwitch.IsOn;
+        settings.ShowBpmColumn = BpmColumnSwitch.IsOn;
+        settings.ShowKeyColumn = KeyColumnSwitch.IsOn;
+        settings.ShowLoudnessColumn = LoudnessColumnSwitch.IsOn;
+        settings.ShowEnergyColumn = EnergyColumnSwitch.IsOn;
+        ShowStatColumns();
         _services.SaveSettings();
         App.MainWindow?.ShowPlaylistCovers(settings.ShowPlaylistCovers);
+    }
+
+    /// <summary>The stat columns can be picked only while song stats are on.</summary>
+    private void ShowStatColumns()
+    {
+        var on = SongStatsSwitch.IsOn;
+        BpmColumnSwitch.IsEnabled = on;
+        KeyColumnSwitch.IsEnabled = on;
+        LoudnessColumnSwitch.IsEnabled = on;
+        EnergyColumnSwitch.IsEnabled = on;
     }
 
     private void OnMiniPlayerButtonToggled(object sender, RoutedEventArgs e)
