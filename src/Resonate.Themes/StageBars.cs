@@ -55,6 +55,35 @@ public static class StageBars
     private const double WaveAcross = 7;
     private const double WaveTurns = 248;
 
+    /// <summary>The narrowest step between bars the user's bar count may make.</summary>
+    public const double MinUserPitch = 5;
+
+    /// <summary>
+    /// The user's bar count (<paramref name="wanted"/>, 16 to 96), fewer when
+    /// <paramref name="width"/> has no room for them.
+    /// </summary>
+    public static int Count(double width, int wanted)
+    {
+        var fits = width > 0 ? Math.Max(MinCount, (int)(width / MinUserPitch)) : MinCount;
+        return Math.Clamp(Math.Min(wanted, fits), MinCount, MaxCount);
+    }
+
+    /// <summary>
+    /// One frame of a bar following the sound: it moves from
+    /// <paramref name="level"/> towards <paramref name="target"/>, rising
+    /// quickly and falling slowly, both slower as
+    /// <paramref name="smoothing"/> (0 to 1) grows, over
+    /// <paramref name="seconds"/> since the last frame, so the speed is the
+    /// same at any refresh rate.
+    /// </summary>
+    public static float Smooth(float level, float target, float seconds, double smoothing)
+    {
+        var s = Math.Clamp(smoothing, 0, 1);
+        var time = target > level ? 0.015 + (0.09 * s) : 0.05 + (0.45 * s);
+        var step = 1 - Math.Exp(-Math.Max(0, seconds) / time);
+        return level + (float)((target - level) * step);
+    }
+
     /// <summary>How many bars fit across <paramref name="width"/>.</summary>
     public static int Count(double width) =>
         width > 0 ? Math.Clamp((int)(width / MinPitch), MinCount, MaxCount) : MinCount;

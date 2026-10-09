@@ -252,7 +252,6 @@ public sealed partial class ThemeStudio : UserControl
     /// <summary>The cover art settings: the spinning cover and how much the song cover backdrop is blurred.</summary>
     private void ShowCoverArt()
     {
-        SpinningCoverSwitch.IsOn = _theme.SpinningCover;
         CoverBlurSlider.Value = _theme.CoverBlur;
         CoverBlurText.Text = $"{_theme.CoverBlur} %";
     }
@@ -603,15 +602,7 @@ public sealed partial class ThemeStudio : UserControl
         }
     }
 
-    // The cover art switches are not part of a look, so they skip Edit (which would make a custom copy).
-    private void OnSpinningCoverToggled(object sender, RoutedEventArgs e)
-    {
-        if (!_loading)
-        {
-            _theme.SpinningCover = SpinningCoverSwitch.IsOn;
-        }
-    }
-
+    // The cover art settings are not part of a look, so they skip Edit (which would make a custom copy).
     private void OnCoverBlurChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
         var blur = (int)Math.Round(e.NewValue);

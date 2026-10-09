@@ -23,7 +23,6 @@ public sealed class AppSettings
     public ThemeTransitionKind ThemeTransition { get; set; } = ThemeTransitionKind.Morph;
 
     /// <summary>The now-playing cover turns like a record while a song plays (off unless the user switches it on).</summary>
-    public bool SpinningCover { get; set; }
 
     /// <summary>Looks with the song cover backdrop show the cover itself, blurred (off: only its colours).</summary>
     public bool BlurredCoverBackground { get; set; } = true;
@@ -77,8 +76,14 @@ public sealed class AppSettings
     /// <summary>The classic player's skin: a file name in <see cref="AppPaths.SkinsFolder"/>, or null for the built-in skin.</summary>
     public string? ClassicSkin { get; set; }
 
-    /// <summary>The classic player at Winamp's double size.</summary>
-    public bool ClassicDoubleSize { get; set; }
+    /// <summary>
+    /// The classic player at Winamp's double size, as people remember it and
+    /// as Spotifast opens it: on at first (9 October 2026, the owner found
+    /// normal size far too small). Saved under a new name so copies that
+    /// saved the old "off" start doubled once.
+    /// </summary>
+    [JsonPropertyName("classicDouble")]
+    public bool ClassicDoubleSize { get; set; } = true;
 
     /// <summary>The classic player in shade mode (just its title strip).</summary>
     public bool ClassicShaded { get; set; }
@@ -89,8 +94,9 @@ public sealed class AppSettings
     /// <summary>The classic player's time display counts down.</summary>
     public bool ClassicShowRemaining { get; set; }
 
-    /// <summary>The mini player's size: each skin pixel 1 to 4 times as large (on top of the display's scaling).</summary>
-    public int MiniPlayerSize { get; set; } = 1;
+    /// <summary>The mini player's size: each skin pixel 1 to 4 times as large (on top of the display's scaling); 2 at first, under a new name for the same reason.</summary>
+    [JsonPropertyName("miniPlayerScale")]
+    public int MiniPlayerSize { get; set; } = 2;
 
     /// <summary>The mini player stays above other windows.</summary>
     public bool MiniPlayerOnTop { get; set; } = true;
@@ -228,6 +234,18 @@ public sealed class AppSettings
     /// sway on their own for Spotify songs.
     /// </summary>
     public bool HomeStageListens { get; set; } = true;
+
+    /// <summary>How strongly the bars answer the sound, 50 to 200 %.</summary>
+    public int HomeStageSensitivity { get; set; } = 100;
+
+    /// <summary>How much of each step a bar fills, 20 to 90 %.</summary>
+    public int HomeStageBarWidth { get; set; } = 56;
+
+    /// <summary>How many bars, 16 to 96 (fewer when the stage is too narrow for them).</summary>
+    public int HomeStageBars { get; set; } = 64;
+
+    /// <summary>How smoothly the bars rise and fall, 0 (snappy) to 100 (soft).</summary>
+    public int HomeStageSmoothing { get; set; } = 60;
 
     // Away screen
 

@@ -51,6 +51,10 @@ internal sealed partial class StageVisualizer : Grid
     private readonly ScalarKeyFrameAnimation _fall;
     private readonly List<(SpriteVisual Sprite, CompositionColorGradientStop Tip, CompositionColorGradientStop Base)> _bars = [];
     private readonly float[] _levels = new float[StageBars.MaxCount];
+
+    // What each bar heads for: the sound's newest picture, before smoothing.
+    private readonly float[] _targets = new float[StageBars.MaxCount];
+    private long _lastFrame;
     private readonly DispatcherQueueTimer _rebuild;
     private AnimationController? _clock;
     private IReadOnlyList<ThemeColor> _colours = [];
@@ -241,7 +245,7 @@ internal sealed partial class StageVisualizer : Grid
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
         _size = new Vector2((float)e.NewSize.Width, (float)e.NewSize.Height);
-        if (_bars.Count == 0 || StageBars.Count(_size.X) == _bars.Count)
+        if (_bars.Count == 0 || BarCount() == _bars.Count)
         {
             if (_bars.Count == 0)
             {
@@ -268,7 +272,7 @@ internal sealed partial class StageVisualizer : Grid
             return;
         }
 
-        var count = StageBars.Count(_size.X);
+        var count = BarCount();
         if (count == _bars.Count)
         {
             Place();
@@ -345,7 +349,8 @@ internal sealed partial class StageVisualizer : Grid
         }
 
         var pitch = _size.X / _bars.Count;
-        var width = Math.Max(1f, (float)(pitch * StageBars.Fill));
+        var fill = Math.Clamp(App.Services.Settings.HomeStageBarWidth, 20, 90) / 100.0;
+        var width = Math.Max(1f, (float)(pitch * fill));
         var rest = (float)(StageBars.RestHeight / height);
         _props.InsertScalar("Rest", rest);
         for (var i = 0; i < _bars.Count; i++)
@@ -446,34 +451,61 @@ internal sealed partial class StageVisualizer : Grid
 
     private void OnRendering(object? sender, object e)
     {
-        // Pictures come about 100 times a second; frames that bring nothing new change nothing.
+        // A new picture of the sound (about 100 a second) gives each bar a new height to head for.
+        var settings = App.Services.Settings;
         var frame = _feed.Stage.Read();
         var atRest = frame.IsAtRest || Stopwatch.GetElapsedTime(frame.Timestamp) > StaleFrame;
         var sequence = atRest ? -2 : frame.Sequence;
-        if (sequence == _sequence)
+        var count = _bars.Count;
+        if (sequence != _sequence)
         {
-            return;
+            _sequence = sequence;
+            var targets = _targets.AsSpan(0, count);
+            if (atRest)
+            {
+                targets.Clear();
+            }
+            else
+            {
+                StageBars.Resample(frame.Bars.AsSpan(0, frame.BarCount), targets);
+                var gain = Math.Clamp(settings.HomeStageSensitivity, 50, 200) / 100f;
+                for (var i = 0; i < targets.Length; i++)
+                {
+                    targets[i] = Math.Min(1f, targets[i] * gain);
+                }
+            }
         }
 
-        _sequence = sequence;
-        var levels = _levels.AsSpan(0, _bars.Count);
-        if (atRest)
+        // Every frame the bars glide towards it, rising quickly and falling slowly, so they never jitter.
+        var now = Stopwatch.GetTimestamp();
+        var seconds = _lastFrame == 0 ? 1 / 60f : (float)Math.Min(0.1, Stopwatch.GetElapsedTime(_lastFrame, now).TotalSeconds);
+        _lastFrame = now;
+        var smoothing = Math.Clamp(settings.HomeStageSmoothing, 0, 100) / 100.0;
+        for (var i = 0; i < count; i++)
         {
-            levels.Clear();
+            var next = StageBars.Smooth(_levels[i], _targets[i], seconds, smoothing);
+            if (Math.Abs(next - _levels[i]) > 0.0005f)
+            {
+                _levels[i] = next;
+                _props.InsertScalar(LevelNames[i], next);
+            }
         }
-        else
-        {
-            StageBars.Resample(frame.Bars.AsSpan(0, frame.BarCount), levels);
-        }
+    }
 
-        for (var i = 0; i < levels.Length; i++)
-        {
-            _props.InsertScalar(LevelNames[i], levels[i]);
-        }
+    /// <summary>The user's bar count, as many as fit.</summary>
+    private int BarCount() => StageBars.Count(_size.X, App.Services.Settings.HomeStageBars);
+
+    /// <summary>Settings, Layout, Home changed the bars: made again at once.</summary>
+    public void ApplyOptions()
+    {
+        Build();
+        Place();
     }
 
     private void ClearLevels()
     {
+        Array.Clear(_targets);
+        _lastFrame = 0;
         Array.Clear(_levels);
         foreach (var name in LevelNames)
         {

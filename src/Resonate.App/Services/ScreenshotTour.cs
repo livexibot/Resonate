@@ -389,12 +389,10 @@ internal sealed class ScreenshotTour
     private async Task<int> CoverEffectsAsync(int number)
     {
         var theme = App.Services.Theme;
-        theme.SpinningCover = true;
         theme.Select(ThemePresets.Synthwave.Id, transition: ThemeTransitionKind.None);
         _window.OpenPlaylist("focus");
         await Task.Delay(1300);
         await CaptureAsync($"{number++}-cover-spin.png");
-        theme.SpinningCover = false;
 
         theme.BlurredCoverBackground = true;
         theme.Select(ThemePresets.Glass.Id, transition: ThemeTransitionKind.None);

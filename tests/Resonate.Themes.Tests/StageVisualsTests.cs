@@ -138,6 +138,35 @@ public sealed class StageVisualsTests
     public void As_many_bars_fit_as_the_width_allows(double width, int expected) =>
         Assert.Equal(expected, StageBars.Count(width));
 
+    [Theory]
+    [InlineData(2000, 64, 64)]
+    [InlineData(2000, 200, StageBars.MaxCount)]
+    [InlineData(200, 64, 40)]
+    [InlineData(50, 64, StageBars.MinCount)]
+    public void The_users_bar_count_is_kept_while_it_fits(double width, int wanted, int expected) =>
+        Assert.Equal(expected, StageBars.Count(width, wanted));
+
+    [Fact]
+    public void Bars_rise_quickly_and_fall_slowly_at_any_refresh_rate()
+    {
+        // One second at 60 and at 165 frames a second ends in the same place.
+        static float Run(float level, float target, int fps)
+        {
+            for (var i = 0; i < fps; i++)
+            {
+                level = StageBars.Smooth(level, target, 1f / fps, 0.6);
+            }
+
+            return level;
+        }
+
+        Assert.Equal(Run(0, 1, 60), Run(0, 1, 165), 3);
+        var risen = StageBars.Smooth(0, 1, 0.05f, 0.6);
+        var fallen = 1 - StageBars.Smooth(1, 0, 0.05f, 0.6);
+        Assert.True(risen > fallen, $"rose {risen}, fell {fallen}");
+        Assert.InRange(StageBars.Smooth(0.5f, 0.5f, 0.05f, 0.6), 0.5f, 0.5f);
+    }
+
     [Fact]
     public void Bars_reach_a_quarter_of_the_stage_at_most() =>
         Assert.Equal([0, 26, StageBars.MaxHeight], new[] { 0.0, 100, 4000 }.Select(StageBars.Height));
