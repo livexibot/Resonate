@@ -60,6 +60,7 @@ public sealed partial class PlayerSettings : UserControl
 
         // Reset buttons: the glow goes back to the preset's, the size and place to automatic.
         _resets.Add(ResetButton.Attach(PlayerGlowSlider, () => Math.Round(ThemePresets.Origin(_theme.Current).PlayerGlow * 100), "Glow"));
+        _resets.Add(ResetButton.Attach(ProgressGlowSlider, () => Math.Round(ThemePresets.Origin(_theme.Current).ProgressGlow * 100), "Progress glow"));
         _resets.Add(ResetButton.Attach(PlayerWidthBox, "Width"));
         _resets.Add(ResetButton.Attach(PlayerHeightBox, "Height"));
         _resets.Add(ResetButton.Attach(PlayerXBox, "X"));
@@ -99,6 +100,9 @@ public sealed partial class PlayerSettings : UserControl
             ProgressPreview.BarStyle = look.Progress;
             PlayerGlowSlider.Value = Math.Round(look.PlayerGlow * 100);
             PlayerGlowText.Text = $"{PlayerGlowSlider.Value:0}%";
+            ProgressGlowSlider.Value = Math.Round(look.ProgressGlow * 100);
+            ProgressGlowText.Text = $"{ProgressGlowSlider.Value:0}%";
+            ProgressPreview.Glow = look.ProgressGlow;
             Select(SongChangeChoice, _services.Settings.SongChangeAnimation);
             ButtonsAboveVolumeSwitch.IsOn = _theme.ButtonsAboveVolume;
 
@@ -153,6 +157,16 @@ public sealed partial class PlayerSettings : UserControl
         {
             var glow = e.NewValue / 100;
             _theme.Edit(look => look with { PlayerGlow = glow });
+        }
+    }
+
+    private void OnProgressGlowChanged(object sender, RangeBaseValueChangedEventArgs e)
+    {
+        ProgressGlowText.Text = $"{e.NewValue:0}%";
+        if (!_loading)
+        {
+            var glow = e.NewValue / 100;
+            _theme.Edit(look => look with { ProgressGlow = glow });
         }
     }
 

@@ -76,6 +76,9 @@ public sealed class AppSettings
     /// <summary>The library sidebar runs the window's full height, beside the player (off unless the user switches it on).</summary>
     public bool SidebarFullHeight { get; set; }
 
+    /// <summary>Resonate opens when the user signs in to Windows, quietly in the tray (Settings, About; on at first, the owner's choice of 9 October 2026).</summary>
+    public bool StartWithWindows { get; set; } = true;
+
     /// <summary>The player's buttons sit in a row above the volume (Settings, Player, Style).</summary>
     public bool ButtonsAboveVolume { get; set; }
 
@@ -428,6 +431,135 @@ public sealed class AppSettings
     public string? ShortcutVolumeDown { get; set; }
 
     public string? ShortcutLike { get; set; }
+
+    // ---- Each plugin's own settings (the owner asked for every plugin to be "highly customizable", 9 October 2026) ----
+
+    /// <summary>Screensaver: how bright it is, 20 to 100 %.</summary>
+    public int ScreensaverBrightness { get; set; } = 100;
+
+    /// <summary>Rediscover songs: which kinds of card the row shows.</summary>
+    public bool RediscoverOnThisDay { get; set; } = true;
+
+    public bool RediscoverDust { get; set; } = true;
+
+    public bool RediscoverDeepCuts { get; set; } = true;
+
+    /// <summary>Related artists: how many artists, and the liked albums with them.</summary>
+    public int RelatedArtistsCount { get; set; } = 10;
+
+    public bool RelatedArtistsAlbums { get; set; } = true;
+
+    /// <summary>Smart playlists: listed in the sidebar, and its "New smart playlist" link.</summary>
+    public bool SmartPlaylistsInSidebar { get; set; } = true;
+
+    public bool SmartPlaylistsNewLink { get; set; } = true;
+
+    /// <summary>Compact window: the title bar's shape button, and which small shapes it may take.</summary>
+    public bool WindowShapesButton { get; set; } = true;
+
+    public bool WindowShapesStrip { get; set; } = true;
+
+    public bool WindowShapesColumn { get; set; } = true;
+
+    /// <summary>Quick search: also asks Spotify, after the library.</summary>
+    public bool QuickSearchSpotify { get; set; } = true;
+
+    /// <summary>Lossless badge: hidden while all is lossless, and its word beside the dot.</summary>
+    public bool LosslessBadgeOnlyWhenNot { get; set; }
+
+    public bool LosslessBadgeText { get; set; } = true;
+
+    /// <summary>Pause on lock: plays on after unlocking.</summary>
+    public bool PauseOnLockResume { get; set; } = true;
+
+    /// <summary>Pause on unplug: plays on when the same headphones or speaker come back.</summary>
+    public bool PauseOnUnplugResume { get; set; }
+
+    /// <summary>Lyrics in the player: the next line under the sung one.</summary>
+    public bool PlayerLyricsNextLine { get; set; } = true;
+
+    /// <summary>Song notifications: the cover, the album, and Windows' sound.</summary>
+    public bool SongNotificationsCover { get; set; } = true;
+
+    public bool SongNotificationsAlbum { get; set; }
+
+    public bool SongNotificationsSound { get; set; }
+
+    /// <summary>Keep PC awake: also while the music is paused.</summary>
+    public bool KeepAwakeWhilePaused { get; set; }
+
+    /// <summary>Now playing file: emptied while paused (else it keeps the song).</summary>
+    public bool NowPlayingClearWhenPaused { get; set; } = true;
+
+    /// <summary>Quiet hours: every day (0), weekdays (1) or weekends (2).</summary>
+    public int QuietHoursDays { get; set; }
+
+    /// <summary>Pause for other sounds: seconds of another app before it acts, quiet seconds before it plays on, and lowering the volume instead.</summary>
+    public int PauseForSoundsWait { get; set; } = 2;
+
+    public int PauseForSoundsResume { get; set; } = 3;
+
+    public bool PauseForSoundsLower { get; set; }
+
+    public int PauseForSoundsLowerTo { get; set; } = 20;
+
+    /// <summary>Desktop lyrics: the next line, and a dark background behind the text (0 to 100 %).</summary>
+    public bool DesktopLyricsNextLine { get; set; } = true;
+
+    public int DesktopLyricsBackground { get; set; }
+
+    /// <summary>Beat glow: how far in from the edge it reaches (10 to 60 %), and the accent (0) or the second accent (1).</summary>
+    public int BeatGlowSize { get; set; } = 38;
+
+    public int BeatGlowColour { get; set; }
+
+    /// <summary>Resume on start: from the start of the song instead of where it stopped.</summary>
+    public bool ResumeFromStart { get; set; }
+
+    /// <summary>Export history: all of it (0), or the last 7, 30 or 365 days.</summary>
+    public int HistoryExportDays { get; set; }
+
+    /// <summary>Alarm: when (local time), which days (0 every day, 1 weekdays, 2 weekends), what (a playlist ID, null for Liked Songs), how, and the day it last rang.</summary>
+    public int AlarmHour { get; set; } = 7;
+
+    public int AlarmMinute { get; set; }
+
+    public int AlarmDays { get; set; } = 1;
+
+    public string? AlarmPlaylist { get; set; }
+
+    public bool AlarmShuffle { get; set; } = true;
+
+    public int AlarmFadeMinutes { get; set; } = 2;
+
+    public int AlarmVolume { get; set; } = 50;
+
+    public DateOnly? AlarmLastRang { get; set; }
+
+    /// <summary>Focus timer: minutes of focus and of break, rounds, pausing for breaks, and Windows notifications.</summary>
+    public int FocusMinutes { get; set; } = 25;
+
+    public int FocusBreakMinutes { get; set; } = 5;
+
+    public int FocusRounds { get; set; } = 4;
+
+    public bool FocusPauseOnBreak { get; set; } = true;
+
+    public bool FocusNotify { get; set; } = true;
+
+    /// <summary>Skip intros and outros: seconds skipped at the start and the end, and songs shorter than this many seconds left alone.</summary>
+    public int SkipIntroSeconds { get; set; } = 10;
+
+    public int SkipOutroSeconds { get; set; }
+
+    public int SkipShortestSeconds { get; set; } = 90;
+
+    /// <summary>Volume per device: each output's volume by its name, a volume for new ones (0 keeps the volume), and a word when it changes.</summary>
+    public Dictionary<string, int> DeviceVolumes { get; set; } = [];
+
+    public int DeviceVolumeNew { get; set; }
+
+    public bool DeviceVolumeMessage { get; set; } = true;
 
     // ---- End of built-in plugins ----
 

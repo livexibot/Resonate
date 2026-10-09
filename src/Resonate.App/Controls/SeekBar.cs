@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Resonate.App.Themes;
 using Resonate.Themes;
 using Windows.Foundation;
 using VirtualKey = Windows.System.VirtualKey;
@@ -17,8 +18,9 @@ namespace Resonate.App.Controls;
 /// <summary>
 /// The progress and volume bars, drawn in the theme's style: a slim line, a
 /// bold bar, a glowing gradient, a hairline, or one that moves while playing
-/// (a wave, two waves, a heartbeat, marching dots, a shimmer or rings from
-/// the handle), which stops where it is when the music does. The bar shows
+/// (a wave, a heartbeat, marching dots, a shimmer, rings from the handle or
+/// a comet), which stops where it is when the music does, with an optional
+/// glow of the accent under the played part (<see cref="Glow"/>). The bar shows
 /// whatever value it is given; the player's clock moves it on one screen
 /// pixel at a time (see <see cref="ValuePerPixel"/>). A glide on the
 /// compositor would look the same, but would redraw the window at the
@@ -38,6 +40,18 @@ public sealed partial class SeekBar : RangeBase
         typeof(SeekBar),
         new PropertyMetadata(false, (d, _) => ((SeekBar)d).OnAdvancingChanged()));
 
+    public static readonly DependencyProperty GlowProperty = DependencyProperty.Register(
+        nameof(Glow),
+        typeof(double),
+        typeof(SeekBar),
+        new PropertyMetadata(0.0, (d, _) => ((SeekBar)d).ShowGlow()));
+
+    // Comet: the head's soft halo, and how long a spark's twinkle and the halo's breath take.
+    private const double HaloSize = 18;
+    private const double SparkSize = 3;
+    private static readonly TimeSpan TwinkleTime = TimeSpan.FromSeconds(1.5);
+    private static readonly TimeSpan BreathTime = TimeSpan.FromSeconds(1.3);
+
     // Shimmer: the light's width, and how long one pass and the rest after it take.
     private const double ShineWidth = 72;
     private static readonly TimeSpan ShinePass = TimeSpan.FromSeconds(1.7);
@@ -54,14 +68,19 @@ public sealed partial class SeekBar : RangeBase
     private Border? _fill;
     private Grid? _waveHost;
     private Microsoft.UI.Xaml.Shapes.Path? _wave;
-    private Microsoft.UI.Xaml.Shapes.Path? _under;
     private Microsoft.UI.Xaml.Shapes.Path? _restDots;
     private Border? _shine;
     private Border? _ring;
+    private Border? _tail;
+    private Border? _halo;
+    private Border? _glowHost;
+    private GlowVisual? _glow;
+    private readonly List<(Border Spark, Visual Visual, double Behind, double Start)> _sparks = [];
     private Border? _thumb;
     private Visual? _thumbVisual;
     private Visual? _waveVisual;
-    private Visual? _underVisual;
+    private Visual? _tailVisual;
+    private Visual? _haloVisual;
     private Visual? _shineVisual;
     private Visual? _ringVisual;
     private InsetClip? _fillClip;
@@ -73,6 +92,7 @@ public sealed partial class SeekBar : RangeBase
     private ProgressStyle? _rolling;
     private double _shineTrack = -1;
     private bool _ringing;
+    private bool _cometStarted;
     private double _thumbOpacity = -1;
     private bool _listening;
 
@@ -95,6 +115,13 @@ public sealed partial class SeekBar : RangeBase
     {
         get => (ProgressStyle)GetValue(BarStyleProperty);
         set => SetValue(BarStyleProperty, value);
+    }
+
+    /// <summary>A glow of the accent under the played part, 0 (none) to 1.</summary>
+    public double Glow
+    {
+        get => (double)GetValue(GlowProperty);
+        set => SetValue(GlowProperty, value);
     }
 
     /// <summary>The song is playing: the moving styles move (the value is moved on by the player).</summary>
@@ -129,16 +156,26 @@ public sealed partial class SeekBar : RangeBase
         _waveHost = GetTemplateChild("WaveHost") as Grid;
         _thumb = GetTemplateChild("Thumb") as Border;
         _wave = null;
-        _under = null;
         _waveVisual = null;
-        _underVisual = null;
+        _tailVisual = null;
+        _haloVisual = null;
         _shineVisual = null;
         _ringVisual = null;
+        _sparks.Clear();
+        _glow = null;
         _waveWidth = -1;
         _waveStyle = null;
         _rolling = null;
         _shineTrack = -1;
         _ringing = false;
+        _cometStarted = false;
+
+        // The glow lies under everything else, as wide as the bar.
+        if (_root is not null)
+        {
+            _glowHost = new Border { IsHitTestVisible = false };
+            _root.Children.Insert(0, _glowHost);
+        }
 
         if (_track is not null)
         {
@@ -175,9 +212,13 @@ public sealed partial class SeekBar : RangeBase
                     },
                 },
             };
-            _fill.Child = new Canvas { Children = { _shine } };
+            // Comet: a tail that grows stronger towards the head; the fill's clip ends it there.
+            _tail = new Border { Width = ProgressPatterns.TailLength, Opacity = 0 };
+            _fill.Child = new Canvas { Children = { _shine, _tail } };
             ElementCompositionPreview.SetIsTranslationEnabled(_shine, true);
+            ElementCompositionPreview.SetIsTranslationEnabled(_tail, true);
             _shineVisual = ElementCompositionPreview.GetElementVisual(_shine);
+            _tailVisual = ElementCompositionPreview.GetElementVisual(_tail);
         }
 
         if (_waveHost is not null)
@@ -198,23 +239,10 @@ public sealed partial class SeekBar : RangeBase
                 StrokeLineJoin = PenLineJoin.Round,
             };
 
-            // Liquid's second wave, fainter, behind the first.
-            _under = new Microsoft.UI.Xaml.Shapes.Path
-            {
-                Stroke = App.Services.Theme.GetBrush("ResonateAccent2Brush"),
-                StrokeThickness = 2,
-                Opacity = 0.55,
-                StrokeStartLineCap = PenLineCap.Round,
-                StrokeEndLineCap = PenLineCap.Round,
-                StrokeLineJoin = PenLineJoin.Round,
-            };
-
             // A Canvas never clips, so the lines can scroll; WaveHost's clip shows the played part.
-            _waveHost.Children.Add(new Canvas { Children = { _under, _wave } });
+            _waveHost.Children.Add(new Canvas { Children = { _wave } });
             ElementCompositionPreview.SetIsTranslationEnabled(_wave, true);
-            ElementCompositionPreview.SetIsTranslationEnabled(_under, true);
             _waveVisual = ElementCompositionPreview.GetElementVisual(_wave);
-            _underVisual = ElementCompositionPreview.GetElementVisual(_under);
         }
 
         if (_thumb is not null)
@@ -238,6 +266,41 @@ public sealed partial class SeekBar : RangeBase
                     Opacity = 0,
                 };
                 _root.Children.Insert(_root.Children.IndexOf(_thumb), _ring);
+
+                // Comet: a soft halo round the head that breathes, and sparks behind it that twinkle, above and below the tail.
+                _halo = new Border
+                {
+                    Width = HaloSize,
+                    Height = HaloSize,
+                    CornerRadius = new CornerRadius(HaloSize / 2),
+                    Background = App.Services.Theme.GetBrush("ResonateAccentBrush"),
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    IsHitTestVisible = false,
+                    Visibility = Visibility.Collapsed,
+                };
+                _root.Children.Insert(_root.Children.IndexOf(_thumb), _halo);
+                ElementCompositionPreview.SetIsTranslationEnabled(_halo, true);
+                _haloVisual = ElementCompositionPreview.GetElementVisual(_halo);
+                _haloVisual.CenterPoint = new Vector3((float)HaloSize / 2, (float)HaloSize / 2, 0);
+
+                foreach (var (behind, start) in ProgressPatterns.Sparks)
+                {
+                    var spark = new Border
+                    {
+                        Width = SparkSize,
+                        Height = SparkSize,
+                        CornerRadius = new CornerRadius(SparkSize / 2),
+                        Background = App.Services.Theme.GetBrush("ResonateAccentBrush"),
+                        HorizontalAlignment = HorizontalAlignment.Left,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        IsHitTestVisible = false,
+                        Visibility = Visibility.Collapsed,
+                    };
+                    _root.Children.Insert(_root.Children.IndexOf(_thumb), spark);
+                    ElementCompositionPreview.SetIsTranslationEnabled(spark, true);
+                    _sparks.Add((spark, ElementCompositionPreview.GetElementVisual(spark), behind, start));
+                }
                 ElementCompositionPreview.SetIsTranslationEnabled(_ring, true);
                 _ringVisual = ElementCompositionPreview.GetElementVisual(_ring);
                 _ringVisual.CenterPoint = new Vector3((float)RingSize / 2, (float)RingSize / 2, 0);
@@ -473,6 +536,7 @@ public sealed partial class SeekBar : RangeBase
         }
 
         ShowPosition();
+        ShowGlow();
     }
 
     private void ShowPosition()
@@ -482,8 +546,57 @@ public sealed partial class SeekBar : RangeBase
         _fillClip?.RightInset = inset;
         _waveClip?.RightInset = inset;
         _trackClip?.LeftInset = DrawsLine ? width - inset : 0;
-        _thumbVisual?.Properties.InsertVector3("Translation", new Vector3(width - inset - ThumbOffset, 0, 0));
-        _ringVisual?.Properties.InsertVector3("Translation", new Vector3(width - inset - ((float)RingSize / 2), 0, 0));
+        var head = width - inset;
+        _thumbVisual?.Properties.InsertVector3("Translation", new Vector3(head - ThumbOffset, 0, 0));
+        _ringVisual?.Properties.InsertVector3("Translation", new Vector3(head - ((float)RingSize / 2), 0, 0));
+        if (BarStyle == ProgressStyle.Comet)
+        {
+            _tailVisual?.Properties.InsertVector3("Translation", new Vector3(head - (float)ProgressPatterns.TailLength, 0, 0));
+            _haloVisual?.Properties.InsertVector3("Translation", new Vector3(head - ((float)HaloSize / 2), 0, 0));
+            for (var i = 0; i < _sparks.Count; i++)
+            {
+                // Above and below the tail in turn; a spark further back than the start of the song stays out.
+                var (spark, visual, behind, _) = _sparks[i];
+                var x = head - (float)behind - ((float)SparkSize / 2);
+                spark.Visibility = x >= 0 ? Visibility.Visible : Visibility.Collapsed;
+                visual.Properties.InsertVector3("Translation", new Vector3(x, i % 2 == 0 ? -4.5f : 4.5f, 0));
+            }
+        }
+
+        if (_glow is not null && Glow > 0)
+        {
+            ShowGlow();
+        }
+    }
+
+    /// <summary>
+    /// The glow: a blurred band of the accent under the played part (as tall
+    /// as the bar, or as the line's swing), drawn by the compositor.
+    /// </summary>
+    private void ShowGlow()
+    {
+        if (_glowHost is null || _trackArea is null)
+        {
+            return;
+        }
+
+        var strength = Math.Clamp(Glow, 0, 1);
+        var played = TrackWidth * Ratio;
+        if (strength <= 0 || played <= 0)
+        {
+            _glow?.Hide();
+            return;
+        }
+
+        _glow ??= new GlowVisual(_glowHost);
+        var band = BarStyle is ProgressStyle.Wave or ProgressStyle.Heartbeat ? 8.0 : _trackArea.Height;
+        var top = Math.Max(0, (_glowHost.ActualHeight - band) / 2);
+        _glow.Show(
+            new Vector2((float)played, (float)band),
+            new Vector3(0, (float)top, 0),
+            App.Services.Theme.Palette.Accent.ToColor(),
+            (float)(6 + (12 * strength)),
+            (float)(0.3 + (0.6 * strength)));
     }
 
     /// <summary>Sizes and colours for the bar style, and whether the handle shows.</summary>
@@ -501,7 +614,8 @@ public sealed partial class SeekBar : RangeBase
             ProgressStyle.Bold => (6.0, 8.0, 14.0, true),
             ProgressStyle.Gradient => (5.0, 7.0, 14.0, false),
             ProgressStyle.Shimmer => (6.0, 8.0, 14.0, false),
-            ProgressStyle.Wave or ProgressStyle.Liquid or ProgressStyle.Heartbeat => (3.0, 3.0, 0.0, true),
+            ProgressStyle.Wave or ProgressStyle.Heartbeat => (3.0, 3.0, 0.0, true),
+            ProgressStyle.Comet => (4.0, 6.0, 10.0, true),
             ProgressStyle.Dots => (4.0, 4.0, 10.0, true),
             ProgressStyle.Ripple => (4.0, 6.0, 12.0, true),
             ProgressStyle.Minimal => (2.0, 2.0, 0.0, false),
@@ -512,8 +626,34 @@ public sealed partial class SeekBar : RangeBase
         var round = style == ProgressStyle.Minimal ? 0 : _trackArea.Height / 2;
         _track.CornerRadius = new CornerRadius(round);
         _fill.CornerRadius = new CornerRadius(round);
-        _fill.Background = App.Services.Theme.GetBrush(style is ProgressStyle.Gradient or ProgressStyle.Shimmer ? "ResonateAccentGradientBrush" : "ResonateAccentBrush");
+        _fill.Background = App.Services.Theme.GetBrush(style switch
+        {
+            ProgressStyle.Gradient or ProgressStyle.Shimmer => "ResonateAccentGradientBrush",
+            ProgressStyle.Comet => "ResonateAccentSoftBrush",
+            _ => "ResonateAccentBrush",
+        });
         _shine?.Height = _trackArea.Height;
+
+        // Comet: the tail in the accent, from nothing to full at the head.
+        if (_tail is not null)
+        {
+            var accent = App.Services.Theme.Palette.Accent;
+            _tail.Height = _trackArea.Height;
+            _tail.Opacity = style == ProgressStyle.Comet ? 1 : 0;
+            _tail.Background = new LinearGradientBrush
+            {
+                StartPoint = new Point(0, 0.5),
+                EndPoint = new Point(1, 0.5),
+                GradientStops =
+                {
+                    new GradientStop { Color = accent.WithAlpha(0).ToColor(), Offset = 0 },
+                    new GradientStop { Color = accent.WithAlpha(0.55).ToColor(), Offset = 0.6 },
+                    new GradientStop { Color = accent.ToColor(), Offset = 1 },
+                },
+            };
+        }
+
+        ShowGlow();
 
         // Dots draw the track as dots too; the other styles as a plain bar.
         var dots = style == ProgressStyle.Dots;
@@ -587,12 +727,12 @@ public sealed partial class SeekBar : RangeBase
 
     /// <summary>
     /// The played part's line, one period wider than the bar so it can roll
-    /// without a gap: a wave (Liquid adds a second under it), a heartbeat, or
-    /// dots (and the dots still to come, in the track).
+    /// without a gap: a wave, a heartbeat, or dots (and the dots still to
+    /// come, in the track).
     /// </summary>
     private void BuildWave()
     {
-        if (_wave is null || _under is null || _waveHost is null)
+        if (_wave is null || _waveHost is null)
         {
             return;
         }
@@ -613,13 +753,6 @@ public sealed partial class SeekBar : RangeBase
         else
         {
             _wave.Data = Polyline(ProgressPatterns.Line(style, _waveWidth + ProgressPatterns.Period(style)), middle);
-        }
-
-        var liquid = style == ProgressStyle.Liquid;
-        _under.Visibility = liquid ? Visibility.Visible : Visibility.Collapsed;
-        if (liquid)
-        {
-            _under.Data = Polyline(ProgressPatterns.Line(style, _waveWidth + ProgressPatterns.UnderLength, under: true), middle);
         }
     }
 
@@ -653,6 +786,7 @@ public sealed partial class SeekBar : RangeBase
         AnimateRoll();
         AnimateShine();
         AnimateRing();
+        AnimateComet();
     }
 
     private static bool MayMove => App.Services.Theme.AnimationsEnabled;
@@ -664,7 +798,7 @@ public sealed partial class SeekBar : RangeBase
     /// </summary>
     private void AnimateRoll()
     {
-        if (_waveVisual is null || _underVisual is null)
+        if (_waveVisual is null)
         {
             return;
         }
@@ -675,7 +809,6 @@ public sealed partial class SeekBar : RangeBase
             if (_rolling is not null)
             {
                 Stop(_waveVisual);
-                Stop(_underVisual);
                 _rolling = null;
             }
 
@@ -685,32 +818,110 @@ public sealed partial class SeekBar : RangeBase
         if (_rolling != style)
         {
             Roll(_waveVisual, -ProgressPatterns.Period(style), ProgressPatterns.RollTime(style));
-            if (style == ProgressStyle.Liquid)
-            {
-                // The second wave starts a period to the left and rolls right, through the first.
-                Roll(_underVisual, ProgressPatterns.UnderLength, ProgressPatterns.UnderRollTime, -ProgressPatterns.UnderLength);
-            }
-            else
-            {
-                Stop(_underVisual);
-            }
-
             _rolling = style;
         }
 
         Hold(_waveVisual, "Translation", !IsAdvancing);
-        if (style == ProgressStyle.Liquid)
+    }
+
+    /// <summary>
+    /// Comet: the halo breathes and the sparks twinkle, each in its own time,
+    /// while playing; a pause holds every one of them where it is.
+    /// </summary>
+    private void AnimateComet()
+    {
+        if (_haloVisual is null || _halo is null)
         {
-            Hold(_underVisual, "Translation", !IsAdvancing);
+            return;
+        }
+
+        // Shown and hidden by Visibility: the compositor's opacity below would undo XAML's.
+        var on = BarStyle == ProgressStyle.Comet;
+        _halo.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var (spark, _, _, _) in _sparks)
+        {
+            spark.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        if (on)
+        {
+            ShowPosition();
+        }
+
+        if (!on || !MayMove)
+        {
+            if (_cometStarted)
+            {
+                _haloVisual.StopAnimation("Opacity");
+                _haloVisual.StopAnimation("Scale");
+                foreach (var (_, visual, _, _) in _sparks)
+                {
+                    visual.StopAnimation("Opacity");
+                }
+
+                _cometStarted = false;
+            }
+
+            // Still: a faint halo and faint sparks.
+            _haloVisual.Opacity = 0.22f;
+            _haloVisual.Scale = Vector3.One;
+            foreach (var (_, visual, _, _) in _sparks)
+            {
+                visual.Opacity = 0.45f;
+            }
+
+            return;
+        }
+
+        var compositor = _haloVisual.Compositor;
+        if (!_cometStarted)
+        {
+            _cometStarted = true;
+            var breathe = compositor.CreateScalarKeyFrameAnimation();
+            breathe.InsertKeyFrame(0, 0.12f);
+            breathe.InsertKeyFrame(0.5f, 0.38f, compositor.CreateCubicBezierEasingFunction(new Vector2(0.4f, 0), new Vector2(0.6f, 1)));
+            breathe.InsertKeyFrame(1, 0.12f, compositor.CreateCubicBezierEasingFunction(new Vector2(0.4f, 0), new Vector2(0.6f, 1)));
+            breathe.Duration = BreathTime;
+            breathe.IterationBehavior = AnimationIterationBehavior.Forever;
+            _haloVisual.StartAnimation("Opacity", breathe);
+
+            var swell = compositor.CreateVector3KeyFrameAnimation();
+            swell.InsertKeyFrame(0, new Vector3(0.85f, 0.85f, 1));
+            swell.InsertKeyFrame(0.5f, new Vector3(1.15f, 1.15f, 1), compositor.CreateCubicBezierEasingFunction(new Vector2(0.4f, 0), new Vector2(0.6f, 1)));
+            swell.InsertKeyFrame(1, new Vector3(0.85f, 0.85f, 1), compositor.CreateCubicBezierEasingFunction(new Vector2(0.4f, 0), new Vector2(0.6f, 1)));
+            swell.Duration = BreathTime;
+            swell.IterationBehavior = AnimationIterationBehavior.Forever;
+            _haloVisual.StartAnimation("Scale", swell);
+
+            foreach (var (_, visual, _, start) in _sparks)
+            {
+                var twinkle = compositor.CreateScalarKeyFrameAnimation();
+                twinkle.InsertKeyFrame(0, 0);
+                twinkle.InsertKeyFrame(0.3f, 0.95f);
+                twinkle.InsertKeyFrame(1, 0);
+                twinkle.Duration = TwinkleTime;
+                twinkle.DelayTime = TwinkleTime * start;
+                twinkle.DelayBehavior = AnimationDelayBehavior.SetInitialValueBeforeDelay;
+                twinkle.IterationBehavior = AnimationIterationBehavior.Forever;
+                visual.StartAnimation("Opacity", twinkle);
+            }
+        }
+
+        var hold = !IsAdvancing;
+        Hold(_haloVisual, "Opacity", hold);
+        Hold(_haloVisual, "Scale", hold);
+        foreach (var (_, visual, _, _) in _sparks)
+        {
+            Hold(visual, "Opacity", hold);
         }
     }
 
-    private static void Roll(Visual visual, double by, TimeSpan time, double from = 0)
+    private static void Roll(Visual visual, double by, TimeSpan time)
     {
         var compositor = visual.Compositor;
         var roll = compositor.CreateVector3KeyFrameAnimation();
-        roll.InsertKeyFrame(0, new Vector3((float)from, 0, 0));
-        roll.InsertKeyFrame(1, new Vector3((float)(from + by), 0, 0), compositor.CreateLinearEasingFunction());
+        roll.InsertKeyFrame(0, Vector3.Zero);
+        roll.InsertKeyFrame(1, new Vector3((float)by, 0, 0), compositor.CreateLinearEasingFunction());
         roll.Duration = time;
         roll.IterationBehavior = AnimationIterationBehavior.Forever;
         visual.StartAnimation("Translation", roll);
@@ -825,5 +1036,52 @@ public sealed partial class SeekBar : RangeBase
             fade.Duration = TimeSpan.FromMilliseconds(300);
             _ringVisual.StartAnimation("Opacity", fade);
         }
+    }
+
+    /// <summary>
+    /// The glow under the played part: a rounded band, never drawn itself,
+    /// whose blurred shadow in the accent is all that shows (as the player's
+    /// glow is drawn, see Elevation).
+    /// </summary>
+    private sealed class GlowVisual
+    {
+        private readonly SpriteVisual _sprite;
+        private readonly DropShadow _shadow;
+        private readonly CompositionRoundedRectangleGeometry _shape;
+        private readonly ShapeVisual _shapeVisual;
+        private readonly CompositionVisualSurface _surface;
+
+        public GlowVisual(UIElement host)
+        {
+            var compositor = ElementCompositionPreview.GetElementVisual(host).Compositor;
+            _shape = compositor.CreateRoundedRectangleGeometry();
+            var fill = compositor.CreateSpriteShape(_shape);
+            fill.FillBrush = compositor.CreateColorBrush(Microsoft.UI.Colors.Black);
+            _shapeVisual = compositor.CreateShapeVisual();
+            _shapeVisual.Shapes.Add(fill);
+            _surface = compositor.CreateVisualSurface();
+            _surface.SourceVisual = _shapeVisual;
+            _shadow = compositor.CreateDropShadow();
+            _shadow.Mask = compositor.CreateSurfaceBrush(_surface);
+            _sprite = compositor.CreateSpriteVisual();
+            _sprite.Shadow = _shadow;
+            ElementCompositionPreview.SetElementChildVisual(host, _sprite);
+        }
+
+        public void Show(Vector2 size, Vector3 offset, global::Windows.UI.Color color, float blur, float opacity)
+        {
+            _shape.Size = size;
+            _shape.CornerRadius = new Vector2(size.Y / 2);
+            _shapeVisual.Size = size;
+            _surface.SourceSize = size;
+            _sprite.Size = size;
+            _sprite.Offset = offset;
+            _shadow.Color = color;
+            _shadow.BlurRadius = blur;
+            _shadow.Opacity = opacity;
+            _sprite.IsVisible = true;
+        }
+
+        public void Hide() => _sprite.IsVisible = false;
     }
 }

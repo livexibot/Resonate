@@ -185,7 +185,7 @@ public enum ProgressStyle
     /// <summary>A bar that a soft light runs along while playing.</summary>
     Shimmer,
 
-    /// <summary>Two waves rolling through each other while playing.</summary>
+    /// <summary>Retired (too like Wave, the owner found): saved looks read it as <see cref="Comet"/>.</summary>
     Liquid,
 
     /// <summary>A row of dots that march along while playing.</summary>
@@ -196,6 +196,9 @@ public enum ProgressStyle
 
     /// <summary>A heartbeat trace that runs along while playing.</summary>
     Heartbeat,
+
+    /// <summary>A comet: a fading tail behind a glowing head, with sparks that twinkle while playing.</summary>
+    Comet,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<PlayButtonStyle>))]
@@ -344,6 +347,9 @@ public sealed record ThemeDefinition
     /// <summary>A glow of the accent around the player, 0 (none) to 1.</summary>
     public double PlayerGlow { get; init; }
 
+    /// <summary>A glow of the accent under the played part of the progress bar, 0 (none) to 1.</summary>
+    public double ProgressGlow { get; init; }
+
     /// <summary>How Home's visualizer draws the sound.</summary>
     public VisualizerStyle StageVisualizer { get; init; } = VisualizerStyle.Bars;
 
@@ -384,10 +390,11 @@ public sealed record ThemeDefinition
         Shadow = Enum.IsDefined(Shadow) ? Shadow : ShadowStyle.Soft,
         PlayerLayout = Enum.IsDefined(PlayerLayout) ? PlayerLayout : PlayerLayout.Docked,
         PlayerGlow = double.IsFinite(PlayerGlow) ? Math.Clamp(PlayerGlow, 0, 1) : 0,
+        ProgressGlow = double.IsFinite(ProgressGlow) ? Math.Clamp(ProgressGlow, 0, 1) : 0,
         StageVisualizer = Enum.IsDefined(StageVisualizer) && StageVisualizer != VisualizerStyle.Off ? VisualizerShapes.Current(StageVisualizer) : VisualizerStyle.Bars,
         PlayerVisualizer = Enum.IsDefined(PlayerVisualizer) && VisualizerShapes.FitsPlayerBar(VisualizerShapes.Current(PlayerVisualizer)) ? VisualizerShapes.Current(PlayerVisualizer) : VisualizerStyle.Off,
         Scene = Enum.IsDefined(Scene) ? Scene : ThemeScene.None,
-        Progress = Enum.IsDefined(Progress) ? Progress : ProgressStyle.Line,
+        Progress = ProgressPatterns.Current(Progress),
         PlayButton = Enum.IsDefined(PlayButton) ? PlayButton : PlayButtonStyle.Filled,
         Cover = Enum.IsDefined(Cover) ? Cover : CoverStyle.Rounded,
     };

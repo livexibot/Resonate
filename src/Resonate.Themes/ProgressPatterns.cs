@@ -2,7 +2,7 @@ namespace Resonate.Themes;
 
 /// <summary>
 /// The lines the moving progress bars draw for the part already played: a
-/// wave, Liquid's second wave under it, a heartbeat trace and a row of dots.
+/// wave, a heartbeat trace and a row of dots.
 /// Each repeats every <see cref="Period"/> pixels, so the bar draws one period
 /// more than it is wide and rolls it along by one period, again and again,
 /// without a jump. Heights are pixels above the bar's middle.
@@ -12,9 +12,6 @@ public static class ProgressPatterns
     public const double WaveLength = 22;
     public const double WaveHeight = 3.2;
 
-    /// <summary>Liquid's second wave: longer, lower, rolling the other way.</summary>
-    public const double UnderLength = 36;
-    public const double UnderHeight = 2.4;
 
     /// <summary>One heartbeat, flat line included.</summary>
     public const double BeatLength = 56;
@@ -23,6 +20,12 @@ public static class ProgressPatterns
     public const double BeatHeight = 6;
 
     public const double DotSpacing = 8;
+
+    /// <summary>Comet: how long its fading tail is.</summary>
+    public const double TailLength = 150;
+
+    /// <summary>Comet: where its sparks sit behind the head, and when in the twinkle each starts (a share of it).</summary>
+    public static IReadOnlyList<(double Behind, double Start)> Sparks { get; } = [(10, 0), (22, 0.35), (38, 0.7), (58, 0.15), (82, 0.55)];
 
     // One heartbeat as (share of the beat, height): flat, a small bump, a dip, the spike, a dip below, flat, a soft bump.
     private static readonly (double At, double Height)[] Beat =
@@ -33,7 +36,22 @@ public static class ProgressPatterns
 
     /// <summary>The style draws the played part as a line that rolls along while playing.</summary>
     public static bool Rolls(ProgressStyle style) =>
-        style is ProgressStyle.Wave or ProgressStyle.Liquid or ProgressStyle.Heartbeat or ProgressStyle.Dots;
+        style is ProgressStyle.Wave or ProgressStyle.Heartbeat or ProgressStyle.Dots;
+
+    /// <summary>The styles the player offers, in the order Settings lists them.</summary>
+    public static IReadOnlyList<ProgressStyle> Offered { get; } =
+    [
+        ProgressStyle.Line, ProgressStyle.Bold, ProgressStyle.Gradient, ProgressStyle.Wave, ProgressStyle.Minimal,
+        ProgressStyle.Shimmer, ProgressStyle.Comet, ProgressStyle.Heartbeat, ProgressStyle.Dots, ProgressStyle.Ripple,
+    ];
+
+    /// <summary>A saved style as it shows now: a retired one becomes the one that took its place, an unknown one the line.</summary>
+    public static ProgressStyle Current(ProgressStyle style) => style switch
+    {
+        ProgressStyle.Liquid => ProgressStyle.Comet,
+        _ when Enum.IsDefined(style) => style,
+        _ => ProgressStyle.Line,
+    };
 
     /// <summary>How far the line goes before it repeats.</summary>
     public static double Period(ProgressStyle style) => style switch
@@ -51,18 +69,15 @@ public static class ProgressPatterns
         _ => 1.1,
     });
 
-    /// <summary>Liquid's second wave takes this long for its own period, rolling the other way.</summary>
-    public static TimeSpan UnderRollTime => TimeSpan.FromSeconds(2.6);
 
     /// <summary>The volume bar keeps a style that stands still: the moving ones become the plain line there.</summary>
     public static ProgressStyle ForVolume(ProgressStyle style) =>
-        style is ProgressStyle.Wave or ProgressStyle.Liquid or ProgressStyle.Heartbeat or ProgressStyle.Shimmer or ProgressStyle.Ripple
+        style is ProgressStyle.Wave or ProgressStyle.Heartbeat or ProgressStyle.Shimmer or ProgressStyle.Ripple or ProgressStyle.Comet
             ? ProgressStyle.Line
             : style;
 
     public static double WaveAt(double x) => Math.Sin(x / WaveLength * Math.Tau) * WaveHeight;
 
-    public static double UnderAt(double x) => Math.Sin(x / UnderLength * Math.Tau) * UnderHeight;
 
     public static double BeatAt(double x)
     {
@@ -85,7 +100,7 @@ public static class ProgressPatterns
     /// the waves every 1.5 px, the heartbeat at its corners (so the spike
     /// stays sharp). Empty for a style that draws no line.
     /// </summary>
-    public static IReadOnlyList<(double X, double Height)> Line(ProgressStyle style, double width, bool under = false)
+    public static IReadOnlyList<(double X, double Height)> Line(ProgressStyle style, double width)
     {
         var points = new List<(double, double)>();
         if (style == ProgressStyle.Heartbeat)
@@ -106,14 +121,14 @@ public static class ProgressPatterns
             return points;
         }
 
-        if (style is not (ProgressStyle.Wave or ProgressStyle.Liquid))
+        if (style is not ProgressStyle.Wave)
         {
             return points;
         }
 
         for (double x = 0; ; x += 1.5)
         {
-            points.Add((x, under ? UnderAt(x) : WaveAt(x)));
+            points.Add((x, WaveAt(x)));
             if (x >= width)
             {
                 return points;

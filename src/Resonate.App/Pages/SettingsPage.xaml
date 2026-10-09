@@ -289,6 +289,19 @@
                     x:Name="AboutPanel"
                     Spacing="20"
                     Visibility="Collapsed">
+                    <!-- Windows -->
+                    <controls:SettingsGroup Header="Windows">
+                        <controls:SettingRow Header="Start with Windows">
+                            <ToggleSwitch
+                                x:Name="StartWithWindowsSwitch"
+                                MinWidth="0"
+                                AutomationProperties.Name="Start with Windows"
+                                OffContent=""
+                                OnContent=""
+                                Toggled="OnStartWithWindowsToggled" />
+                        </controls:SettingRow>
+                    </controls:SettingsGroup>
+
                     <!-- Updates -->
                     <controls:SettingsGroup Header="Updates">
                         <StackPanel x:Name="UpdatesSection" Spacing="12">

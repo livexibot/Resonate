@@ -20,6 +20,94 @@ public static class QuietHours
 
     /// <summary><paramref name="volume"/> (0 to 1) held at or under <paramref name="percent"/>.</summary>
     public static double Cap(double volume, int percent) => Math.Min(volume, Math.Clamp(percent, 0, 100) / 100.0);
+
+    /// <summary>Whether <paramref name="day"/> is one of the days picked: every day (0), weekdays (1) or weekends (2).</summary>
+    public static bool OnDay(int days, DayOfWeek day) => days switch
+    {
+        1 => day is not (DayOfWeek.Saturday or DayOfWeek.Sunday),
+        2 => day is DayOfWeek.Saturday or DayOfWeek.Sunday,
+        _ => true,
+    };
+}
+
+/// <summary>
+/// Alarm, a built-in plugin: music at a time the user picks, on the days
+/// they pick, rising from quiet to their volume. Rings once a day, also when
+/// Resonate starts (or wakes) within its minute and a few after it.
+/// </summary>
+public static class AlarmRules
+{
+    /// <summary>How long after its minute an alarm still rings (Resonate busy or just started).</summary>
+    public static readonly TimeSpan Grace = TimeSpan.FromMinutes(5);
+
+    /// <summary>Whether the alarm should ring at <paramref name="now"/> (local time) when it last rang on <paramref name="lastRang"/>.</summary>
+    public static bool IsDue(int hour, int minute, int days, DateTime now, DateOnly? lastRang)
+    {
+        var today = DateOnly.FromDateTime(now);
+        if (lastRang == today || !QuietHours.OnDay(days, now.DayOfWeek))
+        {
+            return false;
+        }
+
+        var at = now.Date + new TimeSpan(Math.Clamp(hour, 0, 23), Math.Clamp(minute, 0, 59), 0);
+        return now >= at && now - at < Grace;
+    }
+
+    /// <summary>The volume <paramref name="elapsed"/> into a fade of <paramref name="fade"/> up to <paramref name="target"/> (0 to 1), from a whisper.</summary>
+    public static double FadeVolume(TimeSpan elapsed, TimeSpan fade, double target)
+    {
+        const double Start = 0.02;
+        if (fade <= TimeSpan.Zero || elapsed >= fade)
+        {
+            return target;
+        }
+
+        var share = Math.Clamp(elapsed / fade, 0, 1);
+
+        // Eased, so the first steps are gentle.
+        return Start + ((target - Start) * share * share);
+    }
+}
+
+/// <summary>Skip intros and outros, a built-in plugin: where a song is moved to at its start, and when it is left before its end.</summary>
+public static class SkipRules
+{
+    /// <summary>Where to move a song that just started, or null to leave it: songs shorter than <paramref name="shortest"/> are left alone.</summary>
+    public static TimeSpan? IntroSkip(TimeSpan position, TimeSpan duration, int introSeconds, int shortestSeconds)
+    {
+        var intro = TimeSpan.FromSeconds(Math.Clamp(introSeconds, 0, 120));
+        if (intro <= TimeSpan.Zero || duration < TimeSpan.FromSeconds(Math.Max(shortestSeconds, 0)) || duration <= intro * 2 || position >= intro)
+        {
+            return null;
+        }
+
+        return intro;
+    }
+
+    /// <summary>Whether the song is in its last <paramref name="outroSeconds"/>, so the next one should start.</summary>
+    public static bool OutroReached(TimeSpan position, TimeSpan duration, int outroSeconds, int shortestSeconds)
+    {
+        var outro = TimeSpan.FromSeconds(Math.Clamp(outroSeconds, 0, 120));
+        return outro > TimeSpan.Zero
+            && duration >= TimeSpan.FromSeconds(Math.Max(shortestSeconds, 0))
+            && duration > outro * 2
+            && position >= duration - outro;
+    }
+}
+
+/// <summary>Focus timer, a built-in plugin: rounds of focus with breaks between them.</summary>
+public static class FocusRules
+{
+    /// <summary>What comes after a focus or a break: a break after each focus but the last, then the next round; null when the rounds are done.</summary>
+    public static (bool Focus, int Round)? Next(bool focus, int round, int rounds)
+    {
+        if (focus)
+        {
+            return round >= Math.Max(rounds, 1) ? null : (false, round);
+        }
+
+        return (true, round + 1);
+    }
 }
 
 /// <summary>

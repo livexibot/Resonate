@@ -26,6 +26,60 @@ public sealed class PluginRulesTests
     public void Quiet_hours_cap_the_volume_and_never_raise_it(double volume, int percent, double expected) =>
         Assert.Equal(expected, QuietHours.Cap(volume, percent), 6);
 
+    [Theory]
+    [InlineData(0, DayOfWeek.Sunday, true)]
+    [InlineData(1, DayOfWeek.Monday, true)]
+    [InlineData(1, DayOfWeek.Saturday, false)]
+    [InlineData(2, DayOfWeek.Sunday, true)]
+    [InlineData(2, DayOfWeek.Friday, false)]
+    public void Days_are_every_day_weekdays_or_weekends(int days, DayOfWeek day, bool on) =>
+        Assert.Equal(on, QuietHours.OnDay(days, day));
+
+    [Fact]
+    public void The_alarm_rings_once_in_its_minute_or_soon_after_on_its_days()
+    {
+        var monday = new DateTime(2026, 10, 12, 7, 0, 30);
+        Assert.True(AlarmRules.IsDue(7, 0, 1, monday, null));
+        Assert.True(AlarmRules.IsDue(7, 0, 1, monday.AddMinutes(4), null));
+        Assert.False(AlarmRules.IsDue(7, 0, 1, monday.AddMinutes(6), null));
+        Assert.False(AlarmRules.IsDue(7, 0, 1, monday.AddMinutes(-2), null));
+        Assert.False(AlarmRules.IsDue(7, 0, 1, monday, DateOnly.FromDateTime(monday)));
+        Assert.True(AlarmRules.IsDue(7, 0, 1, monday, DateOnly.FromDateTime(monday.AddDays(-1))));
+        Assert.False(AlarmRules.IsDue(7, 0, 1, new DateTime(2026, 10, 10, 7, 0, 30), null));
+    }
+
+    [Fact]
+    public void The_alarm_fades_up_from_a_whisper()
+    {
+        var fade = TimeSpan.FromMinutes(2);
+        Assert.Equal(0.02, AlarmRules.FadeVolume(TimeSpan.Zero, fade, 0.6), 6);
+        Assert.Equal(0.6, AlarmRules.FadeVolume(fade, fade, 0.6), 6);
+        Assert.Equal(0.6, AlarmRules.FadeVolume(TimeSpan.Zero, TimeSpan.Zero, 0.6), 6);
+        Assert.True(AlarmRules.FadeVolume(TimeSpan.FromMinutes(1), fade, 0.6) < 0.31);
+    }
+
+    [Fact]
+    public void Intros_and_outros_are_skipped_only_on_long_enough_songs()
+    {
+        var song = TimeSpan.FromMinutes(3);
+        Assert.Equal(TimeSpan.FromSeconds(10), SkipRules.IntroSkip(TimeSpan.FromSeconds(1), song, 10, 90));
+        Assert.Null(SkipRules.IntroSkip(TimeSpan.FromSeconds(12), song, 10, 90));
+        Assert.Null(SkipRules.IntroSkip(TimeSpan.Zero, TimeSpan.FromSeconds(60), 10, 90));
+        Assert.Null(SkipRules.IntroSkip(TimeSpan.Zero, song, 0, 90));
+        Assert.True(SkipRules.OutroReached(song - TimeSpan.FromSeconds(5), song, 8, 90));
+        Assert.False(SkipRules.OutroReached(song - TimeSpan.FromSeconds(20), song, 8, 90));
+        Assert.False(SkipRules.OutroReached(song, song, 0, 90));
+    }
+
+    [Fact]
+    public void Focus_rounds_take_breaks_between_them_and_end()
+    {
+        Assert.Equal((false, 1), FocusRules.Next(true, 1, 4));
+        Assert.Equal((true, 2), FocusRules.Next(false, 1, 4));
+        Assert.Null(FocusRules.Next(true, 4, 4));
+        Assert.Null(FocusRules.Next(true, 1, 1));
+    }
+
     [Fact]
     public void Now_playing_text_fills_in_the_song_on_one_line()
     {

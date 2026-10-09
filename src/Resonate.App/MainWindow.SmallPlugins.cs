@@ -12,8 +12,9 @@ namespace Resonate.App;
 /// <summary>
 /// The smaller built-in plugins the owner asked for on 9 October 2026 (see
 /// <see cref="BuiltInPlugins"/>): Keep PC awake, Now playing file, Quiet
-/// hours, Resume on start, Start with Windows and Export history. Each runs
-/// only while it is on.
+/// hours, Resume on start and Export history, each running only while it is
+/// on; and Start with Windows, part of the app since then (Settings, About,
+/// on at first).
 /// </summary>
 public sealed partial class MainWindow
 {
@@ -40,7 +41,7 @@ public sealed partial class MainWindow
     /// <summary>While music plays, Windows is told the PC (and with the setting, the screen) is in use; otherwise it may sleep as usual.</summary>
     internal void FollowKeepAwake()
     {
-        var awake = _services.BuiltIns.IsOn(BuiltInPlugins.KeepAwake) && _services.Player.State.IsPlaying;
+        var awake = _services.BuiltIns.IsOn(BuiltInPlugins.KeepAwake) && (_services.Player.State.IsPlaying || _services.Settings.KeepAwakeWhilePaused);
         var state = awake ? EsContinuous | EsSystemRequired | (_services.Settings.KeepAwakeDisplay ? EsDisplayRequired : 0) : EsContinuous;
         if (state != _keepAwakeState)
         {
@@ -75,7 +76,7 @@ public sealed partial class MainWindow
 
         var settings = _services.Settings;
         var state = _services.Player.State;
-        var text = clear || !state.IsPlaying ? string.Empty : NowPlayingText.Format(settings.NowPlayingFormat, state.Title, state.Artists, state.Album);
+        var text = clear || (!state.IsPlaying && settings.NowPlayingClearWhenPaused) ? string.Empty : NowPlayingText.Format(settings.NowPlayingFormat, state.Title, state.Artists, state.Album);
         if (text == _nowPlayingWritten)
         {
             return;
@@ -130,7 +131,9 @@ public sealed partial class MainWindow
     private void CapQuietVolume()
     {
         var settings = _services.Settings;
-        if (!_services.BuiltIns.IsOn(BuiltInPlugins.QuietHours) || !QuietHours.IsQuiet(settings.QuietHoursFrom, settings.QuietHoursTo, DateTime.Now.Hour))
+        var now = DateTime.Now;
+        if (!_services.BuiltIns.IsOn(BuiltInPlugins.QuietHours) || !QuietHours.OnDay(settings.QuietHoursDays, now.DayOfWeek)
+            || !QuietHours.IsQuiet(settings.QuietHoursFrom, settings.QuietHoursTo, now.Hour))
         {
             return;
         }
@@ -173,42 +176,56 @@ public sealed partial class MainWindow
             if (state.Title is not null && state.IsConnected)
             {
                 done = true;
-                _ = _services.Player.PlayAsync();
+                _ = ResumeAsync();
             }
         });
+    }
+
+    /// <summary>Plays on where the song stopped, or from its start (the plugin's setting).</summary>
+    private async Task ResumeAsync()
+    {
+        if (_services.Settings.ResumeFromStart)
+        {
+            await _services.Player.SeekAsync(TimeSpan.Zero);
+        }
+
+        await _services.Player.PlayAsync();
     }
 
     // Start with Windows
 
     partial void SetUpStartWithWindows()
     {
-        FollowPlugin(BuiltInPlugins.StartWithWindows, FollowStartWithWindows);
-
-        // The address of this copy, in case it moved (an update keeps it, a reinstall may not).
-        if (_services.BuiltIns.IsOn(BuiltInPlugins.StartWithWindows) && !_services.IsDemo && StartupOptions.Current.DataFolder is null)
+        // At every start of the installed copy, so the address is this copy's (an update keeps it, a reinstall may not).
+        if (!_services.IsDemo && StartupOptions.Current.DataFolder is null && _services.Updates.IsInstalled)
         {
             FollowStartWithWindows();
         }
     }
 
-    /// <summary>Puts Resonate in Windows' list of programs to start at sign-in (this user only), or takes it out.</summary>
-    private void FollowStartWithWindows()
+    /// <summary>The switch in Settings, About.</summary>
+    internal void SetStartWithWindows(bool on)
     {
-        // A local build never takes the installed copy's place.
-        if (_services.IsDemo || StartupOptions.Current.DataFolder is not null)
-        {
-            if (_services.BuiltIns.IsOn(BuiltInPlugins.StartWithWindows))
-            {
-                ShowMessage("Start with Windows only works in the installed Resonate.", InfoBarSeverity.Informational);
-            }
+        _services.Settings.StartWithWindows = on;
+        _services.SaveSettings();
 
+        // A local build never takes the installed copy's place.
+        if (_services.IsDemo || StartupOptions.Current.DataFolder is not null || !_services.Updates.IsInstalled)
+        {
+            ShowMessage("Start with Windows only works in the installed Resonate.", InfoBarSeverity.Informational);
             return;
         }
 
+        FollowStartWithWindows();
+    }
+
+    /// <summary>Puts Resonate in Windows' list of programs to start at sign-in (this user only), or takes it out.</summary>
+    private void FollowStartWithWindows()
+    {
         try
         {
             using var key = Registry.CurrentUser.CreateSubKey(RunKey);
-            if (_services.BuiltIns.IsOn(BuiltInPlugins.StartWithWindows) && Environment.ProcessPath is { } exe)
+            if (_services.Settings.StartWithWindows && Environment.ProcessPath is { } exe)
             {
                 key.SetValue(RunValue, $"\"{exe}\" --background");
             }
@@ -223,7 +240,7 @@ public sealed partial class MainWindow
         }
     }
 
-    /// <summary>Started with Windows (--background): hidden in the tray when the tray icon is on, else minimised.</summary>
+    /// <summary>Started with Windows (--background): hidden in the tray (minimised if the tray icon could not be added).</summary>
     internal void GoToBackground()
     {
         if (TrayOn)
@@ -263,7 +280,10 @@ public sealed partial class MainWindow
             return;
         }
 
-        var plays = _services.Home.History.Plays;
+        // All of it, or the last days the user picked.
+        var days = _services.Settings.HistoryExportDays;
+        var since = days > 0 ? DateTimeOffset.UtcNow.AddDays(-days) : DateTimeOffset.MinValue;
+        var plays = _services.Home.History.Plays.Where(p => p.PlayedAt >= since).ToList();
         try
         {
             await Task.Run(() => File.WriteAllText(path, HistoryCsv.Write(plays), new UTF8Encoding(true)));

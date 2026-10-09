@@ -10,7 +10,7 @@ public sealed class ProgressPatternsTests
     public void Every_line_repeats_after_its_period_so_rolling_never_jumps(double x)
     {
         Assert.Equal(ProgressPatterns.WaveAt(x), ProgressPatterns.WaveAt(x + ProgressPatterns.WaveLength), 6);
-        Assert.Equal(ProgressPatterns.UnderAt(x), ProgressPatterns.UnderAt(x + ProgressPatterns.UnderLength), 6);
+
         Assert.Equal(ProgressPatterns.BeatAt(x), ProgressPatterns.BeatAt(x + ProgressPatterns.BeatLength), 6);
     }
 
@@ -26,7 +26,6 @@ public sealed class ProgressPatternsTests
 
     [Theory]
     [InlineData(ProgressStyle.Wave)]
-    [InlineData(ProgressStyle.Liquid)]
     [InlineData(ProgressStyle.Heartbeat)]
     public void A_line_reaches_past_the_width_it_is_asked_for(ProgressStyle style)
     {
@@ -46,7 +45,7 @@ public sealed class ProgressPatternsTests
 
     [Theory]
     [InlineData(ProgressStyle.Wave, ProgressStyle.Line)]
-    [InlineData(ProgressStyle.Liquid, ProgressStyle.Line)]
+    [InlineData(ProgressStyle.Comet, ProgressStyle.Line)]
     [InlineData(ProgressStyle.Heartbeat, ProgressStyle.Line)]
     [InlineData(ProgressStyle.Shimmer, ProgressStyle.Line)]
     [InlineData(ProgressStyle.Ripple, ProgressStyle.Line)]
@@ -55,6 +54,23 @@ public sealed class ProgressPatternsTests
     [InlineData(ProgressStyle.Gradient, ProgressStyle.Gradient)]
     public void The_volume_bar_keeps_only_styles_that_stand_still(ProgressStyle style, ProgressStyle volume) =>
         Assert.Equal(volume, ProgressPatterns.ForVolume(style));
+
+    [Fact]
+    public void Liquid_is_retired_for_comet_and_unknown_styles_read_as_the_line()
+    {
+        Assert.Equal(ProgressStyle.Comet, ProgressPatterns.Current(ProgressStyle.Liquid));
+        Assert.Equal(ProgressStyle.Line, ProgressPatterns.Current((ProgressStyle)99));
+        Assert.DoesNotContain(ProgressStyle.Liquid, ProgressPatterns.Offered);
+        Assert.Equal(Enum.GetValues<ProgressStyle>().Length - 1, ProgressPatterns.Offered.Count);
+        Assert.Equal(ProgressStyle.Comet, new ThemeDefinition { Progress = ProgressStyle.Liquid }.Normalize().Progress);
+    }
+
+    [Fact]
+    public void Comet_sparks_sit_inside_its_tail_and_twinkle_out_of_step()
+    {
+        Assert.All(ProgressPatterns.Sparks, s => Assert.InRange(s.Behind, 1, ProgressPatterns.TailLength));
+        Assert.Equal(ProgressPatterns.Sparks.Count, ProgressPatterns.Sparks.Select(s => s.Start).Distinct().Count());
+    }
 
     [Fact]
     public void Rolling_styles_roll_at_an_even_pace()

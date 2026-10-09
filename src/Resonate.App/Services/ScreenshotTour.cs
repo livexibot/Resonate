@@ -614,7 +614,7 @@ internal sealed class ScreenshotTour
 
         await CaptureAsync($"{number++}-mini-player.png", root);
         var scale = ClassicPlayer.PixelScale(1, root.XamlRoot.RasterizationScale);
-        var expected = (Width: (116 + 275) * scale, Height: (116 + 116 + skins.MiniPlaylistHeight) * scale);
+        var expected = (Width: 275 * scale, Height: (116 + 116 + skins.MiniPlaylistHeight) * scale);
         if (_window.MiniPlayerClientSize is { } size && (size.Width, size.Height) != expected)
         {
             Record($"The mini player is {size.Width} x {size.Height} pixels, not {expected.Width} x {expected.Height}.");

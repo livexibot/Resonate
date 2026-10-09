@@ -39,6 +39,10 @@ public sealed class BuiltInPlugins
     public const string MediaShortcuts = "media-hotkeys";
     public const string StartWithWindows = "start-with-windows";
     public const string HistoryExport = "history-export";
+    public const string Alarm = "alarm";
+    public const string FocusTimer = "focus-timer";
+    public const string SkipIntros = "skip-intros";
+    public const string DeviceVolume = "device-volume";
 
     private readonly AppSettings _settings;
     private readonly Action _save;
@@ -61,7 +65,7 @@ public sealed class BuiltInPlugins
     [
         new(AwayScreen, "Screensaver", "After a few idle minutes, covers the screen with the song, a clock and a visualizer, above every app."),
         new(Rediscover, "Rediscover songs", "Adds a Home row of songs you liked on this day and ones you have not played in a while."),
-        new(UpNext, "Edit the queue", "Lets you reorder, remove and clear the songs coming up."),
+
         new(ArtistOrbit, "Related artists", "Shows the artists you play alongside an artist on their page."),
         new(SmartPlaylists, "Smart playlists", "Makes playlists that fill themselves from your Liked Songs by rules you set."),
         new(WindowShapes, "Compact window", "Shrinks the window to a small player or a one-line strip that can stay on top."),
@@ -69,11 +73,11 @@ public sealed class BuiltInPlugins
         new(SignalPath, "Lossless badge", "Shows in the player whether you hear lossless sound, and what changes it."),
         new(PauseOnLock, "Pause on lock", "Pauses when you lock your PC and plays on when you unlock it."),
         new(PauseOnUnplug, "Pause on unplug", "Pauses when your headphones or speaker disconnect."),
-        new(TrayIcon, "Tray icon", "Keeps the music playing from the tray when you close the window."),
+
         new(PlayerLyrics, "Lyrics in the player", "Shows the sung line and the next one under the song in the player bar."),
         new(SongNotifications, "Song notifications", "Shows a Windows notification with the cover when a new song starts while Resonate is in the background."),
         new(KeepAwake, "Keep PC awake", "Stops your PC from going to sleep while music plays."),
-        new(TaskbarControls, "Taskbar controls", "Adds previous, play and next buttons to Resonate's preview on the taskbar."),
+
         new(NowPlayingFile, "Now playing file", "Writes the playing song to a text file, for stream overlays such as OBS."),
         new(QuietHours, "Quiet hours", "Keeps the volume down during the hours you choose, such as at night."),
         new(PauseForSounds, "Pause for other sounds", "Pauses the music while another app plays sound, such as a call or a video, and plays on after."),
@@ -81,12 +85,21 @@ public sealed class BuiltInPlugins
         new(BeatGlow, "Beat glow", "Makes the window's edge glow with the beat of the music."),
         new(ResumeOnStart, "Resume on start", "Plays the song you were listening to when you open Resonate."),
         new(MediaShortcuts, "Media shortcuts", "Shortcuts that play, pause, skip, change the volume or like the song from any app."),
-        new(StartWithWindows, "Start with Windows", "Opens Resonate when you sign in to Windows, quietly in the tray when the tray icon is on."),
+
         new(HistoryExport, "Export history", "Saves your listening history as a spreadsheet file."),
+        new(Alarm, "Alarm", "Wakes you with your music at the time you pick, rising slowly from quiet."),
+        new(FocusTimer, "Focus timer", "Times rounds of focus with breaks between them, pausing the music for each break."),
+        new(SkipIntros, "Skip intros and outros", "Skips the first and last seconds of every song, for long intros and fade-outs."),
+        new(DeviceVolume, "Volume per device", "Remembers a volume for each pair of headphones and speakers and puts it back when you switch."),
     ];
 
-    /// <summary>Part of Resonate itself now (the owner's choice, 8 October 2026): always on, not listed.</summary>
-    public static bool IsAlwaysOn(string id) => id is Lyrics or HomeStage;
+    /// <summary>
+    /// Part of Resonate itself now, always on and not listed: Lyrics and the
+    /// Home stage (the owner's choice, 8 October 2026), the tray icon, editing
+    /// the queue and the taskbar buttons (9 October 2026). Start with Windows
+    /// became a switch in Settings, About (<see cref="AppSettings.StartWithWindows"/>).
+    /// </summary>
+    public static bool IsAlwaysOn(string id) => id is Lyrics or HomeStage or TrayIcon or UpNext or TaskbarControls;
 
     public bool IsOn(string id) => IsAlwaysOn(id) || _settings.BuiltInPlugins.Contains(id, StringComparer.Ordinal);
 

@@ -358,14 +358,9 @@ internal sealed partial class LookPreview : Grid
         };
 
         var bar = new Grid { Width = width, Height = 6, HorizontalAlignment = HorizontalAlignment.Center };
-        if (_look.Progress is ProgressStyle.Wave or ProgressStyle.Liquid or ProgressStyle.Heartbeat)
+        if (_look.Progress is ProgressStyle.Wave or ProgressStyle.Heartbeat)
         {
             // The card's line at about a quarter of the player's size.
-            if (_look.Progress == ProgressStyle.Liquid)
-            {
-                bar.Children.Add(Line(ProgressPatterns.Line(_look.Progress, played * 4, under: true), _palette.Accent2, 1, 0.55));
-            }
-
             bar.Children.Add(Line(ProgressPatterns.Line(_look.Progress, played * 4), _palette.Accent, 1.4, 1));
             var rest = Bar(_palette.Track, 1.4, width - played - 1);
             rest.HorizontalAlignment = HorizontalAlignment.Right;
@@ -398,6 +393,29 @@ internal sealed partial class LookPreview : Grid
         }
 
         bar.Children.Add(fill);
+        if (_look.Progress == ProgressStyle.Comet)
+        {
+            // The tail fades in towards the head.
+            fill.Background = new LinearGradientBrush
+            {
+                StartPoint = new Point(0, 0.5),
+                EndPoint = new Point(1, 0.5),
+                GradientStops =
+                {
+                    new GradientStop { Color = _palette.Accent.WithAlpha(0).ToColor(), Offset = 0 },
+                    new GradientStop { Color = _palette.Accent.ToColor(), Offset = 1 },
+                },
+            };
+            bar.Children.Add(new Ellipse
+            {
+                Width = 5,
+                Height = 5,
+                Fill = _palette.Accent.ToBrush(),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(played - 2.5, 0, 0, 0),
+            });
+        }
+
         if (_look.Progress == ProgressStyle.Ripple)
         {
             bar.Children.Add(new Ellipse

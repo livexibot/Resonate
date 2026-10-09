@@ -21,22 +21,19 @@ namespace Resonate.App.Controls;
 
 /// <summary>
 /// The classic player: a Winamp 2 style main window drawn from a skin, with
-/// the cover, the song and the heart beside it in the app's own look. Every
+/// the song and the heart beside it in the app's own look (no cover: the
+/// owner's choice, 9 October 2026). Every
 /// skin pixel covers a whole number of screen pixels, so skins stay sharp at
 /// any display scale. Like the player bar, every control acts on the player
 /// at once (the player is optimistic). It works only while it is in the
 /// window: MainWindow adds it when the classic player is chosen and removes
 /// it again, and while it is out nothing of it runs. The mini player has one
-/// of its own (<see cref="ClassicPlayer(MiniPlayerWindow)"/>): just the cover
-/// and the skin, with the mini player's own size and shade mode, its EQ and
-/// PL buttons opening the windows under it, and its title bar moving it.
+/// of its own (<see cref="ClassicPlayer(MiniPlayerWindow)"/>): just the
+/// skin, with the mini player's own size and shade mode, its EQ and PL
+/// buttons opening the windows under it, and its title bar moving it.
 /// </summary>
 public sealed partial class ClassicPlayer : UserControl
 {
-    private const double MinCoverSize = 48;
-
-    /// <summary>Spotify asks for its artwork to keep small rounded corners.</summary>
-    private const double CoverCorner = 8;
 
     /// <summary>Enough for double size on a 400 % display; keeps a bad scale from taking much memory.</summary>
     private const int MaxScale = 8;
@@ -45,12 +42,12 @@ public sealed partial class ClassicPlayer : UserControl
     private const double TitleStartWidth = 64;
 
     /// <summary>
-    /// Room the rest of the row needs beside the cover and the skin: padding
-    /// and spacing (32 + 48), the plugin and heart buttons (74), and the start
+    /// Room the rest of the row needs beside the skin: padding and spacing
+    /// (32 + 32), the plugin and heart buttons (74), and the start
     /// of the song's title. Double size gives way to normal size when the
     /// window can't spare it (a 1024-wide window at 100 % still can).
     /// </summary>
-    private const double RestOfRowWidth = 32 + 48 + 74 + TitleStartWidth;
+    private const double RestOfRowWidth = 32 + 32 + 74 + TitleStartWidth;
 
     /// <summary>What the marquee says when nothing is loaded.</summary>
     private const string IdleLine = "Resonate";
@@ -67,7 +64,6 @@ public sealed partial class ClassicPlayer : UserControl
     private readonly AppServices _services = App.Services;
     private readonly SkinLibrary _skins;
     private readonly PlayerRouter _player;
-    private readonly CoverSpin _coverSpin;
 
     /// <summary>The mini player this one belongs to; null in the main window.</summary>
     private readonly MiniPlayerWindow? _mini;
@@ -90,8 +86,7 @@ public sealed partial class ClassicPlayer : UserControl
     private int _pluginsQueued;
     private string _songLine = IdleLine;
     private int _marqueeStep;
-    private object? _coverKey;
-    private int _coverDecodeSize;
+
 
     // Drawing: the skin's own pixels, enlarged into bitmaps of exactly the pixels on screen
     private double _raster = 1;
@@ -123,11 +118,6 @@ public sealed partial class ClassicPlayer : UserControl
         InitializeComponent();
         _skins = _services.Skins;
         _player = _services.Player;
-        _coverSpin = new CoverSpin(CoverFrame);
-
-        // Fade covers in instead of popping them (runs on the compositor).
-        CoverImage.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(180) };
-
         // A .wsz dropped on the skin is added and used, as in Winamp.
         SkinHost.AllowDrop = true;
         SkinHost.DragOver += SkinDrop.OnDragOver;
@@ -139,7 +129,7 @@ public sealed partial class ClassicPlayer : UserControl
         ApplyPlacement();
     }
 
-    /// <summary>The mini player's main window: the cover and the skin, nothing around them.</summary>
+    /// <summary>The mini player's main window: the skin, nothing around it.</summary>
     internal ClassicPlayer(MiniPlayerWindow mini)
         : this()
     {
@@ -173,7 +163,7 @@ public sealed partial class ClassicPlayer : UserControl
         }
     }
 
-    /// <summary>No frame, padding, shadow or text: the cover and the skin fill the mini player's top row edge to edge.</summary>
+    /// <summary>No frame, padding, shadow or text: the skin fills the mini player's top row edge to edge.</summary>
     private void ApplyMiniLook()
     {
         PlayerShell.Margin = new Thickness(0);
@@ -185,21 +175,14 @@ public sealed partial class ClassicPlayer : UserControl
         PlayerFrame.BorderThickness = new Thickness(0);
         PlayerFrame.CornerRadius = new CornerRadius(0);
         PlayerFrame.Background = null;
-        CoverFrame.VerticalAlignment = VerticalAlignment.Top;
         SkinHost.VerticalAlignment = VerticalAlignment.Top;
         SongPanel.Visibility = Visibility.Collapsed;
         ButtonsPanel.Visibility = Visibility.Collapsed;
-
-        // The cover moves the window too.
-        CoverFrame.PointerPressed += OnCoverPointerPressed;
-        CoverFrame.PointerMoved += OnCoverPointerMoved;
-        CoverFrame.PointerReleased += OnCoverPointerReleased;
-        CoverFrame.PointerCaptureLost += OnCoverPointerReleased;
     }
 
     /// <summary>
     /// Whether the window can be seen (false while minimised or hidden). The
-    /// cover and the visualiser move, and the clock ticks, only while it can.
+    /// visualiser moves, and the clock ticks, only while it can.
     /// </summary>
     public void SetWindowShown(bool shown)
     {
@@ -211,7 +194,6 @@ public sealed partial class ClassicPlayer : UserControl
         _windowShown = shown;
         if (_loaded)
         {
-            ApplyCoverLook();
             UpdateVisualiser();
             UpdateTimers();
             Invalidate();
@@ -315,7 +297,6 @@ public sealed partial class ClassicPlayer : UserControl
         _dragValue = null;
         _moving = false;
         UpdateVisualiser();
-        ApplyCoverLook();
     }
 
     private void OnStateChanged(object? sender, EventArgs e)
@@ -384,7 +365,6 @@ public sealed partial class ClassicPlayer : UserControl
         ArtistText.Text = state.Artists ?? (state.IsConnected ? string.Empty : "Pick a song to start");
         AlbumText.Text = state.Album ?? string.Empty;
         ShowLike(state);
-        ShowCover(state);
 
         // A new line starts from its beginning.
         var line = state.HasTrack ? Marquee.Line(state.Artists, state.Title, state.Duration) : IdleLine;
@@ -394,7 +374,6 @@ public sealed partial class ClassicPlayer : UserControl
             _marqueeStep = 0;
         }
 
-        ApplyCoverLook();
         UpdateVisualiser();
         UpdateTimers();
         Invalidate();
@@ -445,11 +424,6 @@ public sealed partial class ClassicPlayer : UserControl
         VisualiserView.Height = _visBitmap.PixelHeight / _raster;
         VisualiserView.Margin = new Thickness(area.X * _scale / _raster, area.Y * _scale / _raster, 0, 0);
 
-        // The cover is a square as tall as the skin (never tiny in shade mode, apart from in the mini player's top row).
-        var cover = _mini is null ? Math.Max(MinCoverSize, SkinView.Height) : SkinView.Height;
-        CoverFrame.Width = cover;
-        CoverFrame.Height = cover;
-        CoverHole.Width = CoverHole.Height = Math.Max(8, Math.Round(cover * 0.1));
         ApplyPlacement();
 
         _drawn = null;
@@ -473,7 +447,7 @@ public sealed partial class ClassicPlayer : UserControl
         var doubled = ScaleFor(2);
         var available = ActualWidth - PlayerShell.Margin.Left - PlayerShell.Margin.Right;
         var height = (Shaded ? ClassicRenderer.ShadeHeight : ClassicRenderer.Height) * doubled / _raster;
-        var needed = (ClassicRenderer.Width * doubled / _raster) + Math.Max(MinCoverSize, height) + RestOfRowWidth;
+        var needed = (ClassicRenderer.Width * doubled / _raster) + RestOfRowWidth;
 
         // Before the first layout there is no width yet; SizeChanged follows.
         return available <= 0 || needed <= available ? doubled : single;
@@ -484,7 +458,7 @@ public sealed partial class ClassicPlayer : UserControl
 
     /// <summary>
     /// The narrowest the player gets without cutting anything off: the skin
-    /// at normal size, the cover and the buttons, with no room for the
+    /// at normal size and the buttons, with no room for the
     /// song's title. The window keeps it from hovering over a narrower page.
     /// </summary>
     public double NarrowestWidth
@@ -492,7 +466,7 @@ public sealed partial class ClassicPlayer : UserControl
         get
         {
             var height = (Shaded ? ClassicRenderer.ShadeHeight : ClassicRenderer.Height) * ScaleFor(1) / _raster;
-            return (ClassicRenderer.Width * ScaleFor(1) / _raster) + Math.Max(MinCoverSize, height) + RestOfRowWidth - TitleStartWidth;
+            return (ClassicRenderer.Width * ScaleFor(1) / _raster) + RestOfRowWidth - TitleStartWidth;
         }
     }
 
@@ -504,8 +478,6 @@ public sealed partial class ClassicPlayer : UserControl
         if (_loaded && _mini is null && _skins.DoubleSize && FittingScale() != _scale)
         {
             RebuildSurface();
-            ShowCover(_shown);
-            ApplyCoverLook();
             UpdateVisualiser();
             Invalidate();
         }
@@ -809,85 +781,12 @@ public sealed partial class ClassicPlayer : UserControl
         Invalidate();
     }
 
-    // The cover and the heart
+    // The heart
 
-    private void ShowCover(PlayerState state)
-    {
-        // The cover's address or bytes, or, without one, the album's tile.
-        var size = (int)Math.Ceiling(CoverFrame.Width);
-        object key = state.ArtworkUrl ?? (object?)state.ArtworkBytes ?? "tile:" + (state.Album ?? state.Title);
-        if ((ReferenceEquals(key, _coverKey) || Equals(key, _coverKey)) && size <= _coverDecodeSize)
-        {
-            return;
-        }
-
-        _coverKey = key;
-        _coverDecodeSize = size;
-        CoverImage.Opacity = 0;
-
-        // Until (or unless) a cover arrives, a colour tile for the album.
-        var name = state.Album ?? state.Title;
-        CoverFrame.Background = name is null
-            ? _services.Theme.GetBrush("ResonateSurfaceHoverBrush")
-            : Artwork.PlaceholderBrush(name);
-        CoverGlyph.Visibility = name is null ? Visibility.Visible : Visibility.Collapsed;
-
-        if (state.ArtworkUrl is { } url)
-        {
-            _ = ShowCoverAsync(key, _services.Covers.GetReadyAsync(url, size));
-        }
-        else if (state.ArtworkBytes is { } bytes)
-        {
-            _ = ShowCoverAsync(key, CoverImages.FromBytesAsync(bytes, size));
-        }
-        else
-        {
-            CoverImage.Source = null;
-        }
-    }
-
-    private async Task ShowCoverAsync(object key, Task<(ImageSource? Image, bool Loaded)> loading)
-    {
-        var (image, loaded) = await loading;
-        if (!ReferenceEquals(_coverKey, key))
-        {
-            return;
-        }
-
-        CoverImage.Source = image;
-
-        // A picture that already has its pixels may not raise ImageOpened, so it is shown here.
-        if (loaded)
-        {
-            OnCoverOpened(CoverImage, new RoutedEventArgs());
-        }
-    }
-
-    private void OnCoverOpened(object sender, RoutedEventArgs e)
-    {
-        CoverImage.Opacity = 1;
-        CoverGlyph.Visibility = Visibility.Collapsed;
-    }
-
-    /// <summary>With spinning covers on, the cover is a round record that turns while the song plays and the window is shown.</summary>
-    private void ApplyCoverLook()
-    {
-        var theme = _services.Theme;
-        var size = CoverFrame.Width;
-        var round = theme.CoverIsRecord;
-        CoverFrame.CornerRadius = new CornerRadius(round ? size / 2 : CoverCorner);
-        CoverHole.Visibility = round ? Visibility.Visible : Visibility.Collapsed;
-        _coverSpin.Update(round && theme.AnimationsEnabled && _loaded, _shown.IsPlaying && _windowShown, (float)size);
-    }
-
-    private void OnThemeChanged(object? sender, EventArgs e)
-    {
-        ApplyCoverLook();
-        ApplyPlacement();
-    }
+    private void OnThemeChanged(object? sender, EventArgs e) => ApplyPlacement();
 
     /// <summary>
-    /// Hovering over the page, the player hugs the cover, the skin and the
+    /// Hovering over the page, the player hugs the skin and the
     /// song and sits in the middle (or in the page's corner), like a Winamp
     /// window over the page; otherwise it spans its row like the player bar.
     /// The control itself always spans the row, so double size still sees
@@ -904,7 +803,7 @@ public sealed partial class ClassicPlayer : UserControl
         // it starts at the page's edge like the docked player, rather than
         // being cut off on both sides.
         var available = ActualWidth - PlayerShell.Margin.Left - PlayerShell.Margin.Right;
-        var needed = CoverFrame.Width + SkinView.Width + RestOfRowWidth;
+        var needed = SkinView.Width + RestOfRowWidth;
 
         // Before the first layout (or the skin's first picture) there is nothing to measure yet.
         var fits = available <= 0 || double.IsNaN(needed) || needed <= available;
@@ -993,8 +892,6 @@ public sealed partial class ClassicPlayer : UserControl
 
         // Size or shade mode may have changed; the bitmaps are only made again when their size does.
         RebuildSurface();
-        ShowCover(_shown);
-        ApplyCoverLook();
         UpdateVisualiser();
         UpdateTimers();
         Invalidate();
@@ -1035,8 +932,6 @@ public sealed partial class ClassicPlayer : UserControl
         if (Math.Abs(PixelsPerUnit(root) - _raster) > 0.001)
         {
             RebuildSurface();
-            ShowCover(_shown);
-            ApplyCoverLook();
             UpdateVisualiser();
             Invalidate();
         }
@@ -1267,41 +1162,6 @@ public sealed partial class ClassicPlayer : UserControl
         {
             e.Handled = true;
             ToggleShade();
-        }
-    }
-
-    // The mini player's cover moves its window, like its title bar.
-
-    private void OnCoverPointerPressed(object sender, PointerRoutedEventArgs e)
-    {
-        if (_mini is null || _moving || _pressed != ClassicControl.None || !e.GetCurrentPoint(CoverFrame).Properties.IsLeftButtonPressed)
-        {
-            return;
-        }
-
-        e.Handled = true;
-        _moving = true;
-        _pointerId = e.Pointer.PointerId;
-        CoverFrame.CapturePointer(e.Pointer);
-        _mini.BeginMove();
-    }
-
-    private void OnCoverPointerMoved(object sender, PointerRoutedEventArgs e)
-    {
-        if (_moving && e.Pointer.PointerId == _pointerId)
-        {
-            e.Handled = true;
-            _mini?.Move();
-        }
-    }
-
-    private void OnCoverPointerReleased(object sender, PointerRoutedEventArgs e)
-    {
-        if (_moving && e.Pointer.PointerId == _pointerId)
-        {
-            _moving = false;
-            CoverFrame.ReleasePointerCapture(e.Pointer);
-            _mini?.EndMove();
         }
     }
 

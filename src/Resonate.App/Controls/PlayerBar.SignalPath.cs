@@ -117,6 +117,9 @@ public sealed partial class PlayerBar
         }
     }
 
+    /// <summary>The badge's settings changed.</summary>
+    internal void RefreshSignal() => ShowSignal();
+
     private void ShowSignal()
     {
         if (_signalPill is null || _signalDot is null || _signalBadge is null)
@@ -126,14 +129,15 @@ public sealed partial class PlayerBar
 
         _signalWidthClass = _widthClass;
         var report = _signalPath?.Report;
-        if (report is null || _widthClass == PlayerWidthClass.Mini)
+        var settings = App.Services.Settings;
+        if (report is null || _widthClass == PlayerWidthClass.Mini || (settings.LosslessBadgeOnlyWhenNot && report.Verdict == SignalVerdict.Lossless))
         {
             _signalFlyout?.Hide();
             SignalSlot.Visibility = Visibility.Collapsed;
             return;
         }
 
-        var compact = _widthClass != PlayerWidthClass.Full;
+        var compact = _widthClass != PlayerWidthClass.Full || !settings.LosslessBadgeText;
         _signalBadge.Text = report.Badge;
         _signalBadge.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         _signalPill.Padding = compact ? new Thickness(9, 0, 9, 0) : new Thickness(10, 0, 11, 0);

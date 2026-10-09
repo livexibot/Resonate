@@ -59,8 +59,8 @@ public sealed partial class MainWindow
         ShowSmartPlaylistsInSidebar();
     }
 
-    /// <summary>The sidebar's smart playlists, after the other links, while the plugin is on.</summary>
-    private void ShowSmartPlaylistsInSidebar()
+    /// <summary>The sidebar's smart playlists, after the other links, while the plugin is on (and its settings keep them there).</summary>
+    internal void ShowSmartPlaylistsInSidebar()
     {
         if (_smartPlaylists is not { } smart)
         {
@@ -78,13 +78,16 @@ public sealed partial class MainWindow
                 }
             }
 
-            if (smart.IsOn)
+            if (smart.IsOn && _services.Settings.SmartPlaylistsInSidebar)
             {
                 foreach (var playlist in smart.All)
                 {
                     NavItems.Add(new NavItem(SmartPlaylistSource.Prefix + playlist.Id, SmartPlaylistSource.Glyph, playlist.Name));
                 }
+            }
 
+            if (smart.IsOn && _services.Settings.SmartPlaylistsNewLink)
+            {
                 NavItems.Add(new NavItem(NewSmartPlaylistKey, "", "New smart playlist"));
             }
 

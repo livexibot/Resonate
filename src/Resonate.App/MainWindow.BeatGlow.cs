@@ -110,12 +110,19 @@ public sealed partial class MainWindow
             return;
         }
 
-        var accent = _services.Theme.Palette.Accent.Opaque;
+        // The accent or the second accent, reaching as far in as the user's Size.
+        var settings = _services.Settings;
+        var palette = _services.Theme.Palette;
+        var accent = (settings.BeatGlowColour == 1 ? palette.Accent2 : palette.Accent).Opaque;
+        var inner = 1 - (Math.Clamp(settings.BeatGlowSize, 10, 60) / 100.0);
         _glowBrush.GradientStops.Clear();
-        _glowBrush.GradientStops.Add(new GradientStop { Color = accent.WithAlpha(0).ToColor(), Offset = 0.62 });
-        _glowBrush.GradientStops.Add(new GradientStop { Color = accent.WithAlpha(0.35).ToColor(), Offset = 0.88 });
+        _glowBrush.GradientStops.Add(new GradientStop { Color = accent.WithAlpha(0).ToColor(), Offset = inner });
+        _glowBrush.GradientStops.Add(new GradientStop { Color = accent.WithAlpha(0.35).ToColor(), Offset = inner + ((1 - inner) * 0.68) });
         _glowBrush.GradientStops.Add(new GradientStop { Color = accent.WithAlpha(0.75).ToColor(), Offset = 1 });
     }
+
+    /// <summary>The glow's settings changed.</summary>
+    internal void RefreshBeatGlow() => PaintGlow();
 
     private void OnGlowFrame(object? sender, object e)
     {

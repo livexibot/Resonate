@@ -101,7 +101,11 @@ public sealed partial class MainWindow
                 RestoreSmallPlacement();
             }
 
-            AddShapeButton();
+            if (_services.Settings.WindowShapesButton)
+            {
+                AddShapeButton();
+            }
+
             UpdateShape(animate: false);
             return;
         }
@@ -173,6 +177,18 @@ public sealed partial class MainWindow
         var shape = WindowShapesOn && ShellGrid.Visibility == Visibility.Visible
             ? WindowShapes.For(size.Width, size.Height)
             : WindowShape.Full;
+
+        // The shapes the user left out (the plugin's settings) give way to the next larger one.
+        var settings = _services.Settings;
+        if (shape == WindowShape.Strip && !settings.WindowShapesStrip)
+        {
+            shape = settings.WindowShapesColumn ? WindowShape.Column : WindowShape.Compact;
+        }
+
+        if (shape == WindowShape.Column && !settings.WindowShapesColumn)
+        {
+            shape = WindowShape.Compact;
+        }
         if (shape != WindowShape.Strip)
         {
             _sizeBeforeStrip = size;
@@ -556,6 +572,23 @@ public sealed partial class MainWindow
         {
             AppWindow.ResizeClient(new SizeInt32(client.Width, wanted));
         }
+    }
+
+    /// <summary>The plugin's settings changed: the title bar's button and the shapes it may take.</summary>
+    internal void FollowShapeOptions()
+    {
+        if (!WindowShapesOn)
+        {
+            return;
+        }
+
+        RemoveShapeButton();
+        if (_services.Settings.WindowShapesButton)
+        {
+            AddShapeButton();
+        }
+
+        UpdateShape(animate: true);
     }
 
     // ---- Picking a shape ----

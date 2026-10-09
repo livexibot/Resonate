@@ -228,6 +228,7 @@ public sealed partial class SettingsPage : Page
         ShowChannelOptions();
         AutoUpdateSwitch.IsOn = _services.Settings.AutoUpdate;
         AutoUpdateSwitch.IsEnabled = _services.Updates.IsInstalled;
+        StartWithWindowsSwitch.IsOn = _services.Settings.StartWithWindows;
         _loading = false;
 
         var user = _services.Library.Snapshot?.User;
@@ -380,6 +381,14 @@ public sealed partial class SettingsPage : Page
         _services.Settings.AutoUpdate = AutoUpdateSwitch.IsOn;
         _services.SaveSettings();
         App.MainWindow?.KeepUpdating();
+    }
+
+    private void OnStartWithWindowsToggled(object sender, RoutedEventArgs e)
+    {
+        if (!_loading)
+        {
+            App.MainWindow?.SetStartWithWindows(StartWithWindowsSwitch.IsOn);
+        }
     }
 
     private void OnUpdateProgressChanged(object? sender, EventArgs e)

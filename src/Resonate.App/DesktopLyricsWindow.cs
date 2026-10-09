@@ -131,10 +131,17 @@ internal sealed partial class DesktopLyricsWindow : Window
     /// <summary>Sizes the window and its text for the user's Size, and puts it where it was left.</summary>
     public void ApplySize()
     {
-        var size = Math.Clamp(_services.Settings.DesktopLyricsSize, 60, 250) / 100.0;
+        var settings = _services.Settings;
+        var size = Math.Clamp(settings.DesktopLyricsSize, 60, 250) / 100.0;
         var scale = GetDpiForWindow(WinRT.Interop.WindowNative.GetWindowHandle(this)) / 96.0;
         _line.FontSize = 26 * size;
         _next.FontSize = 16 * size;
+        _next.Visibility = settings.DesktopLyricsNextLine ? Visibility.Visible : Visibility.Collapsed;
+
+        // A dark card behind the text, as strong as the user wants (none at first).
+        var background = Math.Clamp(settings.DesktopLyricsBackground, 0, 100);
+        _root.Background = new SolidColorBrush(global::Windows.UI.Color.FromArgb((byte)Math.Round(background * 2.2), 0, 0, 0));
+        _root.CornerRadius = new CornerRadius(14 * size);
         var width = (int)Math.Round(BaseWidth * size * scale);
         var height = (int)Math.Round(BaseHeight * size * scale);
         if (_services.Settings.DesktopLyricsPlace is { } place)

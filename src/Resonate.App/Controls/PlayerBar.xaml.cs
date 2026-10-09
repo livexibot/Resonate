@@ -276,6 +276,7 @@ public sealed partial class PlayerBar : UserControl
         var theme = App.Services.Theme;
         var look = theme.Current;
         PositionBar.BarStyle = look.Progress;
+        PositionBar.Glow = look.ProgressGlow;
 
         // Volume does not play: the moving styles become the plain line there.
         VolumeBar.BarStyle = ProgressPatterns.ForVolume(look.Progress);
@@ -314,14 +315,16 @@ public sealed partial class PlayerBar : UserControl
     }
 
     /// <summary>
-    /// The buttons and the volume on the right: in one row, or, while the
-    /// user wants them above the volume and the slider shows, the buttons
+    /// The buttons and the volume on the right: in one row, or the buttons
     /// (smaller) in a row over the speaker and the slider, both lined up on
-    /// the right, which leaves the middle more room.
+    /// the right, which leaves the middle more room: on a full bar while the
+    /// user wants it, and always on a narrower one (the owner's choice,
+    /// 9 October 2026, instead of leaving the slider out). The mini bar keeps
+    /// only the queue.
     /// </summary>
     private void ArrangeSide()
     {
-        var stacked = App.Services.Theme.ButtonsAboveVolume && _widthClass == PlayerWidthClass.Full;
+        var stacked = _widthClass == PlayerWidthClass.Compact || (App.Services.Theme.ButtonsAboveVolume && _widthClass == PlayerWidthClass.Full);
         Grid.SetRow(SideButtons, 0);
         Grid.SetColumn(SideButtons, 0);
         Grid.SetRow(VolumeControls, stacked ? 1 : 0);
@@ -337,9 +340,9 @@ public sealed partial class PlayerBar : UserControl
         }
 
         // Room for the slider row alone, rather than for every button beside it.
-        if (_widthClass == PlayerWidthClass.Full)
+        if (_widthClass != PlayerWidthClass.Mini)
         {
-            VolumeColumn.MinWidth = stacked ? 180 : 272;
+            VolumeColumn.MinWidth = !stacked ? 272 : _widthClass == PlayerWidthClass.Full ? 180 : 156;
         }
     }
 
@@ -396,7 +399,10 @@ public sealed partial class PlayerBar : UserControl
         SeekRow.ColumnSpacing = mini ? 0 : 10;
         SeekRow.MinWidth = mini ? 150 : 0;
         MuteButton.Visibility = shown;
-        VolumeBar.Visibility = full ? Visibility.Visible : Visibility.Collapsed;
+
+        // Narrower, the buttons go above the volume rather than the slider going away.
+        VolumeBar.Visibility = shown;
+        VolumeBar.Width = full ? 112 : 96;
 
         _artworkSize = mini ? 48 : 56;
         NowPlaying.ColumnSpacing = mini ? 10 : 14;

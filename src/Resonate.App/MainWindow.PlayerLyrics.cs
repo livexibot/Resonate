@@ -180,7 +180,8 @@ public sealed partial class MainWindow
             line = index >= 0 ? lyrics.Lines[index].Text : null;
             if (InPlayerLyricsOn)
             {
-                PlayerBar.ShowLyricLine(line, next);
+                // Before the first line, what comes; after it, the next one only if the user keeps it.
+                PlayerBar.ShowLyricLine(line, line is null || _services.Settings.PlayerLyricsNextLine ? next : null);
             }
         }
 

@@ -241,11 +241,16 @@ public sealed partial class MainWindow
 
     private async Task ShowSongNotificationAsync(Resonate.Spotify.Playback.PlayerState state)
     {
+        var settings = _services.Settings;
         var builder = new AppNotificationBuilder()
             .AddText(state.Title ?? string.Empty)
-            .AddText(state.Artists ?? string.Empty)
-            .MuteAudio();
-        if (await NotificationCoverAsync(state) is { } cover)
+            .AddText(settings.SongNotificationsAlbum && state.Album is { Length: > 0 } album ? $"{state.Artists} · {album}" : state.Artists ?? string.Empty);
+        if (!settings.SongNotificationsSound)
+        {
+            builder.MuteAudio();
+        }
+
+        if (settings.SongNotificationsCover && await NotificationCoverAsync(state) is { } cover)
         {
             builder.SetAppLogoOverride(cover, AppNotificationImageCrop.Default);
         }
@@ -372,7 +377,7 @@ public sealed partial class MainWindow
             _pausedForSounds = false;
         }
 
-        var watch = _services.BuiltIns.IsOn(BuiltInPlugins.PauseForSounds) && (state.IsPlaying || _pausedForSounds);
+        var watch = _services.BuiltIns.IsOn(BuiltInPlugins.PauseForSounds) && (state.IsPlaying || _pausedForSounds || _loweredFrom is not null);
         if (!watch)
         {
             _soundsTimer?.Change(Timeout.Infinite, Timeout.Infinite);
@@ -391,8 +396,9 @@ public sealed partial class MainWindow
     }
 
     /// <summary>
-    /// A thread-pool timer: another app heard for 2 seconds pauses the music;
-    /// 3 quiet seconds after that play it on, if this paused it.
+    /// A thread-pool timer: another app heard for the user's few seconds (2
+    /// at first) pauses the music, or lowers it; quiet seconds after that (3
+    /// at first) play it on or bring the volume back, if this did it.
     /// </summary>
     private void CheckOtherSounds()
     {
@@ -400,25 +406,43 @@ public sealed partial class MainWindow
         DispatcherQueue.TryEnqueue(() =>
         {
             var player = _services.Player;
+            var settings = _services.Settings;
             if (heard)
             {
                 _quietTicks = 0;
-                if (++_otherSoundTicks >= 2 && player.State.IsPlaying && !_pausedForSounds)
+                if (++_otherSoundTicks >= Math.Clamp(settings.PauseForSoundsWait, 1, 10) && player.State.IsPlaying && !_pausedForSounds && _loweredFrom is null)
                 {
-                    _pausedForSounds = true;
-                    _ = player.PauseAsync();
+                    if (settings.PauseForSoundsLower)
+                    {
+                        _loweredFrom = player.State.Volume;
+                        _ = player.SetVolumeAsync(player.State.Volume * Math.Clamp(settings.PauseForSoundsLowerTo, 5, 80) / 100.0);
+                    }
+                    else
+                    {
+                        _pausedForSounds = true;
+                        _ = player.PauseAsync();
+                    }
                 }
             }
             else
             {
                 _otherSoundTicks = 0;
-                if (_pausedForSounds && ++_quietTicks >= 3)
+                if ((_pausedForSounds || _loweredFrom is not null) && ++_quietTicks >= Math.Clamp(settings.PauseForSoundsResume, 1, 30))
                 {
-                    _pausedForSounds = false;
                     _quietTicks = 0;
-                    if (!player.State.IsPlaying)
+                    if (_loweredFrom is { } volume)
                     {
-                        _ = player.PlayAsync();
+                        _loweredFrom = null;
+                        _ = player.SetVolumeAsync(volume);
+                    }
+
+                    if (_pausedForSounds)
+                    {
+                        _pausedForSounds = false;
+                        if (!player.State.IsPlaying)
+                        {
+                            _ = player.PlayAsync();
+                        }
                     }
                 }
             }

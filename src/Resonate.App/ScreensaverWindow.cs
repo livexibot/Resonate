@@ -36,6 +36,8 @@ internal sealed partial class ScreensaverWindow : Window
         presenter.IsAlwaysOnTop = true;
         presenter.SetBorderAndTitleBar(false, false);
         AppWindow.SetPresenter(presenter);
+        // Its Brightness: the screen over black.
+        screen.Opacity = Math.Clamp(App.Services.Settings.ScreensaverBrightness, 20, 100) / 100.0;
         Content = new Grid
         {
             Background = new SolidColorBrush(Microsoft.UI.Colors.Black),

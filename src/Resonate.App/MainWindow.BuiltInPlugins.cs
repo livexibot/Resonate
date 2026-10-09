@@ -37,6 +37,10 @@ public sealed partial class MainWindow
         SetUpResumeOnStart();
         SetUpMediaShortcuts();
         SetUpStartWithWindows();
+        SetUpAlarm();
+        SetUpFocusTimer();
+        SetUpSkipIntros();
+        SetUpDeviceVolume();
     }
 
     /// <summary>
@@ -117,4 +121,12 @@ public sealed partial class MainWindow
     partial void SetUpMediaShortcuts();
 
     partial void SetUpStartWithWindows();
+
+    partial void SetUpAlarm();
+
+    partial void SetUpFocusTimer();
+
+    partial void SetUpSkipIntros();
+
+    partial void SetUpDeviceVolume();
 }

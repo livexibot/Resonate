@@ -153,7 +153,15 @@ public sealed partial class HomePage
     /// <summary>Shows the day's cards; the section stays hidden while there are none.</summary>
     private void ShowRediscover(RediscoverPicks? picks)
     {
-        if (picks is not { Cards.Count: > 0 })
+        // Only the kinds the user keeps (the plugin's settings).
+        var settings = _services.Settings;
+        var cards = picks?.Cards.Where(c => c.Kind switch
+        {
+            RediscoverKind.OnThisDay or RediscoverKind.AlbumBirthday => settings.RediscoverOnThisDay,
+            RediscoverKind.GatheringDust => settings.RediscoverDust,
+            _ => settings.RediscoverDeepCuts,
+        }).ToList() ?? [];
+        if (picks is null || cards.Count == 0)
         {
             RediscoverSection.Visibility = Visibility.Collapsed;
             return;
@@ -168,7 +176,7 @@ public sealed partial class HomePage
         BuildRediscoverSection();
         _allRediscover.Clear();
         _rediscover.Clear();
-        _allRediscover.AddRange(picks.Cards.Select(c => new RediscoverTile(c)));
+        _allRediscover.AddRange(cards.Select(c => new RediscoverTile(c)));
         RediscoverSection.Visibility = Visibility.Visible;
         FitRediscover();
     }

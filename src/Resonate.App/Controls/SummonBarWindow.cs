@@ -310,7 +310,7 @@ internal sealed partial class SummonBarWindow : Window
         _rows.RemoveRange(_spotifyStart, _rows.Count - _spotifyStart);
         _search?.Cancel();
         var key = string.Join(' ', QuickSearchIndex.Tokens(query));
-        if (key.Length < 2)
+        if (key.Length < 2 || !App.Services.Settings.QuickSearchSpotify)
         {
             return;
         }
