@@ -574,6 +574,9 @@ internal sealed class ScreenshotTour
     private async Task<int> MiniPlayerAsync(int number)
     {
         var skins = App.Services.Skins;
+
+        // Normal size first (it opens at double size by default), then double size below.
+        skins.MiniSize = 1;
         skins.MiniEqualizer = true;
         skins.MiniPlaylist = true;
         _window.ShowMiniPlayer();
