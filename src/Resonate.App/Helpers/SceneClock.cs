@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using Microsoft.UI.Composition;
-using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Dispatching;
 using Resonate.Themes;
 
 namespace Resonate.App.Helpers;
@@ -12,25 +12,30 @@ namespace Resonate.App.Helpers;
 /// since the scene appeared, which stops once its decorations have gathered
 /// (<see cref="SceneDecor.GatherSeconds"/>). Both sit in <see cref="Props"/>
 /// for the layers' expressions. It ticks only while some layer wants it
-/// (<see cref="Want"/>), and then at most every 15 ms, a steady rate below
-/// the display's (every third frame at 165 Hz), not at every frame; paused
-/// time is left out.
+/// (<see cref="Want"/>), on a timer every 15 ms (about 64 times a second),
+/// so the window redraws for it that often, not at the display's refresh
+/// rate, and the interface thread is not asked for a frame on every one;
+/// paused time is left out.
 /// </summary>
 internal sealed class SceneClock
 {
-    private static readonly TimeSpan MinFrameTime = TimeSpan.FromMilliseconds(15);
+    private static readonly TimeSpan TickEvery = TimeSpan.FromMilliseconds(15);
 
     // The gathering runs a little past its end, so every expression that waits for it has arrived.
     private const double GatherLimit = SceneDecor.GatherSeconds + 1;
 
     private readonly HashSet<object> _wanted = [];
-    private long _lastFrame;
+    private readonly DispatcherQueueTimer _timer;
+    private long _lastTick;
     private double _time;
     private double _gather;
     private bool _ticking;
 
     public SceneClock(Compositor compositor)
     {
+        _timer = DispatcherQueue.GetForCurrentThread().CreateTimer();
+        _timer.Interval = TickEvery;
+        _timer.IsRepeating = true;
         Props = compositor.CreatePropertySet();
         Props.InsertScalar("Time", 0);
         Props.InsertScalar("Gather", 0);
@@ -68,14 +73,18 @@ internal sealed class SceneClock
         }
 
         _ticking = tick;
-        _lastFrame = 0;
+
+        // The handler only while ticking, like SlowClock's.
+        _timer.Tick -= OnTick;
         if (tick)
         {
-            CompositionTarget.Rendering += OnRendering;
+            _lastTick = Stopwatch.GetTimestamp();
+            _timer.Tick += OnTick;
+            _timer.Start();
         }
         else
         {
-            CompositionTarget.Rendering -= OnRendering;
+            _timer.Stop();
         }
     }
 
@@ -86,17 +95,12 @@ internal sealed class SceneClock
         Props.InsertScalar("Gather", 0);
     }
 
-    private void OnRendering(object? sender, object e)
+    private void OnTick(DispatcherQueueTimer sender, object args)
     {
-        var now = Stopwatch.GetTimestamp();
-        if (_lastFrame != 0 && Stopwatch.GetElapsedTime(_lastFrame, now) < MinFrameTime)
-        {
-            return;
-        }
-
         // At most a tenth of a second at once, so a stall is not a leap.
-        var seconds = _lastFrame == 0 ? 0 : Math.Min(0.1, Stopwatch.GetElapsedTime(_lastFrame, now).TotalSeconds);
-        _lastFrame = now;
+        var now = Stopwatch.GetTimestamp();
+        var seconds = _lastTick == 0 ? 0 : Math.Min(0.1, Stopwatch.GetElapsedTime(_lastTick, now).TotalSeconds);
+        _lastTick = now;
         _time = (_time + seconds) % SceneWeather.LoopSeconds;
         Props.InsertScalar("Time", (float)_time);
         if (_gather < GatherLimit)

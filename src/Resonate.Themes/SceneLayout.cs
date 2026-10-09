@@ -16,7 +16,10 @@ public readonly record struct SceneBox(double X, double Y, double Width, double 
 /// decorations (<see cref="SceneLayout"/>): boxes in the window's units, the
 /// panels' and the player's corner radius and the gap between panels in the
 /// content's units, <see cref="Scale"/> from one to the other (App size),
-/// and where the title bar's buttons begin, in the window's units.
+/// and, in the window's units, the title bar's content: its buttons on the
+/// right from <see cref="ButtonsLeft"/>, the back button and the app's name
+/// on the left up to <see cref="TitleEnd"/>, all above <see cref="TitleBottom"/>
+/// (0 when not known).
 /// </summary>
 public sealed record SceneFrame(
     SceneBox Window,
@@ -28,7 +31,9 @@ public sealed record SceneFrame(
     double PlayerRadius,
     double Gap,
     double Scale,
-    double ButtonsLeft);
+    double ButtonsLeft,
+    double TitleEnd = 0,
+    double TitleBottom = 0);
 
 /// <summary>
 /// Where a special look's decorations go in the window (see
@@ -51,9 +56,11 @@ public static class SceneLayout
 
     /// <summary>
     /// A snowy edge's place: <see cref="Seed"/> and the snow's depth, its
-    /// icicles and their longest length, in the content's units.
+    /// icicles and their longest length, in the content's units, and where
+    /// it keeps low under the title bar's content (<see cref="Low"/>, empty
+    /// when nowhere).
     /// </summary>
-    public readonly record struct CapSpot(int Seed, Spot Spot, double Depth, int Icicles, double IcicleLength);
+    public readonly record struct CapSpot(int Seed, Spot Spot, double Depth, int Icicles, double IcicleLength, IReadOnlyList<SceneDecor.CapLow> Low);
 
     /// <summary>Frost in a corner at (<see cref="X"/>, <see cref="Y"/>), drawn as a top left corner flipped as asked.</summary>
     public readonly record struct FrostSpot(int Seed, double X, double Y, bool FlipX, bool FlipY, double Radius, double Scale);
@@ -96,6 +103,13 @@ public static class SceneLayout
     /// <summary>How far frost reaches from its corner, in the content's units.</summary>
     public const double FrostReach = 120;
 
+    /// <summary>How far a pile reaches above its edge, its top petals included, in the content's units.</summary>
+    private const double PileRise = 22;
+
+    // Kept between the title bar's content and what lies below it: above, in the content's units; beside, in the window's.
+    private const double TitleClearance = 2;
+    private const double TitleMargin = 8;
+
     /// <summary>The branch's place, or null when the page is too small to carry it.</summary>
     public static BoughSpot? Bough(SceneFrame frame)
     {
@@ -119,7 +133,14 @@ public static class SceneLayout
             scale = Math.Max(scale, buttons / SceneDecor.ButtonRoom);
         }
 
-        return scale * SceneDecor.BoughWidth > page.Width * 1.05 ? null : new BoughSpot(right, page.Y, scale);
+        if (scale * SceneDecor.BoughWidth > page.Width * 1.05)
+        {
+            return null;
+        }
+
+        // Never over the player (one above the page, or one low in a short window): rather none.
+        var art = new SceneBox(right - (SceneDecor.BoughWidth * scale), page.Y - (SceneDecor.BoughPanelTop * scale), SceneDecor.BoughWidth * scale, SceneDecor.BoughHeight * scale);
+        return Covered(frame, art) ? null : new BoughSpot(right, page.Y, scale);
     }
 
     /// <summary>Where Japan's piles show: on the player's shoulders when it is wide enough, and on the page under the branch.</summary>
@@ -129,15 +150,26 @@ public static class SceneLayout
         var spots = new List<PileSpot>(3);
         if (frame.Player is { } player && player.Width / s >= 140 && player.Height / s >= 24)
         {
+            // Each shoulder's pile, unless it would reach under the title bar's content (a player at the top).
             var width = player.Width / s;
-            spots.Add(new PileSpot(0, new Spot(player.X, player.Y, width, frame.PlayerRadius, s)));
-            spots.Add(new PileSpot(1, new Spot(player.Right, player.Y, width, frame.PlayerRadius, s, Mirrored: true)));
+            var reach = (frame.PlayerRadius + Piles[0].Length) * s;
+            var rise = PileRise * s;
+            if (!UnderTitle(frame, new SceneBox(player.X, player.Y - rise, reach, rise)))
+            {
+                spots.Add(new PileSpot(0, new Spot(player.X, player.Y, width, frame.PlayerRadius, s)));
+            }
+
+            if (!UnderTitle(frame, new SceneBox(player.Right - reach, player.Y - rise, reach, rise)))
+            {
+                spots.Add(new PileSpot(1, new Spot(player.Right, player.Y, width, frame.PlayerRadius, s, Mirrored: true)));
+            }
         }
 
         if (Bough(frame) is { } bough)
         {
             var x = bough.Right - (PagePileFromRight * bough.Scale);
-            if (x >= frame.Page.X + (24 * s) && !Covered(frame, new SceneBox(x, frame.Page.Y - (20 * s), PagePileWidth * s, 30 * s)))
+            var room = new SceneBox(x, frame.Page.Y - (PileRise * s), PagePileWidth * s, (PileRise + 10) * s);
+            if (x >= frame.Page.X + (24 * s) && !Covered(frame, room) && !UnderTitle(frame, room))
             {
                 spots.Add(new PileSpot(2, new Spot(x, frame.Page.Y, PagePileWidth, 0, s)));
             }
@@ -155,7 +187,7 @@ public static class SceneLayout
         {
             if (box is { } b && b.Width / s >= 60 && b.Height / s >= 24)
             {
-                caps.Add(new CapSpot(seed, new Spot(b.X, b.Y, b.Width / s, radius, s), depth, icicles, length));
+                caps.Add(new CapSpot(seed, new Spot(b.X, b.Y, b.Width / s, radius, s), depth, icicles, length, Low(frame, b, depth)));
             }
         }
 
@@ -196,6 +228,43 @@ public static class SceneLayout
 
         return frost;
     }
+
+    /// <summary>
+    /// Where snow on the top edge of <paramref name="box"/> must keep low, in
+    /// the edge's units: under the title bar's content on the left (the back
+    /// button and the app's name) and on the right (its buttons and Windows'
+    /// own), when it would otherwise reach up among them.
+    /// </summary>
+    private static List<SceneDecor.CapLow> Low(SceneFrame frame, SceneBox box, double depth)
+    {
+        var s = Math.Max(0.1, frame.Scale);
+
+        // A little room between the snow and what is above it.
+        var room = ((box.Y - frame.TitleBottom) / s) - TitleClearance;
+        if (frame.TitleBottom <= 0 || room >= depth)
+        {
+            return [];
+        }
+
+        var low = new List<SceneDecor.CapLow>(2);
+        var most = Math.Max(0, room);
+        if (frame.TitleEnd > 0 && frame.TitleEnd + TitleMargin > box.X)
+        {
+            low.Add(new SceneDecor.CapLow(-1000, (frame.TitleEnd + TitleMargin - box.X) / s, most));
+        }
+
+        if (frame.ButtonsLeft - TitleMargin < box.Right)
+        {
+            low.Add(new SceneDecor.CapLow((frame.ButtonsLeft - TitleMargin - box.X) / s, (box.Width / s) + 1000, most));
+        }
+
+        return low;
+    }
+
+    /// <summary>Whether <paramref name="box"/> reaches up among the title bar's content.</summary>
+    private static bool UnderTitle(SceneFrame frame, SceneBox box) =>
+        frame.TitleBottom > 0 && box.Y < frame.TitleBottom
+            && ((frame.TitleEnd > 0 && box.X < frame.TitleEnd + TitleMargin) || box.Right > frame.ButtonsLeft - TitleMargin);
 
     /// <summary>Whether the player lies over <paramref name="box"/>.</summary>
     private static bool Covered(SceneFrame frame, SceneBox box) => frame.Player is { } player && player.Overlaps(box);

@@ -64,7 +64,11 @@
 
         <!-- Title bar (the whole strip drags the window, except the back button) -->
         <Grid x:Name="AppTitleBar" Background="{StaticResource ResonateTransparentBrush}">
-            <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+            <StackPanel
+                x:Name="TitleBarStart"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Orientation="Horizontal">
                 <Button
                     x:Name="BackButton"
                     Width="40"

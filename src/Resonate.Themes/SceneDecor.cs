@@ -222,15 +222,33 @@ public static class SceneDecor
     /// (its lumpy top, then its underside drooping a little over the edge),
     /// <see cref="Shade"/> the blue shadow along its underside, <see cref="Crest"/>
     /// the bright line along its top, <see cref="Icicles"/> what hangs under it
-    /// and <see cref="Glints"/> where it catches the light. All in the edge's
-    /// frame: x from the left end, y down from the straight part.
+    /// and <see cref="Glints"/> where it catches the light; <see cref="Settling"/>
+    /// are thinner outlines of it, thinnest first, for it to settle through.
+    /// All in the edge's frame: x from the left end, y down from the straight
+    /// part.
     /// </summary>
     public sealed record SnowCap(
         IReadOnlyList<Vector2> Outline,
         IReadOnlyList<Vector2> Shade,
         IReadOnlyList<Vector2> Crest,
         IReadOnlyList<Icicle> Icicles,
-        IReadOnlyList<Vector2> Glints);
+        IReadOnlyList<Vector2> Glints,
+        IReadOnlyList<IReadOnlyList<Vector2>> Settling);
+
+    /// <summary>
+    /// How many thinner layers of snow settle before the whole of it
+    /// (<see cref="SnowCap.Settling"/>): each one follows the edge and its
+    /// rounded corners, as the snow does once it has settled.
+    /// </summary>
+    public const int SettlingLayers = 3;
+
+    /// <summary>
+    /// A stretch of an edge, <see cref="From"/> to <see cref="To"/> along it,
+    /// where snow may rise at most <see cref="Depth"/> above its straight
+    /// part (under the title bar's buttons, say). It eases back to its own
+    /// depth beside the stretch.
+    /// </summary>
+    public readonly record struct CapLow(double From, double To, double Depth);
 
     /// <summary>
     /// An icicle hanging from (<see cref="X"/>, <see cref="Y"/>):
@@ -246,14 +264,15 @@ public static class SceneDecor
     /// <paramref name="depth"/> deep along the straight part, thinning to
     /// nothing a little way down each corner, with up to
     /// <paramref name="icicles"/> icicles at most <paramref name="icicleLength"/>
-    /// long under it (none when 0), more of them towards the corners.
+    /// long under it (none when 0), more of them towards the corners. Along
+    /// each stretch of <paramref name="low"/> it keeps lower.
     /// </summary>
-    public static SnowCap Cap(int seed, double width, double radius, double depth, int icicles, double icicleLength)
+    public static SnowCap Cap(int seed, double width, double radius, double depth, int icicles, double icicleLength, IReadOnlyList<CapLow>? low = null)
     {
         radius = Math.Clamp(radius, 0, Math.Max(0, width / 2));
         if (width < 24 || depth <= 0)
         {
-            return new SnowCap([], [], [], [], []);
+            return new SnowCap([], [], [], [], [], []);
         }
 
         // From partway down one corner to partway down the other.
@@ -266,8 +285,22 @@ public static class SceneDecor
 
         var shape = new Seeded(seed);
         var phases = (shape.Next() * Math.Tau, shape.Next() * Math.Tau);
-        double Thickness(double x) =>
+        double Lumpy(double x) =>
             depth * Envelope(x) * (0.8 + (0.13 * Math.Sin((x / 41) + phases.Item1)) + (0.07 * Math.Sin((x / 15) + phases.Item2)));
+
+        // Where the edge must stay low, the snow keeps below that, easing back beside it.
+        double Thickness(double x)
+        {
+            var thickness = Lumpy(x);
+            foreach (var stretch in low ?? [])
+            {
+                var inside = Smooth(stretch.From - 30, stretch.From, x) * Smooth(stretch.To + 30, stretch.To, x);
+                var most = Math.Max(0, stretch.Depth + EdgeDrop(x, width, radius));
+                thickness -= Math.Max(0, thickness - most) * inside;
+            }
+
+            return thickness;
+        }
 
         // Lobes, icicles and glints are laid out from each corner towards the
         // middle, each side with numbers of its own, so an edge that grows or
@@ -330,6 +363,28 @@ public static class SceneDecor
         var band = new List<Vector2>(under);
         band.AddRange(Enumerable.Reverse(shade));
 
+        // Thinner layers for the snow to settle through, each following the edge and its corners.
+        var settling = new List<IReadOnlyList<Vector2>>(SettlingLayers);
+        for (var layer = 1; layer <= SettlingLayers; layer++)
+        {
+            var part = (double)layer / (SettlingLayers + 1);
+            var hangs = 0.35 + (0.65 * part);
+            var thin = new List<Vector2>((steps + 1) * 2);
+            for (var i = 0; i <= steps; i++)
+            {
+                var x = from + ((to - from) * i / steps);
+                thin.Add(new Vector2((float)x, (float)(EdgeDrop(x, width, radius) - (Thickness(x) * part))));
+            }
+
+            for (var i = steps; i >= 0; i--)
+            {
+                var x = from + ((to - from) * i / steps);
+                thin.Add(new Vector2((float)x, (float)(EdgeDrop(x, width, radius) + (Droop(x) * hangs))));
+            }
+
+            settling.Add(thin);
+        }
+
         // Icicles hang more often near the corners, from the lowest point of a lobe when one is close.
         var hanging = new List<Icicle>();
         if (icicles > 0 && icicleLength > 0)
@@ -384,7 +439,7 @@ public static class SceneDecor
             }
         }
 
-        return new SnowCap(outline, band, top, hanging, glints);
+        return new SnowCap(outline, band, top, hanging, glints, settling);
     }
 
     /// <summary>
@@ -583,8 +638,10 @@ public static class SceneDecor
         _ => null,
     };
 
-    private const double BoughHeight = 260;
-    private const double BoughPanelTop = 70;
+    /// <summary>How tall the branch's art is, and how far down it the page's top edge lies, in its own units.</summary>
+    public const double BoughHeight = 260;
+
+    public const double BoughPanelTop = 70;
 
     private static readonly Lazy<BoughArt> CherryBranchArt = new(MakeCherryBranch);
     private static readonly Lazy<BoughArt> SpruceBoughArt = new(MakeSpruceBough);

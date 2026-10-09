@@ -44,7 +44,6 @@ internal sealed partial class SceneDecorLayer : Canvas
     private readonly ThemeService _theme;
     private readonly SceneClock _clock;
     private readonly Compositor _compositor;
-    private readonly ContainerVisual _sprites;
     private readonly Dictionary<string, Piece> _pieces = [];
     private readonly DispatcherQueueTimer _later;
     private MainWindow? _window;
@@ -56,6 +55,8 @@ internal sealed partial class SceneDecorLayer : Canvas
     private long _lastRebuild;
     private bool _mayRebuild;
     private bool _rebuilt;
+    private XamlRoot? _root;
+    private double _rasterization;
 
     public SceneDecorLayer(ThemeService theme, SceneClock clock)
     {
@@ -63,8 +64,6 @@ internal sealed partial class SceneDecorLayer : Canvas
         _clock = clock;
         IsHitTestVisible = false;
         _compositor = ElementCompositionPreview.GetElementVisual(this).Compositor;
-        _sprites = _compositor.CreateContainerVisual();
-        ElementCompositionPreview.SetElementChildVisual(this, _sprites);
         _later = DispatcherQueue.GetForCurrentThread().CreateTimer();
         _later.Interval = RebuildEvery;
         _later.IsRepeating = false;
@@ -92,7 +91,7 @@ internal sealed partial class SceneDecorLayer : Canvas
             motions.AddRange(PetalMotion(pile[0], SceneDecor.Landed, 1, gathered: false));
             motions.Add(SwayMotion());
             motions.Add(GrowMotion(60, 30));
-            motions.Add(SnowMotion());
+            motions.Add(SnowMotion(1, SceneDecor.SettlingLayers + 1));
             motions.AddRange(GlintMotion(3, gathered: false));
             motions.AddRange(GlintMotion(3, gathered: true));
             motions.AddRange(FrostMotion());
@@ -134,6 +133,20 @@ internal sealed partial class SceneDecorLayer : Canvas
         _clock.GatheredNow += OnGathered;
         _later.Tick -= OnLater;
         _later.Tick += OnLater;
+        _theme.AnimationsChanged -= OnAnimationsChanged;
+        _theme.AnimationsChanged += OnAnimationsChanged;
+        if (_root is not null)
+        {
+            _root.Changed -= OnRootChanged;
+        }
+
+        _root = XamlRoot;
+        if (_root is not null)
+        {
+            _root.Changed += OnRootChanged;
+            _rasterization = _root.RasterizationScale;
+        }
+
         _window = App.MainWindow;
         if (_window is not null)
         {
@@ -150,6 +163,13 @@ internal sealed partial class SceneDecorLayer : Canvas
         _clock.GatheredNow -= OnGathered;
         _later.Stop();
         _later.Tick -= OnLater;
+        _theme.AnimationsChanged -= OnAnimationsChanged;
+        if (_root is not null)
+        {
+            _root.Changed -= OnRootChanged;
+            _root = null;
+        }
+
         if (_window is not null)
         {
             _window.ShownChanged -= OnShownChanged;
@@ -163,6 +183,21 @@ internal sealed partial class SceneDecorLayer : Canvas
     private void OnThemeChanged(object? sender, EventArgs e) => Show();
 
     private void OnShownChanged(object? sender, EventArgs e) => Guard(Refresh);
+
+    private void OnAnimationsChanged(object? sender, EventArgs e) => Guard(Refresh);
+
+    /// <summary>On a display with another scale, the pictures are drawn again at its sharpness.</summary>
+    private void OnRootChanged(XamlRoot sender, XamlRootChangedEventArgs args)
+    {
+        if (sender.RasterizationScale == _rasterization)
+        {
+            return;
+        }
+
+        _rasterization = sender.RasterizationScale;
+        _frame = null;
+        Guard(Relayout);
+    }
 
     private void OnLayoutUpdated(object? sender, object e) => Guard(Relayout);
 
@@ -328,7 +363,7 @@ internal sealed partial class SceneDecorLayer : Canvas
         {
             if (SceneDecor.Bough(_scene) is { } art && SceneLayout.Bough(frame) is { } bough)
             {
-                var piece = Ensure("bough", _scene, 1, () => BuildBough(art));
+                var piece = Ensure("bough", (_scene, Sharpness), 2, () => BuildBough(art));
                 Place(piece, bough.Right - (art.Width * bough.Scale), bough.Top - (art.PanelTop * bough.Scale), bough.Scale, bough.Scale);
                 wanted.Add("bough");
             }
@@ -365,7 +400,7 @@ internal sealed partial class SceneDecorLayer : Canvas
             // A pile only changes shape when its edge is short; beyond that its petals stay put.
             var room = (2 * (spot.Radius + kind.Length)) + 12;
             var key = $"pile{index}";
-            var piece = Ensure(key, (Math.Round(Math.Min(spot.Width, room)), spot.Radius), 0, () => BuildPile(index, spot));
+            var piece = Ensure(key, (Math.Round(Math.Min(spot.Width, room)), spot.Radius, Sharpness), 1, () => BuildPile(index, spot));
             Place(piece, spot.X, spot.Y, spot.Mirrored ? -spot.Scale : spot.Scale, spot.Scale);
             wanted.Add(key);
         }
@@ -376,15 +411,16 @@ internal sealed partial class SceneDecorLayer : Canvas
         foreach (var cap in SceneLayout.Caps(frame))
         {
             var key = $"cap{cap.Seed}";
-            var piece = Ensure(key, (Math.Round(cap.Spot.Width), cap.Spot.Radius, cap.Depth), 2, () => BuildCap(cap));
+            var low = string.Join(';', cap.Low.Select(l => $"{Math.Round(l.From)},{Math.Round(l.To)},{Math.Round(l.Depth, 1)}"));
+            var piece = Ensure(key, (Math.Round(cap.Spot.Width), cap.Spot.Radius, cap.Depth, low, Sharpness), 1, () => BuildCap(cap));
             Place(piece, cap.Spot.X, cap.Spot.Y, cap.Spot.Scale, cap.Spot.Scale);
             wanted.Add(key);
         }
 
         if (SceneLayout.Fringe(frame) is { } fringe)
         {
-            var room = (2 * ((fringe.Radius * 0.7) + 160)) + 20;
-            var piece = Ensure("fringe", (Math.Round(Math.Min(fringe.Width, room)), fringe.Radius), 3, () => BuildFringe(fringe));
+            // Its right-hand icicles lie from the right end, so any change of width draws it again.
+            var piece = Ensure("fringe", (Math.Round(fringe.Width), fringe.Radius), 3, () => BuildFringe(fringe));
             Place(piece, fringe.X, fringe.Y, fringe.Scale, fringe.Scale);
             wanted.Add("fringe");
         }
@@ -429,14 +465,9 @@ internal sealed partial class SceneDecorLayer : Canvas
         piece.Depth = depth;
         if (piece.Element is not null)
         {
-            // Lower pieces first (frost, then the bough, then snow on the edges, then what hangs under the player); the children are the pieces' shapes, in that order.
+            // Lower pieces first (frost, then petals and snow on the edges, then the bough in front of them, then what hangs under the player); the children are the pieces, in that order.
             var at = _pieces.Values.Count(p => p.Element is not null && p.Depth <= depth);
             Children.Insert(Math.Min(at, Children.Count), piece.Element);
-        }
-
-        if (piece.Holder is not null)
-        {
-            _sprites.Children.InsertAtTop(piece.Holder);
         }
 
         _pieces[name] = piece;
@@ -459,11 +490,6 @@ internal sealed partial class SceneDecorLayer : Canvas
             placement.ScaleY = scaleY;
         }
 
-        if (piece.Holder is { } holder)
-        {
-            holder.Offset = new Vector3((float)x, (float)y, 0);
-            holder.Scale = new Vector3((float)scaleX, (float)scaleY, 1);
-        }
     }
 
     private void Remove(string name)
@@ -484,9 +510,10 @@ internal sealed partial class SceneDecorLayer : Canvas
             Children.Remove(piece.Element);
         }
 
-        if (piece.Holder is not null)
+        // Pictures let go of by the shape they rode on before they are closed.
+        if (piece.Sprites is not null)
         {
-            _sprites.Children.Remove(piece.Holder);
+            ElementCompositionPreview.SetElementChildVisual(piece.Sprites, null);
         }
 
         foreach (var owned in piece.Owned)
@@ -503,11 +530,13 @@ internal sealed partial class SceneDecorLayer : Canvas
         }
 
         Children.Clear();
-        _sprites.Children.RemoveAll();
     }
 
     /// <summary>How many screen pixels one of the content's units is (for pictures that stay sharp).</summary>
     private double Pixels => (XamlRoot?.RasterizationScale ?? 1) * _theme.Scale;
+
+    /// <summary><see cref="Pixels"/> in quarters, in the keys of pieces with pictures, so they are drawn again when it changes.</summary>
+    private double Sharpness => Math.Round(Pixels * 4) / 4;
 
     // ------------------------------------------------------------ the bough
 
@@ -543,6 +572,7 @@ internal sealed partial class SceneDecorLayer : Canvas
         var holder = _compositor.CreateContainerVisual();
         piece.Owned.Add(holder);
         ElementCompositionPreview.SetElementChildVisual(inner, holder);
+        piece.Sprites = inner;
         var pixels = Pixels;
         var glints = new List<(SpriteVisual Sprite, int Index)>();
         foreach (var spot in art.Sprites)
@@ -622,9 +652,16 @@ internal sealed partial class SceneDecorLayer : Canvas
         var petals = SceneDecor.Pile(kind.Seed, spot.Width, spot.Radius, kind.Length, kind.Height, kind.Count, kind.Blossoms, spot.Mirrored);
         var landings = SceneLayout.PileLandings[index];
         var piece = new Piece();
+
+        // The petals ride on a shape of their own, placed like the others, so the bough can lie in front of them.
+        var placement = new CompositeTransform();
+        var outer = new Canvas { IsHitTestVisible = false, RenderTransform = placement };
         var holder = _compositor.CreateContainerVisual();
         piece.Owned.Add(holder);
-        piece.Holder = holder;
+        ElementCompositionPreview.SetElementChildVisual(outer, holder);
+        piece.Element = outer;
+        piece.Placement = placement;
+        piece.Sprites = outer;
         if (petals.Count == 0)
         {
             return piece;
@@ -693,18 +730,27 @@ internal sealed partial class SceneDecorLayer : Canvas
 
     private Piece BuildCap(SceneLayout.CapSpot spot)
     {
-        var cap = SceneDecor.Cap(spot.Seed, spot.Spot.Width, spot.Spot.Radius, spot.Depth, spot.Icicles, spot.IcicleLength);
+        var cap = SceneDecor.Cap(spot.Seed, spot.Spot.Width, spot.Spot.Radius, spot.Depth, spot.Icicles, spot.IcicleLength, spot.Low);
         var piece = new Piece();
         var placement = new CompositeTransform();
         var outer = new Canvas { IsHitTestVisible = false, RenderTransform = placement };
 
-        // The snow settles from a thin layer, growing up from the edge.
+        // The snow settles through thinner layers, each lying on the edge and round its corners, then the whole of it.
+        var fill = Gradient(ThemeColor.FromRgb(0xFFFFFF), ThemeColor.FromRgb(0xDCEAF8));
+        var layers = new List<Visual>(cap.Settling.Count + 1);
+        foreach (var thin in cap.Settling)
+        {
+            var path = new Path { Data = Figures([thin], closed: true), Fill = fill };
+            outer.Children.Add(path);
+            layers.Add(ElementCompositionPreview.GetElementVisual(path));
+        }
+
         var snow = new Canvas();
         snow.Children.Add(new Path { Data = Figures([cap.Shade], closed: true), Fill = new SolidColorBrush(ThemeColor.FromRgb(0x9DB9D8).ToColor()), Opacity = 0.9 });
-        snow.Children.Add(new Path { Data = Figures([cap.Outline], closed: true), Fill = Gradient(ThemeColor.FromRgb(0xFFFFFF), ThemeColor.FromRgb(0xDCEAF8)) });
+        snow.Children.Add(new Path { Data = Figures([cap.Outline], closed: true), Fill = fill });
         snow.Children.Add(new Path { Data = Figures([cap.Crest], closed: false), Stroke = new SolidColorBrush(Colors.White), StrokeThickness = 1, Opacity = 0.9 });
         outer.Children.Add(snow);
-        var settle = ElementCompositionPreview.GetElementVisual(snow);
+        layers.Add(ElementCompositionPreview.GetElementVisual(snow));
 
         var growing = new List<(Visual Visual, SceneDecor.Icicle Icicle)>();
         var ice = IceBrush();
@@ -715,9 +761,11 @@ internal sealed partial class SceneDecorLayer : Canvas
             growing.Add((ElementCompositionPreview.GetElementVisual(path), icicle));
         }
 
-        // Where the snow catches the light.
+        // Where the snow catches the light, riding on the snow's own shape.
         var holder = _compositor.CreateContainerVisual();
         piece.Owned.Add(holder);
+        ElementCompositionPreview.SetElementChildVisual(outer, holder);
+        piece.Sprites = outer;
         var pixels = Pixels;
         var glints = new List<(SpriteVisual Sprite, int Index)>();
         foreach (var at in cap.Glints)
@@ -730,13 +778,12 @@ internal sealed partial class SceneDecorLayer : Canvas
 
         piece.Element = outer;
         piece.Placement = placement;
-        piece.Holder = holder;
         piece.Motions = gathered =>
         {
             var motions = new List<Motion>();
             if (!gathered)
             {
-                motions.Add(new Motion(settle, SnowMotion()));
+                motions.AddRange(layers.Select((layer, index) => new Motion(layer, SnowMotion(index, layers.Count))));
                 motions.AddRange(growing.Select(g => new Motion(g.Visual, GrowMotion(g.Icicle.GrowAt, g.Icicle.GrowFor))));
             }
 
@@ -749,7 +796,12 @@ internal sealed partial class SceneDecorLayer : Canvas
         };
         piece.Rest = () =>
         {
-            settle.Scale = Vector3.One;
+            // Settled: only the whole of it shows (the thinner layers lie under it).
+            for (var i = 0; i < layers.Count; i++)
+            {
+                layers[i].Opacity = i == layers.Count - 1 ? 1 : 0;
+            }
+
             foreach (var (visual, _) in growing)
             {
                 visual.Scale = Vector3.One;
@@ -976,10 +1028,15 @@ internal sealed partial class SceneDecorLayer : Canvas
         ("Scale", $"Vector3(1, Clamp(({Clock}.Gather - {N(at)}) / {N(Math.Max(1, over))}, 0, 1), 1)");
 
     /// <summary>Snow on an edge settling from a thin layer to its full depth.</summary>
-    private static (string Property, string Expression) SnowMotion()
+    /// <summary>
+    /// Layer <paramref name="index"/> of <paramref name="count"/> of an edge's
+    /// snow fading in its turn, thinnest first, so the snow thickens while
+    /// every layer keeps to the edge and its corners.
+    /// </summary>
+    private static (string Property, string Expression) SnowMotion(int index, int count)
     {
         var t = $"Clamp({Clock}.Gather / {N(SceneDecor.GatherSeconds * SceneDecor.SnowSettles)}, 0, 1)";
-        return ("Scale", $"Vector3(1, 0.15 + 0.85 * {t} * {t} * (3 - 2 * {t}), 1)");
+        return ("Opacity", $"Clamp({t} * {count} - {index}, 0, 1)");
     }
 
     /// <summary>A glint twinkling now and then; on an edge's snow, only once the snow has settled.</summary>
@@ -1030,8 +1087,8 @@ internal sealed partial class SceneDecorLayer : Canvas
 
     /// <summary>
     /// One decoration (the bough, a pile, the snow on an edge...): its XAML
-    /// shapes, placed by <see cref="Placement"/>, and its sprites in
-    /// <see cref="Holder"/>, placed alike; what moves and how it rests.
+    /// shapes, placed by <see cref="Placement"/>, with its pictures riding on
+    /// <see cref="Sprites"/> among them; what moves and how it rests.
     /// </summary>
     private sealed class Piece
     {
@@ -1044,7 +1101,8 @@ internal sealed partial class SceneDecorLayer : Canvas
 
         public CompositeTransform? Placement { get; set; }
 
-        public ContainerVisual? Holder { get; set; }
+        /// <summary>The shape its pictures ride on, as its child visual.</summary>
+        public UIElement? Sprites { get; set; }
 
         /// <summary>What moves, before or after everything has gathered.</summary>
         public Func<bool, IEnumerable<Motion>> Motions { get; set; } = _ => [];
