@@ -966,10 +966,12 @@ Ripple, and a more interesting Home):
   hangs under the player in `MainWindow.WeatherHost` (a Canvas in
   `ShellGrid` just before `PlayerSlot`, so over the panels; Window
   shapes' column goes before it), counter-scaled by App size and falling
-  from the panels' top. Being in the live scene, it is revealed with a
-  new look; a switch that keeps the scene (quick edits too) lays a
-  picture without it over the window, so for the switch's length it falls
-  over everything from where it was (`ThemeHost.KeepWeatherInFront`,
+  from the top of `ShellGrid` (behind a player on top). Being in the live
+  scene, it is revealed with a new look; during a switch that keeps the
+  scene (quick edits too), the old look's picture, which leaves it out,
+  stands wherever the new look has not reached (under the clipped window
+  for Ripple, over it for a cross-fade), so for the switch's length it
+  falls over everything from where it was (`ThemeHost.KeepWeatherInFront`,
   from `ThemeTransitions`). While the panels are hidden (signing in) it
   falls over the whole window. Both layers move by
   compositor expressions on one clock (`Helpers/SceneClock.cs`: `Time`

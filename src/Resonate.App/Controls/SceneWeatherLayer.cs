@@ -14,10 +14,10 @@ namespace Resonate.App.Controls;
 /// petals for Japan, snow and a few crystals for Snow (<see cref="SceneWeather"/>).
 /// The farther, smaller part hangs under the player instead
 /// (<see cref="MainWindow.WeatherHost"/>), over the panels, so it passes behind
-/// the player; it falls from the top of the panels, drawn at the window's
-/// scale whatever the App size. While the panels are hidden (signing in),
-/// or that place is not to be had, it falls over the whole window; while a
-/// switch that keeps the scene lays a picture of the window over it, it
+/// the player; it falls from the top of the panels' area (under a player on
+/// top), drawn at the window's scale whatever the App size. While the panels
+/// are hidden (signing in), or that place is not to be had, it falls over
+/// the whole window; for the length of a switch that keeps the scene, it
 /// falls over everything from where it was (<see cref="KeepInFront"/>).
 /// Sprites the compositor moves with expressions from the scene's clock
 /// (<see cref="SceneClock"/>, which ticks at a capped rate), so nothing else
@@ -191,10 +191,12 @@ internal sealed partial class SceneWeatherLayer : Grid
     private void OnShellVisibilityChanged(DependencyObject sender, DependencyProperty property) => Place();
 
     /// <summary>
-    /// For a switch that keeps the scene: the picture of the window laid over
-    /// it would hide the farther weather (pictures do not show it), so for the
-    /// switch's length it falls over everything, from where it was, and then
-    /// goes back under the player. A new scene is revealed with the weather in it.
+    /// For a switch that keeps the scene: the old look's picture, which does
+    /// not show the farther weather, stands wherever the new look has not
+    /// reached yet (under the clipped window for Ripple, over it for a
+    /// cross-fade), so for the switch's length the weather falls over
+    /// everything, from where it was, and then goes back under the player. A
+    /// new scene is revealed with the weather in it.
     /// </summary>
     public void KeepInFront(bool inFront)
     {

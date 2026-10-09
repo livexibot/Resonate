@@ -78,9 +78,10 @@ internal sealed partial class ThemeHost : Grid
     public Grid Overlay { get; }
 
     /// <summary>
-    /// While a switch that keeps the scene lays a picture over the window, the
-    /// weather that passes behind the player falls over everything instead,
-    /// since the picture would hide it (see SceneWeatherLayer.KeepInFront).
+    /// While a switch that keeps the scene plays, the weather that passes
+    /// behind the player falls over everything instead, since the old look's
+    /// picture, which leaves it out, stands wherever the new look has not
+    /// reached yet (see SceneWeatherLayer.KeepInFront).
     /// </summary>
     public void KeepWeatherInFront(bool inFront) => _weather.KeepInFront(inFront);
 
