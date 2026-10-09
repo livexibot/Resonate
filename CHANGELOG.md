@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.16.0](https://github.com/livexibot/Resonate/compare/v0.15.0...v0.16.0) (2026-10-09)
+
+
+### New features
+
+* a Screensaver above every app that hides the mouse, with its own visualizer, background, OLED mode and brightness ([dd20ec6](https://github.com/livexibot/Resonate/commit/dd20ec67effe9abbcb19a6b420f5be48215bfeb0))
+* change every keyboard shortcut in Settings, About, Help, with Space to play and pause ([dd20ec6](https://github.com/livexibot/Resonate/commit/dd20ec67effe9abbcb19a6b420f5be48215bfeb0))
+* hide any song list column, the column names included ([dd20ec6](https://github.com/livexibot/Resonate/commit/dd20ec67effe9abbcb19a6b420f5be48215bfeb0))
+* more App size and Text size steps, and a Cover size ([dd20ec6](https://github.com/livexibot/Resonate/commit/dd20ec67effe9abbcb19a6b420f5be48215bfeb0))
+* new plugins: Alarm, Focus timer, Skip intros and outros, Volume per device, Song notifications, Keep PC awake, Now playing file, Quiet hours, Pause for other sounds, Desktop lyrics, Beat glow, Resume on start, Media shortcuts and Export history ([dd20ec6](https://github.com/livexibot/Resonate/commit/dd20ec67effe9abbcb19a6b420f5be48215bfeb0))
+* new progress bars (Shimmer, Comet, Heartbeat, Dots, Ripple) and a progress glow ([dd20ec6](https://github.com/livexibot/Resonate/commit/dd20ec67effe9abbcb19a6b420f5be48215bfeb0))
+* plugin settings in a popup, clearer plugin names and settings for every plugin ([dd20ec6](https://github.com/livexibot/Resonate/commit/dd20ec67effe9abbcb19a6b420f5be48215bfeb0))
+* the player's buttons above the volume, also on a narrower bar instead of dropping the slider ([dd20ec6](https://github.com/livexibot/Resonate/commit/dd20ec67effe9abbcb19a6b420f5be48215bfeb0))
+* the tray icon, editing the queue and the taskbar buttons are part of the app, and Start with Windows is a switch in About ([dd20ec6](https://github.com/livexibot/Resonate/commit/dd20ec67effe9abbcb19a6b420f5be48215bfeb0))
+
+
+### Fixes
+
+* no song cover in Winamp ([dd20ec6](https://github.com/livexibot/Resonate/commit/dd20ec67effe9abbcb19a6b420f5be48215bfeb0))
+* sharp sidebar covers and cover background, no shortcut hints on hover, and lyrics that start right under the song ([dd20ec6](https://github.com/livexibot/Resonate/commit/dd20ec67effe9abbcb19a6b420f5be48215bfeb0))
+* the moving progress bars stop where they are when paused ([dd20ec6](https://github.com/livexibot/Resonate/commit/dd20ec67effe9abbcb19a6b420f5be48215bfeb0))
+* the tray icon and Pause on lock hear from Windows again ([dd20ec6](https://github.com/livexibot/Resonate/commit/dd20ec67effe9abbcb19a6b420f5be48215bfeb0))
+
 ## [0.15.0](https://github.com/livexibot/Resonate/compare/v0.14.0...v0.15.0) (2026-10-09)
 
 
