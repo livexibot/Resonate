@@ -24,6 +24,8 @@ public partial class App : Application
             Demo.DemoWebApi.LikedCount = PerformanceTour.LikedSongs;
         }
 
+        // Before anything else, so no mistake from here on can close the window.
+        CrashGuard.Start(this, AppPaths.CacheFolder);
         Services = StartupOptions.Current.Demo ? AppServices.CreateDemo() : AppServices.Create();
         Services.Theme.Initialize(this);
 

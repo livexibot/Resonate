@@ -86,6 +86,7 @@ internal sealed partial class NowPlayingStage : Grid
     private readonly TextBlock? _upNextLine;
     private readonly DispatcherQueueTimer _screenTimer;
     private readonly ScalarTransition _fade = new() { Duration = CoverFade };
+    private int _frontVersion;
 
     private bool _attached;
     private bool _onScreen = true;
@@ -600,13 +601,41 @@ internal sealed partial class NowPlayingStage : Grid
     {
         _coverFront.OpacityTransition = _services.Theme.AnimationsEnabled ? _fade : null;
         _coverFront.Opacity = 1;
+        _ = SettleFrontAsync(++_frontVersion);
     }
 
     /// <summary>Hides the front picture at once (the old cover stays behind it until the new one fades in).</summary>
     private void HideFront()
     {
+        _frontVersion++;
         _coverFront.OpacityTransition = null;
         _coverFront.Opacity = 0;
+    }
+
+    /// <summary>
+    /// Once the new cover has faded in, it becomes the one behind and the
+    /// front empties, so a single picture is left. The old cover showed
+    /// through the new one while Home's stage faded on scrolling (the
+    /// owner's picture, 9 October 2026): a fading panel fades each of its
+    /// pictures, not the two together.
+    /// </summary>
+    private async Task SettleFrontAsync(int version)
+    {
+        await Task.Delay(CoverFade + TimeSpan.FromMilliseconds(50));
+        if (version != _frontVersion || _coverFront.Source is not { } shown)
+        {
+            return;
+        }
+
+        _coverBack.Source = shown;
+
+        // The picture behind draws it first, so nothing blinks.
+        await Task.Delay(TimeSpan.FromMilliseconds(100));
+        if (version == _frontVersion)
+        {
+            HideFront();
+            _coverFront.Source = null;
+        }
     }
 
     /// <summary>Reads the cover's colours (off this thread) for the clouds and the blurred cover; the look's accents with no song.</summary>

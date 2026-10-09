@@ -196,11 +196,15 @@ internal sealed partial class StageVisualizer : Grid
         }
     }
 
-    /// <summary>Level <paramref name="index"/> of <paramref name="count"/> as an expression: its own sway, or its band of the sound, times the energy.</summary>
+    /// <summary>
+    /// Level <paramref name="index"/> of <paramref name="count"/> as an
+    /// expression: its own sway (made taller by Sensitivity, its Gain), or its
+    /// band of the sound, times the energy.
+    /// </summary>
     internal static string LevelExpression(int index, int count)
     {
         var synthetic = StageBars.SyntheticExpression(index, count, Props + ".Time");
-        return $"({Props}.Energy * Lerp({synthetic}, {Props}.{LevelNames[index]}, {Props}.Live))";
+        return $"({Props}.Energy * Lerp(Min(1, ({synthetic}) * {Props}.Gain), {Props}.{LevelNames[index]}, {Props}.Live))";
     }
 
     internal static string LevelName(int index) => LevelNames[index];
@@ -298,6 +302,24 @@ internal sealed partial class StageVisualizer : Grid
     {
         Build();
         Place();
+        ApplyFeel();
+    }
+
+    /// <summary>
+    /// Sensitivity and Smoothing for the sway too (the owner found them doing
+    /// nothing while no sound was heard, 9 October 2026): Sensitivity makes
+    /// the swaying levels taller, Smoothing slows their clock.
+    /// </summary>
+    private void ApplyFeel()
+    {
+        var settings = App.Services.Settings;
+        var gain = Math.Clamp(InBar ? settings.PlayerVisualizerSensitivity : settings.HomeStageSensitivity, 50, 200) / 100f;
+        var smoothing = Math.Clamp(InBar ? settings.PlayerVisualizerSmoothing : settings.HomeStageSmoothing, 0, 100) / 100f;
+        _props.InsertScalar("Gain", gain);
+        if (_clock is not null)
+        {
+            _clock.PlaybackRate = StageBars.SwayPace(smoothing);
+        }
     }
 
     private static CompositionPropertySet NewProps(Compositor compositor)
@@ -306,6 +328,7 @@ internal sealed partial class StageVisualizer : Grid
         props.InsertScalar("Time", 0);
         props.InsertScalar("Energy", 0);
         props.InsertScalar("Live", 0);
+        props.InsertScalar("Gain", 1);
         foreach (var name in LevelNames)
         {
             props.InsertScalar(name, 0);
@@ -551,6 +574,7 @@ internal sealed partial class StageVisualizer : Grid
             _clock.Resume();
         }
 
+        ApplyFeel();
         try
         {
             _drawing.Start();

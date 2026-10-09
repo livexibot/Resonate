@@ -320,9 +320,9 @@ public sealed partial class SettingsPage : Page
     /// <summary>How Resonate's own player is doing, under "Play on this PC".</summary>
     private void ShowOwnPlayerStatus()
     {
-        var text = _services.OwnPlayer is { } own
-            ? AppServices.DescribeOwnPlayer(own.Status)
-            : "Demo mode: nothing plays here.";
+        var text = _services.OwnPlayer is not { } own ? "Demo mode: nothing plays here."
+            : _services.OwnPlayerHeld && PlayHereSwitch.IsOn ? "Paused after Resonate closed unexpectedly. Switch it off and on to try again."
+            : AppServices.DescribeOwnPlayer(own.Status);
         PlayHereStatus.Text = text ?? string.Empty;
         PlayHereStatus.Visibility = text is null ? Visibility.Collapsed : Visibility.Visible;
     }

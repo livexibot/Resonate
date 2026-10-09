@@ -82,7 +82,10 @@ visitors; keep it short and in step with this file.
   fit it, and Settings, Player can change them; the player bar's is a faint
   `StageVisualizer` along its bottom in the look's accents, running only
   while music plays and the window shows. Visualizers take a new height at
-  most every 15 ms. Spotify's saving renderer and GPU processes are trimmed
+  most every 15 ms. With no sound heard, Sensitivity makes the swaying
+  levels taller (a `Gain` in the level expression) and Smoothing slows
+  their clock (`StageBars.SwayPace`; the default 60 % keeps the old pace).
+  Spotify's saving renderer and GPU processes are trimmed
   again every 2 minutes, and Resonate hands back its own memory 4 s after
   its window is hidden or minimised (`MainWindow.MemoryTrim.cs`). Song
   cover backdrops are darkened just enough for white text on their panels
@@ -128,6 +131,25 @@ visitors; keep it short and in step with this file.
   playing, failures; never names or tokens) go to `playback.log` in the
   cache folder (256 KB, then `playback.old.log`): read it first when the
   owner reports playback trouble.
+- Crashes (9 October 2026, the owner: "make sure the app never crashes,
+  ever"): since pull request #36 the title bar's button margin was
+  compared exactly with a computed value, and XAML keeps a margin as a
+  float, so at 125 % display scaling (the owner's) it set itself again
+  for ever at low priority. That starved the interface thread: the
+  beta froze, Resonate's own player never finished opening, and closing
+  its half-open WebView2 page then crashed Resonate (an access violation
+  in Microsoft.Web.WebView2.Core.dll, in a loop at every start).
+  `UpdateTitleBarPassthrough` now rounds and compares loosely; never
+  compare a computed double with a value read back from XAML. Closed
+  pages detach their handlers and keep their WebView2 objects 5 minutes;
+  a page open when Resonate ended is counted (`open.count` in the
+  webplayer folder): the next start waits 10 s, and after three in a row
+  the own player waits until "Play on this PC" is switched on again.
+  `CrashGuard` marks every interface-thread and unobserved task
+  exception handled and writes it to `crash.log` in the cache folder
+  (512 KB, then `crash.old.log`; at most 100 a run); read it with
+  `playback.log` when the owner reports a crash. The web player's
+  opening steps go to `playback.log` ("web player: ...").
 - The feature update (pull request #9, 7 October 2026) adds Home with
   listening stats and daily mixes, Local Files, DJ, sorting and filtering
   of every list, likes, album and artist pages, truly random shuffle,
@@ -269,6 +291,11 @@ Building and testing:
   running, waiting to save) and remove it when done. `Loaded` can come
   twice in a row, so unsubscribe before subscribing there. Never call
   `GC.WaitForPendingFinalizers` on the interface thread (it deadlocks).
+  CI runs at 100 % display scaling, so a loop that only an odd scale
+  starts is invisible there; `--web-player-check` with `--data
+  %LocalAppData%\Resonate-local` on the owner's PC is a quick test that
+  the interface thread keeps answering (it touches neither the installed
+  copy nor its settings).
 - Cloud sessions cannot download CI artifacts or logs (their storage host is
   blocked). CI therefore also stores each pull request's screenshots as a
   commit under the hidden ref `refs/screenshots/pr-<number>`. Fetch them
