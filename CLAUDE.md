@@ -73,6 +73,21 @@ visitors; keep it short and in step with this file.
   stopped giving audio features to new apps), only with Song stats on
   (`SongStatsService`: rows ask when drawn, newest first, 250 ms
   gathering; demo stats are made up from the song's ID).
+- Later on 9 October 2026 (the owner's requests): looks carry a Home
+  visualizer style and a player bar visualizer (`VisualizerStyle`: Bars,
+  Mirror, Dots, Lines; the player's Off at first), set on each preset to
+  fit it, and Customize can change them; the player bar's is a faint
+  `StageVisualizer` along its bottom in the look's accents, running only
+  while music plays and the window shows. Visualizers take a new height at
+  most every 15 ms. Spotify's saving renderer and GPU processes are trimmed
+  again every 2 minutes, and Resonate hands back its own memory 4 s after
+  its window is hidden or minimised (`MainWindow.MemoryTrim.cs`). Song
+  cover backdrops are darkened just enough for white text on their panels
+  to reach 4.5:1 (`ArtworkColors.DimForWhiteText`, 85th percentile, linear
+  light); dark covers are untouched. Ember was replaced by Velvet. New
+  built-in plugins: Tray icon (closing hides to the tray; its menu plays,
+  pauses, skips and quits; `MainWindow.Tray.cs`) and Lyrics in the player
+  (the sung line under the song; it asks LRCLIB once per song while on).
 - Playback (9 October 2026): Spotify's media session can be there with
   nothing in it (Spotify just started hidden, or it went blank), and
   Spotify takes a local Play then and does nothing. The player now keeps
@@ -1110,8 +1125,8 @@ hears what Windows mixes, as for the Spotify app.
   shows nothing and opens nothing else.
 - No telemetry and no hosted backend. Everything runs on the owner's
   computer, talking only to Spotify and to GitHub for updates, and to
-  LRCLIB for lyrics while the Lyrics plugin's pane is open (the owner
-  asked for it, 8 October 2026), and to ReccoBeats
+  LRCLIB for lyrics while the lyrics pane is open or Lyrics in the player
+  is on (the owner asked for both, 8 and 9 October 2026), and to ReccoBeats
   (`https://api.reccobeats.com/v1/audio-features?ids=`, 40 Spotify track
   IDs a request, nothing else sent) only while "Song stats" is on in
   Settings, Layout, Song lists (off at first; the owner said yes on
