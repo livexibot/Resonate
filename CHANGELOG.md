@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.17.0](https://github.com/livexibot/Resonate/compare/v0.16.0...v0.17.0) (2026-10-09)
+
+
+### New features
+
+* four new bundled fonts: Tektur, Oxanium, Unbounded and Bodoni Moda ([25dcfcc](https://github.com/livexibot/Resonate/commit/25dcfccbebdecee4da5eac9e23abb3cf5f8588a7))
+* Ocean, a new dark preset in Synthwave's place ([25dcfcc](https://github.com/livexibot/Resonate/commit/25dcfccbebdecee4da5eac9e23abb3cf5f8588a7))
+* Synthwave, Liquid Chrome, Cyberpunk and Afterhours special looks with moving scenery, weather and decorations ([25dcfcc](https://github.com/livexibot/Resonate/commit/25dcfccbebdecee4da5eac9e23abb3cf5f8588a7))
+
+
+### Fixes
+
+* Cover size reaches every song cover, with room between rows and sharp large covers ([25dcfcc](https://github.com/livexibot/Resonate/commit/25dcfccbebdecee4da5eac9e23abb3cf5f8588a7))
+* the accent lies behind Home's cover instead of the album's colour tile ([25dcfcc](https://github.com/livexibot/Resonate/commit/25dcfccbebdecee4da5eac9e23abb3cf5f8588a7))
+
 ## [0.16.0](https://github.com/livexibot/Resonate/compare/v0.15.0...v0.16.0) (2026-10-09)
 
 
