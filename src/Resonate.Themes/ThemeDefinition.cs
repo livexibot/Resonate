@@ -100,6 +100,26 @@ public enum PlayerLayout
     CornerLeft,
 }
 
+/// <summary>How a visualizer draws the sound (saved by name: append, never rename).</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<VisualizerStyle>))]
+public enum VisualizerStyle
+{
+    /// <summary>Bars rising from the bottom.</summary>
+    Bars,
+
+    /// <summary>Bars growing both ways from a middle line.</summary>
+    Mirror,
+
+    /// <summary>A dot on each band, rising and falling.</summary>
+    Dots,
+
+    /// <summary>Hairline bars.</summary>
+    Lines,
+
+    /// <summary>No visualizer (for the player bar).</summary>
+    Off,
+}
+
 [JsonConverter(typeof(JsonStringEnumConverter<ProgressStyle>))]
 public enum ProgressStyle
 {
@@ -262,6 +282,12 @@ public sealed record ThemeDefinition
     /// <summary>A glow of the accent around the player, 0 (none) to 1.</summary>
     public double PlayerGlow { get; init; }
 
+    /// <summary>How Home's visualizer draws the sound.</summary>
+    public VisualizerStyle StageVisualizer { get; init; } = VisualizerStyle.Bars;
+
+    /// <summary>A visualizer along the player bar; Off for none.</summary>
+    public VisualizerStyle PlayerVisualizer { get; init; } = VisualizerStyle.Off;
+
     public ProgressStyle Progress { get; init; } = ProgressStyle.Line;
 
     public PlayButtonStyle PlayButton { get; init; } = PlayButtonStyle.Filled;
@@ -293,6 +319,8 @@ public sealed record ThemeDefinition
         Shadow = Enum.IsDefined(Shadow) ? Shadow : ShadowStyle.Soft,
         PlayerLayout = Enum.IsDefined(PlayerLayout) ? PlayerLayout : PlayerLayout.Docked,
         PlayerGlow = double.IsFinite(PlayerGlow) ? Math.Clamp(PlayerGlow, 0, 1) : 0,
+        StageVisualizer = Enum.IsDefined(StageVisualizer) && StageVisualizer != VisualizerStyle.Off ? StageVisualizer : VisualizerStyle.Bars,
+        PlayerVisualizer = Enum.IsDefined(PlayerVisualizer) ? PlayerVisualizer : VisualizerStyle.Off,
         Progress = Enum.IsDefined(Progress) ? Progress : ProgressStyle.Line,
         PlayButton = Enum.IsDefined(PlayButton) ? PlayButton : PlayButtonStyle.Filled,
         Cover = Enum.IsDefined(Cover) ? Cover : CoverStyle.Rounded,

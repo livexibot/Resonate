@@ -372,6 +372,7 @@ internal sealed partial class NowPlayingStage : Grid
     /// <summary>The look's colours and corners, and the clouds and blurred cover made readable for its text.</summary>
     private void ApplyLook()
     {
+        _visualizer.DrawStyle = _services.Theme.Current.StageVisualizer;
         var palette = _services.Theme.Palette;
         var home = _kind == StageKind.Home;
         var page = home ? palette.Surface.Over(palette.Background).Opaque : palette.Background.Opaque;

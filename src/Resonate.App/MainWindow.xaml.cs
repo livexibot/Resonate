@@ -164,6 +164,7 @@ public sealed partial class MainWindow : Window
         SetUpLocalFiles();
         SetUpClassicPlayer();
         SetUpBuiltInPlugins();
+        SetUpMemoryTrim();
     }
 
     /// <summary>False while the window is minimised or hidden: clocks and endless animations rest then.</summary>

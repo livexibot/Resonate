@@ -70,6 +70,12 @@ internal sealed partial class StageVisualizer : Grid
     private bool _drawing;
     private bool _wanted;
     private long _sequence = -1;
+    private VisualizerStyle _style = VisualizerStyle.Bars;
+    private float _barWidth;
+    private float _barHeight;
+
+    // At most this often the bars take a new height; a 165 Hz screen would otherwise ask nearly three times as often.
+    private static readonly TimeSpan MinFrameTime = TimeSpan.FromMilliseconds(15);
 
     public StageVisualizer(VisualiserFeed feed)
     {
@@ -350,15 +356,36 @@ internal sealed partial class StageVisualizer : Grid
 
         var pitch = _size.X / _bars.Count;
         var fill = Math.Clamp(App.Services.Settings.HomeStageBarWidth, 20, 90) / 100.0;
-        var width = Math.Max(1f, (float)(pitch * fill));
+        var width = _style == VisualizerStyle.Lines
+            ? Math.Clamp(pitch * 0.18f, 1f, 2.5f)
+            : Math.Max(1f, (float)(pitch * fill));
         var rest = (float)(StageBars.RestHeight / height);
         _props.InsertScalar("Rest", rest);
+        _barWidth = width;
+        _barHeight = height;
         for (var i = 0; i < _bars.Count; i++)
         {
             var sprite = _bars[i].Sprite;
-            sprite.Size = new Vector2(width, height);
-            sprite.Offset = new Vector3((i * pitch) + ((pitch - width) / 2), _size.Y - height, 0);
-            sprite.CenterPoint = new Vector3(0, height, 0);
+            var x = (i * pitch) + ((pitch - width) / 2);
+            if (_style == VisualizerStyle.Dots)
+            {
+                // A square dot that rides up and down the room.
+                sprite.Size = new Vector2(width, width);
+                sprite.CenterPoint = new Vector3(width / 2, width / 2, 0);
+                if (!_moving)
+                {
+                    sprite.Offset = new Vector3(x, _size.Y - width, 0);
+                }
+            }
+            else
+            {
+                sprite.Size = new Vector2(width, height);
+                sprite.Offset = new Vector3(x, _size.Y - height, 0);
+
+                // Mirror grows both ways from the middle of the room; the others rise from the bottom.
+                sprite.CenterPoint = new Vector3(0, _style == VisualizerStyle.Mirror ? height / 2 : height, 0);
+            }
+
             if (!_moving)
             {
                 sprite.Scale = new Vector3(1, rest, 1);
@@ -393,7 +420,16 @@ internal sealed partial class StageVisualizer : Grid
         {
             for (var i = 0; i < _bars.Count; i++)
             {
-                _bars[i].Sprite.StartAnimation("Scale.Y", BarHeight(_compositor, _props, i, _bars.Count));
+                var sprite = _bars[i].Sprite;
+                if (_style == VisualizerStyle.Dots)
+                {
+                    sprite.StartAnimation("Scale.Y", DotShown(_compositor, _props, i, _bars.Count));
+                    sprite.StartAnimation("Offset", DotPlace(_compositor, _props, i, _bars.Count, sprite.Offset.X, _size.Y, _barHeight, _barWidth));
+                }
+                else
+                {
+                    sprite.StartAnimation("Scale.Y", BarHeight(_compositor, _props, i, _bars.Count));
+                }
             }
 
             _moving = true;
@@ -424,6 +460,32 @@ internal sealed partial class StageVisualizer : Grid
         return height;
     }
 
+    /// <summary>A bar's level as an expression: its own sway, or its band of the sound, times the energy.</summary>
+    private static string Level(int index, int count)
+    {
+        var synthetic = StageBars.SyntheticExpression(index, count, Props + ".Time");
+        return $"({Props}.Energy * Lerp({synthetic}, {Props}.{LevelNames[index]}, {Props}.Live))";
+    }
+
+    /// <summary>A dot shows only while its band has some sound (Dots style).</summary>
+    private static ExpressionAnimation DotShown(Compositor compositor, CompositionPropertySet props, int index, int count)
+    {
+        var shown = compositor.CreateExpressionAnimation($"{Level(index, count)} > 0.03 ? 1 : 0");
+        shown.SetReferenceParameter(Props, props);
+        return shown;
+    }
+
+    /// <summary>A dot's place: as high in the room as its band is loud (Dots style).</summary>
+    private static ExpressionAnimation DotPlace(Compositor compositor, CompositionPropertySet props, int index, int count, float x, float bottom, float room, float size)
+    {
+        var travel = Math.Max(0, room - size);
+        var place = compositor.CreateExpressionAnimation(string.Create(
+            System.Globalization.CultureInfo.InvariantCulture,
+            $"Vector3({x:0.###}, {bottom - size:0.###} - Clamp({Level(index, count)}, 0, 1) * {travel:0.###}, 0)"));
+        place.SetReferenceParameter(Props, props);
+        return place;
+    }
+
     /// <summary>The bars sink out of sight and every animation ends, so nothing redraws while still.</summary>
     private void StopMotion()
     {
@@ -433,6 +495,7 @@ internal sealed partial class StageVisualizer : Grid
         _moving = false;
         foreach (var (sprite, _, _) in _bars)
         {
+            sprite.StopAnimation("Offset");
             if (_animate)
             {
                 sprite.StartAnimation("Scale.Y", _fall);
@@ -451,6 +514,12 @@ internal sealed partial class StageVisualizer : Grid
 
     private void OnRendering(object? sender, object e)
     {
+        var started = Stopwatch.GetTimestamp();
+        if (_lastFrame != 0 && Stopwatch.GetElapsedTime(_lastFrame, started) < MinFrameTime)
+        {
+            return;
+        }
+
         // A new picture of the sound (about 100 a second) gives each bar a new height to head for.
         var settings = App.Services.Settings;
         var frame = _feed.Stage.Read();
@@ -500,6 +569,32 @@ internal sealed partial class StageVisualizer : Grid
     {
         Build();
         Place();
+    }
+
+    /// <summary>How the bars draw the sound (the look's choice); a new style restarts their motion in it.</summary>
+    public VisualizerStyle DrawStyle
+    {
+        get => _style;
+        set
+        {
+            if (value == VisualizerStyle.Off || value == _style)
+            {
+                return;
+            }
+
+            var moving = _moving;
+            if (moving)
+            {
+                StopMotion();
+            }
+
+            _style = value;
+            Place();
+            if (moving && _hasRoom)
+            {
+                StartMotion(rise: false);
+            }
+        }
     }
 
     private void ClearLevels()

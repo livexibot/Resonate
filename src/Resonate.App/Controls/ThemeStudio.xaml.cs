@@ -94,6 +94,8 @@ public sealed partial class ThemeStudio : UserControl
             [ButtonsChoice] = (look, tag) => look with { Buttons = Enum.Parse<ButtonShape>(tag) },
             [ShadowChoice] = (look, tag) => look with { Shadow = Enum.Parse<ShadowStyle>(tag) },
             [ProgressChoice] = (look, tag) => look with { Progress = Enum.Parse<ProgressStyle>(tag) },
+            [StageVisualizerChoice] = (look, tag) => look with { StageVisualizer = Enum.Parse<VisualizerStyle>(tag) },
+            [PlayerVisualizerChoice] = (look, tag) => look with { PlayerVisualizer = Enum.Parse<VisualizerStyle>(tag) },
             [PlayButtonChoice] = (look, tag) => look with { PlayButton = Enum.Parse<PlayButtonStyle>(tag) },
             [CoverChoice] = (look, tag) => look with { Cover = Enum.Parse<CoverStyle>(tag) },
         };
@@ -199,6 +201,8 @@ public sealed partial class ThemeStudio : UserControl
             Select(ButtonsChoice, look.Buttons.ToString());
             Select(ShadowChoice, look.Shadow.ToString());
             Select(ProgressChoice, look.Progress.ToString());
+            Select(StageVisualizerChoice, look.StageVisualizer.ToString());
+            Select(PlayerVisualizerChoice, look.PlayerVisualizer.ToString());
             Select(PlayButtonChoice, look.PlayButton.ToString());
             Select(CoverChoice, look.Cover.ToString());
             ShowFont(DisplayFontChoice, look.DisplayFont);

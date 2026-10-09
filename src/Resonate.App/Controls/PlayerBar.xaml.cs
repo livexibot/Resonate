@@ -83,6 +83,7 @@ public sealed partial class PlayerBar : UserControl
         _windowShown = shown;
         UpdateClock();
         RunClockWhenNeeded();
+        RunBarVisualizer();
         UpdateAdvancing();
         UpdateSpin();
     }
@@ -180,6 +181,10 @@ public sealed partial class PlayerBar : UserControl
 
         ShowSongChange(state);
         AnimateSongChange(state);
+        if (state.IsPlaying != before.IsPlaying)
+        {
+            RunBarVisualizer();
+        }
         TitleText.Text = state.Title ?? "Nothing playing";
         ArtistText.Text = state.Artists ?? (state.IsConnected ? string.Empty : "Pick a song to start");
 
@@ -214,6 +219,7 @@ public sealed partial class PlayerBar : UserControl
     /// <summary>The look's progress bar, cover style and corners.</summary>
     private void ApplyLook()
     {
+        UpdateBarVisualizer();
         var theme = App.Services.Theme;
         var look = theme.Current;
         PositionBar.BarStyle = look.Progress;
