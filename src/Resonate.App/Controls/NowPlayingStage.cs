@@ -444,6 +444,7 @@ internal sealed partial class NowPlayingStage : Grid
         var corner = home ? palette.CornerLarge : 0;
         CornerRadius = new CornerRadius(corner);
         _clouds.CornerRadiusValue = (float)corner;
+        _visualizer.ClipCorner = corner;
         PaintClouds(animate: false);
         ShowBlur();
     }
@@ -937,7 +938,8 @@ internal sealed partial class NowPlayingStage : Grid
         // The away screen keeps the top for its clock.
         var top = away ? 160 : pad;
         Body.Margin = new Thickness(pad, top, pad, pad);
-        _visualizer.Margin = _visualizer.AroundCover ? new Thickness(0) : new Thickness(pad, 0, pad, 0);
+        // At full width the visualizer reaches both edges of the stage (the owner's request, 9 October 2026).
+        _visualizer.Margin = new Thickness(0);
         var innerWidth = Math.Max(0, size.Width - (2 * pad));
         var innerHeight = Math.Max(0, size.Height - top - pad);
         _wide = innerWidth >= 600;

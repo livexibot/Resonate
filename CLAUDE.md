@@ -107,7 +107,13 @@ visitors; keep it short and in step with this file.
   style reads (bars, dots, sparks, columns, rings: `VisualizerShapes`);
   and Visualizer, Advanced has Home's Width (20 to 100 %, centred),
   Height (10 to 60 % of the stage) and Max height (40 to 600 px)
-  (`HomeStageWidth`, `HomeStageHeight`, `HomeStageMaxHeight`).
+  (`HomeStageWidth`, `HomeStageHeight`, `HomeStageMaxHeight`). At 100 %
+  width Home's visualizer reaches both edges of the stage, clipped to its
+  rounded corners (`StageVisualizer.ClipCorner`). The player bar's
+  visualizer has its own Sensitivity, Smoothing, Amount and Size
+  (`PlayerVisualizer*` settings), so Settings, Player has a Home
+  visualizer group and a Player visualizer group; Listen to Spotify,
+  shared by both, sits under Home's.
 - Playback (9 October 2026): Spotify's media session can be there with
   nothing in it (Spotify just started hidden, or it went blank), and
   Spotify takes a local Play then and does nothing. The player now keeps
@@ -1617,7 +1623,8 @@ when the work first needs them, then tick them off here.
   Position with Placement, Type and Advanced; Style with progress bar,
   play button, cover, glow and song change; Visualizer with Home's and the
   player's styles, Home's Off being the user's switch, and sensitivity,
-  smoothing, Amount, Size, Listen to Spotify and Advanced; then Winamp), Layout
+  smoothing, Amount, Size, Listen to Spotify and Advanced for Home's, and
+  the player bar's own; then Winamp), Layout
   (Pages: page animation and the blurred cover on Home; sidebar and
   buttons, with the sidebar running full height; song lists; App size and
   Text size), Plugins, Playback (was Misc: playback and the Spotify app,

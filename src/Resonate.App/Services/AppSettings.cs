@@ -274,6 +274,16 @@ public sealed class AppSettings
     /// <summary>How smoothly the bars rise and fall, 0 (snappy) to 100 (soft).</summary>
     public int HomeStageSmoothing { get; set; } = 60;
 
+    // The player bar's visualizer: its own Sensitivity, Smoothing, Amount and Size (the owner's request, 9 October 2026).
+
+    public int PlayerVisualizerSensitivity { get; set; } = 100;
+
+    public int PlayerVisualizerSmoothing { get; set; } = 60;
+
+    public int PlayerVisualizerAmount { get; set; } = 64;
+
+    public int PlayerVisualizerSize { get; set; } = 56;
+
     // Away screen
 
     /// <summary>Minutes without touching the mouse or keyboard before the away screen shows (2, 5, 10 or 15).</summary>

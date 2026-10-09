@@ -62,9 +62,14 @@ public sealed partial class PlayerSettings : UserControl
             }
         }
 
-        foreach (var row in StageSettings.Visualizer(_services))
+        foreach (var row in StageSettings.HomeVisualizer(_services))
         {
-            VisualizerRows.Children.Add(row);
+            HomeVisualizerRows.Children.Add(row);
+        }
+
+        foreach (var row in StageSettings.PlayerVisualizer(_services))
+        {
+            PlayerVisualizerRows.Children.Add(row);
         }
 
         // Only while shown, so the theme never keeps a closed Settings page alive.

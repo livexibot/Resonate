@@ -79,6 +79,8 @@ internal sealed partial class StageVisualizer : Grid
     private long _sequence = -1;
     private int _stopVersion;
     private VisualizerStyle _style = VisualizerStyle.Bars;
+    private CompositionRoundedRectangleGeometry? _clipShape;
+    private float _clipCorner;
 
     public StageVisualizer(VisualiserFeed feed)
     {
@@ -147,6 +149,20 @@ internal sealed partial class StageVisualizer : Grid
     {
         get => _canvas.Corner;
         set => _canvas.Corner = value;
+    }
+
+    /// <summary>
+    /// The stage's corner radius: a drawing along the bottom, which reaches
+    /// both edges at full width, is clipped to the stage's rounded corners.
+    /// </summary>
+    public double ClipCorner
+    {
+        get => _clipCorner;
+        set
+        {
+            _clipCorner = (float)Math.Max(0, value);
+            Place();
+        }
     }
 
     /// <summary>Whether the style is drawn around the cover (inside its box) rather than along the bottom.</summary>
@@ -375,7 +391,7 @@ internal sealed partial class StageVisualizer : Grid
         }
 
         Place();
-        if (_drawing.CountFor(DrawSize(), App.Services.Settings.HomeStageBars) != _drawing.Built)
+        if (_drawing.CountFor(DrawSize(), Amount) != _drawing.Built)
         {
             _rebuild.Stop();
             _rebuild.Start();
@@ -390,8 +406,8 @@ internal sealed partial class StageVisualizer : Grid
             return;
         }
 
-        _canvas.Fill = Math.Clamp(App.Services.Settings.HomeStageBarWidth, 20, 90) / 100.0;
-        var count = _drawing.CountFor(DrawSize(), App.Services.Settings.HomeStageBars);
+        _canvas.Fill = Fill;
+        var count = _drawing.CountFor(DrawSize(), Amount);
         if (count == _drawing.Built && !force)
         {
             Place();
@@ -420,7 +436,7 @@ internal sealed partial class StageVisualizer : Grid
             return;
         }
 
-        _canvas.Fill = Math.Clamp(App.Services.Settings.HomeStageBarWidth, 20, 90) / 100.0;
+        _canvas.Fill = Fill;
         double height;
         bool hasRoom;
         if (_drawing.AroundCover)
@@ -442,9 +458,11 @@ internal sealed partial class StageVisualizer : Grid
             hasRoom = height >= MinRoom;
         }
 
-        // The user's width, centred.
+        // The user's width, centred, inside the stage's rounded corners.
         var size = DrawSize();
-        _root.Offset = new Vector3((_size.X - size.X) / 2, 0, 0);
+        var offset = (_size.X - size.X) / 2;
+        _root.Offset = new Vector3(offset, 0, 0);
+        ClipToCorners(offset);
         _root.IsVisible = hasRoom;
         if (hasRoom)
         {
@@ -457,6 +475,37 @@ internal sealed partial class StageVisualizer : Grid
             Refresh();
         }
     }
+
+    /// <summary>Clips a drawing along the bottom to the stage's rounded corners; one around the cover reaches past its box, so it is never clipped.</summary>
+    private void ClipToCorners(float offset)
+    {
+        if (_clipCorner <= 0 || InBar || _drawing.AroundCover)
+        {
+            _root.Clip = null;
+            return;
+        }
+
+        if (_clipShape is null)
+        {
+            _clipShape = _compositor.CreateRoundedRectangleGeometry();
+        }
+
+        if (_root.Clip is null)
+        {
+            _root.Clip = _compositor.CreateGeometricClip(_clipShape);
+        }
+
+        // The root is moved by the offset; the clip stays on the stage.
+        _clipShape.Offset = new Vector2(-offset, 0);
+        _clipShape.Size = _size;
+        _clipShape.CornerRadius = new Vector2(_clipCorner);
+    }
+
+    /// <summary>The user's Amount for this visualizer (Home's or the player bar's).</summary>
+    private int Amount => InBar ? App.Services.Settings.PlayerVisualizerAmount : App.Services.Settings.HomeStageBars;
+
+    /// <summary>The user's Size for this visualizer, as a fill of 0.2 to 0.9.</summary>
+    private double Fill => Math.Clamp(InBar ? App.Services.Settings.PlayerVisualizerSize : App.Services.Settings.HomeStageBarWidth, 20, 90) / 100.0;
 
     /// <summary>The room the drawing spans: Home's along the bottom takes the user's share of the width, centred.</summary>
     private Vector2 DrawSize()
@@ -592,7 +641,7 @@ internal sealed partial class StageVisualizer : Grid
                     StageBars.Resample(bands, targets);
                 }
 
-                var gain = Math.Clamp(settings.HomeStageSensitivity, 50, 200) / 100f;
+                var gain = Math.Clamp(InBar ? settings.PlayerVisualizerSensitivity : settings.HomeStageSensitivity, 50, 200) / 100f;
                 for (var i = 0; i < targets.Length; i++)
                 {
                     targets[i] = Math.Min(1f, targets[i] * gain);
@@ -604,7 +653,7 @@ internal sealed partial class StageVisualizer : Grid
         var now = Stopwatch.GetTimestamp();
         var seconds = _lastFrame == 0 ? 1 / 60f : (float)Math.Min(0.1, Stopwatch.GetElapsedTime(_lastFrame, now).TotalSeconds);
         _lastFrame = now;
-        var smoothing = Math.Clamp(settings.HomeStageSmoothing, 0, 100) / 100.0;
+        var smoothing = Math.Clamp(InBar ? settings.PlayerVisualizerSmoothing : settings.HomeStageSmoothing, 0, 100) / 100.0;
         var peaks = _drawing.WantsPeaks;
         for (var i = 0; i < count; i++)
         {
