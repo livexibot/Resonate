@@ -124,6 +124,14 @@ public sealed partial class TrackColumns : ObservableObject
     private readonly bool _album;
     private readonly bool _dateAdded;
     private readonly bool _year;
+    private readonly bool _bpm;
+    private readonly bool _key;
+    private readonly bool _loudness;
+    private readonly bool _energy;
+    private GridLength _bpmWidth;
+    private GridLength _keyWidth;
+    private GridLength _loudnessWidth;
+    private GridLength _energyWidth;
     private GridLength _albumWidth;
     private GridLength _addedWidth;
     private GridLength _yearWidth;
@@ -137,6 +145,10 @@ public sealed partial class TrackColumns : ObservableObject
         _album = album && settings.ShowAlbumColumn;
         _dateAdded = dateAdded && settings.ShowAddedColumn;
         _year = settings.ShowYearColumn;
+        _bpm = settings.SongStats && settings.ShowBpmColumn;
+        _key = settings.SongStats && settings.ShowKeyColumn;
+        _loudness = settings.SongStats && settings.ShowLoudnessColumn;
+        _energy = settings.SongStats && settings.ShowEnergyColumn;
         ShowsCovers = settings.ShowSongCovers;
         Fit(double.PositiveInfinity);
     }
@@ -154,6 +166,30 @@ public sealed partial class TrackColumns : ObservableObject
     {
         get => _yearWidth;
         private set => Set(ref _yearWidth, value);
+    }
+
+    public GridLength BpmWidth
+    {
+        get => _bpmWidth;
+        private set => Set(ref _bpmWidth, value);
+    }
+
+    public GridLength KeyWidth
+    {
+        get => _keyWidth;
+        private set => Set(ref _keyWidth, value);
+    }
+
+    public GridLength LoudnessWidth
+    {
+        get => _loudnessWidth;
+        private set => Set(ref _loudnessWidth, value);
+    }
+
+    public GridLength EnergyWidth
+    {
+        get => _energyWidth;
+        private set => Set(ref _energyWidth, value);
     }
 
     public GridLength AlbumWidth
@@ -177,6 +213,10 @@ public sealed partial class TrackColumns : ObservableObject
         AlbumWidth = _album && width >= AlbumMinWidth * textScale ? new GridLength(3, GridUnitType.Star) : new GridLength(0);
         AddedWidth = _dateAdded && width >= AddedMinWidth * textScale ? new GridLength(132 * textScale) : new GridLength(0);
         YearWidth = _year && width >= YearMinWidth * textScale ? new GridLength(72 * textScale) : new GridLength(0);
+        BpmWidth = _bpm && width >= 640 * textScale ? new GridLength(56 * textScale) : new GridLength(0);
+        KeyWidth = _key && width >= 700 * textScale ? new GridLength(56 * textScale) : new GridLength(0);
+        LoudnessWidth = _loudness && width >= 820 * textScale ? new GridLength(84 * textScale) : new GridLength(0);
+        EnergyWidth = _energy && width >= 900 * textScale ? new GridLength(64 * textScale) : new GridLength(0);
     }
 }
 
@@ -225,6 +265,42 @@ public sealed partial class TrackRow : ObservableObject
     public string DateAdded { get; }
 
     public string Duration => Format.Duration(Track.Duration);
+
+    private SongStats? _stats;
+    private bool _statsAsked;
+
+    /// <summary>BPM, key, loudness and energy, asked for the first time one of them is drawn.</summary>
+    private SongStats? Stats
+    {
+        get
+        {
+            if (!_statsAsked)
+            {
+                _statsAsked = true;
+                _stats = App.Services.SongStats.Get(Track.Id, this);
+            }
+
+            return _stats;
+        }
+    }
+
+    public string Bpm => Stats?.TempoText ?? string.Empty;
+
+    public string Key => Stats?.KeyText ?? string.Empty;
+
+    public string Loudness => Stats?.LoudnessText ?? string.Empty;
+
+    public string Energy => Stats?.EnergyText ?? string.Empty;
+
+    /// <summary>The stats came (null: the service does not know the song).</summary>
+    public void ShowStats(SongStats? stats)
+    {
+        _stats = stats;
+        OnPropertyChanged(nameof(Bpm));
+        OnPropertyChanged(nameof(Key));
+        OnPropertyChanged(nameof(Loudness));
+        OnPropertyChanged(nameof(Energy));
+    }
 
     /// <summary>The year its album came out, for the Year column.</summary>
     public string Year => Track.ReleaseYear?.ToString(System.Globalization.CultureInfo.CurrentCulture) ?? string.Empty;

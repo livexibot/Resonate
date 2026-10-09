@@ -181,6 +181,10 @@
                                 <ColumnDefinition Width="5*" />
                                 <ColumnDefinition x:Name="AlbumHeadingColumn" Width="3*" />
                                 <ColumnDefinition x:Name="YearHeadingColumn" Width="0" />
+                                <ColumnDefinition x:Name="BpmHeadingColumn" Width="0" />
+                                <ColumnDefinition x:Name="KeyHeadingColumn" Width="0" />
+                                <ColumnDefinition x:Name="LoudnessHeadingColumn" Width="0" />
+                                <ColumnDefinition x:Name="EnergyHeadingColumn" Width="0" />
                                 <ColumnDefinition x:Name="AddedHeadingColumn" Width="132" />
                                 <ColumnDefinition Width="40" />
                                 <ColumnDefinition Width="64" />
@@ -227,9 +231,25 @@
                                 Grid.Column="3"
                                 Style="{StaticResource ResonateCaptionTextStyle}"
                                 Text="Year" />
+                            <TextBlock
+                                Grid.Column="4"
+                                Style="{StaticResource ResonateCaptionTextStyle}"
+                                Text="BPM" />
+                            <TextBlock
+                                Grid.Column="5"
+                                Style="{StaticResource ResonateCaptionTextStyle}"
+                                Text="Key" />
+                            <TextBlock
+                                Grid.Column="6"
+                                Style="{StaticResource ResonateCaptionTextStyle}"
+                                Text="Loudness" />
+                            <TextBlock
+                                Grid.Column="7"
+                                Style="{StaticResource ResonateCaptionTextStyle}"
+                                Text="Energy" />
                             <StackPanel
                                 x:Name="AddedHeading"
-                                Grid.Column="4"
+                                Grid.Column="8"
                                 Background="{StaticResource ResonateTransparentBrush}"
                                 Orientation="Horizontal"
                                 Spacing="6"
@@ -245,7 +265,7 @@
                             </StackPanel>
                             <StackPanel
                                 x:Name="DurationHeading"
-                                Grid.Column="6"
+                                Grid.Column="10"
                                 HorizontalAlignment="Right"
                                 Background="{StaticResource ResonateTransparentBrush}"
                                 Orientation="Horizontal"
@@ -293,6 +313,10 @@
                             <ColumnDefinition Width="5*" />
                             <ColumnDefinition Width="{x:Bind Columns.AlbumWidth, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Columns.YearWidth, Mode=OneWay}" />
+                            <ColumnDefinition Width="{x:Bind Columns.BpmWidth, Mode=OneWay}" />
+                            <ColumnDefinition Width="{x:Bind Columns.KeyWidth, Mode=OneWay}" />
+                            <ColumnDefinition Width="{x:Bind Columns.LoudnessWidth, Mode=OneWay}" />
+                            <ColumnDefinition Width="{x:Bind Columns.EnergyWidth, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Columns.AddedWidth, Mode=OneWay}" />
                             <ColumnDefinition Width="40" />
                             <ColumnDefinition Width="64" />
@@ -352,9 +376,33 @@
                             Margin="0,0,12,0"
                             VerticalAlignment="Center"
                             Style="{StaticResource ResonateSecondaryTextStyle}"
+                            Text="{x:Bind Bpm, Mode=OneWay}" />
+                        <TextBlock
+                            Grid.Column="5"
+                            Margin="0,0,12,0"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource ResonateSecondaryTextStyle}"
+                            Text="{x:Bind Key, Mode=OneWay}" />
+                        <TextBlock
+                            Grid.Column="6"
+                            Margin="0,0,12,0"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource ResonateSecondaryTextStyle}"
+                            Text="{x:Bind Loudness, Mode=OneWay}" />
+                        <TextBlock
+                            Grid.Column="7"
+                            Margin="0,0,12,0"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource ResonateSecondaryTextStyle}"
+                            Text="{x:Bind Energy, Mode=OneWay}" />
+                        <TextBlock
+                            Grid.Column="8"
+                            Margin="0,0,12,0"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource ResonateSecondaryTextStyle}"
                             Text="{x:Bind DateAdded}" />
                         <Button
-                            Grid.Column="5"
+                            Grid.Column="9"
                             Width="32"
                             Height="32"
                             AutomationProperties.Name="{x:Bind HeartLabel, Mode=OneWay}"
@@ -366,7 +414,7 @@
                             ToolTipService.ToolTip="{x:Bind HeartLabel, Mode=OneWay}"
                             Visibility="{x:Bind HeartVisibility}" />
                         <TextBlock
-                            Grid.Column="6"
+                            Grid.Column="10"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Center"
                             Style="{StaticResource ResonateSecondaryTextStyle}"

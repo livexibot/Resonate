@@ -50,6 +50,17 @@ public sealed class AppSettings
 
     public bool ShowYearColumn { get; set; }
 
+    /// <summary>Song stats from ReccoBeats in song lists (sends the songs' Spotify IDs there); off until the user turns it on.</summary>
+    public bool SongStats { get; set; }
+
+    public bool ShowBpmColumn { get; set; } = true;
+
+    public bool ShowKeyColumn { get; set; } = true;
+
+    public bool ShowLoudnessColumn { get; set; } = true;
+
+    public bool ShowEnergyColumn { get; set; }
+
     /// <summary>The library sidebar runs the window's full height, beside the player (off unless the user switches it on).</summary>
     public bool SidebarFullHeight { get; set; }
 

@@ -206,6 +206,51 @@
                         OnContent=""
                         Toggled="OnSongListToggled" />
                 </controls:SettingRow>
+                <controls:SettingRow Description="Sends your songs' Spotify IDs to ReccoBeats." Header="Song stats">
+                    <ToggleSwitch
+                        x:Name="SongStatsSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Song stats"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnSongListToggled" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="BPM">
+                    <ToggleSwitch
+                        x:Name="BpmColumnSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="BPM column"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnSongListToggled" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="Key">
+                    <ToggleSwitch
+                        x:Name="KeyColumnSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Key column"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnSongListToggled" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="Loudness">
+                    <ToggleSwitch
+                        x:Name="LoudnessColumnSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Loudness column"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnSongListToggled" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="Energy">
+                    <ToggleSwitch
+                        x:Name="EnergyColumnSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Energy column"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnSongListToggled" />
+                </controls:SettingRow>
             </StackPanel>
         </controls:SettingsGroup>
 

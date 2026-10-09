@@ -69,9 +69,10 @@ visitors; keep it short and in step with this file.
   animation and Song change (user's own); Player glow is part of a look
   (Customize), set on the presets it fits; Liquid Glass is the owner's own
   version (panel opacity 0.1, gradient progress, outline play button).
-  BPM, key and loudness columns wait for the owner's decision: Spotify
-  stopped giving audio features to new apps, and a third-party service
-  would break "talk only to Spotify".
+  BPM, Key, Loudness and Energy columns come from ReccoBeats (Spotify
+  stopped giving audio features to new apps), only with Song stats on
+  (`SongStatsService`: rows ask when drawn, newest first, 250 ms
+  gathering; demo stats are made up from the song's ID).
 - Playback (9 October 2026): Spotify's media session can be there with
   nothing in it (Spotify just started hidden, or it went blank), and
   Spotify takes a local Play then and does nothing. The player now keeps
@@ -1110,7 +1111,12 @@ hears what Windows mixes, as for the Spotify app.
 - No telemetry and no hosted backend. Everything runs on the owner's
   computer, talking only to Spotify and to GitHub for updates, and to
   LRCLIB for lyrics while the Lyrics plugin's pane is open (the owner
-  asked for it, 8 October 2026). The one exception Resonate cannot turn
+  asked for it, 8 October 2026), and to ReccoBeats
+  (`https://api.reccobeats.com/v1/audio-features?ids=`, 40 Spotify track
+  IDs a request, nothing else sent) only while "Song stats" is on in
+  Settings, Layout, Song lists (off at first; the owner said yes on
+  9 October 2026). Answers are kept in `song-stats.json` (cache folder),
+  unknown songs asked again after 14 days. The one exception Resonate cannot turn
   off: while its own player runs, the WebView2 runtime sends Microsoft
   Windows' diagnostic data, as Microsoft Edge does (told to the owner).
 - Never log access tokens, refresh tokens or authorisation responses. Keep
