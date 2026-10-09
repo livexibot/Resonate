@@ -129,6 +129,21 @@ public sealed class ThemeService
         }
     }
 
+    /// <summary>How much the song cover backdrop is blurred, 0 (sharp) to 100; the user's own, not part of a look.</summary>
+    public int CoverBlur
+    {
+        get => Math.Clamp(_settings.CoverBlur, 0, 100);
+        set
+        {
+            value = Math.Clamp(value, 0, 100);
+            if (_settings.CoverBlur != value)
+            {
+                _settings.CoverBlur = value;
+                SaveSoon();
+                Changed?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
     /// <summary>
     /// Looks with the song cover backdrop show the cover itself, blurred (on
     /// unless the user switches it off; such looks then show a soft wash of

@@ -48,6 +48,9 @@ public sealed partial class QueuePanel : UserControl
     public QueuePanel()
     {
         InitializeComponent();
+
+        // The playing song's artists open their pages.
+        SongLinks.Attach(NowArtists, SongLinks.Artists, PlayingTrack.Get);
         UpcomingList.ItemsSource = _rows;
 
         // Closed, the pane waits faded out and a little to the right, so

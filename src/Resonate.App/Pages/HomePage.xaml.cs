@@ -111,6 +111,9 @@ public sealed partial class HomePage : Page
     public HomePage()
     {
         InitializeComponent();
+
+        // The playing song's artists open their pages.
+        SongLinks.Attach(NowArtists, SongLinks.Artists, PlayingTrack.Get);
     }
 
     private enum HomeLayout

@@ -16,9 +16,9 @@ namespace Resonate.App.Controls;
 
 /// <summary>
 /// What sits behind the panels: a plain colour, a gradient, the playing
-/// song's cover drifting slowly (blurred once the user switches that on,
-/// otherwise a soft wash of its colours), or the Windows material (Mica or
-/// acrylic) with the theme's tint over it. Switching between them fades.
+/// song's cover drifting slowly, blurred as much as the user chose and
+/// nothing else, or the Windows material (Mica or acrylic) with the theme's
+/// tint over it. Switching between them fades.
 /// </summary>
 internal sealed partial class BackdropLayer : Grid
 {
@@ -145,7 +145,8 @@ internal sealed partial class BackdropLayer : Grid
         _solid.Opacity = backdrop == WindowBackdrop.Solid ? 1 : 0;
         _gradient.Opacity = backdrop == WindowBackdrop.Gradient ? 1 : 0;
         _artworkLayer.Opacity = backdrop == WindowBackdrop.Artwork ? 1 : 0;
-        _tint.Opacity = material || backdrop == WindowBackdrop.Artwork ? 1 : 0;
+        // The song cover shows as it is, blurred only (the owner's request): the tint is for Mica and acrylic.
+        _tint.Opacity = material ? 1 : 0;
         UpdateDrift();
     }
 

@@ -66,21 +66,19 @@
                         OnContent=""
                         Toggled="OnSpinningCoverToggled" />
                 </controls:SettingRow>
-                <controls:SettingRow Description="Behind looks like Liquid Glass." Header="Blurred cover background">
-                    <ToggleSwitch
-                        x:Name="BlurredCoverSwitch"
-                        AutomationProperties.Name="Blurred cover background"
-                        MinWidth="0"
-                        OffContent=""
-                        OnContent=""
-                        Toggled="OnBlurredCoverToggled" />
+                <controls:SettingRow Header="Cover blur">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Slider
+                            x:Name="CoverBlurSlider"
+                            AutomationProperties.Name="Cover blur"
+                            Maximum="100"
+                            Minimum="0"
+                            StepFrequency="1"
+                            Style="{StaticResource StudioSliderStyle}"
+                            ValueChanged="OnCoverBlurChanged" />
+                        <TextBlock x:Name="CoverBlurText" Style="{StaticResource StudioValueTextStyle}" />
+                    </StackPanel>
                 </controls:SettingRow>
-                <TextBlock
-                    x:Name="BlurredCoverHint"
-                    Margin="16,0,16,0"
-                    Style="{StaticResource ResonateCaptionTextStyle}"
-                    TextWrapping="Wrap"
-                    Visibility="Collapsed" />
             </StackPanel>
         </controls:SettingsGroup>
 

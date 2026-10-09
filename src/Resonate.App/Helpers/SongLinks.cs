@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
@@ -11,9 +12,12 @@ using Windows.Foundation;
 namespace Resonate.App.Helpers;
 
 /// <summary>
-/// Artist and album names in a song row that open their pages, as on
-/// Spotify: <c>helpers:SongLinks.To="Artists"</c> (or <c>"Album"</c>) on
-/// the row's TextBlock, whose DataContext is the row's <see cref="TrackRow"/>.
+/// Artist and album names that open their pages, everywhere a song shows,
+/// as on Spotify: <c>helpers:SongLinks.To="Artists"</c> (or <c>"Album"</c>)
+/// on a TextBlock whose DataContext is a <see cref="TrackRow"/>,
+/// <see cref="RecentCard"/> or <see cref="TopSongRow"/>, or
+/// <see cref="Attach"/> from code with where the song comes from (the
+/// playing one: <see cref="PlayingTrack.Get"/>).
 /// The text itself still comes from x:Bind; the names become links only
 /// while the pointer is on them, so scrolling through thousands of songs
 /// makes nothing extra, and the one under the pointer is underlined in the
@@ -32,7 +36,22 @@ public static class SongLinks
         typeof(SongLinks),
         new PropertyMetadata(null, OnToChanged));
 
+    // TextBlocks whose song comes from code rather than their DataContext.
+    private static readonly ConditionalWeakTable<TextBlock, Func<TrackInfo?>> Sources = new();
+
+    // The TextBlock under the pointer, while its song is still being looked up.
+    private static WeakReference<TextBlock>? _waiting;
+
+    static SongLinks() => PlayingTrack.Resolved += OnTrackResolved;
+
     public static string? GetTo(DependencyObject element) => (string?)element.GetValue(ToProperty);
+
+    /// <summary>Makes the names in <paramref name="text"/> links to the song <paramref name="track"/> gives when the pointer comes.</summary>
+    public static void Attach(TextBlock text, string to, Func<TrackInfo?> track)
+    {
+        Sources.AddOrUpdate(text, track);
+        SetTo(text, to);
+    }
 
     public static void SetTo(DependencyObject element, string? value) => element.SetValue(ToProperty, value);
 
@@ -53,11 +72,43 @@ public static class SongLinks
 
     private static void OnPointerEntered(object sender, PointerRoutedEventArgs e)
     {
-        if (sender is TextBlock text && text.DataContext is TrackRow row && MakeLinks(text, row.Track))
+        if (sender is not TextBlock text)
+        {
+            return;
+        }
+
+        if (TrackOf(text) is not { } track)
+        {
+            // The playing song is looked up once; its names become links when it is known.
+            _waiting = Sources.TryGetValue(text, out _) ? new WeakReference<TextBlock>(text) : null;
+            return;
+        }
+
+        if (MakeLinks(text, track))
         {
             Underline(text, e.GetCurrentPoint(text).Position);
         }
     }
+
+    private static void OnTrackResolved()
+    {
+        if (_waiting?.TryGetTarget(out var text) == true && TrackOf(text) is { } track)
+        {
+            _waiting = null;
+            MakeLinks(text, track);
+        }
+    }
+
+    /// <summary>The song whose names <paramref name="text"/> shows, if known.</summary>
+    private static TrackInfo? TrackOf(TextBlock text) =>
+        Sources.TryGetValue(text, out var source) ? source()
+        : text.DataContext switch
+        {
+            TrackRow row => row.Track,
+            RecentCard card => card.Track,
+            TopSongRow top => top.Track,
+            _ => null,
+        };
 
     private static void OnPointerMoved(object sender, PointerRoutedEventArgs e)
     {
@@ -71,6 +122,11 @@ public static class SongLinks
     {
         if (sender is TextBlock text)
         {
+            if (_waiting?.TryGetTarget(out var waiting) == true && ReferenceEquals(waiting, text))
+            {
+                _waiting = null;
+            }
+
             Underline(text, null);
         }
     }
@@ -151,7 +207,7 @@ public static class SongLinks
 
     private static void Open(TextBlock text, int index)
     {
-        if (text.DataContext is not TrackRow { Track: var track })
+        if (TrackOf(text) is not { } track)
         {
             return;
         }

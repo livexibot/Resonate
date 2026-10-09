@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Resonate.App.Controls"
+    xmlns:helpers="using:Resonate.App.Helpers"
     xmlns:vm="using:Resonate.App.ViewModels"
     Background="{StaticResource ResonateTransparentBrush}">
 
@@ -230,7 +231,10 @@
                         FontWeight="SemiBold"
                         Style="{StaticResource ResonateBodyTextStyle}"
                         Text="{x:Bind Title}" />
-                    <TextBlock Style="{StaticResource ResonateSecondaryTextStyle}" Text="{x:Bind Artists}" />
+                    <TextBlock
+                        helpers:SongLinks.To="Artists"
+                        Style="{StaticResource ResonateSecondaryTextStyle}"
+                        Text="{x:Bind Artists}" />
                     <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="{x:Bind Ago}" />
                 </StackPanel>
                 <controls:HoverReveal
@@ -364,7 +368,10 @@
                         FontWeight="SemiBold"
                         Style="{StaticResource ResonateBodyTextStyle}"
                         Text="{x:Bind Title}" />
-                    <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="{x:Bind Artists}" />
+                    <TextBlock
+                        helpers:SongLinks.To="Artists"
+                        Style="{StaticResource ResonateCaptionTextStyle}"
+                        Text="{x:Bind Artists}" />
                 </StackPanel>
             </Grid>
         </DataTemplate>

@@ -28,6 +28,9 @@ public sealed class AppSettings
     /// <summary>Looks with the song cover backdrop show the cover itself, blurred (off: only its colours).</summary>
     public bool BlurredCoverBackground { get; set; } = true;
 
+    /// <summary>How much the song cover backdrop (Liquid Glass) is blurred, 0 to 100.</summary>
+    public int CoverBlur { get; set; } = 60;
+
     /// <summary>The library sidebar runs the window's full height, beside the player (off unless the user switches it on).</summary>
     public bool SidebarFullHeight { get; set; }
 
