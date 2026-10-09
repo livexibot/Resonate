@@ -312,6 +312,31 @@
                             Value="240" />
                     </StackPanel>
                 </controls:SettingRow>
+                <controls:SettingRow Header="Home visualizer">
+                    <ComboBox
+                        x:Name="StageVisualizerChoice"
+                        AutomationProperties.Name="Home visualizer"
+                        SelectionChanged="OnChoiceChanged"
+                        Style="{StaticResource StudioComboStyle}">
+                        <ComboBoxItem Content="Bars" Tag="Bars" />
+                        <ComboBoxItem Content="Mirror" Tag="Mirror" />
+                        <ComboBoxItem Content="Dots" Tag="Dots" />
+                        <ComboBoxItem Content="Lines" Tag="Lines" />
+                    </ComboBox>
+                </controls:SettingRow>
+                <controls:SettingRow Header="Player visualizer">
+                    <ComboBox
+                        x:Name="PlayerVisualizerChoice"
+                        AutomationProperties.Name="Player visualizer"
+                        SelectionChanged="OnChoiceChanged"
+                        Style="{StaticResource StudioComboStyle}">
+                        <ComboBoxItem Content="Off" Tag="Off" />
+                        <ComboBoxItem Content="Bars" Tag="Bars" />
+                        <ComboBoxItem Content="Mirror" Tag="Mirror" />
+                        <ComboBoxItem Content="Dots" Tag="Dots" />
+                        <ComboBoxItem Content="Lines" Tag="Lines" />
+                    </ComboBox>
+                </controls:SettingRow>
                 <controls:SettingRow Header="Play button">
                     <ComboBox
                         x:Name="PlayButtonChoice"

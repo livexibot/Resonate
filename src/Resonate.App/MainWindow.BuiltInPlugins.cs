@@ -23,6 +23,8 @@ public sealed partial class MainWindow
         SetUpSignalPath();
         SetUpPauseOnLock();
         SetUpPauseOnUnplug();
+        SetUpTray();
+        SetUpPlayerLyrics();
     }
 
     partial void SetUpLyrics();
@@ -48,4 +50,8 @@ public sealed partial class MainWindow
     partial void SetUpPauseOnLock();
 
     partial void SetUpPauseOnUnplug();
+
+    partial void SetUpTray();
+
+    partial void SetUpPlayerLyrics();
 }

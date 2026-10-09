@@ -43,8 +43,9 @@ public sealed class ArtworkSampler : IDisposable
     // new blur amount redraws at once, without downloading it again.
     private byte[]? _pixels;
 
-    // The blur Blurred was drawn with.
+    // The blur and the panels' see-through amount Blurred was drawn for.
     private int _shownBlur = -1;
+    private double _shownPanelOpacity = -1;
 
     /// <summary>Call on the interface thread.</summary>
     /// <param name="covers">Where covers are kept; the player bar has usually fetched the playing one already.</param>
@@ -89,7 +90,7 @@ public sealed class ArtworkSampler : IDisposable
     private void Update()
     {
         // The user moved the blur: redrawn at once.
-        if (_shownBlur != _theme.CoverBlur && _pixels is not null)
+        if ((_shownBlur != _theme.CoverBlur || _shownPanelOpacity != _theme.Current.PanelOpacity) && _pixels is not null)
         {
             ShowBackdrop(_pixels);
         }
@@ -171,6 +172,7 @@ public sealed class ArtworkSampler : IDisposable
     private void ShowBackdrop(byte[]? pixels)
     {
         _shownBlur = _theme.CoverBlur;
+        _shownPanelOpacity = _theme.Current.PanelOpacity;
         if (pixels is null)
         {
             Blurred = null;
@@ -180,6 +182,9 @@ public sealed class ArtworkSampler : IDisposable
 
         var shown = (byte[])pixels.Clone();
         ArtworkColors.Blur(shown, BackdropSize, BackdropSize, (int)Math.Round(MaxBlurRadius * _shownBlur / 100.0));
+
+        // A bright cover is darkened just enough for the white text and icons over it to read; a dark one is left alone.
+        ArtworkColors.DimForWhiteText(shown, BackdropSize, BackdropSize, _theme.Current.PanelOpacity);
         var picture = new WriteableBitmap(BackdropSize, BackdropSize);
         shown.CopyTo(picture.PixelBuffer);
         picture.Invalidate();

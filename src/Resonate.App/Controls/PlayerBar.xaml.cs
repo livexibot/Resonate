@@ -77,12 +77,20 @@ public sealed partial class PlayerBar : UserControl
         _clock.Tick += (_, _) => UpdateClock();
     }
 
+    /// <summary>The line being sung (Lyrics in the player), or null for none.</summary>
+    public void ShowLyricLine(string? line)
+    {
+        LyricLineText.Text = line ?? string.Empty;
+        LyricLineText.Visibility = string.IsNullOrWhiteSpace(line) || _widthClass == PlayerWidthClass.Mini ? Visibility.Collapsed : Visibility.Visible;
+    }
+
     /// <summary>The window says when it is minimised or hidden, so the clock can rest.</summary>
     public void SetWindowShown(bool shown)
     {
         _windowShown = shown;
         UpdateClock();
         RunClockWhenNeeded();
+        RunBarVisualizer();
         UpdateAdvancing();
         UpdateSpin();
     }
@@ -180,6 +188,10 @@ public sealed partial class PlayerBar : UserControl
 
         ShowSongChange(state);
         AnimateSongChange(state);
+        if (state.IsPlaying != before.IsPlaying)
+        {
+            RunBarVisualizer();
+        }
         TitleText.Text = state.Title ?? "Nothing playing";
         ArtistText.Text = state.Artists ?? (state.IsConnected ? string.Empty : "Pick a song to start");
 
@@ -214,6 +226,7 @@ public sealed partial class PlayerBar : UserControl
     /// <summary>The look's progress bar, cover style and corners.</summary>
     private void ApplyLook()
     {
+        UpdateBarVisualizer();
         var theme = App.Services.Theme;
         var look = theme.Current;
         PositionBar.BarStyle = look.Progress;

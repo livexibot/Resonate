@@ -19,6 +19,9 @@ public sealed class SpotifyBackground : ISpotifyAppWindow, IDisposable
     private static readonly TimeSpan WatchInterval = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan CloseWatchInterval = TimeSpan.FromMilliseconds(200);
     private static readonly TimeSpan SavingsInterval = TimeSpan.FromSeconds(20);
+
+    // The renderer and GPU process grow back while music plays; their unused memory is handed back this often.
+    private static readonly TimeSpan TrimInterval = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan ProcessCacheLifetime = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan ShowGracePeriod = TimeSpan.FromSeconds(3);
 
@@ -29,6 +32,7 @@ public sealed class SpotifyBackground : ISpotifyAppWindow, IDisposable
     private readonly HashSet<nint> _hiddenByUs = [];
     private DateTime _processCacheClearedAt = DateTime.UtcNow;
     private DateTime _nextSavingsPass;
+    private DateTime _nextTrim;
     private DateTime _doNotHideUntil;
     private int _closeWatchTicks;
     private volatile bool _keepHidden = true;
@@ -321,6 +325,12 @@ public sealed class SpotifyBackground : ISpotifyAppWindow, IDisposable
 
     private void ApplySavings()
     {
+        var trim = DateTime.UtcNow >= _nextTrim;
+        if (trim)
+        {
+            _nextTrim = DateTime.UtcNow + TrimInterval;
+        }
+
         var processes = Process.GetProcessesByName("Spotify");
         try
         {
@@ -332,12 +342,20 @@ public sealed class SpotifyBackground : ISpotifyAppWindow, IDisposable
 
             foreach (var processId in alive)
             {
+                bool saving;
                 lock (_gate)
                 {
-                    if (_saving.Contains(processId))
+                    saving = _saving.Contains(processId);
+                }
+
+                if (saving)
+                {
+                    if (trim)
                     {
-                        continue;
+                        TrimWorkingSet(processId);
                     }
+
+                    continue;
                 }
 
                 if (!SpotifyProcesses.MaySaveResources(SpotifyProcesses.Classify(CommandLine(processId))))
@@ -394,6 +412,17 @@ public sealed class SpotifyBackground : ISpotifyAppWindow, IDisposable
         {
             // Back on the taskbar, minimised, without taking focus.
             User32.ShowWindowAsync(window, Windowing.SwShowMinNoActive);
+        }
+    }
+
+    /// <summary>Hands a saving process's unused memory back to Windows (it pages back in as needed).</summary>
+    private static void TrimWorkingSet(uint processId)
+    {
+        var process = Processes.OpenProcess(Processes.SetQuota | Processes.QueryLimitedInformation, false, processId);
+        if (process != 0)
+        {
+            Processes.EmptyWorkingSet(process);
+            Processes.CloseHandle(process);
         }
     }
 

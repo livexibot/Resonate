@@ -26,6 +26,7 @@ public static class ThemePresets
         Shadow = ShadowStyle.Soft,
         PlayerLayout = PlayerLayout.Docked,
         Progress = ProgressStyle.Line,
+        StageVisualizer = VisualizerStyle.Bars,
     };
 
     /// <summary>Bright and airy: white cards on soft grey, a floating player.</summary>
@@ -46,6 +47,7 @@ public static class ThemePresets
         Shadow = ShadowStyle.Soft,
         PlayerLayout = PlayerLayout.Floating,
         Progress = ProgressStyle.Bold,
+        StageVisualizer = VisualizerStyle.Bars,
     };
 
     /// <summary>
@@ -81,6 +83,7 @@ public static class ThemePresets
         Progress = ProgressStyle.Gradient,
         PlayButton = PlayButtonStyle.Outline,
         PlayerGlow = 0.25,
+        StageVisualizer = VisualizerStyle.Mirror,
     };
 
     /// <summary>The OLED default: true black everywhere, panels marked only by hairlines, soft modern corners.</summary>
@@ -106,6 +109,7 @@ public static class ThemePresets
         TextFont = "Geist",
         PlayerLayout = PlayerLayout.Floating,
         Progress = ProgressStyle.Line,
+        StageVisualizer = VisualizerStyle.Bars,
     };
     /// <summary>True black for OLED screens: hairlines, square corners, one red accent.</summary>
     public static ThemeDefinition PureBlack { get; } = new()
@@ -130,6 +134,7 @@ public static class ThemePresets
         Progress = ProgressStyle.Minimal,
         PlayButton = PlayButtonStyle.Outline,
         Cover = CoverStyle.Square,
+        StageVisualizer = VisualizerStyle.Lines,
     };
 
     /// <summary>Neon on a purple dusk gradient: glowing outlines and the cover as a record.</summary>
@@ -161,6 +166,8 @@ public static class ThemePresets
         PlayButton = PlayButtonStyle.Outline,
         Cover = CoverStyle.Vinyl,
         PlayerGlow = 0.6,
+        StageVisualizer = VisualizerStyle.Bars,
+        PlayerVisualizer = VisualizerStyle.Lines,
     };
 
     /// <summary>A printed page: warm paper, ink outlines, serif type and hard shadows.</summary>
@@ -187,6 +194,7 @@ public static class ThemePresets
         PlayerLayout = PlayerLayout.Docked,
         Progress = ProgressStyle.Wave,
         Cover = CoverStyle.Square,
+        StageVisualizer = VisualizerStyle.Dots,
     };
 
     /// <summary>Windows 11's own colours: calm greys, gentle corners and its blue accent.</summary>
@@ -211,6 +219,7 @@ public static class ThemePresets
         Shadow = ShadowStyle.Soft,
         PlayerLayout = PlayerLayout.Docked,
         Progress = ProgressStyle.Line,
+        StageVisualizer = VisualizerStyle.Bars,
     };
 
     /// <summary>A mixing desk: graphite panels, orange like a console's lights.</summary>
@@ -237,6 +246,8 @@ public static class ThemePresets
         PlayerLayout = PlayerLayout.Floating,
         Progress = ProgressStyle.Bold,
         Cover = CoverStyle.Square,
+        StageVisualizer = VisualizerStyle.Bars,
+        PlayerVisualizer = VisualizerStyle.Bars,
     };
 
     /// <summary>Pastel and soft: a pink and lilac gradient, very round shapes and a small player in the corner.</summary>
@@ -263,6 +274,8 @@ public static class ThemePresets
         Progress = ProgressStyle.Gradient,
         Cover = CoverStyle.Vinyl,
         PlayerGlow = 0.2,
+        StageVisualizer = VisualizerStyle.Dots,
+        PlayerVisualizer = VisualizerStyle.Dots,
     };
 
     /// <summary>A phosphor screen on true black: glowing green type and outlines, amber highlights, monospace and the player along the bottom.</summary>
@@ -291,34 +304,42 @@ public static class ThemePresets
         PlayButton = PlayButtonStyle.Outline,
         Cover = CoverStyle.Square,
         PlayerGlow = 0.35,
+        StageVisualizer = VisualizerStyle.Bars,
+        PlayerVisualizer = VisualizerStyle.Bars,
     };
 
-    /// <summary>Warm charcoal lit by coral and amber, rounded and soft.</summary>
-    public static ThemeDefinition Ember { get; } = new()
+    /// <summary>A late-night listening room: deep burgundy velvet, gold light, serif titles and the record turning.</summary>
+    public static ThemeDefinition Velvet { get; } = new()
     {
-        Id = "ember",
-        Name = "Ember",
-        Background = ThemeColor.FromRgb(0x15110F),
-        Background2 = ThemeColor.FromRgb(0x2E1810),
-        Sidebar = ThemeColor.FromRgb(0x1B1512),
-        Surface = ThemeColor.FromRgb(0x211A16),
-        Player = ThemeColor.FromRgb(0x1B1512),
-        Text = ThemeColor.FromRgb(0xF7EDE6),
-        Accent = ThemeColor.FromRgb(0xFF7849),
-        Accent2 = ThemeColor.FromRgb(0xFFC15E),
+        Id = "velvet",
+        Name = "Velvet",
+        Background = ThemeColor.FromRgb(0x14070B),
+        Background2 = ThemeColor.FromRgb(0x3A0E1C),
+        Sidebar = ThemeColor.FromRgb(0x1C0A10),
+        Surface = ThemeColor.FromRgb(0x220C14),
+        Player = ThemeColor.FromRgb(0x1A090F),
+        Text = ThemeColor.FromRgb(0xF6E9DD),
+        Accent = ThemeColor.FromRgb(0xE2B65C),
+        Accent2 = ThemeColor.FromRgb(0xC2425E),
+        Border = ThemeColor.FromRgb(0xE2B65C).WithAlpha(0.18),
         Backdrop = WindowBackdrop.Gradient,
-        GradientAngle = 200,
-        PanelOpacity = 0.9,
-        CornerRadius = 16,
+        GradientAngle = 170,
+        PanelOpacity = 0.86,
+        CornerRadius = 14,
+        Buttons = ButtonShape.Round,
+        BorderWidth = 1,
         PanelGap = 10,
-        Shadow = ShadowStyle.Soft,
-        DisplayFont = "Manrope",
-        TextFont = "Manrope",
+        Shadow = ShadowStyle.Glow,
+        DisplayFont = "Newsreader",
+        TextFont = "Figtree",
         PlayerLayout = PlayerLayout.Floating,
-        Progress = ProgressStyle.Gradient,
-        PlayerGlow = 0.3,
+        Progress = ProgressStyle.Line,
+        PlayButton = PlayButtonStyle.Filled,
+        Cover = CoverStyle.Vinyl,
+        PlayerGlow = 0.35,
+        StageVisualizer = VisualizerStyle.Mirror,
+        PlayerVisualizer = VisualizerStyle.Lines,
     };
-
     /// <summary>Calm green-grey paper tones with a deep green accent.</summary>
     public static ThemeDefinition Sage { get; } = new()
     {
@@ -340,6 +361,7 @@ public static class ThemePresets
         TextFont = "Figtree",
         PlayerLayout = PlayerLayout.Docked,
         Progress = ProgressStyle.Bold,
+        StageVisualizer = VisualizerStyle.Lines,
     };
 
     /// <summary>True black with northern-lights accents: teal and violet glows and a hovering pill.</summary>
@@ -366,10 +388,12 @@ public static class ThemePresets
         Progress = ProgressStyle.Gradient,
         Cover = CoverStyle.Vinyl,
         PlayerGlow = 0.5,
+        StageVisualizer = VisualizerStyle.Mirror,
+        PlayerVisualizer = VisualizerStyle.Mirror,
     };
 
     /// <summary>Dark looks, the default first.</summary>
-    public static IReadOnlyList<ThemeDefinition> Dark { get; } = [Midnight, Glass, Ember, Fluent, Studio, Synthwave];
+    public static IReadOnlyList<ThemeDefinition> Dark { get; } = [Midnight, Glass, Velvet, Fluent, Studio, Synthwave];
 
     /// <summary>Light looks, the default first.</summary>
     public static IReadOnlyList<ThemeDefinition> Light { get; } = [Daylight, Paper, Sage, Bubblegum];

@@ -222,6 +222,65 @@ public static class ArtworkColors
     /// Blurs in place. Three box-blur passes look like a Gaussian blur, and
     /// on a tiny image this is a fraction of a millisecond.
     /// </summary>
+    /// <summary>
+    /// Darkens a picture just enough for white text on see-through panels
+    /// over it to read (4.5:1): only when its brighter parts (the 85th
+    /// percentile of luminance, so a few bright specks do not darken it all)
+    /// are too bright, and evenly in linear light, so its colours stay its
+    /// own. <paramref name="panelOpacity"/> is how much white the panels add
+    /// on top. A dark picture is left as it is. Returns the factor used (1:
+    /// unchanged).
+    /// </summary>
+    public static double DimForWhiteText(Span<byte> bgra, int width, int height, double panelOpacity)
+    {
+        CheckSize(bgra, width, height);
+        var count = width * height;
+        if (count == 0)
+        {
+            return 1;
+        }
+
+        // White text on panel = 4.5:1 needs the panel at most 0.1833; the panel adds panelOpacity of white.
+        var p = Math.Clamp(panelOpacity, 0, 0.9);
+        var allowed = Math.Max(0.02, (0.1833 - p) / (1 - p));
+
+        var luminances = new double[count];
+        for (var i = 0; i < count; i++)
+        {
+            luminances[i] = new ThemeColor(0xFF, bgra[(i * 4) + 2], bgra[(i * 4) + 1], bgra[i * 4]).Luminance;
+        }
+
+        Array.Sort(luminances);
+        var bright = luminances[Math.Min(count - 1, (int)(count * 0.85))];
+        if (bright <= allowed)
+        {
+            return 1;
+        }
+
+        var factor = allowed / bright;
+        for (var i = 0; i < count * 4; i += 4)
+        {
+            for (var c = 0; c < 3; c++)
+            {
+                bgra[i + c] = ToSrgb(ToLinear(bgra[i + c]) * factor);
+            }
+        }
+
+        return factor;
+
+        static double ToLinear(byte channel)
+        {
+            var c = channel / 255.0;
+            return c <= 0.04045 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
+        }
+
+        static byte ToSrgb(double linear)
+        {
+            var c = linear <= 0.0031308 ? linear * 12.92 : (1.055 * Math.Pow(linear, 1 / 2.4)) - 0.055;
+            return (byte)Math.Clamp(Math.Round(c * 255), 0, 255);
+        }
+    }
+
     public static void Blur(Span<byte> bgra, int width, int height, int radius, int passes = 3)
     {
         CheckSize(bgra, width, height);
