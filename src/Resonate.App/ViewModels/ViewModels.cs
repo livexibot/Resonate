@@ -122,6 +122,9 @@ public sealed partial class TrackColumns : ObservableObject
     /// <summary>Below this list width the year column goes.</summary>
     public const double YearMinWidth = 680;
 
+    private bool _number;
+    private bool _like;
+    private bool _duration;
     private bool _album;
     private bool _dateAdded;
     private bool _year;
@@ -160,6 +163,9 @@ public sealed partial class TrackColumns : ObservableObject
     /// <summary>Each row shows its song's cover.</summary>
     public bool ShowsCovers { get; private set; }
 
+    /// <summary>The row of column names shows above the songs.</summary>
+    public bool ShowsNames { get; private set; }
+
     /// <summary>Takes the user's newest choices: the covers at once, the columns at the width last fitted.</summary>
     public void Reload()
     {
@@ -168,12 +174,21 @@ public sealed partial class TrackColumns : ObservableObject
         OnPropertyChanged(nameof(CoverPixels));
         OnPropertyChanged(nameof(CoverSpacing));
         OnPropertyChanged(nameof(CoverVisibility));
+        OnPropertyChanged(nameof(NumberVisibility));
+        OnPropertyChanged(nameof(LikeWidth));
+        OnPropertyChanged(nameof(LikeVisibility));
+        OnPropertyChanged(nameof(DurationWidth));
+        OnPropertyChanged(nameof(DurationVisibility));
         Fit(_width, _textScale);
     }
 
     private void ReadOptions()
     {
         var settings = App.Services.Settings;
+        ShowsNames = settings.ShowColumnNames;
+        _number = settings.ShowNumberColumn;
+        _like = settings.ShowLikeColumn;
+        _duration = settings.ShowDurationColumn;
         _album = _listHasAlbum && settings.ShowAlbumColumn;
         _dateAdded = _listHasDateAdded && settings.ShowAddedColumn;
         _year = settings.ShowYearColumn;
@@ -194,6 +209,19 @@ public sealed partial class TrackColumns : ObservableObject
     public double CoverSpacing => ShowsCovers ? 12 : 0;
 
     public Visibility CoverVisibility => ShowsCovers ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>The song's place in the list (#).</summary>
+    public Visibility NumberVisibility => _number ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>The heart that likes the song.</summary>
+    public GridLength LikeWidth => new(_like ? 40 : 0);
+
+    public Visibility LikeVisibility => _like ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>The song's length.</summary>
+    public GridLength DurationWidth => new(_duration ? 64 : 0);
+
+    public Visibility DurationVisibility => _duration ? Visibility.Visible : Visibility.Collapsed;
 
     public GridLength YearWidth
     {
@@ -296,6 +324,9 @@ public sealed partial class TrackRow : ObservableObject
     public string Artists => Track.Artists;
 
     public string Album => Track.Album;
+
+    /// <summary>What screen readers say for the row.</summary>
+    public override string ToString() => $"{Title}, {Artists}";
 
     public string DateAdded { get; }
 
@@ -430,6 +461,9 @@ public sealed partial class PlaylistNavItem : ObservableObject
     public string Id => Playlist.Id;
 
     public string Name => Playlist.Name;
+
+    /// <summary>What screen readers say for the row.</summary>
+    public override string ToString() => Name;
 
     public string Details
     {
@@ -607,6 +641,9 @@ public sealed partial class NavItem : ObservableObject
     public string Glyph { get; }
 
     public string Label { get; }
+
+    /// <summary>What screen readers say for the row.</summary>
+    public override string ToString() => Label;
 }
 
 /// <summary>

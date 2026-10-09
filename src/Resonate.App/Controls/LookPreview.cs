@@ -352,26 +352,37 @@ internal sealed partial class LookPreview : Grid
         var played = width * 0.4;
         var (height, round) = _look.Progress switch
         {
-            ProgressStyle.Bold => (3.0, true),
-            ProgressStyle.Gradient => (3.0, true),
+            ProgressStyle.Bold or ProgressStyle.Gradient or ProgressStyle.Shimmer => (3.0, true),
             ProgressStyle.Minimal => (1.0, false),
             _ => (2.0, true),
         };
 
         var bar = new Grid { Width = width, Height = 6, HorizontalAlignment = HorizontalAlignment.Center };
-        if (_look.Progress == ProgressStyle.Wave)
+        if (_look.Progress is ProgressStyle.Wave or ProgressStyle.Liquid or ProgressStyle.Heartbeat)
         {
-            var points = new PointCollection();
-            for (double x = 0; x <= played; x += 1)
+            // The card's line at about a quarter of the player's size.
+            if (_look.Progress == ProgressStyle.Liquid)
             {
-                points.Add(new Point(x, 3 - (Math.Sin(x / 6 * Math.PI * 2) * 1.6)));
+                bar.Children.Add(Line(ProgressPatterns.Line(_look.Progress, played * 4, under: true), _palette.Accent2, 1, 0.55));
             }
 
-            bar.Children.Add(new Polyline { Points = points, Stroke = _palette.Accent.ToBrush(), StrokeThickness = 1.4 });
+            bar.Children.Add(Line(ProgressPatterns.Line(_look.Progress, played * 4), _palette.Accent, 1.4, 1));
             var rest = Bar(_palette.Track, 1.4, width - played - 1);
             rest.HorizontalAlignment = HorizontalAlignment.Right;
             rest.VerticalAlignment = VerticalAlignment.Center;
             bar.Children.Add(rest);
+            return bar;
+        }
+
+        if (_look.Progress == ProgressStyle.Dots)
+        {
+            var dots = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+            for (double x = 0; x + 2 <= width; x += 4)
+            {
+                dots.Children.Add(new Ellipse { Width = 2, Height = 2, Fill = (x < played ? _palette.Accent : _palette.Track).ToBrush() });
+            }
+
+            bar.Children.Add(dots);
             return bar;
         }
 
@@ -381,13 +392,40 @@ internal sealed partial class LookPreview : Grid
 
         var fill = Bar(_palette.Accent, height, played, round);
         fill.VerticalAlignment = VerticalAlignment.Center;
-        if (_look.Progress == ProgressStyle.Gradient)
+        if (_look.Progress is ProgressStyle.Gradient or ProgressStyle.Shimmer)
         {
             fill.Background = Gradient(0, _palette.Accent, _palette.Accent2);
         }
 
         bar.Children.Add(fill);
+        if (_look.Progress == ProgressStyle.Ripple)
+        {
+            bar.Children.Add(new Ellipse
+            {
+                Width = 6,
+                Height = 6,
+                Stroke = _palette.Accent.ToBrush(),
+                StrokeThickness = 1,
+                Opacity = 0.6,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(played - 3, 0, 0, 0),
+            });
+        }
+
         return bar;
+    }
+
+    /// <summary>A moving style's line, drawn still at a quarter of its size and cut where the song is.</summary>
+    private static Polyline Line(IReadOnlyList<(double X, double Height)> line, ThemeColor color, double thickness, double opacity)
+    {
+        var points = new PointCollection();
+        foreach (var (x, height) in line)
+        {
+            points.Add(new Point(x / 4, 3 - (height / 2)));
+        }
+
+        // The last point lands a little past the song's place; the bar beside it covers the rest.
+        return new Polyline { Points = points, Stroke = color.ToBrush(), StrokeThickness = thickness, Opacity = opacity, StrokeLineJoin = PenLineJoin.Round };
     }
 
     private static Border Bar(ThemeColor color, double height, double width, bool round = true) => new()

@@ -78,6 +78,10 @@ public sealed partial class LayoutSettings : UserControl
             MiniPlayerButtonSwitch.IsOn = _services.Settings.ShowMiniPlayerButton;
             PlaylistCoversSwitch.IsOn = _services.Settings.ShowPlaylistCovers;
             SongCoversSwitch.IsOn = _services.Settings.ShowSongCovers;
+            ColumnNamesSwitch.IsOn = _services.Settings.ShowColumnNames;
+            NumberColumnSwitch.IsOn = _services.Settings.ShowNumberColumn;
+            LikeColumnSwitch.IsOn = _services.Settings.ShowLikeColumn;
+            DurationColumnSwitch.IsOn = _services.Settings.ShowDurationColumn;
             AlbumColumnSwitch.IsOn = _services.Settings.ShowAlbumColumn;
             YearColumnSwitch.IsOn = _services.Settings.ShowYearColumn;
             AddedColumnSwitch.IsOn = _services.Settings.ShowAddedColumn;
@@ -87,6 +91,15 @@ public sealed partial class LayoutSettings : UserControl
             LoudnessColumnSwitch.IsOn = _services.Settings.ShowLoudnessColumn;
             EnergyColumnSwitch.IsOn = _services.Settings.ShowEnergyColumn;
             ShowStatColumns();
+
+            // The keys as the user has them (Settings, About, Help).
+            var keys = _services.Settings.KeyShortcuts;
+            var mini = AppKeys.For(AppCommand.MiniPlayer, keys);
+            MiniPlayerButtonRow.Description = mini.Count > 0 ? $"{AppKeys.Display(mini)} opens it either way." : string.Empty;
+            AppSizeRow.Description = string.Join(", ", new[] { AppCommand.AppSizeUp, AppCommand.AppSizeDown, AppCommand.AppSizeReset }
+                .Select(command => AppKeys.For(command, keys))
+                .Where(combos => combos.Count > 0)
+                .Select(AppKeys.Display));
 
             AppSizeChoice.SelectedIndex = IndexOf(AppScale.AppSizes, _theme.AppSize);
             TextSizeChoice.SelectedIndex = IndexOf(AppScale.TextSizes, _theme.TextSize);
@@ -158,6 +171,10 @@ public sealed partial class LayoutSettings : UserControl
 
         var settings = _services.Settings;
         settings.ShowSongCovers = SongCoversSwitch.IsOn;
+        settings.ShowColumnNames = ColumnNamesSwitch.IsOn;
+        settings.ShowNumberColumn = NumberColumnSwitch.IsOn;
+        settings.ShowLikeColumn = LikeColumnSwitch.IsOn;
+        settings.ShowDurationColumn = DurationColumnSwitch.IsOn;
         settings.ShowAlbumColumn = AlbumColumnSwitch.IsOn;
         settings.ShowYearColumn = YearColumnSwitch.IsOn;
         settings.ShowAddedColumn = AddedColumnSwitch.IsOn;

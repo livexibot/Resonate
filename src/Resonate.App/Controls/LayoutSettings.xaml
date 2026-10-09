@@ -88,7 +88,7 @@
                         OnContent=""
                         Toggled="OnSongListToggled" />
                 </controls:SettingRow>
-                <controls:SettingRow Description="Ctrl+M opens it either way." Header="Mini player button">
+                <controls:SettingRow x:Name="MiniPlayerButtonRow" Header="Mini player button">
                     <ToggleSwitch
                         x:Name="MiniPlayerButtonSwitch"
                         MinWidth="0"
@@ -108,6 +108,24 @@
                         x:Name="SongCoversSwitch"
                         MinWidth="0"
                         AutomationProperties.Name="Song covers"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnSongListToggled" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="Column names">
+                    <ToggleSwitch
+                        x:Name="ColumnNamesSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Column names"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnSongListToggled" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="#">
+                    <ToggleSwitch
+                        x:Name="NumberColumnSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Number column"
                         OffContent=""
                         OnContent=""
                         Toggled="OnSongListToggled" />
@@ -135,6 +153,24 @@
                         x:Name="AddedColumnSwitch"
                         MinWidth="0"
                         AutomationProperties.Name="Date added column"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnSongListToggled" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="Like">
+                    <ToggleSwitch
+                        x:Name="LikeColumnSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Like column"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnSongListToggled" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="Length">
+                    <ToggleSwitch
+                        x:Name="DurationColumnSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Length column"
                         OffContent=""
                         OnContent=""
                         Toggled="OnSongListToggled" />
@@ -190,7 +226,7 @@
         <!-- Size: the user's own, kept whatever look is in use (not part of a look); steps from AppScale -->
         <controls:SettingsGroup Header="Size">
             <StackPanel Spacing="6">
-                <controls:SettingRow Description="Ctrl+Plus, Ctrl+Minus, Ctrl+0" Header="App size">
+                <controls:SettingRow x:Name="AppSizeRow" Header="App size">
                     <ComboBox
                         x:Name="AppSizeChoice"
                         MinWidth="100"

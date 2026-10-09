@@ -232,70 +232,97 @@
                 </Grid>
             </StackPanel>
 
-            <!-- Plugins, the queue and the volume -->
-            <StackPanel
+            <!--
+              Plugins, the queue and the volume: in one row, or (Settings,
+              Player, "Buttons above volume") the buttons in a row over the
+              speaker and the slider (see ArrangeSide).
+            -->
+            <Grid
+                x:Name="SideArea"
                 Grid.Column="2"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Center"
-                Orientation="Horizontal"
-                Spacing="4">
-                <!-- Signal path, a built-in plugin (PlayerBar.SignalPath.cs): whether what plays is lossless. -->
-                <Border
-                    x:Name="SignalSlot"
+                ColumnSpacing="4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <StackPanel
+                    x:Name="SideButtons"
+                    HorizontalAlignment="Right"
                     VerticalAlignment="Center"
-                    Visibility="Collapsed" />
-                <!-- Commands from plugins that are on, such as the sleep timer (see PluginManager). -->
-                <Button
-                    x:Name="PluginsButton"
-                    AutomationProperties.Name="Plugins"
-                    Click="OnPluginsClick"
-                    Content="&#xEA86;"
-                    Style="{StaticResource ResonateIconButtonStyle}"
-                    ToolTipService.ToolTip="Plugins"
-                    Visibility="Collapsed" />
-                <!-- Spotify Connect devices, with Spotify Web API only (see PlayerBar.Devices.cs). -->
-                <Button
-                    x:Name="DeviceButton"
-                    AutomationProperties.Name="Play on a device"
-                    Click="OnDeviceClick"
-                    Content="&#xE772;"
-                    Style="{StaticResource ResonateIconButtonStyle}"
-                    ToolTipService.ToolTip="Play on a device"
-                    Visibility="Collapsed" />
-                <!-- Lyrics, a built-in plugin (PlayerBar.Lyrics.cs). -->
-                <Button
-                    x:Name="LyricsButton"
-                    AutomationProperties.Name="Lyrics"
-                    Content="&#xE8D2;"
-                    Style="{StaticResource ResonateIconButtonStyle}"
-                    ToolTipService.ToolTip="Lyrics"
-                    Visibility="Collapsed" />
-                <Button
-                    x:Name="QueueButton"
-                    AutomationProperties.Name="Queue"
-                    Click="OnQueueClick"
-                    Content="&#xE8FD;"
-                    Style="{StaticResource ResonateIconButtonStyle}"
-                    ToolTipService.ToolTip="Queue" />
-                <!-- The mouse wheel over it sets the volume, also while the slider is left out. -->
-                <Button
-                    x:Name="MuteButton"
-                    AutomationProperties.Name="Mute"
-                    Click="OnMuteClick"
-                    Content="&#xE767;"
-                    PointerWheelChanged="OnMuteWheelChanged"
-                    Style="{StaticResource ResonateIconButtonStyle}"
-                    ToolTipService.ToolTip="Mute (scroll to change the volume)" />
-                <controls:SeekBar
-                    x:Name="VolumeBar"
-                    Width="112"
+                    Orientation="Horizontal"
+                    Spacing="4">
+                    <!-- Signal path, a built-in plugin (PlayerBar.SignalPath.cs): whether what plays is lossless. -->
+                    <Border
+                        x:Name="SignalSlot"
+                        VerticalAlignment="Center"
+                        Visibility="Collapsed" />
+                    <!-- Commands from plugins that are on, such as the sleep timer (see PluginManager). -->
+                    <Button
+                        x:Name="PluginsButton"
+                        AutomationProperties.Name="Plugins"
+                        Click="OnPluginsClick"
+                        Content="&#xEA86;"
+                        Style="{StaticResource ResonateIconButtonStyle}"
+                        ToolTipService.ToolTip="Plugins"
+                        Visibility="Collapsed" />
+                    <!-- Spotify Connect devices, with Spotify Web API only (see PlayerBar.Devices.cs). -->
+                    <Button
+                        x:Name="DeviceButton"
+                        AutomationProperties.Name="Play on a device"
+                        Click="OnDeviceClick"
+                        Content="&#xE772;"
+                        Style="{StaticResource ResonateIconButtonStyle}"
+                        ToolTipService.ToolTip="Play on a device"
+                        Visibility="Collapsed" />
+                    <!-- Lyrics, a built-in plugin (PlayerBar.Lyrics.cs). -->
+                    <Button
+                        x:Name="LyricsButton"
+                        AutomationProperties.Name="Lyrics"
+                        Content="&#xE8D2;"
+                        Style="{StaticResource ResonateIconButtonStyle}"
+                        ToolTipService.ToolTip="Lyrics"
+                        Visibility="Collapsed" />
+                    <Button
+                        x:Name="QueueButton"
+                        AutomationProperties.Name="Queue"
+                        Click="OnQueueClick"
+                        Content="&#xE8FD;"
+                        Style="{StaticResource ResonateIconButtonStyle}"
+                        ToolTipService.ToolTip="Queue" />
+                </StackPanel>
+                <StackPanel
+                    x:Name="VolumeControls"
+                    Grid.Column="1"
+                    HorizontalAlignment="Right"
                     VerticalAlignment="Center"
-                    AutomationProperties.Name="Volume"
-                    Maximum="100"
-                    Minimum="0"
-                    ValueChanged="OnVolumeValueChanged"
-                    WheelStep="5" />
-            </StackPanel>
+                    Orientation="Horizontal"
+                    Spacing="4">
+                    <!-- The mouse wheel over it sets the volume, also while the slider is left out. -->
+                    <Button
+                        x:Name="MuteButton"
+                        AutomationProperties.Name="Mute"
+                        Click="OnMuteClick"
+                        Content="&#xE767;"
+                        PointerWheelChanged="OnMuteWheelChanged"
+                        Style="{StaticResource ResonateIconButtonStyle}"
+                        ToolTipService.ToolTip="Mute (scroll to change the volume)" />
+                    <controls:SeekBar
+                        x:Name="VolumeBar"
+                        Width="112"
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="Volume"
+                        Maximum="100"
+                        Minimum="0"
+                        ValueChanged="OnVolumeValueChanged"
+                        WheelStep="5" />
+                </StackPanel>
+            </Grid>
         </Grid>
     </controls:Elevation>
 </UserControl>

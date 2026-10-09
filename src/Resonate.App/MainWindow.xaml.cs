@@ -110,6 +110,7 @@ public sealed partial class MainWindow : Window
         services.Theme.Changed += (_, _) => ApplyCaptionButtonColors();
         ApplyCaptionButtonColors();
         SetUpAppSize();
+        ApplyShortcuts();
 
         _messageTimer = DispatcherQueue.CreateTimer();
         _messageTimer.Interval = TimeSpan.FromSeconds(7);
@@ -1097,89 +1098,6 @@ public sealed partial class MainWindow : Window
     {
         _updateBarDismissed = true;
         UpdateProgressBar.IsIndeterminate = false;
-    }
-
-    private void OnRootPreviewKeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        if (e.Key != VirtualKey.Space || ShellGrid.Visibility != Visibility.Visible || SummonBarSettings.IsRecording)
-        {
-            return;
-        }
-
-        // Only Space itself: Alt+Space is the window's menu, and a shortcut may use Ctrl+Space.
-        if (IsDown(VirtualKey.Control) || IsDown(VirtualKey.Menu) || IsDown(VirtualKey.Shift) || IsDown(VirtualKey.LeftWindows) || IsDown(VirtualKey.RightWindows))
-        {
-            return;
-        }
-
-        var focused = FocusManager.GetFocusedElement(RootGrid.XamlRoot);
-        if (focused is TextBox or PasswordBox or AutoSuggestBox)
-        {
-            return;
-        }
-
-        e.Handled = true;
-        _ = _services.Player.TogglePlayPauseAsync();
-    }
-
-    private static bool IsDown(VirtualKey key) =>
-        InputKeyboardSource.GetKeyStateForCurrentThread(key).HasFlag(global::Windows.UI.Core.CoreVirtualKeyStates.Down);
-
-    private void OnSearchAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
-    {
-        args.Handled = true;
-        FocusSearch();
-    }
-
-    private void OnNextAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
-    {
-        args.Handled = true;
-        _ = _services.Player.NextAsync();
-    }
-
-    private void OnPreviousAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
-    {
-        args.Handled = true;
-        _ = _services.Player.PreviousAsync();
-    }
-
-    private void OnBackAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
-    {
-        args.Handled = true;
-        GoBack();
-    }
-
-    private void OnShuffleAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
-    {
-        args.Handled = true;
-        _ = _services.Player.SetShuffleAsync(!_services.Player.State.Shuffle);
-    }
-
-    private void OnRepeatAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
-    {
-        args.Handled = true;
-        _ = _services.Player.SetRepeatAsync(NextRepeat(_services.Player.State.Repeat));
-    }
-
-    private void OnVolumeUpAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
-    {
-        args.Handled = true;
-        _ = _services.Player.SetVolumeAsync(Math.Min(1, _services.Player.State.Volume + 0.05));
-    }
-
-    private void OnVolumeDownAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
-    {
-        args.Handled = true;
-        _ = _services.Player.SetVolumeAsync(Math.Max(0, _services.Player.State.Volume - 0.05));
-    }
-
-    private void OnNewPlaylistAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
-    {
-        args.Handled = true;
-        if (ShellGrid.Visibility == Visibility.Visible)
-        {
-            _ = CreatePlaylistAsync();
-        }
     }
 
     /// <summary>Off, then the whole list, then this song, then off again (as in Spotify).</summary>

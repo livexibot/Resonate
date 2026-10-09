@@ -277,8 +277,8 @@ public sealed partial class PlayerBar : UserControl
         var look = theme.Current;
         PositionBar.BarStyle = look.Progress;
 
-        // A rolling wave makes no sense for volume; it gets the plain line.
-        VolumeBar.BarStyle = look.Progress == ProgressStyle.Wave ? ProgressStyle.Line : look.Progress;
+        // Volume does not play: the moving styles become the plain line there.
+        VolumeBar.BarStyle = ProgressPatterns.ForVolume(look.Progress);
 
         // Settings, Layout, Advanced: the user's own height.
         Bar.Height = look.PlayerHeight ?? PlayerPlacement.HeightFor(_widthClass);
@@ -310,6 +310,37 @@ public sealed partial class PlayerBar : UserControl
         ArtworkShadow.CornerRadius = artworkCorner;
         VinylCentre.Visibility = record ? Visibility.Visible : Visibility.Collapsed;
         UpdateSpin();
+        ArrangeSide();
+    }
+
+    /// <summary>
+    /// The buttons and the volume on the right: in one row, or, while the
+    /// user wants them above the volume and the slider shows, the buttons
+    /// (smaller) in a row over the speaker and the slider, both lined up on
+    /// the right, which leaves the middle more room.
+    /// </summary>
+    private void ArrangeSide()
+    {
+        var stacked = App.Services.Theme.ButtonsAboveVolume && _widthClass == PlayerWidthClass.Full;
+        Grid.SetRow(SideButtons, 0);
+        Grid.SetColumn(SideButtons, 0);
+        Grid.SetRow(VolumeControls, stacked ? 1 : 0);
+        Grid.SetColumn(VolumeControls, stacked ? 0 : 1);
+        SideArea.ColumnSpacing = stacked ? 0 : 4;
+        SideArea.RowSpacing = stacked ? 2 : 0;
+        SideButtons.Spacing = stacked ? 6 : 4;
+        var size = stacked ? 32.0 : 36.0;
+        foreach (var button in new[] { PluginsButton, DeviceButton, LyricsButton, QueueButton, MuteButton })
+        {
+            button.Width = size;
+            button.Height = size;
+        }
+
+        // Room for the slider row alone, rather than for every button beside it.
+        if (_widthClass == PlayerWidthClass.Full)
+        {
+            VolumeColumn.MinWidth = stacked ? 180 : 272;
+        }
     }
 
     /// <summary>The bar's width comes from the window, never from what it shows, so changing what it shows cannot change the width back.</summary>
@@ -626,7 +657,10 @@ public sealed partial class PlayerBar : UserControl
         _ = _player.SetVolumeAsync(Math.Round(volume, 2));
     }
 
-    private void OnMuteClick(object sender, RoutedEventArgs e)
+    private void OnMuteClick(object sender, RoutedEventArgs e) => ToggleMute();
+
+    /// <summary>Mutes, or puts the volume back to where it was before.</summary>
+    internal void ToggleMute()
     {
         if (_player is null)
         {

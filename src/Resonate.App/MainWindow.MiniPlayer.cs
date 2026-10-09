@@ -68,11 +68,5 @@ public sealed partial class MainWindow
         }
     }
 
-    private void OnMiniPlayerAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
-    {
-        args.Handled = true;
-        ToggleMiniPlayer();
-    }
-
     private void OnMiniPlayerClick(object sender, RoutedEventArgs e) => ShowMiniPlayer();
 }

@@ -39,7 +39,7 @@ internal readonly record struct Shortcut(bool Control, bool Alt, bool Shift, boo
         }
 
         var parts = text.Split('+', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length < 2 || KeyFrom(parts[^1]) is not { } key)
+        if (parts.Length < 2 || KeyNamed(parts[^1]) is not { } key)
         {
             return null;
         }
@@ -84,7 +84,7 @@ internal readonly record struct Shortcut(bool Control, bool Alt, bool Shift, boo
             parts.Add("Win");
         }
 
-        parts.Add(KeyName(Key));
+        parts.Add(NameOf(Key));
         return string.Join('+', parts);
     }
 
@@ -99,7 +99,7 @@ internal readonly record struct Shortcut(bool Control, bool Alt, bool Shift, boo
     ];
 
     /// <summary>Letters, digits and F-keys by their face; punctuation as above; the rest by Windows' name (Space, Home, PageUp).</summary>
-    private static string KeyName(VirtualKey key) => key switch
+    internal static string NameOf(VirtualKey key) => key switch
     {
         >= VirtualKey.A and <= VirtualKey.Z => ((char)key).ToString(),
         >= VirtualKey.Number0 and <= VirtualKey.Number9 => ((int)(key - VirtualKey.Number0)).ToString(CultureInfo.InvariantCulture),
@@ -107,7 +107,8 @@ internal readonly record struct Shortcut(bool Control, bool Alt, bool Shift, boo
         _ => key.ToString(),
     };
 
-    private static VirtualKey? KeyFrom(string name)
+    /// <summary>The key a name stands for (see <see cref="NameOf"/>), or null.</summary>
+    internal static VirtualKey? KeyNamed(string name)
     {
         if (name.Length == 1 && char.IsAsciiLetter(name[0]))
         {

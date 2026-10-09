@@ -350,15 +350,7 @@
                                 HorizontalAlignment="Stretch"
                                 HorizontalContentAlignment="Stretch"
                                 Header="Keyboard shortcuts">
-                                <Grid
-                                    x:Name="ShortcutsGrid"
-                                    ColumnSpacing="16"
-                                    RowSpacing="8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                </Grid>
+                                <Border x:Name="ShortcutsHost" />
                             </Expander>
                             <HyperlinkButton
                                 Padding="0"

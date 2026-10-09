@@ -30,23 +30,6 @@ public enum SettingsTab
 
 public sealed partial class SettingsPage : Page
 {
-    /// <summary>The keyboard shortcuts listed under Help: the keys, then what they do.</summary>
-    private static readonly (string Keys, string Action)[] Shortcuts =
-    [
-        ("Space", "Play or pause"),
-        ("Ctrl+Right, Ctrl+Left", "Next or previous song"),
-        ("Ctrl+Up, Ctrl+Down", "Volume up or down"),
-        ("Ctrl+S", "Shuffle"),
-        ("Ctrl+R", "Repeat"),
-        ("Ctrl+F", "Search"),
-        ("Ctrl+N", "New playlist"),
-        ("Ctrl+M", "Mini player"),
-        ("Ctrl+Plus, Ctrl+Minus", "App size"),
-        ("Ctrl+0", "Usual app size"),
-        ("Alt+Left", "Back"),
-        ("Ctrl+K", "Summon bar (its plugin on)"),
-    ];
-
     private readonly AppServices _services = App.Services;
     private SettingsSection? _pendingSection;
     private bool _animateSection;
@@ -55,7 +38,7 @@ public sealed partial class SettingsPage : Page
     {
         InitializeComponent();
         PluginsHost.Children.Add(new PluginsPanel(_services.Plugins, _services));
-        AddShortcuts();
+        ShortcutsHost.Child = new KeyShortcutsList(_services);
         ShowTab(LastTab);
         Loaded += OnLoaded;
 
@@ -181,25 +164,6 @@ public sealed partial class SettingsPage : Page
         if (tab is { } chosen)
         {
             ShowTab(chosen);
-        }
-    }
-
-    /// <summary>The keyboard shortcuts under Help, two columns: the keys and what they do.</summary>
-    private void AddShortcuts()
-    {
-        var resources = Application.Current.Resources;
-        var keysStyle = (Style)resources["ResonateBodyTextStyle"];
-        var actionStyle = (Style)resources["ResonateSecondaryTextStyle"];
-        for (var i = 0; i < Shortcuts.Length; i++)
-        {
-            ShortcutsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            var keys = new TextBlock { Text = Shortcuts[i].Keys, Style = keysStyle, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
-            var action = new TextBlock { Text = Shortcuts[i].Action, Style = actionStyle, TextWrapping = TextWrapping.Wrap };
-            Grid.SetRow(keys, i);
-            Grid.SetRow(action, i);
-            Grid.SetColumn(action, 1);
-            ShortcutsGrid.Children.Add(keys);
-            ShortcutsGrid.Children.Add(action);
         }
     }
 

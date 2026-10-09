@@ -181,6 +181,21 @@ public enum ProgressStyle
 
     /// <summary>A hairline with square ends and no handle.</summary>
     Minimal,
+
+    /// <summary>A bar that a soft light runs along while playing.</summary>
+    Shimmer,
+
+    /// <summary>Two waves rolling through each other while playing.</summary>
+    Liquid,
+
+    /// <summary>A row of dots that march along while playing.</summary>
+    Dots,
+
+    /// <summary>A line whose handle sends out rings while playing.</summary>
+    Ripple,
+
+    /// <summary>A heartbeat trace that runs along while playing.</summary>
+    Heartbeat,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<PlayButtonStyle>))]

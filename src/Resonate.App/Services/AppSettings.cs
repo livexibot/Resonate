@@ -46,7 +46,16 @@ public sealed class AppSettings
     /// <summary>How large covers are in song lists and the sidebar, in percent (one of <see cref="AppScale.CoverSizes"/>).</summary>
     public int CoverSize { get; set; } = AppScale.Normal;
 
+    /// <summary>Song lists show the row of column names (#, Title, Album...) above the songs.</summary>
+    public bool ShowColumnNames { get; set; } = true;
+
     /// <summary>Song lists' optional columns.</summary>
+    public bool ShowNumberColumn { get; set; } = true;
+
+    public bool ShowLikeColumn { get; set; } = true;
+
+    public bool ShowDurationColumn { get; set; } = true;
+
     public bool ShowAlbumColumn { get; set; } = true;
 
     public bool ShowAddedColumn { get; set; } = true;
@@ -66,6 +75,9 @@ public sealed class AppSettings
 
     /// <summary>The library sidebar runs the window's full height, beside the player (off unless the user switches it on).</summary>
     public bool SidebarFullHeight { get; set; }
+
+    /// <summary>The player's buttons sit in a row above the volume (Settings, Player, Style).</summary>
+    public bool ButtonsAboveVolume { get; set; }
 
     /// <summary>Links the user hid from the sidebar (Settings, Layout), by page key. Home always shows; Local Files has <see cref="ShowLocalFiles"/>.</summary>
     public List<string> HiddenSidebarLinks { get; set; } = [];
@@ -355,6 +367,9 @@ public sealed class AppSettings
 
     /// <summary>The keys that open the summon bar from any app, such as "Ctrl+Shift+K"; null for none (nothing is taken until the user picks).</summary>
     public string? SummonBarShortcut { get; set; }
+
+    /// <summary>The user's own keys for the window's shortcuts, by command name (see <c>AppKeys</c>); an empty text means none.</summary>
+    public Dictionary<string, string> KeyShortcuts { get; set; } = [];
 
     // Signal path
 

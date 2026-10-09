@@ -169,6 +169,25 @@ public sealed class ThemeService
         }
     }
 
+    /// <summary>
+    /// The player's buttons (devices, lyrics, queue, plugins) sit in a row
+    /// above the volume instead of beside it. The user's own, kept whatever
+    /// look is in use; off until they switch it on.
+    /// </summary>
+    public bool ButtonsAboveVolume
+    {
+        get => _settings.ButtonsAboveVolume;
+        set
+        {
+            if (_settings.ButtonsAboveVolume != value)
+            {
+                _settings.ButtonsAboveVolume = value;
+                SaveSoon();
+                Changed?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
+
     /// <summary>Raised after App size or Text size change.</summary>
     public event EventHandler? SizeChanged;
 

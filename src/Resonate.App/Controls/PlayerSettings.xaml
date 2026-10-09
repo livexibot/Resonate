@@ -137,6 +137,11 @@
                             <ComboBoxItem Content="Gradient" Tag="Gradient" />
                             <ComboBoxItem Content="Wave" Tag="Wave" />
                             <ComboBoxItem Content="Hairline" Tag="Minimal" />
+                            <ComboBoxItem Content="Shimmer" Tag="Shimmer" />
+                            <ComboBoxItem Content="Liquid" Tag="Liquid" />
+                            <ComboBoxItem Content="Heartbeat" Tag="Heartbeat" />
+                            <ComboBoxItem Content="Dots" Tag="Dots" />
+                            <ComboBoxItem Content="Ripple" Tag="Ripple" />
                         </ComboBox>
                         <controls:SeekBar
                             x:Name="ProgressPreview"
@@ -196,6 +201,15 @@
                         <ComboBoxItem Content="Fade" Tag="Fade" />
                         <ComboBoxItem Content="None" Tag="None" />
                     </ComboBox>
+                </controls:SettingRow>
+                <controls:SettingRow Header="Buttons above volume">
+                    <ToggleSwitch
+                        x:Name="ButtonsAboveVolumeSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Buttons above volume"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnButtonsAboveVolumeToggled" />
                 </controls:SettingRow>
             </StackPanel>
         </controls:SettingsGroup>

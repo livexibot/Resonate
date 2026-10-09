@@ -100,6 +100,7 @@ public sealed partial class PlayerSettings : UserControl
             PlayerGlowSlider.Value = Math.Round(look.PlayerGlow * 100);
             PlayerGlowText.Text = $"{PlayerGlowSlider.Value:0}%";
             Select(SongChangeChoice, _services.Settings.SongChangeAnimation);
+            ButtonsAboveVolumeSwitch.IsOn = _theme.ButtonsAboveVolume;
 
             Select(StageVisualizerChoice, _services.Settings.HomeStageVisualizer ? look.StageVisualizer.ToString() : nameof(VisualizerStyle.Off));
             Select(PlayerVisualizerChoice, look.PlayerVisualizer.ToString());
@@ -162,6 +163,14 @@ public sealed partial class PlayerSettings : UserControl
         {
             _services.Settings.SongChangeAnimation = song;
             _services.SaveSettings();
+        }
+    }
+
+    private void OnButtonsAboveVolumeToggled(object sender, RoutedEventArgs e)
+    {
+        if (!_loading)
+        {
+            _theme.ButtonsAboveVolume = ButtonsAboveVolumeSwitch.IsOn;
         }
     }
 

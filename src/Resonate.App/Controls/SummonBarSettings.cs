@@ -18,7 +18,7 @@ internal static partial class SummonBarSettings
 {
     public static FrameworkElement Create(AppServices services) => new ShortcutBox(
         "Shortcut",
-        "Opens the bar from any app. Ctrl+K opens it in Resonate.",
+        "Opens the bar from any app.",
         () => services.Settings.SummonBarShortcut,
         shortcut => App.MainWindow?.SetSummonShortcut(shortcut),
         () => App.MainWindow?.PauseSummonShortcut(),

@@ -315,7 +315,7 @@ public sealed partial class TracksPage : Page
         _all = list.Tracks.ToList();
 
         HiddenNotice.Visibility = _itemsHidden ? Visibility.Visible : Visibility.Collapsed;
-        ColumnHeadings.Visibility = _itemsHidden ? Visibility.Collapsed : Visibility.Visible;
+        ShowHeadings();
         FilterBox.IsEnabled = !_itemsHidden;
         SortButton.IsEnabled = !_itemsHidden;
         UpdateDetails();
@@ -747,6 +747,10 @@ public sealed partial class TracksPage : Page
         await _services.Player.PlayAsync(request);
     }
 
+    /// <summary>The column names show unless the user hid them or the list cannot show its songs.</summary>
+    private void ShowHeadings() =>
+        ColumnHeadings.Visibility = _itemsHidden || !_columns.ShowsNames ? Visibility.Collapsed : Visibility.Visible;
+
     private void OnTextSizeChanged(object? sender, EventArgs e) =>
         FitToWidth(TrackList.ActualWidth > 0 ? TrackList.ActualWidth : double.PositiveInfinity);
 
@@ -774,6 +778,11 @@ public sealed partial class TracksPage : Page
         KeyHeadingColumn.Width = _columns.KeyWidth;
         LoudnessHeadingColumn.Width = _columns.LoudnessWidth;
         EnergyHeadingColumn.Width = _columns.EnergyWidth;
+        LikeHeadingColumn.Width = _columns.LikeWidth;
+        DurationHeadingColumn.Width = _columns.DurationWidth;
+        NumberHeading.Visibility = _columns.NumberVisibility;
+        DurationHeading.Visibility = _columns.DurationVisibility;
+        ShowHeadings();
 
         var compact = width < CompactWidth * text;
         if (compact == _compact)
