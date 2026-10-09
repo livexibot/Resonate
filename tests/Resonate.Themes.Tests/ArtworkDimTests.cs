@@ -1,4 +1,4 @@
-﻿namespace Resonate.Themes.Tests;
+namespace Resonate.Themes.Tests;
 
 public sealed class ArtworkDimTests
 {

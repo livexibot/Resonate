@@ -1,4 +1,4 @@
-﻿using Microsoft.UI.Dispatching;
+using Microsoft.UI.Dispatching;
 using Resonate.App.Services;
 using Resonate.Spotify.Lyrics;
 
