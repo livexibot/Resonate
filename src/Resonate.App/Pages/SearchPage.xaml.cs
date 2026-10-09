@@ -1,30 +1,48 @@
 using System.Collections.ObjectModel;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
+using Resonate.App.Controls;
 using Resonate.App.Helpers;
 using Resonate.App.Pages.Lists;
 using Resonate.App.Services;
 using Resonate.App.ViewModels;
 using Resonate.Spotify.Library;
 using Resonate.Spotify.Playback;
-using Launcher = Windows.System.Launcher;
 using VirtualKey = Windows.System.VirtualKey;
 
 namespace Resonate.App.Pages;
 
-/// <summary>Search as you type: songs (double-click to play), artists, playlists and albums.</summary>
+/// <summary>
+/// Search as you type: the best match beside the first songs, then artists,
+/// albums and playlists, with filters for one kind (all its results). Before
+/// anything is typed it shows the last searches and what was opened from
+/// them (the owner's request, 9 October 2026), kept in the settings.
+/// </summary>
 public sealed partial class SearchPage : Page
 {
     private static readonly TimeSpan TypingPause = TimeSpan.FromMilliseconds(250);
 
+    // In "All", the songs beside the top result.
+    private const int SongsBesideTop = 4;
+
+    // From this width the top result and the songs sit side by side.
+    private const double SideBySide = 860;
+
     private readonly AppServices _services = App.Services;
+    private readonly List<TrackRow> _allSongs = [];
     private CancellationTokenSource? _search;
+    private SearchMatches? _results;
+    private string _filter = "All";
+    private Action? _openTop;
 
     public SearchPage()
     {
         InitializeComponent();
+        TopRow.SizeChanged += (_, e) => FitTopRow(e.NewSize.Width);
     }
 
     /// <summary>Typed into the box on the next visit (used by the screenshot tour).</summary>
@@ -40,6 +58,8 @@ public sealed partial class SearchPage : Page
     public ObservableCollection<CardItem> AlbumCards { get; } = [];
 
     public ObservableCollection<CardItem> ArtistCards { get; } = [];
+
+    public ObservableCollection<RecentPickItem> RecentPicks { get; } = [];
 
     /// <summary>Moves the keyboard to the search box when the search page is showing.</summary>
     public static void FocusSearchBox(Frame frame)
@@ -57,6 +77,7 @@ public sealed partial class SearchPage : Page
         QueryBox.Text = query;
         QueryBox.SelectionStart = query.Length;
         QueryBox.Focus(FocusState.Programmatic);
+        ShowFilter();
 
         // Setting the text before the page is shown does not always raise
         // TextChanged, so search for it here.
@@ -73,6 +94,15 @@ public sealed partial class SearchPage : Page
         }
     }
 
+    /// <summary>Enter keeps the search among the recent ones.</summary>
+    private void OnQueryKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter)
+        {
+            RememberQuery();
+        }
+    }
+
     private async Task SearchAsync(string text, TimeSpan wait)
     {
         var query = text.Trim();
@@ -85,7 +115,7 @@ public sealed partial class SearchPage : Page
         {
             // A search cancelled above leaves the ring to the newest call, which is this one.
             SearchingRing.IsActive = false;
-            Show(null);
+            Show(null, query);
             return;
         }
 
@@ -101,7 +131,7 @@ public sealed partial class SearchPage : Page
             var results = await Task.Run(() => library.SearchAsync(query, token), token);
             if (!token.IsCancellationRequested)
             {
-                Show(results);
+                Show(results, query);
             }
         }
         catch (OperationCanceledException)
@@ -120,9 +150,10 @@ public sealed partial class SearchPage : Page
         }
     }
 
-    private void Show(SearchMatches? results)
+    private void Show(SearchMatches? results, string query)
     {
-        Songs.Clear();
+        _results = results;
+        _allSongs.Clear();
         PlaylistCards.Clear();
         AlbumCards.Clear();
         ArtistCards.Clear();
@@ -132,7 +163,7 @@ public sealed partial class SearchPage : Page
             var number = 1;
             foreach (var track in results.Tracks)
             {
-                Songs.Add(new TrackRow(track, number++, isLiked: _services.Likes.IsLiked(track.Uri)));
+                _allSongs.Add(new TrackRow(track, number++, isLiked: _services.Likes.IsLiked(track.Uri)));
             }
 
             foreach (var artist in results.Artists)
@@ -168,15 +199,265 @@ public sealed partial class SearchPage : Page
             }
         }
 
-        HintText.Visibility = Visibility.Collapsed;
-        SongsSection.Visibility = Songs.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        ArtistsSection.Visibility = ArtistCards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        PlaylistsSection.Visibility = PlaylistCards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        AlbumsSection.Visibility = AlbumCards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        if (results is not null && Songs.Count + ArtistCards.Count + PlaylistCards.Count + AlbumCards.Count == 0)
+        ShowTop(results, query);
+        ShowSections();
+    }
+
+    /// <summary>Which sections show, for the filter chosen; with nothing typed, the recent searches.</summary>
+    private void ShowSections()
+    {
+        var results = _results;
+        var searching = results is not null;
+        FilterBar.Visibility = searching ? Visibility.Visible : Visibility.Collapsed;
+        ShowRecent(!searching);
+
+        // Only the kinds found get a filter; one that found nothing this time goes back to All.
+        SongsFilter.Visibility = _allSongs.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        ArtistsFilter.Visibility = ArtistCards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        AlbumsFilter.Visibility = AlbumCards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        PlaylistsFilter.Visibility = PlaylistCards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (searching && _filter != "All" && FilterButton(_filter).Visibility != Visibility.Visible)
         {
-            HintText.Visibility = Visibility.Visible;
+            _filter = "All";
+            ShowFilter();
         }
+
+        var all = _filter == "All";
+        Songs.Clear();
+        foreach (var row in all ? _allSongs.Take(SongsBesideTop) : _allSongs)
+        {
+            Songs.Add(row);
+        }
+
+        var songs = searching && (all || _filter == "Songs") && Songs.Count > 0;
+        var top = searching && all && _openTop is not null;
+        TopSection.Visibility = top ? Visibility.Visible : Visibility.Collapsed;
+        SongsSection.Visibility = songs ? Visibility.Visible : Visibility.Collapsed;
+        TopRow.Visibility = top || songs ? Visibility.Visible : Visibility.Collapsed;
+        FitTopRow(TopRow.ActualWidth);
+        ArtistsSection.Visibility = Shown("Artists", ArtistCards.Count);
+        AlbumsSection.Visibility = Shown("Albums", AlbumCards.Count);
+        PlaylistsSection.Visibility = Shown("Playlists", PlaylistCards.Count);
+
+        var nothing = searching && _allSongs.Count + ArtistCards.Count + PlaylistCards.Count + AlbumCards.Count == 0;
+        HintText.Visibility = nothing ? Visibility.Visible : Visibility.Collapsed;
+
+        Visibility Shown(string kind, int count) =>
+            searching && count > 0 && (all || _filter == kind) ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>The top result and the songs side by side on a wide page, the songs under it on a narrow one (or alone).</summary>
+    private void FitTopRow(double width)
+    {
+        var top = TopSection.Visibility == Visibility.Visible;
+        var wide = width >= SideBySide && top;
+        Grid.SetColumn(SongsSection, wide ? 1 : 0);
+        Grid.SetRow(SongsSection, wide || !top ? 0 : 1);
+        Grid.SetColumnSpan(SongsSection, wide ? 1 : 2);
+        Grid.SetColumnSpan(TopSection, wide ? 1 : 2);
+        TopRow.ColumnDefinitions[1].Width = wide ? new GridLength(3, GridUnitType.Star) : new GridLength(0);
+        TopSection.MaxWidth = wide ? double.PositiveInfinity : 520;
+        TopSection.HorizontalAlignment = HorizontalAlignment.Left;
+    }
+
+    /// <summary>The best match, large: an artist named as typed, else the first song, else the first artist, album or playlist.</summary>
+    private void ShowTop(SearchMatches? results, string query)
+    {
+        _openTop = null;
+        if (results is null || RecentSearches.TopKind(query, results) is not { } kind)
+        {
+            return;
+        }
+
+        var round = false;
+        string? image;
+        switch (kind)
+        {
+            case RecentSearchKind.Artist:
+                var artist = results.Artists[0];
+                round = true;
+                image = ImagePicker.Pick(artist.Images, 300);
+                TopTitle.Text = artist.Name;
+                TopKind.Text = "Artist";
+                _openTop = () => OpenArtist(ArtistCards[0]);
+                break;
+            case RecentSearchKind.Song:
+                var row = _allSongs[0];
+                image = row.Track.LargeImageUrl ?? row.Track.SmallImageUrl;
+                TopTitle.Text = row.Track.Title;
+                TopKind.Text = "Song · " + row.Track.Artists;
+                _openTop = () => Play(row);
+                break;
+            case RecentSearchKind.Album:
+                var album = AlbumCards[0];
+                image = album.ImageUrl;
+                TopTitle.Text = album.Title;
+                TopKind.Text = "Album · " + album.Subtitle;
+                _openTop = () => OpenAlbum(album);
+                break;
+            default:
+                var playlist = PlaylistCards[0];
+                image = playlist.ImageUrl;
+                TopTitle.Text = playlist.Title;
+                TopKind.Text = "Playlist · " + playlist.Subtitle;
+                _openTop = () => OpenPlaylist(playlist);
+                break;
+        }
+
+        TopCoverBox.CornerRadius = round ? new CornerRadius(52) : new CornerRadius(10);
+        TopCoverBox.Background = image is null ? Artwork.PlaceholderBrush(TopTitle.Text) : null;
+        TopImage.Source = image is null ? null : _services.Covers.Get(image, 104);
+        AutomationProperties.SetName(TopCard, TopTitle.Text);
+    }
+
+    private void OnTopClick(object sender, RoutedEventArgs e) => _openTop?.Invoke();
+
+    private void OnFilterClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string filter } && filter != _filter)
+        {
+            _filter = filter;
+            ShowFilter();
+            ShowSections();
+        }
+    }
+
+    private Button FilterButton(string filter) => filter switch
+    {
+        "Songs" => SongsFilter,
+        "Artists" => ArtistsFilter,
+        "Albums" => AlbumsFilter,
+        "Playlists" => PlaylistsFilter,
+        _ => AllFilter,
+    };
+
+    /// <summary>The chosen filter sits on the accent's soft fill.</summary>
+    private void ShowFilter()
+    {
+        var chosen = _services.Theme.GetBrush("ResonateAccentSoftBrush");
+        var plain = _services.Theme.GetBrush("ResonateControlBrush");
+        foreach (var button in (Button[])[AllFilter, SongsFilter, ArtistsFilter, AlbumsFilter, PlaylistsFilter])
+        {
+            button.Background = button.Tag as string == _filter ? chosen : plain;
+        }
+    }
+
+    /// <summary>The recent searches as chips (a click searches again, × forgets it) and what was opened from them.</summary>
+    private void ShowRecent(bool show)
+    {
+        var settings = _services.Settings;
+        var any = settings.RecentSearches.Count + settings.RecentSearchPicks.Count > 0;
+        RecentSection.Visibility = show && any ? Visibility.Visible : Visibility.Collapsed;
+        if (!show || !any)
+        {
+            RecentQueriesHost.Content = null;
+            RecentPicks.Clear();
+            return;
+        }
+
+        var chips = new WrapPanel();
+        foreach (var query in settings.RecentSearches)
+        {
+            chips.Children.Add(Chip(query));
+        }
+
+        RecentQueriesHost.Content = settings.RecentSearches.Count > 0 ? chips : null;
+        RecentPicks.Clear();
+        foreach (var pick in settings.RecentSearchPicks)
+        {
+            RecentPicks.Add(new RecentPickItem(pick));
+        }
+
+        RecentPicksList.Visibility = RecentPicks.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private Button Chip(string query)
+    {
+        var resources = Application.Current.Resources;
+        var forget = new Button
+        {
+            Style = (Style)resources["ResonateIconButtonStyle"],
+            Content = "",
+            FontSize = 10,
+            Width = 24,
+            Height = 24,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        AutomationProperties.SetName(forget, "Remove " + query);
+        forget.Click += (_, _) =>
+        {
+            _services.Settings.RecentSearches.Remove(query);
+            _services.SaveSettings();
+            ShowRecent(true);
+        };
+
+        var label = new TextBlock { Text = query, Style = (Style)resources["ResonateBodyTextStyle"], VerticalAlignment = VerticalAlignment.Center };
+        var chip = new Button
+        {
+            Style = (Style)resources["ResonateSubtleButtonStyle"],
+            CornerRadius = new CornerRadius(18),
+            Padding = new Thickness(14, 4, 4, 4),
+            Content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = { label, forget } },
+        };
+        AutomationProperties.SetName(chip, query);
+        chip.Click += (_, _) =>
+        {
+            QueryBox.Text = query;
+            QueryBox.SelectionStart = query.Length;
+            QueryBox.Focus(FocusState.Programmatic);
+        };
+        return chip;
+    }
+
+    private void OnClearRecentClick(object sender, RoutedEventArgs e)
+    {
+        _services.Settings.RecentSearches.Clear();
+        _services.Settings.RecentSearchPicks.Clear();
+        _services.SaveSettings();
+        ShowRecent(true);
+    }
+
+    private void OnRecentPickClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is not RecentPickItem { Pick: var pick })
+        {
+            return;
+        }
+
+        Remember(pick);
+        switch (pick.Kind)
+        {
+            case RecentSearchKind.Song:
+                var track = pick.ToTrack();
+                _ = _services.Player.PlayAsync(new PlayRequest([track], 0, track.AlbumUri, track.Album));
+                break;
+            case RecentSearchKind.Artist when pick.Id is { } artist:
+                App.MainWindow?.Open(TrackActions.ArtistKey(artist));
+                break;
+            case RecentSearchKind.Album when pick.Id is { } album:
+                App.MainWindow?.Open(AlbumSource.Prefix + album);
+                break;
+            case RecentSearchKind.Playlist when pick.Id is { } playlist:
+                App.MainWindow?.Open(playlist);
+                break;
+        }
+    }
+
+    /// <summary>Keeps the query typed now among the recent searches.</summary>
+    private void RememberQuery()
+    {
+        if (RecentSearches.AddQuery(_services.Settings.RecentSearches, QueryBox.Text))
+        {
+            _services.SaveSettings();
+        }
+    }
+
+    /// <summary>Keeps what was opened or played, and the search that found it.</summary>
+    private void Remember(RecentSearchPick pick)
+    {
+        RecentSearches.AddQuery(_services.Settings.RecentSearches, QueryBox.Text);
+        RecentSearches.AddPick(_services.Settings.RecentSearchPicks, pick);
+        _services.SaveSettings();
     }
 
     private void OnSongDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
@@ -201,6 +482,7 @@ public sealed partial class SearchPage : Page
         // Play the song inside its album, so the album continues after it.
         if (row.Track.IsPlayable)
         {
+            Remember(RecentSearchPick.Song(row.Track));
             _ = _services.Player.PlayAsync(new PlayRequest([row.Track], 0, row.Track.AlbumUri, row.Track.Album));
         }
     }
@@ -216,24 +498,51 @@ public sealed partial class SearchPage : Page
 
     private void OnArtistClick(object sender, ItemClickEventArgs e)
     {
-        if (e.ClickedItem is CardItem { Id: { } id })
+        if (e.ClickedItem is CardItem card)
         {
-            App.MainWindow?.Open(TrackActions.ArtistKey(id));
+            OpenArtist(card);
         }
     }
 
     private void OnPlaylistClick(object sender, ItemClickEventArgs e)
     {
-        if (e.ClickedItem is CardItem { Id: { } id })
+        if (e.ClickedItem is CardItem card)
         {
-            App.MainWindow?.Open(id);
+            OpenPlaylist(card);
         }
     }
 
     private void OnAlbumClick(object sender, ItemClickEventArgs e)
     {
-        if (e.ClickedItem is CardItem { Id: { } id })
+        if (e.ClickedItem is CardItem card)
         {
+            OpenAlbum(card);
+        }
+    }
+
+    private void OpenArtist(CardItem card)
+    {
+        if (card.Id is { } id)
+        {
+            Remember(new RecentSearchPick(RecentSearchKind.Artist, card.Uri, id, card.Title, card.Subtitle, card.ImageUrl));
+            App.MainWindow?.Open(TrackActions.ArtistKey(id));
+        }
+    }
+
+    private void OpenPlaylist(CardItem card)
+    {
+        if (card.Id is { } id)
+        {
+            Remember(new RecentSearchPick(RecentSearchKind.Playlist, card.Uri, id, card.Title, card.Subtitle, card.ImageUrl));
+            App.MainWindow?.Open(id);
+        }
+    }
+
+    private void OpenAlbum(CardItem card)
+    {
+        if (card.Id is { } id)
+        {
+            Remember(new RecentSearchPick(RecentSearchKind.Album, card.Uri, id, card.Title, card.Subtitle, card.ImageUrl));
             App.MainWindow?.Open(AlbumSource.Prefix + id);
         }
     }

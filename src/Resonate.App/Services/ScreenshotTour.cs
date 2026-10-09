@@ -117,7 +117,7 @@ internal sealed class ScreenshotTour
             await Task.Delay(1500);
             await CaptureAsync("4-settings-look.png");
 
-            // The Misc tab, at the equalizer (demo values; there are no Spotify settings to find in CI).
+            // The Playback tab, at the equalizer (demo values; there are no Spotify settings to find in CI).
             var settings = _window.SettingsPage;
             settings?.ShowSection(SettingsSection.Equalizer);
             await Task.Delay(800);
@@ -136,6 +136,10 @@ internal sealed class ScreenshotTour
                 hidden.Clear();
                 hidden.AddRange(before);
                 _window.ShowSidebarLinks();
+
+                settings.ShowTab(SettingsTab.Player);
+                await Task.Delay(800);
+                await CaptureAsync("4c2-player.png");
 
                 settings.ShowTab(SettingsTab.About);
                 await Task.Delay(600);

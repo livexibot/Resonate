@@ -7,11 +7,10 @@ using Resonate.Spotify.WebApi;
 namespace Resonate.App.Controls;
 
 /// <summary>
-/// The devices button, shown with "Spotify Web API only": Resonate then
-/// closes the Spotify app on this computer and plays on a Spotify Connect
-/// device (its own player on this PC, "Resonate", a phone, a speaker, the
-/// web player, or a Spotify the user opened again), and this is where the
-/// user picks it, as in Spotify's own apps.
+/// The devices button: where the user picks the Spotify Connect device that
+/// plays (this PC's Spotify app or Resonate's own player, a phone, a
+/// speaker, the web player), as in Spotify's own apps. Shown whenever a
+/// Spotify song plays, in either mode.
 /// </summary>
 public sealed partial class PlayerBar
 {
@@ -21,7 +20,8 @@ public sealed partial class PlayerBar
 
     private void ShowDevice(PlayerState state)
     {
-        var shown = !App.Services.UsesSpotifyApp && state.Source == PlaybackSource.Spotify;
+        // In every mode (the owner's request, 9 October 2026): this PC or any other Spotify Connect device.
+        var shown = state.Source == PlaybackSource.Spotify;
         DeviceButton.Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
         if (shown)
         {

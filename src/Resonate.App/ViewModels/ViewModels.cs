@@ -121,13 +121,13 @@ public sealed partial class TrackColumns : ObservableObject
     /// <summary>Below this list width the year column goes.</summary>
     public const double YearMinWidth = 680;
 
-    private readonly bool _album;
-    private readonly bool _dateAdded;
-    private readonly bool _year;
-    private readonly bool _bpm;
-    private readonly bool _key;
-    private readonly bool _loudness;
-    private readonly bool _energy;
+    private bool _album;
+    private bool _dateAdded;
+    private bool _year;
+    private bool _bpm;
+    private bool _key;
+    private bool _loudness;
+    private bool _energy;
     private GridLength _bpmWidth;
     private GridLength _keyWidth;
     private GridLength _loudnessWidth;
@@ -136,25 +136,51 @@ public sealed partial class TrackColumns : ObservableObject
     private GridLength _addedWidth;
     private GridLength _yearWidth;
 
+    private readonly bool _listHasAlbum;
+    private readonly bool _listHasDateAdded;
+    private double _width = double.PositiveInfinity;
+    private double _textScale = 1;
+
     /// <param name="album">The list has an album column (not on an album's own page).</param>
     /// <param name="dateAdded">The list knows when songs were added.</param>
     public TrackColumns(bool album, bool dateAdded)
     {
-        // What the user chose under Settings, Layout, Song lists; read when the list opens.
+        _listHasAlbum = album;
+        _listHasDateAdded = dateAdded;
+        ReadOptions();
+        Fit(double.PositiveInfinity);
+    }
+
+    /// <summary>Raised when the user changes Settings, Layout, Song lists, so open lists follow at once.</summary>
+    public static event EventHandler? OptionsChanged;
+
+    public static void NotifyOptionsChanged() => OptionsChanged?.Invoke(null, EventArgs.Empty);
+
+    /// <summary>Each row shows its song's cover.</summary>
+    public bool ShowsCovers { get; private set; }
+
+    /// <summary>Takes the user's newest choices: the covers at once, the columns at the width last fitted.</summary>
+    public void Reload()
+    {
+        ReadOptions();
+        OnPropertyChanged(nameof(CoverWidth));
+        OnPropertyChanged(nameof(CoverSpacing));
+        OnPropertyChanged(nameof(CoverVisibility));
+        Fit(_width, _textScale);
+    }
+
+    private void ReadOptions()
+    {
         var settings = App.Services.Settings;
-        _album = album && settings.ShowAlbumColumn;
-        _dateAdded = dateAdded && settings.ShowAddedColumn;
+        _album = _listHasAlbum && settings.ShowAlbumColumn;
+        _dateAdded = _listHasDateAdded && settings.ShowAddedColumn;
         _year = settings.ShowYearColumn;
         _bpm = settings.SongStats && settings.ShowBpmColumn;
         _key = settings.SongStats && settings.ShowKeyColumn;
         _loudness = settings.SongStats && settings.ShowLoudnessColumn;
         _energy = settings.SongStats && settings.ShowEnergyColumn;
         ShowsCovers = settings.ShowSongCovers;
-        Fit(double.PositiveInfinity);
     }
-
-    /// <summary>Each row shows its song's cover.</summary>
-    public bool ShowsCovers { get; }
 
     public GridLength CoverWidth => ShowsCovers ? new GridLength(40) : new GridLength(0);
 
@@ -210,6 +236,8 @@ public sealed partial class TrackColumns : ObservableObject
     /// </summary>
     public void Fit(double width, double textScale = 1)
     {
+        _width = width;
+        _textScale = textScale;
         AlbumWidth = _album && width >= AlbumMinWidth * textScale ? new GridLength(3, GridUnitType.Star) : new GridLength(0);
         AddedWidth = _dateAdded && width >= AddedMinWidth * textScale ? new GridLength(132 * textScale) : new GridLength(0);
         YearWidth = _year && width >= YearMinWidth * textScale ? new GridLength(72 * textScale) : new GridLength(0);
@@ -274,7 +302,8 @@ public sealed partial class TrackRow : ObservableObject
     {
         get
         {
-            if (!_statsAsked)
+            // Asked once song stats are on; a row drawn while they were off asks when they come on.
+            if (!_statsAsked && App.Services.SongStats.IsOn)
             {
                 _statsAsked = true;
                 _stats = App.Services.SongStats.Get(Track.Id, this);
@@ -282,6 +311,18 @@ public sealed partial class TrackRow : ObservableObject
 
             return _stats;
         }
+    }
+
+    /// <summary>Song stats were switched on or off: the columns read again.</summary>
+    public void RefreshStats()
+    {
+        if (!App.Services.SongStats.IsOn)
+        {
+            _statsAsked = false;
+            _stats = null;
+        }
+
+        ShowStats(_stats);
     }
 
     public string Bpm => Stats?.TempoText ?? string.Empty;
@@ -479,6 +520,30 @@ public sealed partial class CardItem
     public bool IsPlaylist { get; }
 
     public CoverTile Cover => _cover ??= new CoverTile(ImageUrl, 160, Artwork.PlaceholderBrush(Title));
+}
+
+/// <summary>Something opened or played from Search, shown again under "Recently viewed".</summary>
+public sealed partial class RecentPickItem(RecentSearchPick pick)
+{
+    private CoverTile? _cover;
+
+    public RecentSearchPick Pick { get; } = pick;
+
+    public string Title => Pick.Title;
+
+    /// <summary>What it is, and by whom.</summary>
+    public string Subtitle => Pick.Kind switch
+    {
+        RecentSearchKind.Song => "Song · " + Pick.Subtitle,
+        RecentSearchKind.Artist => "Artist",
+        RecentSearchKind.Album => "Album · " + Pick.Subtitle,
+        _ => "Playlist · " + Pick.Subtitle,
+    };
+
+    /// <summary>An artist's picture is round, like everywhere else.</summary>
+    public CornerRadius CoverCorner => Pick.Kind == RecentSearchKind.Artist ? new CornerRadius(24) : new CornerRadius(6);
+
+    public CoverTile Cover => _cover ??= new CoverTile(Pick.ImageUrl, 48, Artwork.PlaceholderBrush(Pick.Title));
 }
 
 /// <summary>A navigation entry at the top of the sidebar.</summary>

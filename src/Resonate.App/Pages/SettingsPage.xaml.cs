@@ -21,9 +21,10 @@ public enum SettingsSection
 public enum SettingsTab
 {
     Themes,
+    Player,
     Layout,
     Plugins,
-    Misc,
+    Playback,
     About,
 }
 
@@ -124,9 +125,9 @@ public sealed partial class SettingsPage : Page
 
     private static SettingsTab TabOf(SettingsSection section) => section switch
     {
-        SettingsSection.Equalizer => SettingsTab.Misc,
+        SettingsSection.Equalizer => SettingsTab.Playback,
         SettingsSection.Plugins => SettingsTab.Plugins,
-        _ => SettingsTab.Themes,
+        _ => SettingsTab.Player,
     };
 
     /// <summary>Shows one tab's settings, from the top, and lights its tab.</summary>
@@ -135,19 +136,21 @@ public sealed partial class SettingsPage : Page
         var changed = tab != Tab;
         Tab = tab;
         LastTab = tab;
-        ThemesPanel.Visibility = tab == SettingsTab.Themes ? Visibility.Visible : Visibility.Collapsed;
+        Studio.Visibility = tab == SettingsTab.Themes ? Visibility.Visible : Visibility.Collapsed;
+        PlayerPanel.Visibility = tab == SettingsTab.Player ? Visibility.Visible : Visibility.Collapsed;
         LayoutPanel.Visibility = tab == SettingsTab.Layout ? Visibility.Visible : Visibility.Collapsed;
         PluginsHost.Visibility = tab == SettingsTab.Plugins ? Visibility.Visible : Visibility.Collapsed;
-        MiscPanel.Visibility = tab == SettingsTab.Misc ? Visibility.Visible : Visibility.Collapsed;
+        PlaybackPanel.Visibility = tab == SettingsTab.Playback ? Visibility.Visible : Visibility.Collapsed;
         AboutPanel.Visibility = tab == SettingsTab.About ? Visibility.Visible : Visibility.Collapsed;
 
         _choosingTab = true;
         try
         {
             ThemesTab.IsChecked = tab == SettingsTab.Themes;
+            PlayerTab.IsChecked = tab == SettingsTab.Player;
             LayoutTab.IsChecked = tab == SettingsTab.Layout;
             PluginsTab.IsChecked = tab == SettingsTab.Plugins;
-            MiscTab.IsChecked = tab == SettingsTab.Misc;
+            PlaybackTab.IsChecked = tab == SettingsTab.Playback;
             AboutTab.IsChecked = tab == SettingsTab.About;
         }
         finally
@@ -169,9 +172,10 @@ public sealed partial class SettingsPage : Page
         }
 
         SettingsTab? tab = ReferenceEquals(sender, ThemesTab) ? SettingsTab.Themes
+            : ReferenceEquals(sender, PlayerTab) ? SettingsTab.Player
             : ReferenceEquals(sender, LayoutTab) ? SettingsTab.Layout
             : ReferenceEquals(sender, PluginsTab) ? SettingsTab.Plugins
-            : ReferenceEquals(sender, MiscTab) ? SettingsTab.Misc
+            : ReferenceEquals(sender, PlaybackTab) ? SettingsTab.Playback
             : ReferenceEquals(sender, AboutTab) ? SettingsTab.About
             : null;
         if (tab is { } chosen)

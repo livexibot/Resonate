@@ -331,9 +331,9 @@
                         <Grid
                             Grid.Column="1"
                             Margin="0,0,16,0"
-                            ColumnSpacing="{x:Bind Columns.CoverSpacing}">
+                            ColumnSpacing="{x:Bind Columns.CoverSpacing, Mode=OneWay}">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="{x:Bind Columns.CoverWidth}" />
+                                <ColumnDefinition Width="{x:Bind Columns.CoverWidth, Mode=OneWay}" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Grid
@@ -341,7 +341,7 @@
                                 Height="40"
                                 Background="{x:Bind Cover.Background, Mode=OneWay}"
                                 CornerRadius="{ThemeResource ResonateCornerSmall}"
-                                Visibility="{x:Bind Columns.CoverVisibility}">
+                                Visibility="{x:Bind Columns.CoverVisibility, Mode=OneWay}">
                                 <Image Source="{x:Bind Cover.Image}" Stretch="UniformToFill" />
                             </Grid>
                             <StackPanel

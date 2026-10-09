@@ -54,8 +54,8 @@ visitors; keep it short and in step with this file.
   looks always ripples from the click (no setting); the player is placed
   by Placement (top, bottom, left, right) and Type (docked, inset,
   floating) with an Advanced size and offset, folded by default; Home's
-  stage and lyrics are part of the app (always on, settings under Layout,
-  Home); the sidebar snaps to covers only when dragged narrow.
+  stage and lyrics are part of the app (always on; their settings now
+  under Player, Visualizer and Layout, Pages); the sidebar snaps to covers only when dragged narrow.
 - The owner's choices of 9 October 2026: artist and album names open
   their pages only when the name itself is clicked (`SongLinks` keeps the
   TextBlock as wide as its words and opens only an underlined link);
@@ -65,9 +65,10 @@ visitors; keep it short and in step with this file.
   `miniPlayerScale` 2); the spinning cover is the look's Vinyl cover
   style, not a separate switch; the Home visualizer glides (fast rise,
   slow fall, frame-rate independent, `StageBars.Smooth`) with Sensitivity,
-  Smoothing, Bars and Bar width under Layout, Home; Effects has Page
-  animation and Song change (user's own); Player glow is part of a look
-  (Customize), set on the presets it fits; Liquid Glass is the owner's own
+  Smoothing, Bars and Bar width (now under Player, Visualizer); Page
+  animation and Song change are the user's own (now under Layout, Pages
+  and Player, Style); Player glow is part of a look (now Player, Style),
+  set on the presets it fits; Liquid Glass is the owner's own
   version (panel opacity 0.1, gradient progress, outline play button).
   BPM, Key, Loudness and Energy columns come from ReccoBeats (Spotify
   stopped giving audio features to new apps), only with Song stats on
@@ -76,7 +77,7 @@ visitors; keep it short and in step with this file.
 - Later on 9 October 2026 (the owner's requests): looks carry a Home
   visualizer style and a player bar visualizer (`VisualizerStyle`: Bars,
   Mirror, Dots, Lines; the player's Off at first), set on each preset to
-  fit it, and Customize can change them; the player bar's is a faint
+  fit it, and Settings, Player can change them; the player bar's is a faint
   `StageVisualizer` along its bottom in the look's accents, running only
   while music plays and the window shows. Visualizers take a new height at
   most every 15 ms. Spotify's saving renderer and GPU processes are trimmed
@@ -88,6 +89,33 @@ visitors; keep it short and in step with this file.
   built-in plugins: Tray icon (closing hides to the tray; its menu plays,
   pauses, skips and quits; `MainWindow.Tray.cs`) and Lyrics in the player
   (the sung line under the song; it asks LRCLIB once per song while on).
+- The owner's choices of 9 October 2026, evening (no saved albums,
+  followed artists or podcasts, "I dont want those"): the player bar's
+  devices button shows in both modes, so any Spotify Connect device can be
+  picked; song list options (covers, columns, song stats) apply to open
+  lists at once (`TrackColumns.OptionsChanged`, `TrackRow.RefreshStats`);
+  Home's stage has a skip button beside its play button; six more
+  visualizer styles (Retro, Wave, Helix, Radial, Pulse, Embers; see "Look,
+  layouts and switching"); and Settings regrouped so Themes holds only the
+  look's colours, background, shape and fonts (see "Decisions"). Then:
+  "Accent follows the cover" became "Colours follow the cover" and
+  recolours the whole look (`CoverLook.Follow`: every colour takes the
+  cover's hue with its own lightness and saturation, greys stay grey, the
+  gradient runs between the cover's two colours from
+  `ArtworkColors.PickAccents`, a coloured outline follows the accent); the
+  visualizer's Bars and Bar width became Amount and Size, which every
+  style reads (bars, dots, sparks, columns, rings: `VisualizerShapes`);
+  and Visualizer, Advanced has Home's Width (20 to 100 %, centred),
+  Height (10 to 60 % of the stage) and Max height (40 to 600 px)
+  (`HomeStageWidth`, `HomeStageHeight`, `HomeStageMaxHeight`). At 100 %
+  width Home's visualizer reaches both edges of the stage, clipped to its
+  rounded corners (`StageVisualizer.ClipCorner`). The player bar's
+  visualizer has its own Sensitivity, Smoothing, Amount and Size
+  (`PlayerVisualizer*` settings), so Settings, Player has a Home
+  visualizer group and a Player visualizer group; Listen to Spotify,
+  shared by both, sits under Home's. Both have X and Y under Advanced
+  (`HomeStageX`/`Y`, `PlayerVisualizerX`/`Y`, pixels), which move the
+  drawing while the clip stays on the stage.
 - Playback (9 October 2026): Spotify's media session can be there with
   nothing in it (Spotify just started hidden, or it went blank), and
   Spotify takes a local Play then and does nothing. The player now keeps
@@ -827,6 +855,55 @@ Ripple, and a more interesting Home):
   a look clicked before it; while a switch waits, `ThemeService.Current`
   is the look on screen, so nothing mixes two looks; a switch still on
   screen after 10 s is ended.
+- Visualizer styles (`VisualizerStyle`, saved by name: append, never
+  rename; Off only for the player bar). Offered (`VisualizerShapes.Offered`,
+  9 October 2026, after the owner kept Bars, Mirror, Lines, Retro and Pulse
+  and found the rest "not modern enough"): Bars, Mirror, Lines, Pills
+  (rounded capsules growing both ways from a middle line: rounded
+  rectangles in one shape visual whose Size and Offset are expressions, so
+  the ends stay round), Silk (a soft mirrored ribbon of touching columns,
+  each between two levels, brightest along the middle, tapering at both
+  ends, with a fine thread while quiet), Aurora (large half-glows rising
+  from the bottom on averaged bands, drifting slowly), Retro (hi-fi
+  segments lit from the bottom, faint unlit ones, peaks that fall back at
+  `VisualizerShapes.PeakFall`) and Pulse (2 to 5 rings in the cover's
+  shape over a glow; Home only). Dots, Wave, Helix, Embers and Radial are
+  retired: saved looks read them as Pills, Silk, Silk, Aurora and Pulse
+  (`VisualizerShapes.Current`, in `Normalize`). `StageVisualizer` owns the
+  sound, clock and when anything moves; each style is a
+  `VisualizerDrawing` in `Controls/Visualizers` whose expressions read the
+  host's levels and its own geometry property set, so a resize changes
+  numbers, not expressions. Pulse is drawn in the stage's cover box
+  (behind the cover, reaching 40 px out, 20 on a narrow stage), so it
+  shrinks with it as Home scrolls. Geometry and self-motion live in
+  `Resonate.Themes/VisualizerShapes.cs` (tested; everything that moves
+  alone turns a whole number of times per loop). A rotated sprite ignored
+  a `Scale.Y` animation (found with the retired Radial): animate the whole
+  `Scale` when a sprite turns. The player bar's visualizer has its own
+  Width, Height (45 % of the bar at first) and Max height, and Retro
+  hides its unlit segments there. Presets: Synthwave and Paper Pills,
+  Bubblegum Pulse (Pills in its bar), Terminal Retro (and in its bar),
+  Velvet and Aurora Aurora (Silk in Aurora's bar), Sage Silk. CI's tour
+  starts every style (`StageVisualizer.CheckMotion`).
+- Reset buttons (the owner's request, 9 October 2026): every slider and
+  number box in Settings shows a small reset button while its value is
+  not the default (`Controls/ResetButton`); drop-downs and switches have
+  none. A look's sliders reset to the preset it was made from
+  (`ThemeDefinition.BasedOn`, set when a preset is first edited;
+  `ThemePresets.Origin`), the user's own settings to a new
+  `AppSettings`'s values, and the player's size and place boxes to
+  automatic.
+- Search (rebuilt 9 October 2026, the owner asked for it "more modern",
+  with the last searches): a pill-shaped box with a search icon, filter
+  chips (All, and only the kinds found), the top result
+  (`RecentSearches.TopKind`: an artist named as typed, else the first
+  song) beside the first four songs (stacked under 860 wide), then
+  artists, albums and playlists. With nothing typed it shows "Recent
+  searches": the last 8 queries as chips (a click searches again, x
+  forgets one; kept on Enter or when a result is opened) and the last 12
+  results opened or played ("recently viewed", `RecentSearchPick`, played
+  or opened again without asking Spotify), with Clear. Both are kept in
+  the settings file (`RecentSearches`, `RecentSearchPicks`).
 - Player layouts (saved by name: append, never rename): a look's player is
   Docked or Floating under the panels, Top or FloatingTop above them
   (under the title bar), Hovering, or Corner. Hovering
@@ -1336,7 +1413,8 @@ Keep it obvious what is what:
   updater, demo mode, and the theme engine (`Themes/Tokens.xaml` holds every
   token, `ThemeService.cs` applies looks, `ThemeTransitions.cs` animates
   switching, `Controls/ThemeStudio` is the Themes tab of Settings and
-  `Controls/LayoutSettings` its Layout tab,
+  `Controls/LayoutSettings` its Layout tab, `Controls/PlayerSettings` its
+  Player tab, `Controls/Visualizers` the visualizer styles,
   `MainWindow.PlayerPlacement.cs` places the player, `MainWindow.AppSize.cs`
   and `Controls/ScaleBox.cs` apply App size), and
   the classic player (`Controls/ClassicPlayer`, its Settings section
@@ -1566,14 +1644,21 @@ when the work first needs them, then tick them off here.
   corner and in Settings, About (`UpdateProgress.cs`).
 - Decided (8 October 2026, the owner's request): the Settings button (a
   gear) sits in the title bar at the top right, left of the mini player
-  button, instead of at the foot of the sidebar. Settings has five tabs
+  button, instead of at the foot of the sidebar. Settings has six tabs
   along its top (`SettingsTab`, the last one used is kept while Resonate
-  runs): Themes (looks, Customize, effects such as the switching animation
-  and cover art, the classic player), Layout (player position, which is
-  part of the look; sidebar reaching the bottom; which sidebar links and
-  title bar buttons show; App size and Text size), Plugins, Misc (playback
-  and the Spotify app, equalizer, Local Files) and About (updates, Spotify
-  account, help with the keyboard shortcuts, credits). Only the chosen
+  runs; regrouped on 9 October 2026, when the owner found settings "all
+  over the place"): Themes (presets, your looks, and Customize: colours,
+  background with Cover blur, shape, fonts), Player (`PlayerSettings`:
+  Position with Placement, Type and Advanced; Style with progress bar,
+  play button, cover, glow and song change; Visualizer with Home's and the
+  player's styles, Home's Off being the user's switch, and sensitivity,
+  smoothing, Amount, Size, Listen to Spotify and Advanced for Home's, and
+  the player bar's own; then Winamp), Layout
+  (Pages: page animation and the blurred cover on Home; sidebar and
+  buttons, with the sidebar running full height; song lists; App size and
+  Text size), Plugins, Playback (was Misc: playback and the Spotify app,
+  equalizer, Local Files) and About (updates, Spotify account, help with
+  the keyboard shortcuts, credits). Only the chosen
   tab is laid out. Rows show a description only when it says something
   the name does not, in a few words. Hidden sidebar links are kept in
   `HiddenSidebarLinks` (Home always shows; Local Files keeps

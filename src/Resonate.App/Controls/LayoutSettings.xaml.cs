@@ -2,14 +2,15 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Resonate.App.Services;
 using Resonate.App.Themes;
+using Resonate.App.ViewModels;
 using Resonate.Themes;
 
 namespace Resonate.App.Controls;
 
 /// <summary>
-/// The Layout tab of Settings. Where the player sits is part of the look
-/// (a preset is copied first, as under Customize); everything else belongs
-/// to the user and is kept whatever look is in use.
+/// The Layout tab of Settings: how pages open and Home's background, the
+/// sidebar's links and the title bar's buttons, song lists, and sizes. All
+/// of it belongs to the user and is kept whatever look is in use.
 /// </summary>
 public sealed partial class LayoutSettings : UserControl
 {
@@ -23,8 +24,8 @@ public sealed partial class LayoutSettings : UserControl
     {
         InitializeComponent();
 
-        // Home's stage (part of Home itself): its visualizer, cover and colours, after the player.
-        Sections.Children.Insert(1, new SettingsGroup { Header = "Home", Content = StageSettings.HomeStage(_services) });
+        // Home's background, under the page animation.
+        PagesRows.Children.Add(StageSettings.HomeStage(_services));
 
         foreach (var size in AppScale.AppSizes)
         {
@@ -61,14 +62,7 @@ public sealed partial class LayoutSettings : UserControl
         _loading = true;
         try
         {
-            var look = _theme.Current;
-            var (edge, type) = Split(look.PlayerLayout);
-            Select(PlayerEdgeChoice, edge);
-            Select(PlayerTypeChoice, type);
-            PlayerWidthBox.Value = look.PlayerWidth ?? double.NaN;
-            PlayerHeightBox.Value = look.PlayerHeight ?? double.NaN;
-            PlayerXBox.Value = look.PlayerOffsetX ?? double.NaN;
-            PlayerYBox.Value = look.PlayerOffsetY ?? double.NaN;
+            Select(PageAnimationChoice, _services.Settings.PageAnimation);
             SidebarFullHeightSwitch.IsOn = _theme.SidebarFullHeight;
 
             var hidden = _services.Settings.HiddenSidebarLinks;
@@ -98,73 +92,18 @@ public sealed partial class LayoutSettings : UserControl
         }
     }
 
-    private void OnPlayerLayoutChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (!_loading
-            && PlayerEdgeChoice.SelectedItem is ComboBoxItem { Tag: string edge }
-            && PlayerTypeChoice.SelectedItem is ComboBoxItem { Tag: string type })
-        {
-            var layout = Join(edge, type);
-            _theme.Edit(look => look with { PlayerLayout = layout }, smooth: true);
-        }
-    }
-
-    private void OnPlayerAdvancedChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
-    {
-        if (_loading)
-        {
-            return;
-        }
-
-        _theme.Edit(look => look with
-        {
-            PlayerWidth = Value(PlayerWidthBox),
-            PlayerHeight = Value(PlayerHeightBox),
-            PlayerOffsetX = Value(PlayerXBox),
-            PlayerOffsetY = Value(PlayerYBox),
-        });
-
-        static double? Value(NumberBox box) => double.IsNaN(box.Value) ? null : Math.Round(box.Value);
-    }
-
-    private void OnPlayerAdvancedResetClick(object sender, RoutedEventArgs e) =>
-        _theme.Edit(look => look with { PlayerWidth = null, PlayerHeight = null, PlayerOffsetX = null, PlayerOffsetY = null });
-
-    /// <summary>Where the player sits (Top, Bottom, Left, Right) and what kind it is (Docked, Inset, Floating).</summary>
-    private static (string Edge, string Type) Split(PlayerLayout layout) => layout switch
-    {
-        PlayerLayout.Top => ("Top", "Docked"),
-        PlayerLayout.FloatingTop => ("Top", "Inset"),
-        PlayerLayout.HoveringTop => ("Top", "Floating"),
-        PlayerLayout.Floating => ("Bottom", "Inset"),
-        PlayerLayout.Hovering => ("Bottom", "Floating"),
-        PlayerLayout.Left => ("Left", "Docked"),
-        PlayerLayout.InsetLeft => ("Left", "Inset"),
-        PlayerLayout.CornerLeft => ("Left", "Floating"),
-        PlayerLayout.Right => ("Right", "Docked"),
-        PlayerLayout.InsetRight => ("Right", "Inset"),
-        PlayerLayout.Corner => ("Right", "Floating"),
-        _ => ("Bottom", "Docked"),
-    };
-
-    private static PlayerLayout Join(string edge, string type) => (edge, type) switch
-    {
-        ("Top", "Docked") => PlayerLayout.Top,
-        ("Top", "Inset") => PlayerLayout.FloatingTop,
-        ("Top", "Floating") => PlayerLayout.HoveringTop,
-        ("Bottom", "Inset") => PlayerLayout.Floating,
-        ("Bottom", "Floating") => PlayerLayout.Hovering,
-        ("Left", "Docked") => PlayerLayout.Left,
-        ("Left", "Inset") => PlayerLayout.InsetLeft,
-        ("Left", "Floating") => PlayerLayout.CornerLeft,
-        ("Right", "Docked") => PlayerLayout.Right,
-        ("Right", "Inset") => PlayerLayout.InsetRight,
-        ("Right", "Floating") => PlayerLayout.Corner,
-        _ => PlayerLayout.Docked,
-    };
-
     private static void Select(ComboBox choice, string tag) =>
         choice.SelectedItem = choice.Items.OfType<ComboBoxItem>().FirstOrDefault(item => item.Tag as string == tag);
+
+    // The page animation belongs to the user, not to a look.
+    private void OnPageAnimationChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_loading && PageAnimationChoice.SelectedItem is ComboBoxItem { Tag: string page })
+        {
+            _services.Settings.PageAnimation = page;
+            _services.SaveSettings();
+        }
+    }
 
     // Like the sizes, the layout switch belongs to the user, not to a look.
     private void OnSidebarFullHeightToggled(object sender, RoutedEventArgs e)
@@ -224,6 +163,7 @@ public sealed partial class LayoutSettings : UserControl
         settings.ShowEnergyColumn = EnergyColumnSwitch.IsOn;
         ShowStatColumns();
         _services.SaveSettings();
+        TrackColumns.NotifyOptionsChanged();
         App.MainWindow?.ShowPlaylistCovers(settings.ShowPlaylistCovers);
     }
 

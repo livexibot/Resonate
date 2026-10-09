@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
+using Resonate.App.Services;
 using Resonate.App.Themes;
 using Resonate.Themes;
 using Windows.ApplicationModel.DataTransfer;
@@ -73,6 +74,7 @@ public sealed partial class ThemeStudio : UserControl
     private readonly ThemeService _theme = App.Services.Theme;
     private readonly Dictionary<ComboBox, Func<ThemeDefinition, string, ThemeDefinition>> _choices;
     private readonly Dictionary<Slider, Func<ThemeDefinition, double, ThemeDefinition>> _sliders;
+    private readonly List<Action> _resets = [];
     private readonly List<Swatch> _swatches = [];
     private readonly ColorPicker _picker;
     private readonly Flyout _pickerFlyout;
@@ -93,11 +95,6 @@ public sealed partial class ThemeStudio : UserControl
             [BackdropChoice] = (look, tag) => look with { Backdrop = Enum.Parse<WindowBackdrop>(tag) },
             [ButtonsChoice] = (look, tag) => look with { Buttons = Enum.Parse<ButtonShape>(tag) },
             [ShadowChoice] = (look, tag) => look with { Shadow = Enum.Parse<ShadowStyle>(tag) },
-            [ProgressChoice] = (look, tag) => look with { Progress = Enum.Parse<ProgressStyle>(tag) },
-            [StageVisualizerChoice] = (look, tag) => look with { StageVisualizer = Enum.Parse<VisualizerStyle>(tag) },
-            [PlayerVisualizerChoice] = (look, tag) => look with { PlayerVisualizer = Enum.Parse<VisualizerStyle>(tag) },
-            [PlayButtonChoice] = (look, tag) => look with { PlayButton = Enum.Parse<PlayButtonStyle>(tag) },
-            [CoverChoice] = (look, tag) => look with { Cover = Enum.Parse<CoverStyle>(tag) },
         };
 
         _sliders = new()
@@ -105,11 +102,20 @@ public sealed partial class ThemeStudio : UserControl
             [GradientAngleSlider] = (look, value) => look with { GradientAngle = value },
             [TintSlider] = (look, value) => look with { BackdropTint = value / 100 },
             [PanelOpacitySlider] = (look, value) => look with { PanelOpacity = value / 100 },
-            [PlayerGlowSlider] = (look, value) => look with { PlayerGlow = value / 100 },
             [CornerSlider] = (look, value) => look with { CornerRadius = value },
             [BorderSlider] = (look, value) => look with { BorderWidth = value },
             [GapSlider] = (look, value) => look with { PanelGap = value },
         };
+
+        // Reset buttons: a look's sliders go back to the preset it came from, the cover blur to its first value.
+        ThemeDefinition Origin() => ThemePresets.Origin(_theme.Current);
+        _resets.Add(ResetButton.Attach(CoverBlurSlider, () => new AppSettings().CoverBlur, "Cover blur"));
+        _resets.Add(ResetButton.Attach(GradientAngleSlider, () => Origin().GradientAngle, "Gradient angle"));
+        _resets.Add(ResetButton.Attach(TintSlider, () => Math.Round(Origin().BackdropTint * 100), "Tint"));
+        _resets.Add(ResetButton.Attach(PanelOpacitySlider, () => Math.Round(Origin().PanelOpacity * 100), "Panel opacity"));
+        _resets.Add(ResetButton.Attach(CornerSlider, () => Origin().CornerRadius, "Corners"));
+        _resets.Add(ResetButton.Attach(BorderSlider, () => Origin().BorderWidth, "Outlines"));
+        _resets.Add(ResetButton.Attach(GapSlider, () => Origin().PanelGap, "Spacing"));
 
         foreach (var font in Fonts)
         {
@@ -200,24 +206,22 @@ public sealed partial class ThemeStudio : UserControl
             Select(BackdropChoice, look.Backdrop.ToString());
             Select(ButtonsChoice, look.Buttons.ToString());
             Select(ShadowChoice, look.Shadow.ToString());
-            Select(ProgressChoice, look.Progress.ToString());
-            Select(StageVisualizerChoice, look.StageVisualizer.ToString());
-            Select(PlayerVisualizerChoice, look.PlayerVisualizer.ToString());
-            Select(PlayButtonChoice, look.PlayButton.ToString());
-            Select(CoverChoice, look.Cover.ToString());
             ShowFont(DisplayFontChoice, look.DisplayFont);
             ShowFont(TextFontChoice, look.TextFont);
 
             GradientAngleSlider.Value = look.GradientAngle;
             TintSlider.Value = Math.Round(look.BackdropTint * 100);
             PanelOpacitySlider.Value = Math.Round(look.PanelOpacity * 100);
-            PlayerGlowSlider.Value = Math.Round(look.PlayerGlow * 100);
             CornerSlider.Value = look.CornerRadius;
             BorderSlider.Value = look.BorderWidth;
             GapSlider.Value = look.PanelGap;
             AdaptiveAccentSwitch.IsOn = look.AdaptiveAccent;
             ShowSliderValues();
             ShowCoverArt();
+            foreach (var reset in _resets)
+            {
+                reset();
+            }
 
             foreach (var swatch in _swatches)
             {
@@ -228,7 +232,6 @@ public sealed partial class ThemeStudio : UserControl
             TintRow.Visibility = look.Backdrop is WindowBackdrop.Mica or WindowBackdrop.Acrylic
                 ? Visibility.Visible
                 : Visibility.Collapsed;
-            ProgressPreview.BarStyle = look.Progress;
 
             CustomizeHint.Text = _theme.Library.ActiveIsPreset
                 ? $"Changes make your own copy of {look.Name}."
@@ -255,15 +258,11 @@ public sealed partial class ThemeStudio : UserControl
         }
     }
 
-    /// <summary>The cover art settings: the spinning cover and how much the song cover backdrop is blurred.</summary>
+    /// <summary>How much the song cover backdrop is blurred (the user's, not part of a look).</summary>
     private void ShowCoverArt()
     {
         CoverBlurSlider.Value = _theme.CoverBlur;
         CoverBlurText.Text = $"{_theme.CoverBlur} %";
-
-        var settings = App.Services.Settings;
-        Select(PageAnimationChoice, settings.PageAnimation);
-        Select(SongChangeChoice, settings.SongChangeAnimation);
     }
 
     private void ShowSliderValues()
@@ -271,7 +270,6 @@ public sealed partial class ThemeStudio : UserControl
         GradientAngleText.Text = $"{GradientAngleSlider.Value:0}°";
         TintText.Text = $"{TintSlider.Value:0}%";
         PanelOpacityText.Text = $"{PanelOpacitySlider.Value:0}%";
-        PlayerGlowText.Text = $"{PlayerGlowSlider.Value:0}%";
         CornerText.Text = $"{CornerSlider.Value:0}";
         BorderText.Text = $"{BorderSlider.Value:0.#}";
         GapText.Text = $"{GapSlider.Value:0}";
@@ -613,28 +611,7 @@ public sealed partial class ThemeStudio : UserControl
         }
     }
 
-    // The cover art settings are not part of a look, so they skip Edit (which would make a custom copy).
-    private void OnAnimationChoiceChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_loading)
-        {
-            return;
-        }
-
-        var settings = App.Services.Settings;
-        if (PageAnimationChoice.SelectedItem is ComboBoxItem { Tag: string page })
-        {
-            settings.PageAnimation = page;
-        }
-
-        if (SongChangeChoice.SelectedItem is ComboBoxItem { Tag: string song })
-        {
-            settings.SongChangeAnimation = song;
-        }
-
-        App.Services.SaveSettings();
-    }
-
+    // The cover blur is not part of a look, so it skips Edit (which would make a custom copy).
     private void OnCoverBlurChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
         var blur = (int)Math.Round(e.NewValue);

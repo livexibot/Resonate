@@ -67,6 +67,12 @@ public sealed class AppSettings
     /// <summary>Links the user hid from the sidebar (Settings, Layout), by page key. Home always shows; Local Files has <see cref="ShowLocalFiles"/>.</summary>
     public List<string> HiddenSidebarLinks { get; set; } = [];
 
+    /// <summary>The last searches, newest first, which Search shows before anything is typed.</summary>
+    public List<string> RecentSearches { get; set; } = [];
+
+    /// <summary>What was last opened or played from Search, newest first ("Recently viewed").</summary>
+    public List<Resonate.Spotify.Library.RecentSearchPick> RecentSearchPicks { get; set; } = [];
+
     /// <summary>The mini player button in the title bar (Ctrl+M opens the mini player either way).</summary>
     public bool ShowMiniPlayerButton { get; set; } = true;
 
@@ -256,14 +262,52 @@ public sealed class AppSettings
     /// <summary>How strongly the bars answer the sound, 50 to 200 %.</summary>
     public int HomeStageSensitivity { get; set; } = 100;
 
-    /// <summary>How much of each step a bar fills, 20 to 90 %.</summary>
+    /// <summary>The visualizers' Size: how large each bar, dot, spark or ring line is, 20 to 90 %.</summary>
     public int HomeStageBarWidth { get; set; } = 56;
 
-    /// <summary>How many bars, 16 to 96 (fewer when the stage is too narrow for them).</summary>
+    /// <summary>The visualizers' Amount: how many bars, dots, sparks or rings, 16 to 96 (fewer when there is no room for them).</summary>
     public int HomeStageBars { get; set; } = 64;
+
+    /// <summary>How much of the stage's width Home's visualizer spans, centred, 20 to 100 %.</summary>
+    public int HomeStageWidth { get; set; } = 100;
+
+    /// <summary>How tall Home's visualizer may grow, as a share of the stage's height, 10 to 60 %.</summary>
+    public int HomeStageHeight { get; set; } = 26;
+
+    /// <summary>The most Home's visualizer may grow, in pixels, 40 to 600.</summary>
+    public int HomeStageMaxHeight { get; set; } = 280;
+
+    /// <summary>How far Home's visualizer is moved right (negative: left), in pixels.</summary>
+    public int HomeStageX { get; set; }
+
+    /// <summary>How far Home's visualizer is moved down (negative: up), in pixels.</summary>
+    public int HomeStageY { get; set; }
 
     /// <summary>How smoothly the bars rise and fall, 0 (snappy) to 100 (soft).</summary>
     public int HomeStageSmoothing { get; set; } = 60;
+
+    // The player bar's visualizer: its own Sensitivity, Smoothing, Amount and Size (the owner's request, 9 October 2026).
+
+    public int PlayerVisualizerSensitivity { get; set; } = 100;
+
+    public int PlayerVisualizerSmoothing { get; set; } = 60;
+
+    public int PlayerVisualizerAmount { get; set; } = 64;
+
+    public int PlayerVisualizerSize { get; set; } = 56;
+
+    public int PlayerVisualizerX { get; set; }
+
+    /// <summary>How much of the player bar's width its visualizer spans, centred, 20 to 100 %.</summary>
+    public int PlayerVisualizerWidth { get; set; } = 100;
+
+    /// <summary>How tall the player bar's visualizer may grow, as a share of the bar's height, 10 to 100 %.</summary>
+    public int PlayerVisualizerHeight { get; set; } = 45;
+
+    /// <summary>The most the player bar's visualizer may grow, in pixels, 8 to 200.</summary>
+    public int PlayerVisualizerMaxHeight { get; set; } = 200;
+
+    public int PlayerVisualizerY { get; set; }
 
     // Away screen
 

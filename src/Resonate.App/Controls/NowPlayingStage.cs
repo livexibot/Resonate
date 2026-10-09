@@ -53,6 +53,7 @@ internal sealed partial class NowPlayingStage : Grid
     private const double CoverCorner = 8;
     private const string PlayGlyph = "";
     private const string PauseGlyph = "";
+    private const string NextGlyph = "";
 
     // Space kept between the words (or the cover) and the visualizer's tallest bar.
     private const double BarGap = 28;
@@ -78,6 +79,8 @@ internal sealed partial class NowPlayingStage : Grid
     private readonly TextBlock _artists;
     private readonly TextBlock _source;
     private readonly Button? _play;
+    private readonly Button? _next;
+    private readonly StackPanel? _controls;
     private readonly StackPanel? _upNext;
     private readonly List<(Grid Cover, Image Image, TextBlock Title, TextBlock Artists, Grid Row)> _upNextRows = [];
     private readonly TextBlock? _upNextLine;
@@ -106,6 +109,7 @@ internal sealed partial class NowPlayingStage : Grid
     private bool _wide = true;
     private ThemeColor _page;
     private bool _barRoomQueued;
+    private bool _visualizerAroundCover;
 
     public NowPlayingStage(AppServices services, StageKind kind)
     {
@@ -140,11 +144,32 @@ internal sealed partial class NowPlayingStage : Grid
                 Height = 64,
                 FontSize = 24,
                 Content = PlayGlyph,
+            };
+            _play.Click += OnPlayClick;
+
+            // Skip beside the big play button (the owner's request, 9 October 2026).
+            _next = new Button
+            {
+                Style = (Style)resources["ResonateIconButtonStyle"],
+                Width = 48,
+                Height = 48,
+                FontSize = 22,
+                Content = NextGlyph,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            AutomationProperties.SetName(_next, "Next");
+            ToolTipService.SetToolTip(_next, "Next");
+            _next.Click += (_, _) => _ = _services.Player.NextAsync();
+            _controls = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 12,
                 HorizontalAlignment = HorizontalAlignment.Left,
                 Margin = new Thickness(0, 18, 0, 0),
             };
-            _play.Click += OnPlayClick;
-            _text.Children.Add(_play);
+            _controls.Children.Add(_play);
+            _controls.Children.Add(_next);
+            _text.Children.Add(_controls);
 
             _upNext = new StackPanel { Spacing = 10, Margin = new Thickness(0, 26, 0, 0), Visibility = Visibility.Collapsed };
             _upNext.Children.Add(new TextBlock { Style = (Style)resources["ResonateEyebrowTextStyle"], Text = "UP NEXT" });
@@ -190,7 +215,7 @@ internal sealed partial class NowPlayingStage : Grid
             Children = { _coverBox, _text },
         };
 
-        _visualizer = new StageVisualizer(services.Visualiser);
+        _visualizer = new StageVisualizer(services.Visualiser) { CoverCorner = CoverCorner };
 
         Children.Add(_blur);
         Children.Add(_clouds);
@@ -369,10 +394,48 @@ internal sealed partial class NowPlayingStage : Grid
         UpdateRunning();
     }
 
+    /// <summary>
+    /// The look's visualizer style: along the bottom of the stage, or, for
+    /// the styles drawn around the cover, in the cover's box behind the
+    /// cover, so it moves and shrinks with it as the page scrolls.
+    /// </summary>
+    private void PlaceVisualizer(VisualizerStyle style)
+    {
+        var around = VisualizerShapes.AroundCover(style);
+        if (around != _visualizerAroundCover)
+        {
+            _visualizerAroundCover = around;
+            (around ? (Panel)this : _coverBox).Children.Remove(_visualizer);
+            if (around)
+            {
+                _visualizer.Margin = new Thickness(0);
+                _coverBox.Children.Insert(0, _visualizer);
+            }
+            else
+            {
+                Children.Insert(Children.IndexOf(Body), _visualizer);
+            }
+
+            // Moving it may have stopped it; it starts again where it now is.
+            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, UpdateRunning);
+        }
+
+        _visualizer.DrawStyle = style;
+        FitReach();
+        QueueBarRoom();
+    }
+
+    /// <summary>How far a visualizer around the cover may reach: short of the words beside or under it.</summary>
+    private void FitReach()
+    {
+        var away = _kind == StageKind.Away;
+        _visualizer.Reach = _wide ? (away ? 52 : 40) : 20;
+    }
+
     /// <summary>The look's colours and corners, and the clouds and blurred cover made readable for its text.</summary>
     private void ApplyLook()
     {
-        _visualizer.DrawStyle = _services.Theme.Current.StageVisualizer;
+        PlaceVisualizer(_services.Theme.Current.StageVisualizer);
         var palette = _services.Theme.Palette;
         var home = _kind == StageKind.Home;
         var page = home ? palette.Surface.Over(palette.Background).Opaque : palette.Background.Opaque;
@@ -381,6 +444,7 @@ internal sealed partial class NowPlayingStage : Grid
         var corner = home ? palette.CornerLarge : 0;
         CornerRadius = new CornerRadius(corner);
         _clouds.CornerRadiusValue = (float)corner;
+        _visualizer.ClipCorner = corner;
         PaintClouds(animate: false);
         ShowBlur();
     }
@@ -426,7 +490,12 @@ internal sealed partial class NowPlayingStage : Grid
         {
             _play.Content = state.HasTrack && state.IsPlaying ? PauseGlyph : PlayGlyph;
             AutomationProperties.SetName(_play, state.HasTrack && state.IsPlaying ? "Pause" : "Play");
-            _play.Visibility = song is null ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        if (_controls is not null && _next is not null)
+        {
+            _controls.Visibility = song is null ? Visibility.Collapsed : Visibility.Visible;
+            _next.Visibility = state.HasTrack ? Visibility.Visible : Visibility.Collapsed;
         }
 
         ShowUpNext(state);
@@ -869,7 +938,8 @@ internal sealed partial class NowPlayingStage : Grid
         // The away screen keeps the top for its clock.
         var top = away ? 160 : pad;
         Body.Margin = new Thickness(pad, top, pad, pad);
-        _visualizer.Margin = new Thickness(pad, 0, pad, 0);
+        // At full width the visualizer reaches both edges of the stage (the owner's request, 9 October 2026).
+        _visualizer.Margin = new Thickness(0);
         var innerWidth = Math.Max(0, size.Width - (2 * pad));
         var innerHeight = Math.Max(0, size.Height - top - pad);
         _wide = innerWidth >= 600;
@@ -892,6 +962,7 @@ internal sealed partial class NowPlayingStage : Grid
         Body.RowSpacing = _wide ? 0 : 28;
         _text.VerticalAlignment = _wide ? VerticalAlignment.Center : VerticalAlignment.Top;
 
+        FitReach();
         _title.FontSize = away ? (_wide ? 64 : 44) : !_wide ? 32 : cover >= 360 ? 52 : 40;
         if (_upNext is not null)
         {

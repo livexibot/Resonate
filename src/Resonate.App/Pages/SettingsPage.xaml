@@ -95,6 +95,7 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <RadioButton
                 x:Name="ThemesTab"
@@ -111,8 +112,23 @@
                 </StackPanel>
             </RadioButton>
             <RadioButton
-                x:Name="LayoutTab"
+                x:Name="PlayerTab"
                 Grid.Column="1"
+                AutomationProperties.Name="Player"
+                Checked="OnTabChecked"
+                GroupName="SettingsTabs"
+                Style="{StaticResource SettingsTabStyle}">
+                <StackPanel Spacing="4">
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        FontSize="16"
+                        Glyph="&#xE768;" />
+                    <TextBlock Style="{StaticResource SettingsTabTextStyle}" Text="Player" />
+                </StackPanel>
+            </RadioButton>
+            <RadioButton
+                x:Name="LayoutTab"
+                Grid.Column="2"
                 AutomationProperties.Name="Layout"
                 Checked="OnTabChecked"
                 GroupName="SettingsTabs"
@@ -127,7 +143,7 @@
             </RadioButton>
             <RadioButton
                 x:Name="PluginsTab"
-                Grid.Column="2"
+                Grid.Column="3"
                 AutomationProperties.Name="Plugins"
                 Checked="OnTabChecked"
                 GroupName="SettingsTabs"
@@ -141,9 +157,9 @@
                 </StackPanel>
             </RadioButton>
             <RadioButton
-                x:Name="MiscTab"
-                Grid.Column="3"
-                AutomationProperties.Name="Misc"
+                x:Name="PlaybackTab"
+                Grid.Column="4"
+                AutomationProperties.Name="Playback"
                 Checked="OnTabChecked"
                 GroupName="SettingsTabs"
                 Style="{StaticResource SettingsTabStyle}"
@@ -152,13 +168,13 @@
                     <FontIcon
                         HorizontalAlignment="Center"
                         FontSize="16"
-                        Glyph="&#xE712;" />
-                    <TextBlock Style="{StaticResource SettingsTabTextStyle}" Text="Misc" />
+                        Glyph="&#xE9E9;" />
+                    <TextBlock Style="{StaticResource SettingsTabTextStyle}" Text="Playback" />
                 </StackPanel>
             </RadioButton>
             <RadioButton
                 x:Name="AboutTab"
-                Grid.Column="4"
+                Grid.Column="5"
                 AutomationProperties.Name="About"
                 Checked="OnTabChecked"
                 GroupName="SettingsTabs"
@@ -178,21 +194,27 @@
         <ScrollViewer x:Name="Scroller" Grid.Row="1">
             <Grid Padding="24,8,24,40">
 
-                <!-- Themes: presets, your own looks, the customizer, cover art and the classic player -->
-                <StackPanel x:Name="ThemesPanel" Spacing="20">
-                    <controls:ThemeStudio x:Name="Studio" />
+                <!-- Themes: presets, your own looks and the customizer (colours, background, shape, fonts) -->
+                <controls:ThemeStudio x:Name="Studio" />
+
+                <!-- Player: where it sits, how it looks, the visualizers and Winamp -->
+                <StackPanel
+                    x:Name="PlayerPanel"
+                    Spacing="20"
+                    Visibility="Collapsed">
+                    <controls:PlayerSettings />
                     <controls:ClassicPlayerPanel x:Name="ClassicPlayerSection" />
                 </StackPanel>
 
-                <!-- Layout: where the player sits, what the sidebar and title bar show, and sizes -->
+                <!-- Layout: how pages open, what the sidebar, title bar and song lists show, and sizes -->
                 <controls:LayoutSettings x:Name="LayoutPanel" Visibility="Collapsed" />
 
                 <!-- Plugins: optional extras, built in or downloaded only when turned on (built in code, see PluginsPanel.cs) -->
                 <StackPanel x:Name="PluginsHost" Visibility="Collapsed" />
 
-                <!-- Misc: playback and the Spotify app, the equalizer, Local Files -->
+                <!-- Playback: how Resonate plays and the Spotify app, the equalizer, Local Files -->
                 <StackPanel
-                    x:Name="MiscPanel"
+                    x:Name="PlaybackPanel"
                     Spacing="20"
                     Visibility="Collapsed">
                     <controls:SettingsGroup Header="Playback">

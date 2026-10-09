@@ -22,13 +22,14 @@ public sealed partial class PlayerBar
     {
         var theme = App.Services.Theme;
         var style = theme.Current.PlayerVisualizer;
-        if (style == VisualizerStyle.Off)
+        if (style == VisualizerStyle.Off || !VisualizerShapes.FitsPlayerBar(style))
         {
             if (_barVisualizer is { } old)
             {
                 old.SetRunning(false, live: false, animate: false);
                 Bar.Children.Remove(old);
                 App.Services.Visualiser.LiveChanged -= OnBarVisualizerLive;
+                NowPlayingStage.OptionsChanged -= OnBarVisualizerOptions;
                 _barVisualizer = null;
             }
 
@@ -39,6 +40,7 @@ public sealed partial class PlayerBar
         {
             _barVisualizer = new StageVisualizer(App.Services.Visualiser)
             {
+                InBar = true,
                 Opacity = BarVisualizerOpacity,
                 Margin = new Thickness(0, 0, 0, 2),
             };
@@ -46,6 +48,9 @@ public sealed partial class PlayerBar
             Bar.Children.Insert(0, _barVisualizer);
             _barVisualizer.SizeChanged += (_, e) => _barVisualizer?.SetRoom(e.NewSize.Height);
             App.Services.Visualiser.LiveChanged += OnBarVisualizerLive;
+
+            // Amount, Size and the rest under Settings, Player, Visualizer reach the bar at once too.
+            NowPlayingStage.OptionsChanged += OnBarVisualizerOptions;
         }
 
         _barVisualizer.DrawStyle = style;
@@ -55,6 +60,8 @@ public sealed partial class PlayerBar
     }
 
     private void OnBarVisualizerLive(object? sender, EventArgs e) => DispatcherQueue.TryEnqueue(RunBarVisualizer);
+
+    private void OnBarVisualizerOptions(object? sender, EventArgs e) => _barVisualizer?.ApplyOptions();
 
     /// <summary>Moves while a song plays and the window can be seen; rests otherwise.</summary>
     private void RunBarVisualizer()
