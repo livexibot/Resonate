@@ -435,13 +435,21 @@ Windows:
   Playback SDK" in the developer app, in case Spotify checks it. Quality
   is the web player's (AAC, 256 kbps with Premium), not Lossless. The
   WebView2 is a controller on a message-only window (`HWND_MESSAGE`,
-  "an invisible WebView"), `IsVisible` false, InPrivate (nothing kept in
+  "an invisible WebView"), `IsVisible` true (Chromium holds back the
+  media of a page that has never been visible: with false, Spotify sent
+  the song, nothing played and it went back to its start after 2 s, the
+  owner's first real try, 9 October 2026; the window still never shows),
+  InPrivate (nothing kept in
   `%LocalAppData%\Resonate\webplayer`), with the page served from
   `https://player.resonate.example` (a secure origin, which protected
   audio needs). It allows only autoplay, no other permission, pop-up,
   download, navigation, developer tools or host objects. Browser
-  arguments: autoplay without a click, and no background timer
-  throttling, so Spotify keeps hearing from the device while paused. It
+  arguments: autoplay without a click, no background timer throttling,
+  so Spotify keeps hearing from the device while paused, and no occlusion
+  (the message-only window must never count as covered). CI's
+  `--web-player-check` also plays a moment of silence through an audio
+  element without a click ("sound without a click: ok"); with the page
+  hidden that never finished. It
   runs only with Web API only, "Play on this PC" and someone signed in,
   starts after the first frame (never in demo, timing or update runs),
   stops on sign-out, after failures tries again after 5 s, 15 s and then

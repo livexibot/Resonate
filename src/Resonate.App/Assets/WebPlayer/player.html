@@ -58,6 +58,9 @@ async function start(name, volume) {
     player.addListener(`${kind}_error`, ({ message }) => post({ type: 'error', kind, message }));
   }
 
+  // The page was not allowed to start sound; only noted in the playback log.
+  player.addListener('autoplay_failed', () => post({ type: 'autoplayFailed' }));
+
   // A new song, paused, resumed or moved: Resonate asks Spotify what plays at
   // once. Spotify's player reports more often than that; the rest is dropped.
   let last = { key: '', position: 0, at: 0, paused: true };
@@ -85,10 +88,40 @@ async function stop() {
   post({ type: 'stopped' });
 }
 
+// Whether sound may start here without anyone clicking: a moment of silence
+// played through an audio element, as Spotify's player plays its music.
+async function canAutoplay() {
+  const samples = 800;
+  const bytes = new DataView(new ArrayBuffer(44 + (samples * 2)));
+  const text = (at, value) => [...value].forEach((c, i) => bytes.setUint8(at + i, c.charCodeAt(0)));
+  text(0, 'RIFF');
+  bytes.setUint32(4, 36 + (samples * 2), true);
+  text(8, 'WAVEfmt ');
+  bytes.setUint32(16, 16, true);
+  bytes.setUint16(20, 1, true);
+  bytes.setUint16(22, 1, true);
+  bytes.setUint32(24, 8000, true);
+  bytes.setUint32(28, 16000, true);
+  bytes.setUint16(32, 2, true);
+  bytes.setUint16(34, 16, true);
+  text(36, 'data');
+  bytes.setUint32(40, samples * 2, true);
+  const audio = new Audio(URL.createObjectURL(new Blob([bytes.buffer], { type: 'audio/wav' })));
+  try {
+    await audio.play();
+    audio.pause();
+    return 'ok';
+  } catch (e) {
+    return e.name;
+  } finally {
+    URL.revokeObjectURL(audio.src);
+  }
+}
+
 // CI's check (--web-player-check): protected audio works here, and Spotify's
 // player starts and turns down a made-up token rather than failing to start.
 async function check() {
-  const result = { type: 'check', widevine: 'no', sdk: 'nothing' };
+  const result = { type: 'check', widevine: 'no', sdk: 'nothing', autoplay: await canAutoplay() };
   try {
     const access = await navigator.requestMediaKeySystemAccess('com.widevine.alpha', [{
       initDataTypes: ['cenc'],

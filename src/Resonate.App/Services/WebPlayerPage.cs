@@ -26,12 +26,14 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
     private const ulong MessageOnlyWindow = unchecked((ulong)-3L);
 
     /// <summary>
-    /// Plays without a click (nobody can click a hidden page), and keeps its
+    /// Plays without a click (nobody can click a hidden page), keeps its
     /// timers running while hidden, so Spotify keeps hearing from the device
-    /// when the music is paused for a long time.
+    /// when the music is paused for a long time, and never counts the
+    /// message-only window as covered (which would hide the page and hold its
+    /// sound back).
     /// </summary>
     private const string BrowserArguments =
-        "--autoplay-policy=no-user-gesture-required --disable-background-timer-throttling --disable-renderer-backgrounding --disable-features=IntensiveWakeUpThrottling";
+        "--autoplay-policy=no-user-gesture-required --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-features=IntensiveWakeUpThrottling,CalculateNativeWinOcclusion";
 
     /// <summary>Starting WebView2 and opening the page each get this long.</summary>
     private static readonly TimeSpan LoadTimeout = TimeSpan.FromSeconds(30);
@@ -180,8 +182,8 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
             trace("the page answered; closing it");
 
             // A made-up token: Spotify's player started, reached Spotify and was turned down.
-            var ok = result is { Widevine: "ok", Sdk: "authentication_error" };
-            return $"{(ok ? "OK" : "FAIL")} WebView2 {page.BrowserVersion}; protected audio: {result.Widevine}; Spotify's player: {result.Sdk}";
+            var ok = result is { Widevine: "ok", Sdk: "authentication_error", Autoplay: "ok" };
+            return $"{(ok ? "OK" : "FAIL")} WebView2 {page.BrowserVersion}; protected audio: {result.Widevine}; Spotify's player: {result.Sdk}; sound without a click: {result.Autoplay}";
         }
     }
 
@@ -305,8 +307,11 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
             throw new OperationCanceledException("The player was stopped while it opened.");
         }
 
-        // Hidden for good: nothing is drawn, and sound plays as it does in a background tab.
-        controller.IsVisible = false;
+        // "Visible" to Chromium, though its message-only window never shows:
+        // a page that has never been visible holds its media back, so Spotify's
+        // player took the song and played nothing (the owner heard silence
+        // and the song went back to its start, 9 October 2026).
+        controller.IsVisible = true;
         var web = controller.CoreWebView2;
         _web = web;
         _ownProcessId = (int)web.BrowserProcessId;
@@ -379,7 +384,11 @@ internal sealed partial class WebPlayerPage : IWebPlayerPage
 
         _unresponsiveSince = 0;
         var type = WebPlayerMessage.Parse(json)?.Type;
-        if (type != "state")
+        if (type == "error")
+        {
+            Trace?.Invoke($"the page says error ({WebPlayerMessage.Parse(json)?.Kind})");
+        }
+        else if (type != "state")
         {
             Trace?.Invoke($"the page says {type}");
         }
