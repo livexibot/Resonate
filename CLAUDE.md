@@ -901,10 +901,15 @@ Ripple, and a more interesting Home):
   `Scene` (`ThemeScene`, saved by name: append, never rename; also under
   Customize, Background) draws scenery behind the panels
   (`Controls/SceneArt.xaml`, XAML paths written by
-  `tools/scenes/build_scene_art.py`: Japan's moon, Mount Fuji, hills, a
-  lit pagoda and a torii; Snow's stars, crescent moon, two snow-capped
-  ranges, a pine forest and drifts; each made only while shown,
-  `x:Load`), decorations over the panels and weather over the whole
+  `tools/scenes/build_scene_art.py`, redrawn with more detail on
+  9 October 2026 when the owner found them "a little basic": Japan's
+  full moon behind clouds with birds, Mount Fuji with a fingered snow
+  cap, misty ridges, cherry trees, a lit five-storey pagoda, stone
+  lanterns and a torii in a lake; Snow's aurora, stars and crescent moon,
+  two snow-capped ranges, a frozen lake, a lit cabin with smoke and
+  snow-laden spruces; plain shapes and gradients, under 120 elements a
+  scene, the top right left calm for the branch; each made only while
+  shown, `x:Load`), decorations over the panels and weather over the whole
   window. Decorations (`Controls/SceneDecorLayer.cs`, the owner asked on
   9 October 2026 for petals that gather on the player and a branch that
   overlaps the app, "flawless and stylish", and the same for Snow;
