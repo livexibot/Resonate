@@ -56,6 +56,32 @@ visitors; keep it short and in step with this file.
   floating) with an Advanced size and offset, folded by default; Home's
   stage and lyrics are part of the app (always on, settings under Layout,
   Home); the sidebar snaps to covers only when dragged narrow.
+- The owner's choices of 9 October 2026: artist and album names open
+  their pages only when the name itself is clicked (`SongLinks` keeps the
+  TextBlock as wide as its words and opens only an underlined link);
+  Settings, Layout has switches for song covers, playlist covers and the
+  Album, Year and Date added columns (read when a list opens); Winamp
+  opens at double size (saved as `classicDouble`, mini player
+  `miniPlayerScale` 2); the spinning cover is the look's Vinyl cover
+  style, not a separate switch; the Home visualizer glides (fast rise,
+  slow fall, frame-rate independent, `StageBars.Smooth`) with Sensitivity,
+  Smoothing, Bars and Bar width under Layout, Home; Effects has Page
+  animation and Song change (user's own); Player glow is part of a look
+  (Customize), set on the presets it fits; Liquid Glass is the owner's own
+  version (panel opacity 0.1, gradient progress, outline play button).
+  BPM, key and loudness columns wait for the owner's decision: Spotify
+  stopped giving audio features to new apps, and a third-party service
+  would break "talk only to Spotify".
+- Playback (9 October 2026): Spotify's media session can be there with
+  nothing in it (Spotify just started hidden, or it went blank), and
+  Spotify takes a local Play then and does nothing. The player now keeps
+  the song shown, asks the Web API, and sends play, pause and skips
+  through the Web API while the session has no song
+  (`PlayerController.HasSong`); the Web API saying a device has no song
+  keeps the song shown too. `PlaybackLog` lines (session, song, device,
+  playing, failures; never names or tokens) go to `playback.log` in the
+  cache folder (256 KB, then `playback.old.log`): read it first when the
+  owner reports playback trouble.
 - The feature update (pull request #9, 7 October 2026) adds Home with
   listening stats and daily mixes, Local Files, DJ, sorting and filtering
   of every list, likes, album and artist pages, truly random shuffle,
