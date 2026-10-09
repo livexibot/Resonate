@@ -12,6 +12,11 @@ namespace Resonate.App.Controls;
 /// Holds the window's content inside the look: the look's backdrop behind
 /// it, and the layers where switching looks animates (see ThemeTransitions).
 /// Those layers are empty, and cost nothing, while no transition plays.
+/// A special look's decorations and weather lie over all of it
+/// (<see cref="Decor"/>), outside the picture a switch takes, since much of
+/// them is drawn by the compositor where pictures do not reach: they stay
+/// as they are through a switch that keeps the scene, and grow in with the
+/// new look when it changes.
 /// </summary>
 internal sealed partial class ThemeHost : Grid
 {
@@ -19,7 +24,8 @@ internal sealed partial class ThemeHost : Grid
     {
         Underlay = new Grid { IsHitTestVisible = false };
         Edge = new Border { IsHitTestVisible = false, Visibility = Visibility.Collapsed };
-        // A special look's scenery sits behind the panels, its decorations and weather over them, all on one clock.
+
+        // A special look's scenery sits behind the panels, its decorations and weather over everything, all on one clock.
         var clock = new SceneClock(ElementCompositionPreview.GetElementVisual(this).Compositor);
         Scene = new Grid
         {
@@ -28,20 +34,32 @@ internal sealed partial class ThemeHost : Grid
                 new BackdropLayer(services.Theme, services.Artwork),
                 ClipToSize(new SceneArt()),
                 content,
+            },
+        };
+        Overlay = new Grid { IsHitTestVisible = false };
+        Pictured = new Grid { Children = { Underlay, Edge, Scene, Overlay } };
+        Decor = new Grid
+        {
+            IsHitTestVisible = false,
+            Children =
+            {
                 ClipToSize(new SceneDecorLayer(services.Theme, clock)),
                 ClipToSize(new SceneWeatherLayer(services.Theme, clock)),
             },
         };
-        Overlay = new Grid { IsHitTestVisible = false };
-        Children.Add(Underlay);
-        Children.Add(Edge);
-        Children.Add(Scene);
-        Children.Add(Overlay);
+        Children.Add(Pictured);
+        Children.Add(Decor);
 
         // Pictures that slide or sweep past the edges are cut off there, so a
         // picture of the window taken meanwhile is still the window's size.
         ClipToSize(Overlay);
     }
+
+    /// <summary>What a picture of the window for a switch shows: everything but <see cref="Decor"/>.</summary>
+    public Grid Pictured { get; }
+
+    /// <summary>Over everything: a special look's decorations and weather.</summary>
+    public Grid Decor { get; }
 
     /// <summary>Under everything: the old look, while the new one grows over it.</summary>
     public Grid Underlay { get; }

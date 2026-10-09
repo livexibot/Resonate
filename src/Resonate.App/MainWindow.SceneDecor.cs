@@ -48,13 +48,26 @@ public sealed partial class MainWindow
             : LyricsPane.Visibility == Visibility.Visible ? LyricsPane
             : null;
 
-        // The player bar's own surface (not its margins), or the classic player in its place.
-        var bar = PlayerBar.Visibility == Visibility.Visible ? PlayerBar.Surface : null;
-        FrameworkElement? player = _classicPlayer is { Visibility: Visibility.Visible, Parent: not null } classic ? classic : bar;
-        var playerRadius = player is not null && ReferenceEquals(player, bar) ? PlayerBar.SurfaceCorner : 0;
+        // The player's own surface (not its margins, nor the empty row a centred Winamp player leaves), bar or Winamp.
+        FrameworkElement? player;
+        double playerRadius;
+        if (_classicPlayer is { Visibility: Visibility.Visible, Parent: not null } classic)
+        {
+            player = classic.Frame;
+            playerRadius = classic.FrameCorner;
+        }
+        else
+        {
+            player = PlayerBar.Visibility == Visibility.Visible ? PlayerBar.Surface : null;
+            playerRadius = player is not null ? PlayerBar.SurfaceCorner : 0;
+        }
 
-        // Settings and the mini player, beside Windows' own buttons (the margin keeps them clear of those).
-        var buttonsLeft = Box(TitleBarButtons) is { } buttons ? buttons.X : layer.ActualWidth - 150;
+        // Settings and the mini player, beside Windows' own buttons (the margin keeps them clear of those),
+        // and the back button and the app's name on the left: nothing reaches up among them.
+        var buttons = Box(TitleBarButtons);
+        var buttonsLeft = buttons?.X ?? layer.ActualWidth - 150;
+        var title = Box(TitleBarStart);
+        var titleBottom = Math.Max(buttons?.Bottom ?? 0, title?.Bottom ?? 0);
 
         return new SceneFrame(
             new SceneBox(0, 0, layer.ActualWidth, layer.ActualHeight),
@@ -66,6 +79,8 @@ public sealed partial class MainWindow
             playerRadius,
             ShellGrid.ColumnSpacing,
             _services.Theme.Scale,
-            buttonsLeft);
+            buttonsLeft,
+            title?.Right ?? 0,
+            titleBottom);
     }
 }

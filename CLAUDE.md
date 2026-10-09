@@ -713,7 +713,8 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   minutes (`GetLastInputInfo`, checked every 5 s only while music plays),
   with Resonate in front, nothing open or typed into and nothing
   full-screen (`SHQueryUserNotificationState`), the stage covers the window
-  (in `ThemeHost.Scene`) with a clock; the input that wakes it is
+  (the top child of `ThemeHost`, over the special looks' decorations too)
+  with a clock; the input that wakes it is
   swallowed, media keys pass. Measure: the clouds' and bars' cost at 5K
   and 165 Hz, that the rings are gone, `PowerManager.DisplayStatus`
   unpackaged, that accelerators are blocked.
@@ -873,7 +874,11 @@ Ripple, and a more interesting Home):
   new look through a composition `RectangleClip` scaled by the square root
   of the progress, so the revealed area follows the curve; with Mica or
   acrylic they cross-fade instead. Anything that changes with the look must
-  live inside `ThemeHost.Scene`. Switches apply at once while the window is
+  live inside `ThemeHost.Scene` (pictured with `ThemeHost.Pictured`). The
+  special looks' decorations and weather lie above the picture in
+  `ThemeHost.Decor`: a switch between two looks with the same scene leaves
+  them as they are, and one to another scene drops the old ones at once
+  and reveals the new ones through the same clip (`newScene`). Switches apply at once while the window is
   hidden or Windows animations are off. The kind is saved by name through
   a tolerant converter (unknown values read as Morph), so never rename a
   member; add new ones at the end. CI's tour holds Spread, Ripple and
@@ -923,10 +928,15 @@ Ripple, and a more interesting Home):
   `Scene` (`ThemeScene`, saved by name: append, never rename; also under
   Customize, Background) draws scenery behind the panels
   (`Controls/SceneArt.xaml`, XAML paths written by
-  `tools/scenes/build_scene_art.py`: Japan's moon, Mount Fuji, hills, a
-  lit pagoda and a torii; Snow's stars, crescent moon, two snow-capped
-  ranges, a pine forest and drifts; each made only while shown,
-  `x:Load`), decorations over the panels and weather over the whole
+  `tools/scenes/build_scene_art.py`, redrawn with more detail on
+  9 October 2026 when the owner found them "a little basic": Japan's
+  full moon behind clouds with birds, Mount Fuji with a fingered snow
+  cap, misty ridges, cherry trees, a lit five-storey pagoda, stone
+  lanterns and a torii in a lake; Snow's aurora, stars and crescent moon,
+  two snow-capped ranges, a frozen lake, a lit cabin with smoke and
+  snow-laden spruces; plain shapes and gradients, under 120 elements a
+  scene, the top right left calm for the branch; each made only while
+  shown, `x:Load`), decorations over the panels and weather over the whole
   window. Decorations (`Controls/SceneDecorLayer.cs`, the owner asked on
   9 October 2026 for petals that gather on the player and a branch that
   overlaps the app, "flawless and stylish", and the same for Snow;
@@ -942,7 +952,20 @@ Ripple, and a more interesting Home):
   stirring when a breeze passes; for Snow, snow that settles on the
   sidebar, the page, a side pane and the player, icicles that grow under
   it and under the player, and frost ferns spreading in the sidebar's
-  bottom left and the page's bottom right corners. Everything gathers
+  bottom left and the page's bottom right corners. Snow settles in four
+  layers that fade in one after another, each thinner one lying along the
+  edge and round its corners (`SnowCap.Settling`), so it follows the
+  player's and the panels' rounded corners while it gathers, not a
+  squashed copy of the finished cap. Depth, back to front: frost, piles
+  and snow, the branch, the player's icicles; each pile's and cap's
+  pictures (petals, glints) ride on its own element, so the branch covers
+  them too. Nothing reaches up among the title bar's content: snow keeps
+  low under the back button and name (`TitleBarStart`) and the buttons
+  (`SceneDecor.CapLow`, from `SceneFrame.TitleEnd` and `TitleBottom`), a
+  pile there is left out, and the branch is left out where it would lie
+  over the player (a player at the top or a short window). With the
+  Winamp player, piles and snow sit on its skin (`ClassicPlayer.Frame`),
+  not its row. Everything gathers
   over the first 150 s after the scene appears (`SceneDecor.GatherSeconds`;
   it starts again each time the app opens or the scene changes) and then
   rests. Shapes are XAML paths built in code; petals, blossoms, crystals
@@ -957,10 +980,13 @@ Ripple, and a more interesting Home):
   (`Resonate.Themes/SceneWeather.cs`, tested). Both layers move by
   compositor expressions on one clock (`Helpers/SceneClock.cs`: `Time`
   repeats every 20 minutes, `Gather` counts the gathering), which ticks
-  on `CompositionTarget.Rendering` at most every 15 ms (every third
-  frame at 165 Hz) and only while the window shows and Windows'
-  animations are on; otherwise every animation stops and the decorations
-  rest as they are once all has gathered. If anything in the
+  on a 15 ms `DispatcherQueueTimer` (about 64 times a second; not
+  `CompositionTarget.Rendering`, which would make XAML draw every frame)
+  and only while the window shows and Windows' animations are on
+  (`ThemeService.AnimationsChanged` follows that switch at once);
+  otherwise every animation stops and the decorations rest as they are
+  once all has gathered. Pictures are drawn again for a new display
+  scale (`XamlRoot.Changed`) when the window moves to another screen. If anything in the
   decorations fails they go, and the window stays as it was. The special
   looks' panels are see-through (0.68 and 0.6) so the scenery shows, and
   their cards carry a blossom or a snowflake. CI's tour starts both

@@ -110,6 +110,58 @@ public sealed class SceneDecorTests
         Assert.Empty(SceneDecor.Cap(2, 900, 18, 14, 0, 20).Icicles);
     }
 
+    [Theory]
+    [InlineData(900, 18)]
+    [InlineData(912, 44)]
+    [InlineData(300, 44)]
+    public void Snow_settles_through_thinner_layers_that_lie_on_the_edge_and_round_its_corners(double width, double radius)
+    {
+        var cap = SceneDecor.Cap(3, width, radius, 14, 4, 8);
+        Assert.Equal(SceneDecor.SettlingLayers, cap.Settling.Count);
+        var tops = cap.Crest.Count;
+        var thicker = cap.Crest;
+        foreach (var layer in cap.Settling.Reverse())
+        {
+            Assert.Equal(tops * 2, layer.Count);
+            for (var i = 0; i < tops; i++)
+            {
+                var top = layer[i];
+                var edge = SceneDecor.EdgeDrop(top.X, width, radius);
+
+                // On or above the edge (round the corners too, not on a straight line over them), and under the thicker snow.
+                Assert.True(top.Y <= edge + 1e-4, $"{top} lies under the edge ({edge})");
+                Assert.True(top.Y >= thicker[i].Y - 1e-4, $"{top} rises over the snow above it");
+                Assert.Equal(thicker[i].X, top.X, 4);
+            }
+
+            thicker = layer;
+        }
+
+        // The thinnest is much thinner than the whole of it.
+        var middle = tops / 2;
+        Assert.True(cap.Settling[0][middle].Y > cap.Crest[middle].Y * 0.4);
+    }
+
+    [Fact]
+    public void Snow_keeps_low_where_asked_and_is_as_deep_as_ever_elsewhere()
+    {
+        var low = new[] { new SceneDecor.CapLow(700, 2000, 2) };
+        var cap = SceneDecor.Cap(2, 900, 18, 14, 9, 20, low);
+        var free = SceneDecor.Cap(2, 900, 18, 14, 9, 20);
+        Assert.All(cap.Crest.Where(p => p.X >= 700), p => Assert.True(p.Y >= -2 - 1e-4, $"{p} rises too high"));
+        Assert.All(cap.Glints.Where(p => p.X >= 700), p => Assert.True(p.Y >= -2 - 1e-4));
+        Assert.Contains(free.Crest, p => p.X >= 700 && p.Y < -6);
+
+        // Beyond its easing, the snow is untouched.
+        for (var i = 0; i < cap.Crest.Count; i++)
+        {
+            if (cap.Crest[i].X < 660)
+            {
+                Assert.Equal(free.Crest[i], cap.Crest[i]);
+            }
+        }
+    }
+
     [Fact]
     public void Snow_keeps_what_lies_by_each_corner_while_its_edge_grows()
     {

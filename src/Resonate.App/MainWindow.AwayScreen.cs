@@ -154,7 +154,8 @@ public sealed partial class MainWindow
         var away = new AwayScreen(_services);
         away.WakeRequested += (_, _) => HideAway();
         _awayScreen = away;
-        host.Scene.Children.Add(away);
+        // Over everything, a special look's decorations included.
+        host.Children.Add(away);
         away.Appear();
         NowPlayingStage.SetCovered(true);
         UpdateAwayTimer();
@@ -174,7 +175,7 @@ public sealed partial class MainWindow
         {
             if (Content is ThemeHost host)
             {
-                host.Scene.Children.Remove(away);
+                host.Children.Remove(away);
             }
         });
         UpdateAwayTimer();

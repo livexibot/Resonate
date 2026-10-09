@@ -59,6 +59,7 @@ public sealed class ThemeService
     private ThemeDefinition? _onScreen;
     private Func<ThemeDefinition, ThemeDefinition>? _pendingEdit;
     private DispatcherQueueTimer? _saveTimer;
+    private bool _watchingAnimations;
 
     public ThemeService(AppSettings settings, Action save)
     {
@@ -71,6 +72,9 @@ public sealed class ThemeService
 
     /// <summary>Raised after the look in use, or its colours, change.</summary>
     public event EventHandler? Changed;
+
+    /// <summary>Raised on the interface thread when Windows' "Animation effects" setting changes (see <see cref="AnimationsEnabled"/>).</summary>
+    public event EventHandler? AnimationsChanged;
 
     /// <summary>The presets, the saved looks and which one is in use.</summary>
     public ThemeLibrary Library { get; }
@@ -262,6 +266,7 @@ public sealed class ThemeService
         _root = host;
         _transitions = new ThemeTransitions(host);
         window.ShownChanged += OnWindowShownChanged;
+        WatchAnimations(DispatcherQueue.GetForCurrentThread());
         _applied = null;
         ApplyNow(Current, Palette);
     }
@@ -551,8 +556,27 @@ public sealed class ThemeService
         }
         else
         {
-            await _transitions.PlayAsync(kind, origin, palette, spec, () => ApplyNow(next, palette), moving);
+            await _transitions.PlayAsync(kind, origin, palette, spec, () => ApplyNow(next, palette), moving, newScene: previous?.Scene != next.Scene);
         }
+    }
+
+    /// <summary>
+    /// Passes on changes of Windows' "Animation effects" setting, so what
+    /// moves on its own stops or starts at once. Windows tells only from
+    /// Windows 11 on; before that a change shows once the window is hidden
+    /// and shown again, or the look changes.
+    /// </summary>
+    private void WatchAnimations(DispatcherQueue queue)
+    {
+        if (_watchingAnimations || !OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
+        {
+            return;
+        }
+
+        _watchingAnimations = true;
+
+        // Windows raises it on a thread of its own.
+        _systemSettings.AnimationsEnabledChanged += (_, _) => queue.TryEnqueue(() => AnimationsChanged?.Invoke(this, EventArgs.Empty));
     }
 
     private static bool IsSeeThrough(ThemeDefinition? look) => look?.Backdrop is WindowBackdrop.Mica or WindowBackdrop.Acrylic;

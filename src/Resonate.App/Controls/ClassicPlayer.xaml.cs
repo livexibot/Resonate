@@ -147,6 +147,12 @@ public sealed partial class ClassicPlayer : UserControl
         ApplyMiniLook();
     }
 
+    /// <summary>What shows of the player (not its margins, nor the empty row a centred player leaves), for a special look's decorations that sit on it.</summary>
+    internal FrameworkElement Frame => PlayerFrame;
+
+    /// <summary>How round <see cref="Frame"/>'s corners are.</summary>
+    internal double FrameCorner => PlayerFrame.CornerRadius.TopLeft;
+
     /// <summary>Screen pixels per skin pixel for a size (1 normal, 2 double...) on a display scale: a whole number, at least 1.</summary>
     internal static int PixelScale(int factor, double raster) =>
         Math.Clamp((int)Math.Round(factor * (raster > 0 ? raster : 1), MidpointRounding.AwayFromZero), 1, MaxScale);

@@ -12,8 +12,60 @@ public sealed class SceneLayoutTests
     // The title bar's buttons: settings, the mini player and Windows' own three.
     private const double ButtonsLeft = 1600 - 226;
 
-    private static SceneFrame Frame(SceneBox? pane = null, SceneBox? player = null, double scale = 1, SceneBox? page = null) =>
-        new(Window, Sidebar, page ?? Page, pane, player, 18, 44, 12, scale, ButtonsLeft);
+    // The back button and the app's name on the left; everything in the title bar ends 6 px above the panels.
+    private const double TitleEnd = 160;
+    private const double TitleBottom = 38;
+
+    private static SceneFrame Frame(SceneBox? pane = null, SceneBox? player = null, double scale = 1, SceneBox? page = null, SceneBox? sidebar = null) =>
+        new(Window, sidebar ?? Sidebar, page ?? Page, pane, player, 18, 44, 12, scale, ButtonsLeft, TitleEnd, TitleBottom);
+
+    [Fact]
+    public void Snow_keeps_below_the_title_bars_content_and_rises_freely_elsewhere()
+    {
+        foreach (var scale in (double[])[0.8, 1, 1.5, 2])
+        {
+            var frame = Frame(player: Player, scale: scale);
+            foreach (var spot in SceneLayout.Caps(frame))
+            {
+                var cap = SceneDecor.Cap(spot.Seed, spot.Spot.Width, spot.Spot.Radius, spot.Depth, spot.Icicles, spot.IcicleLength, spot.Low);
+                foreach (var p in cap.Crest.Concat(cap.Glints))
+                {
+                    var x = spot.Spot.X + (p.X * spot.Spot.Scale);
+                    var y = spot.Spot.Y + (p.Y * spot.Spot.Scale);
+                    if (x <= TitleEnd + 8 || x >= ButtonsLeft - 8)
+                    {
+                        Assert.True(y >= TitleBottom, $"Snow at ({x:0.#}, {y:0.#}) reaches up among the title bar's content at {scale}x");
+                    }
+                }
+            }
+
+            // Between them the page's snow is as deep as ever.
+            var page = SceneLayout.Caps(frame).Single(c => c.Seed == 2);
+            var free = SceneDecor.Cap(page.Seed, page.Spot.Width, page.Spot.Radius, page.Depth, page.Icicles, page.IcicleLength);
+            var middle = free.Crest.Count / 2;
+            Assert.Equal(free.Crest[middle], SceneDecor.Cap(page.Seed, page.Spot.Width, page.Spot.Radius, page.Depth, page.Icicles, page.IcicleLength, page.Low).Crest[middle]);
+        }
+
+        // The player's snow, far below, rises freely.
+        Assert.Empty(SceneLayout.Caps(Frame(player: Player)).Single(c => c.Seed == 3).Low);
+    }
+
+    [Fact]
+    public void Nothing_lies_over_a_player_at_the_top_or_under_the_title_bars_content()
+    {
+        // A player docked at the top, under the title bar: the page starts below it.
+        var top = new SceneBox(12, 44, 1576, 88);
+        var page = Page with { Y = 144, Height = 844 };
+        var frame = Frame(player: top, page: page, sidebar: Sidebar with { Y = 144, Height = 844 });
+        Assert.Null(SceneLayout.Bough(frame));
+
+        // Its shoulders lie under the back button and Windows' own buttons, so no petals gather there.
+        Assert.DoesNotContain(SceneLayout.PileSpots(frame), p => p.Pile is 0 or 1);
+
+        // A short window whose player hovers high up on the page has no bough either.
+        var shortPage = Page with { Height = 300 };
+        Assert.Null(SceneLayout.Bough(Frame(player: new SceneBox(486, 196, 912, 88), page: shortPage)));
+    }
 
     [Fact]
     public void The_bough_comes_in_from_beyond_the_window_or_from_behind_the_side_pane()

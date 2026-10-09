@@ -32,6 +32,8 @@ internal sealed partial class SceneWeatherLayer : Grid
     private MainWindow? _window;
     private ThemeScene _scene;
     private bool _moving;
+    private XamlRoot? _xamlRoot;
+    private double _rasterization = 1;
 
     public SceneWeatherLayer(ThemeService theme, SceneClock clock)
     {
@@ -99,6 +101,19 @@ internal sealed partial class SceneWeatherLayer : Grid
         // Loaded can come twice in a row; each handler is held once.
         _theme.Changed -= OnThemeChanged;
         _theme.Changed += OnThemeChanged;
+        _theme.AnimationsChanged -= OnAnimationsChanged;
+        _theme.AnimationsChanged += OnAnimationsChanged;
+        if (_xamlRoot is not null)
+        {
+            _xamlRoot.Changed -= OnRootChanged;
+        }
+
+        _xamlRoot = XamlRoot;
+        if (_xamlRoot is not null)
+        {
+            _xamlRoot.Changed += OnRootChanged;
+        }
+
         _window = App.MainWindow;
         if (_window is not null)
         {
@@ -112,6 +127,13 @@ internal sealed partial class SceneWeatherLayer : Grid
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         _theme.Changed -= OnThemeChanged;
+        _theme.AnimationsChanged -= OnAnimationsChanged;
+        if (_xamlRoot is not null)
+        {
+            _xamlRoot.Changed -= OnRootChanged;
+            _xamlRoot = null;
+        }
+
         if (_window is not null)
         {
             _window.ShownChanged -= OnShownChanged;
@@ -124,6 +146,26 @@ internal sealed partial class SceneWeatherLayer : Grid
     private void OnThemeChanged(object? sender, EventArgs e) => Show();
 
     private void OnShownChanged(object? sender, EventArgs e) => Refresh();
+
+    private void OnAnimationsChanged(object? sender, EventArgs e) => Refresh();
+
+    /// <summary>On a display with another scale, petals and crystals take pictures at its sharpness.</summary>
+    private void OnRootChanged(XamlRoot sender, XamlRootChangedEventArgs args)
+    {
+        if (sender.RasterizationScale == _rasterization)
+        {
+            return;
+        }
+
+        _rasterization = sender.RasterizationScale;
+        foreach (var (sprite, _, _, particle) in _particles)
+        {
+            if (particle.Sprite is { } picture)
+            {
+                sprite.Brush = SceneSpriteBrushes.Get(_compositor, picture, particle.Size * _rasterization);
+            }
+        }
+    }
 
     /// <summary>The look's weather: made afresh when the scene changes, then moving or resting as the window allows.</summary>
     private void Show()
@@ -165,6 +207,7 @@ internal sealed partial class SceneWeatherLayer : Grid
     {
         // Pictures sharp at the display's scale; the weather is drawn at the window's size, whatever the App size.
         var pixels = XamlRoot?.RasterizationScale ?? 1;
+        _rasterization = pixels;
         for (var i = 0; i < SceneWeather.Count(_scene); i++)
         {
             var particle = SceneWeather.Get(_scene, i);
