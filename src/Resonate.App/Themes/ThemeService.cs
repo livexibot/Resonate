@@ -112,22 +112,6 @@ public sealed class ThemeService
     private bool MayAnimate => (AnimationsEnabled || AnimateRegardless) && _window is { IsShown: true };
 
 
-    /// <summary>The accent's glow around the player, 0 to 100; the user's own, not part of a look.</summary>
-    public int PlayerGlow
-    {
-        get => Math.Clamp(_settings.PlayerGlow, 0, 100);
-        set
-        {
-            value = Math.Clamp(value, 0, 100);
-            if (_settings.PlayerGlow != value)
-            {
-                _settings.PlayerGlow = value;
-                SaveSoon();
-                Changed?.Invoke(this, EventArgs.Empty);
-            }
-        }
-    }
-
     /// <summary>How much the song cover backdrop is blurred, 0 (sharp) to 100; the user's own, not part of a look.</summary>
     public int CoverBlur
     {

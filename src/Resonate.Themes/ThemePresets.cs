@@ -68,7 +68,7 @@ public static class ThemePresets
         Border = ThemeColor.White.WithAlpha(0.3),
         Backdrop = WindowBackdrop.Artwork,
         BackdropTint = 0.18,
-        PanelOpacity = 0.12,
+        PanelOpacity = 0.1,
         AdaptiveAccent = true,
         CornerRadius = 28,
         Buttons = ButtonShape.Round,
@@ -78,7 +78,9 @@ public static class ThemePresets
         DisplayFont = "Inter",
         TextFont = "Inter",
         PlayerLayout = PlayerLayout.Hovering,
-        Progress = ProgressStyle.Line,
+        Progress = ProgressStyle.Gradient,
+        PlayButton = PlayButtonStyle.Outline,
+        PlayerGlow = 0.25,
     };
 
     /// <summary>The OLED default: true black everywhere, panels marked only by hairlines, soft modern corners.</summary>
@@ -158,6 +160,7 @@ public static class ThemePresets
         Progress = ProgressStyle.Gradient,
         PlayButton = PlayButtonStyle.Outline,
         Cover = CoverStyle.Vinyl,
+        PlayerGlow = 0.6,
     };
 
     /// <summary>A printed page: warm paper, ink outlines, serif type and hard shadows.</summary>
@@ -259,6 +262,7 @@ public static class ThemePresets
         PlayerLayout = PlayerLayout.Corner,
         Progress = ProgressStyle.Gradient,
         Cover = CoverStyle.Vinyl,
+        PlayerGlow = 0.2,
     };
 
     /// <summary>A phosphor screen on true black: glowing green type and outlines, amber highlights, monospace and the player along the bottom.</summary>
@@ -286,6 +290,7 @@ public static class ThemePresets
         Progress = ProgressStyle.Bold,
         PlayButton = PlayButtonStyle.Outline,
         Cover = CoverStyle.Square,
+        PlayerGlow = 0.35,
     };
 
     /// <summary>Warm charcoal lit by coral and amber, rounded and soft.</summary>
@@ -311,6 +316,7 @@ public static class ThemePresets
         TextFont = "Manrope",
         PlayerLayout = PlayerLayout.Floating,
         Progress = ProgressStyle.Gradient,
+        PlayerGlow = 0.3,
     };
 
     /// <summary>Calm green-grey paper tones with a deep green accent.</summary>
@@ -359,6 +365,7 @@ public static class ThemePresets
         PlayerLayout = PlayerLayout.Hovering,
         Progress = ProgressStyle.Gradient,
         Cover = CoverStyle.Vinyl,
+        PlayerGlow = 0.5,
     };
 
     /// <summary>Dark looks, the default first.</summary>

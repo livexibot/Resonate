@@ -70,19 +70,7 @@
                         <TextBlock x:Name="CoverBlurText" Style="{StaticResource StudioValueTextStyle}" />
                     </StackPanel>
                 </controls:SettingRow>
-                <controls:SettingRow Header="Player glow">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Slider
-                            x:Name="PlayerGlowSlider"
-                            AutomationProperties.Name="Player glow"
-                            Maximum="100"
-                            Minimum="0"
-                            StepFrequency="1"
-                            Style="{StaticResource StudioSliderStyle}"
-                            ValueChanged="OnPlayerGlowChanged" />
-                        <TextBlock x:Name="PlayerGlowText" Style="{StaticResource StudioValueTextStyle}" />
-                    </StackPanel>
-                </controls:SettingRow>
+
                 <controls:SettingRow Header="Page animation">
                     <ComboBox
                         x:Name="PageAnimationChoice"
@@ -205,6 +193,18 @@
                             Style="{StaticResource StudioSliderStyle}"
                             ValueChanged="OnSliderChanged" />
                         <TextBlock x:Name="PanelOpacityText" Style="{StaticResource StudioValueTextStyle}" />
+                    </StackPanel>
+                </controls:SettingRow>                <controls:SettingRow Header="Player glow">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Slider
+                            x:Name="PlayerGlowSlider"
+                            AutomationProperties.Name="Player glow"
+                            Maximum="100"
+                            Minimum="0"
+                            StepFrequency="1"
+                            Style="{StaticResource StudioSliderStyle}"
+                            ValueChanged="OnSliderChanged" />
+                        <TextBlock x:Name="PlayerGlowText" Style="{StaticResource StudioValueTextStyle}" />
                     </StackPanel>
                 </controls:SettingRow>
 
