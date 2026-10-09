@@ -878,6 +878,37 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   300 % and Text size 75 to 200 % in finer steps. Keyboard shortcut hints
   ("Ctrl+F" on hover) are hidden on the root
   (`KeyboardAcceleratorPlacementMode`).
+- Keyboard shortcuts (9 October 2026, the owner asked to change them in
+  Help, with Space playing and pausing): Settings, About, Help lists all
+  24 commands (`Resonate.Themes/AppKeys.cs`, tested: names, default keys,
+  taking keys from another command, keys a text field keeps, keys that
+  cannot be used) with a button per command that records new keys
+  (`Controls/KeyShortcutsList`; Esc cancels, Backspace leaves none, the
+  reset button puts the usual keys back). The user's keys are saved by
+  command name in `KeyShortcuts` (an empty text is none; `AppCommand`
+  values: append, never rename). The window takes them at once
+  (`MainWindow.Shortcuts.cs`): keys with Ctrl or Alt become keyboard
+  accelerators on the root, the rest (Space, Shift+Right) are caught in
+  the root's `PreviewKeyDown`; while a text field has the keyboard it
+  keeps every key without Ctrl or Alt and Ctrl with the keys that edit.
+  Quick search's Ctrl+K is one of them (only while its plugin is on).
+- Progress bars (9 October 2026, the owner asked for more and for the
+  wave to stop where it is): Shimmer, Liquid, Heartbeat, Dots and Ripple
+  join the styles (`ProgressStyle`, appended). The lines that roll (Wave,
+  Liquid, Heartbeat, Dots; shapes in `Resonate.Themes/ProgressPatterns`,
+  tested) are paused through their `AnimationController` when the music
+  pauses, so they hold where they are and go on from there; the wave was
+  flattened to 18 % before, which squashed its stroke. The volume bar
+  takes the plain line for the moving styles (`ProgressPatterns.ForVolume`).
+- "Buttons above volume" (Settings, Player, Style; `ButtonsAboveVolume`,
+  the user's own, off at first): on the full bar the plugins, devices,
+  lyrics and queue buttons sit in a row over the speaker and the slider,
+  right-aligned, at 32 px (`PlayerBar.ArrangeSide`).
+- Song lists can also hide the column names, # (number), Like and Length
+  (Settings, Layout, Song lists; `ShowColumnNames`, `ShowNumberColumn`,
+  `ShowLikeColumn`, `ShowDurationColumn`). Sidebar rows and song rows now
+  name themselves for screen readers (`ToString`), which also lets UI
+  Automation drive a demo copy for checks.
 
 Classic player and cover art (checked 2026-10-08):
 - Classic Winamp skins (`.wsz`, Winamp 2) are zip archives of BMP sheets
