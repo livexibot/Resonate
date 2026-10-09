@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/livexibot/Resonate/compare/v0.9.1...v0.10.0) (2026-10-09)
+
+
+### New features
+
+* cover-only Liquid Glass, artist links everywhere, two new plugins ([#48](https://github.com/livexibot/Resonate/issues/48)) ([84bcc71](https://github.com/livexibot/Resonate/commit/84bcc7166fe155d22a1d41f57c4eaf93f8119d94))
+
 ## [0.9.1](https://github.com/livexibot/Resonate/compare/v0.9.0...v0.9.1) (2026-10-08)
 
 
