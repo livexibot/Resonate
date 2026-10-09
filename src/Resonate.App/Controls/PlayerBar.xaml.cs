@@ -52,6 +52,7 @@ public sealed partial class PlayerBar : UserControl
     private string? _durationLabel;
     private PlayerWidthClass _widthClass = PlayerWidthClass.Full;
     private bool _lyricsShown;
+    private Brush? _sungLyricBrush;
     private float _artworkSize = 56;
 
     public PlayerBar()
@@ -87,10 +88,17 @@ public sealed partial class PlayerBar : UserControl
     public void ShowLyricLine(string? line, string? next = null)
     {
         var lyrics = (!string.IsNullOrWhiteSpace(line) || !string.IsNullOrWhiteSpace(next)) && _widthClass != PlayerWidthClass.Mini;
-        LyricLineText.Text = line ?? string.Empty;
+
+        // Before the first sung line (or in a pause) the coming line moves up
+        // right under the song, dimmed, so no empty line sits between them.
+        var singing = !string.IsNullOrWhiteSpace(line);
+        LyricLineText.Text = singing ? line! : next ?? string.Empty;
+        _sungLyricBrush ??= LyricLineText.Foreground;
+        LyricLineText.Foreground = singing ? _sungLyricBrush : NextLyricText.Foreground;
+
         NextLyricText.Text = next ?? string.Empty;
         LyricLineText.Visibility = lyrics ? Visibility.Visible : Visibility.Collapsed;
-        NextLyricText.Visibility = lyrics && !string.IsNullOrWhiteSpace(next) ? Visibility.Visible : Visibility.Collapsed;
+        NextLyricText.Visibility = lyrics && singing && !string.IsNullOrWhiteSpace(next) ? Visibility.Visible : Visibility.Collapsed;
         if (lyrics == _lyricsShown)
         {
             return;

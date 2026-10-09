@@ -31,7 +31,7 @@ public static class LocalArtwork
             return null;
         }
 
-        var bitmap = new BitmapImage { DecodePixelWidth = CoverImages.DecodeWidth(displayWidth), DecodePixelType = DecodePixelType.Logical };
+        var bitmap = new BitmapImage { DecodePixelWidth = CoverImages.DecodeWidth(displayWidth), DecodePixelType = DecodePixelType.Physical };
         missing = LoadAsync(bitmap, track);
         return bitmap;
     }

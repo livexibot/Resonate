@@ -204,6 +204,13 @@
                         AutomationProperties.Name="Text size"
                         SelectionChanged="OnTextSizeChanged" />
                 </controls:SettingRow>
+                <controls:SettingRow Header="Cover size">
+                    <ComboBox
+                        x:Name="CoverSizeChoice"
+                        MinWidth="100"
+                        AutomationProperties.Name="Cover size"
+                        SelectionChanged="OnCoverSizeChanged" />
+                </controls:SettingRow>
             </StackPanel>
         </controls:SettingsGroup>
     </StackPanel>

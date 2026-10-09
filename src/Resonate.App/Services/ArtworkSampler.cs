@@ -24,11 +24,13 @@ public sealed class ArtworkSampler : IDisposable
     // Tiny on purpose: decoding and the wash take well under a millisecond.
     private const int Size = 40;
 
-    // The backdrop's cover: large enough to look like the cover with little blur, still blurred in a millisecond or two.
-    private const int BackdropSize = 160;
+    // The backdrop's cover: sharp across a 5K window with little blur (160 looked
+    // coarse there, the owner's report of 9 October 2026), blurred in a few
+    // milliseconds when the song or the blur changes, never per frame.
+    private const int BackdropSize = 512;
 
     // The strongest blur (at 100 %), in the backdrop cover's pixels; three box passes make it soft.
-    private const int MaxBlurRadius = 20;
+    private const int MaxBlurRadius = 64;
 
     private readonly PlayerRouter _player;
     private readonly ThemeService _theme;
@@ -45,6 +47,7 @@ public sealed class ArtworkSampler : IDisposable
 
     // The blur and the panels' see-through amount Blurred was drawn for.
     private int _shownBlur = -1;
+    private int _backdropVersion;
     private double _shownPanelOpacity = -1;
 
     /// <summary>Call on the interface thread.</summary>
@@ -111,11 +114,12 @@ public sealed class ArtworkSampler : IDisposable
             _sampling?.Cancel();
             _sampling?.Dispose();
             _sampling = new CancellationTokenSource();
-            _ = SampleAsync(state.ArtworkUrl, state.ArtworkBytes, name, _sampling.Token);
+            _ = SampleAsync(state.FullArtworkUrl ?? state.ArtworkUrl, state.ArtworkBytes, name, _sampling.Token);
         }
         else if (key is null && Blurred is not null)
         {
             // Nothing plays: no picture, only the look's background colour.
+            _backdropVersion++;
             Blurred = null;
             Changed?.Invoke(this, EventArgs.Empty);
         }
@@ -175,16 +179,32 @@ public sealed class ArtworkSampler : IDisposable
         _shownPanelOpacity = _theme.Current.PanelOpacity;
         if (pixels is null)
         {
+            _backdropVersion++;
             Blurred = null;
             Changed?.Invoke(this, EventArgs.Empty);
             return;
         }
 
-        var shown = (byte[])pixels.Clone();
-        ArtworkColors.Blur(shown, BackdropSize, BackdropSize, (int)Math.Round(MaxBlurRadius * _shownBlur / 100.0));
+        _ = DrawBackdropAsync(pixels, (int)Math.Round(MaxBlurRadius * _shownBlur / 100.0), _shownPanelOpacity, ++_backdropVersion);
+    }
 
-        // A bright cover is darkened just enough for the white text and icons over it to read; a dark one is left alone.
-        ArtworkColors.DimForWhiteText(shown, BackdropSize, BackdropSize, _theme.Current.PanelOpacity);
+    /// <summary>Blurs off the interface thread (a few milliseconds at this size); only the newest picture asked for is shown.</summary>
+    private async Task DrawBackdropAsync(byte[] pixels, int radius, double panelOpacity, int version)
+    {
+        var shown = await Task.Run(() =>
+        {
+            var copy = (byte[])pixels.Clone();
+            ArtworkColors.Blur(copy, BackdropSize, BackdropSize, radius);
+
+            // A bright cover is darkened just enough for the white text and icons over it to read; a dark one is left alone.
+            ArtworkColors.DimForWhiteText(copy, BackdropSize, BackdropSize, panelOpacity);
+            return copy;
+        });
+        if (version != _backdropVersion)
+        {
+            return;
+        }
+
         var picture = new WriteableBitmap(BackdropSize, BackdropSize);
         shown.CopyTo(picture.PixelBuffer);
         picture.Invalidate();

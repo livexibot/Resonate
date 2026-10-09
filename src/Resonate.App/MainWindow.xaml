@@ -7,9 +7,15 @@
     xmlns:vm="using:Resonate.App.ViewModels"
     Title="Resonate">
 
+    <!--
+        The shortcuts live on the root, so WinUI would show "Ctrl+F" as a hint
+        over anything the pointer rests on: hidden (the owner's report,
+        9 October 2026). Settings, About lists every shortcut.
+    -->
     <Grid
         x:Name="RootGrid"
         Background="{StaticResource ResonateTransparentBrush}"
+        KeyboardAcceleratorPlacementMode="Hidden"
         PreviewKeyDown="OnRootPreviewKeyDown">
         <Grid.RowDefinitions>
             <RowDefinition Height="44" />
@@ -335,8 +341,8 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <Grid
-                                        Width="48"
-                                        Height="48"
+                                        Width="{x:Bind CoverSize, Mode=OneWay}"
+                                        Height="{x:Bind CoverSize, Mode=OneWay}"
                                         Background="{x:Bind Cover.Background, Mode=OneWay}"
                                         CornerRadius="{ThemeResource ResonateCornerSmall}"
                                         Visibility="{x:Bind CoverVisibility, Mode=OneWay}"

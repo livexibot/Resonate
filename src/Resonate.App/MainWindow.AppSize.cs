@@ -96,6 +96,8 @@ public sealed partial class MainWindow
             return;
         }
 
+        // Covers are decoded for this screen's pixels.
+        CoverImages.DisplayScale = GetDpiForWindow(Hwnd) / 96.0;
         if (WindowShapesOn)
         {
             // The Window shapes plugin lets the window shrink to a strip (MainWindow.WindowShapes.cs).

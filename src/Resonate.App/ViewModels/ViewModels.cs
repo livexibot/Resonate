@@ -8,6 +8,7 @@ using Resonate.Spotify.History;
 using Resonate.Spotify.Library;
 using Resonate.Spotify.Playback;
 using Resonate.Spotify.WebApi;
+using Resonate.Themes;
 
 namespace Resonate.App.ViewModels;
 
@@ -164,6 +165,7 @@ public sealed partial class TrackColumns : ObservableObject
     {
         ReadOptions();
         OnPropertyChanged(nameof(CoverWidth));
+        OnPropertyChanged(nameof(CoverPixels));
         OnPropertyChanged(nameof(CoverSpacing));
         OnPropertyChanged(nameof(CoverVisibility));
         Fit(_width, _textScale);
@@ -182,7 +184,12 @@ public sealed partial class TrackColumns : ObservableObject
         ShowsCovers = settings.ShowSongCovers;
     }
 
-    public GridLength CoverWidth => ShowsCovers ? new GridLength(40) : new GridLength(0);
+    public GridLength CoverWidth => ShowsCovers ? new GridLength(RowCoverPixels) : new GridLength(0);
+
+    /// <summary>A row's cover at the user's Cover size (40 at 100 %).</summary>
+    public double CoverPixels => RowCoverPixels;
+
+    public static int RowCoverPixels => AppScale.Cover(40, App.Services.Settings.CoverSize);
 
     public double CoverSpacing => ShowsCovers ? 12 : 0;
 
@@ -268,8 +275,8 @@ public sealed partial class TrackRow : ObservableObject
         DateAdded = Format.DateAdded(track.AddedAt, DateTimeOffset.UtcNow);
     }
 
-    /// <summary>The width of a row's cover.</summary>
-    public const int CoverWidth = 40;
+    /// <summary>The width of a row's cover, at the user's Cover size.</summary>
+    public static int CoverWidth => TrackColumns.RowCoverPixels;
 
     private static TrackColumns Default { get; } = new(album: true, dateAdded: false);
 
@@ -444,7 +451,10 @@ public sealed partial class PlaylistNavItem : ObservableObject
 
     public Visibility CoverVisibility => ShowCovers || Compact ? Visibility.Visible : Visibility.Collapsed;
 
-    public GridLength CoverColumnWidth => ShowCovers || Compact ? new GridLength(48) : new GridLength(0);
+    public GridLength CoverColumnWidth => ShowCovers || Compact ? new GridLength(CoverSize) : new GridLength(0);
+
+    /// <summary>The cover at the user's Cover size (48 at 100 %); always 48 while <see cref="Compact"/>, which is sized for it.</summary>
+    public double CoverSize => Compact ? 48 : AppScale.Cover(48, App.Services.Settings.CoverSize);
 
     /// <summary>While <see cref="Compact"/> the cover alone sits in the middle of the row, with no gaps beside it.</summary>
     public HorizontalAlignment RowAlignment => Compact ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
@@ -466,6 +476,7 @@ public sealed partial class PlaylistNavItem : ObservableObject
         OnPropertyChanged(nameof(TextVisibility));
         OnPropertyChanged(nameof(CoverVisibility));
         OnPropertyChanged(nameof(CoverColumnWidth));
+        OnPropertyChanged(nameof(CoverSize));
         OnPropertyChanged(nameof(RowAlignment));
         OnPropertyChanged(nameof(ColumnGap));
         OnPropertyChanged(nameof(RowPadding));
@@ -474,7 +485,8 @@ public sealed partial class PlaylistNavItem : ObservableObject
 
     public Brush PlaceholderBrush { get; }
 
-    public CoverTile Cover => _cover ??= new CoverTile(ImagePicker.Pick(Playlist.Images, 96), 48, PlaceholderBrush);
+    // Decoded for the largest Cover size, so a change of size stays sharp without decoding again.
+    public CoverTile Cover => _cover ??= new CoverTile(ImagePicker.Pick(Playlist.Images, 192), 96, PlaceholderBrush);
 
     public ImageSource? Image => Cover.Image;
 

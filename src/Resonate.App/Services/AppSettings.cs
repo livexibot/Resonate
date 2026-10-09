@@ -43,6 +43,9 @@ public sealed class AppSettings
     /// <summary>The sidebar shows each playlist's cover (always while it shows only covers).</summary>
     public bool ShowPlaylistCovers { get; set; } = true;
 
+    /// <summary>How large covers are in song lists and the sidebar, in percent (one of <see cref="AppScale.CoverSizes"/>).</summary>
+    public int CoverSize { get; set; } = AppScale.Normal;
+
     /// <summary>Song lists' optional columns.</summary>
     public bool ShowAlbumColumn { get; set; } = true;
 

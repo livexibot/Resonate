@@ -337,8 +337,8 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Grid
-                                Width="40"
-                                Height="40"
+                                Width="{x:Bind Columns.CoverPixels, Mode=OneWay}"
+                                Height="{x:Bind Columns.CoverPixels, Mode=OneWay}"
                                 Background="{x:Bind Cover.Background, Mode=OneWay}"
                                 CornerRadius="{ThemeResource ResonateCornerSmall}"
                                 Visibility="{x:Bind Columns.CoverVisibility, Mode=OneWay}">

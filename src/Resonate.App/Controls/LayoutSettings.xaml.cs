@@ -37,6 +37,11 @@ public sealed partial class LayoutSettings : UserControl
             TextSizeChoice.Items.Add(AppScale.Label(size));
         }
 
+        foreach (var size in AppScale.CoverSizes)
+        {
+            CoverSizeChoice.Items.Add(AppScale.Label(size));
+        }
+
         // Only while shown, so the theme never keeps a closed Settings page alive.
         Loaded += (_, _) =>
         {
@@ -85,6 +90,7 @@ public sealed partial class LayoutSettings : UserControl
 
             AppSizeChoice.SelectedIndex = IndexOf(AppScale.AppSizes, _theme.AppSize);
             TextSizeChoice.SelectedIndex = IndexOf(AppScale.TextSizes, _theme.TextSize);
+            CoverSizeChoice.SelectedIndex = IndexOf(AppScale.CoverSizes, AppScale.Nearest(_services.Settings.CoverSize, AppScale.CoverSizes));
         }
         finally
         {
@@ -196,6 +202,20 @@ public sealed partial class LayoutSettings : UserControl
         {
             _theme.AppSize = AppScale.AppSizes[AppSizeChoice.SelectedIndex];
         }
+    }
+
+    // Song lists and the sidebar take a new Cover size at once.
+    private void OnCoverSizeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || CoverSizeChoice.SelectedIndex < 0)
+        {
+            return;
+        }
+
+        _services.Settings.CoverSize = AppScale.CoverSizes[CoverSizeChoice.SelectedIndex];
+        _services.SaveSettings();
+        TrackColumns.NotifyOptionsChanged();
+        App.MainWindow?.ShowPlaylistCovers(_services.Settings.ShowPlaylistCovers);
     }
 
     private void OnTextSizeChanged(object sender, SelectionChangedEventArgs e)
