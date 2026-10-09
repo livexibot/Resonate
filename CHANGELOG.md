@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/livexibot/Resonate/compare/v0.12.0...v0.13.0) (2026-10-09)
+
+
+### New features
+
+* device picker, clearer Settings, cover colours, new visualizers, reset buttons and a modern Search ([#56](https://github.com/livexibot/Resonate/issues/56)) ([ec65914](https://github.com/livexibot/Resonate/commit/ec6591473b0dbb92d15e9257f02b2f0bfad72555))
+
 ## [0.12.0](https://github.com/livexibot/Resonate/compare/v0.11.0...v0.12.0) (2026-10-09)
 
 
