@@ -223,6 +223,12 @@ public sealed partial class PlayerBar : UserControl
         UpdateSpin();
     }
 
+    /// <summary>The bar itself, without its margins, for a special look's decorations that sit on it.</summary>
+    internal FrameworkElement Surface => Bar;
+
+    /// <summary>How round the bar's corners are.</summary>
+    internal double SurfaceCorner => Bar.CornerRadius.TopLeft;
+
     /// <summary>The look's progress bar, cover style and corners.</summary>
     private void ApplyLook()
     {
