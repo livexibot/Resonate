@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/livexibot/Resonate/compare/v0.10.0...v0.10.1) (2026-10-09)
+
+
+### Fixes
+
+* steadier playback, smoother visualizer, more layout and effect options ([#50](https://github.com/livexibot/Resonate/issues/50)) ([4a91762](https://github.com/livexibot/Resonate/commit/4a91762f9e7dc4c467a16f56226af800d4d40c1f))
+
 ## [0.10.0](https://github.com/livexibot/Resonate/compare/v0.9.1...v0.10.0) (2026-10-09)
 
 
