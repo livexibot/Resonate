@@ -162,6 +162,18 @@ public enum ThemeScene
 
     /// <summary>A snowy night: stars, snow-capped mountains, a pine forest, snowdrifts and falling snow.</summary>
     Snow,
+
+    /// <summary>An outrun sunset: a striped sun, neon mountains, palms and a glowing grid racing towards you, with shooting stars and rising neon dust.</summary>
+    Synthwave,
+
+    /// <summary>Liquid metal: a rolling chrome sea, mirrored blobs drifting over it, beads rising and mercury dripping from the panels.</summary>
+    LiquidChrome,
+
+    /// <summary>A neon megacity in the rain: towers, flickering signs, searchlights, flying cars, a blimp and corner brackets on the panels.</summary>
+    Cyberpunk,
+
+    /// <summary>A city after midnight through a rainy window: soft city lights, a skyline, a highway of tail lights and drops running down the glass.</summary>
+    Afterhours,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<ProgressStyle>))]

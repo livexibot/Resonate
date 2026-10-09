@@ -1,10 +1,11 @@
 namespace Resonate.Themes;
 
 /// <summary>
-/// The built-in looks, in three groups: dark, light and true black (OLED). Each one is a different idea, not a recolour:
-/// clean everyday themes (one in Windows' own Mica), a glass one, a
-/// true-black one and artistic ones, with the player in every position.
-/// Users start from any of them and customise from there.
+/// The built-in looks, in four groups: dark, light, true black (OLED) and
+/// special. Each one is a different idea, not a recolour: clean everyday
+/// themes, a glass one, true-black ones and artistic ones, and the special
+/// looks, each built around one aesthetic with scenery, motion and weather of
+/// its own. Users start from any of them and customise from there.
 /// </summary>
 public static class ThemePresets
 {
@@ -137,37 +138,37 @@ public static class ThemePresets
         StageVisualizer = VisualizerStyle.Lines,
     };
 
-    /// <summary>Neon on a purple dusk gradient: glowing outlines and the cover as a record.</summary>
-    public static ThemeDefinition Synthwave { get; } = new()
+    /// <summary>The deep sea at night: blue-green water, a teal accent with coral, soft round shapes and ripples from the play head.</summary>
+    public static ThemeDefinition Ocean { get; } = new()
     {
-        Id = "synthwave",
-        Name = "Synthwave",
-        Background = ThemeColor.FromRgb(0x13061F),
-        Background2 = ThemeColor.FromRgb(0x46104F),
-        Sidebar = ThemeColor.FromRgb(0x1A0A2B),
-        Surface = ThemeColor.FromRgb(0x1E0C33),
-        Player = ThemeColor.FromRgb(0x160826),
-        Text = ThemeColor.FromRgb(0xFDEBFF),
-        Accent = ThemeColor.FromRgb(0xFF3EA5),
-        Accent2 = ThemeColor.FromRgb(0x2DE2E6),
-        Border = ThemeColor.FromRgb(0xFF3EA5).WithAlpha(0.35),
+        Id = "ocean",
+        Name = "Ocean",
+        Background = ThemeColor.FromRgb(0x05121A),
+        Background2 = ThemeColor.FromRgb(0x0B2E3A),
+        Sidebar = ThemeColor.FromRgb(0x09171F),
+        Surface = ThemeColor.FromRgb(0x0B1B24),
+        Player = ThemeColor.FromRgb(0x0A1821),
+        Text = ThemeColor.FromRgb(0xE8F6F8),
+        Accent = ThemeColor.FromRgb(0x2DD4BF),
+        Accent2 = ThemeColor.FromRgb(0xFF8F7D),
+        Border = ThemeColor.FromRgb(0x2DD4BF).WithAlpha(0.12),
         Backdrop = WindowBackdrop.Gradient,
         GradientAngle = 160,
-        PanelOpacity = 0.72,
-        CornerRadius = 6,
-        Buttons = ButtonShape.Rounded,
+        PanelOpacity = 0.9,
+        CornerRadius = 20,
+        Buttons = ButtonShape.Round,
         BorderWidth = 1,
         PanelGap = 10,
-        Shadow = ShadowStyle.Glow,
-        DisplayFont = "Bahnschrift",
-        TextFont = "Bahnschrift",
+        Shadow = ShadowStyle.Soft,
+        DisplayFont = "Plus Jakarta Sans",
+        TextFont = "Plus Jakarta Sans",
         PlayerLayout = PlayerLayout.Floating,
-        Progress = ProgressStyle.Gradient,
-        PlayButton = PlayButtonStyle.Outline,
-        Cover = CoverStyle.Vinyl,
-        PlayerGlow = 0.6,
-        StageVisualizer = VisualizerStyle.Pills,
-        PlayerVisualizer = VisualizerStyle.Lines,
+        Progress = ProgressStyle.Ripple,
+        PlayButton = PlayButtonStyle.Filled,
+        Cover = CoverStyle.Rounded,
+        ProgressGlow = 0.3,
+        StageVisualizer = VisualizerStyle.Silk,
+        PlayerVisualizer = VisualizerStyle.Off,
     };
 
     /// <summary>A printed page: warm paper, ink outlines, serif type and hard shadows.</summary>
@@ -469,8 +470,164 @@ public static class ThemePresets
         Scene = ThemeScene.Snow,
     };
 
+    /// <summary>
+    /// Outrun, a special look: a night sky running down to a hot pink horizon,
+    /// a striped sun, neon wireframe mountains and palms, a glowing grid that
+    /// races towards you, shooting stars and neon dust rising over the panels.
+    /// </summary>
+    public static ThemeDefinition Synthwave { get; } = new()
+    {
+        Id = "synthwave",
+        Name = "Synthwave",
+        Background = ThemeColor.FromRgb(0x0A0320),
+        Background2 = ThemeColor.FromRgb(0x3E0B4E),
+        Sidebar = ThemeColor.FromRgb(0x14062A),
+        Surface = ThemeColor.FromRgb(0x160730),
+        Player = ThemeColor.FromRgb(0x12052A),
+        Text = ThemeColor.FromRgb(0xFFEAFB),
+        Accent = ThemeColor.FromRgb(0xFF3EA5),
+        Accent2 = ThemeColor.FromRgb(0x22E4FF),
+        Border = ThemeColor.FromRgb(0xFF3EA5).WithAlpha(0.42),
+        Backdrop = WindowBackdrop.Gradient,
+        GradientAngle = 90,
+        PanelOpacity = 0.66,
+        CornerRadius = 4,
+        Buttons = ButtonShape.Rounded,
+        BorderWidth = 1,
+        PanelGap = 12,
+        Shadow = ShadowStyle.Glow,
+        DisplayFont = "Tektur",
+        TextFont = "Montserrat",
+        PlayerLayout = PlayerLayout.Hovering,
+        Progress = ProgressStyle.Gradient,
+        PlayButton = PlayButtonStyle.Outline,
+        Cover = CoverStyle.Vinyl,
+        PlayerGlow = 0.6,
+        ProgressGlow = 0.6,
+        StageVisualizer = VisualizerStyle.Mirror,
+        PlayerVisualizer = VisualizerStyle.Lines,
+        Scene = ThemeScene.Synthwave,
+    };
+
+    /// <summary>
+    /// Liquid metal, a special look: graphite and clear glass over a rolling
+    /// chrome sea, mirrored blobs drifting over it, beads of chrome rising and
+    /// mercury dripping from the player; silver and pearl accents.
+    /// </summary>
+    public static ThemeDefinition LiquidChrome { get; } = new()
+    {
+        Id = "liquid-chrome",
+        Name = "Liquid Chrome",
+        Background = ThemeColor.FromRgb(0x06070A),
+        Background2 = ThemeColor.FromRgb(0x1B1E26),
+        Sidebar = ThemeColor.FromRgb(0x0F1116),
+        Surface = ThemeColor.FromRgb(0x0E1015),
+        Player = ThemeColor.FromRgb(0x14171E),
+        Text = ThemeColor.FromRgb(0xF3F6FB),
+        Accent = ThemeColor.FromRgb(0xCDD8FF),
+        Accent2 = ThemeColor.FromRgb(0xFFC2EA),
+        Border = ThemeColor.White.WithAlpha(0.24),
+        Backdrop = WindowBackdrop.Gradient,
+        GradientAngle = 90,
+        PanelOpacity = 0.55,
+        CornerRadius = 26,
+        Buttons = ButtonShape.Round,
+        BorderWidth = 1,
+        PanelGap = 14,
+        Shadow = ShadowStyle.Strong,
+        DisplayFont = "Unbounded",
+        TextFont = "Manrope",
+        PlayerLayout = PlayerLayout.Hovering,
+        Progress = ProgressStyle.Shimmer,
+        PlayButton = PlayButtonStyle.Filled,
+        Cover = CoverStyle.Rounded,
+        PlayerGlow = 0.15,
+        ProgressGlow = 0.35,
+        StageVisualizer = VisualizerStyle.Silk,
+        PlayerVisualizer = VisualizerStyle.Off,
+        Scene = ThemeScene.LiquidChrome,
+    };
+
+    /// <summary>
+    /// A neon megacity in the rain, a special look: black-blue towers with lit
+    /// windows and flickering signs, searchlights, flying cars and a blimp,
+    /// rain over everything, sharp corners with brackets and cyan and magenta light.
+    /// </summary>
+    public static ThemeDefinition Cyberpunk { get; } = new()
+    {
+        Id = "cyberpunk",
+        Name = "Cyberpunk",
+        Background = ThemeColor.FromRgb(0x03040A),
+        Background2 = ThemeColor.FromRgb(0x1D0A31),
+        Sidebar = ThemeColor.FromRgb(0x070A14),
+        Surface = ThemeColor.FromRgb(0x080B17),
+        Player = ThemeColor.FromRgb(0x090C19),
+        Text = ThemeColor.FromRgb(0xE6FCFF),
+        Accent = ThemeColor.FromRgb(0x00E5FF),
+        Accent2 = ThemeColor.FromRgb(0xFF2E97),
+        Border = ThemeColor.FromRgb(0x00E5FF).WithAlpha(0.42),
+        Backdrop = WindowBackdrop.Gradient,
+        GradientAngle = 90,
+        PanelOpacity = 0.74,
+        CornerRadius = 0,
+        Buttons = ButtonShape.Square,
+        BorderWidth = 1,
+        PanelGap = 10,
+        Shadow = ShadowStyle.Glow,
+        DisplayFont = "Oxanium",
+        TextFont = "Oxanium",
+        PlayerLayout = PlayerLayout.Docked,
+        Progress = ProgressStyle.Dots,
+        PlayButton = PlayButtonStyle.Outline,
+        Cover = CoverStyle.Square,
+        PlayerGlow = 0.45,
+        ProgressGlow = 0.5,
+        StageVisualizer = VisualizerStyle.Bars,
+        PlayerVisualizer = VisualizerStyle.Mirror,
+        Scene = ThemeScene.Cyberpunk,
+    };
+
+    /// <summary>
+    /// After midnight, a special look: the city through a rainy window, its
+    /// lights out of focus, a skyline and a highway of tail lights, a neon red
+    /// accent with amber, a high-contrast serif and drops running down the glass.
+    /// </summary>
+    public static ThemeDefinition Afterhours { get; } = new()
+    {
+        Id = "afterhours",
+        Name = "Afterhours",
+        Background = ThemeColor.FromRgb(0x07050A),
+        Background2 = ThemeColor.FromRgb(0x2B0A12),
+        Sidebar = ThemeColor.FromRgb(0x0F090B),
+        Surface = ThemeColor.FromRgb(0x110A0D),
+        Player = ThemeColor.FromRgb(0x150B0F),
+        Text = ThemeColor.FromRgb(0xFFF0E8),
+        Accent = ThemeColor.FromRgb(0xFF4757),
+        Accent2 = ThemeColor.FromRgb(0xFFB35C),
+        Border = ThemeColor.FromRgb(0xFF4757).WithAlpha(0.2),
+        Backdrop = WindowBackdrop.Gradient,
+        GradientAngle = 90,
+        PanelOpacity = 0.7,
+        CornerRadius = 10,
+        Buttons = ButtonShape.Rounded,
+        BorderWidth = 1,
+        PanelGap = 12,
+        Shadow = ShadowStyle.Soft,
+        DisplayFont = "Bodoni Moda",
+        TextFont = "Work Sans",
+        PlayerLayout = PlayerLayout.Floating,
+        Progress = ProgressStyle.Comet,
+        PlayButton = PlayButtonStyle.Filled,
+        Cover = CoverStyle.Vinyl,
+        PlayerGlow = 0.3,
+        ProgressGlow = 0.45,
+        StageVisualizer = VisualizerStyle.Aurora,
+        PlayerVisualizer = VisualizerStyle.Off,
+        Scene = ThemeScene.Afterhours,
+    };
+
     /// <summary>Dark looks, the default first.</summary>
-    public static IReadOnlyList<ThemeDefinition> Dark { get; } = [Midnight, Glass, Velvet, Fluent, Studio, Synthwave];
+    public static IReadOnlyList<ThemeDefinition> Dark { get; } = [Midnight, Glass, Velvet, Ocean, Fluent, Studio];
 
     /// <summary>Light looks, the default first.</summary>
     public static IReadOnlyList<ThemeDefinition> Light { get; } = [Daylight, Paper, Sage, Bubblegum];
@@ -478,7 +635,7 @@ public static class ThemePresets
     /// <summary>True-black looks for OLED screens, the default first.</summary>
     public static IReadOnlyList<ThemeDefinition> Black { get; } = [Oled, Aurora, PureBlack, Terminal];
     /// <summary>Special looks, built around one aesthetic with scenery of their own.</summary>
-    public static IReadOnlyList<ThemeDefinition> Special { get; } = [Japan, Snow];
+    public static IReadOnlyList<ThemeDefinition> Special { get; } = [Japan, Snow, Synthwave, LiquidChrome, Cyberpunk, Afterhours];
 
     public static IReadOnlyList<ThemeDefinition> All { get; } = [.. Dark, .. Light, .. Black, .. Special];
 
