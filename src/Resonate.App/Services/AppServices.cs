@@ -99,6 +99,9 @@ public sealed class AppServices : IDisposable
             // Its song or play state changed: the interface asks Spotify at once.
             ownPlayer.PlaybackChanged += (_, _) => player.Spotify.RefreshSoon();
 
+            // What it plays, straight from it: shown at once, without asking Spotify.
+            ownPlayer.StateReported += (_, state) => player.Spotify.ApplyOwnPlayerState(state);
+
             // Started or stopped: the Home stage's visualizer hears its page, or the Spotify app again.
             ownPlayer.StatusChanged += (_, _) => Visualiser.LookAgain();
         }
@@ -242,7 +245,8 @@ public sealed class AppServices : IDisposable
             api,
             new LocalDeviceResolver(api, Environment.MachineName),
             launcher,
-            webDevices: new WebDeviceResolver(api, Environment.MachineName, ownPlayer));
+            webDevices: new WebDeviceResolver(api, Environment.MachineName, ownPlayer),
+            direct: ownPlayer);
         var localControls = new LocalMediaControls();
         var local = new LocalPlayer(new AudioGraphEngine(), localControls);
         var player = new PlayerRouter(spotify, local);

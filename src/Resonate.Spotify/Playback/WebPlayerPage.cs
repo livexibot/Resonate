@@ -127,6 +127,18 @@ public static class WebPlayerCommands
     /// <summary>CI's check: protected audio, and Spotify's player with a made-up token.</summary>
     public static string Check() => Write(w => w.WriteString("type", "check"));
 
+    /// <summary>
+    /// Tells Spotify's player on the page itself to resume, pause, skip
+    /// ("next", "previous"), seek (<paramref name="value"/> in milliseconds) or
+    /// set its volume (0 to 1), without a trip to Spotify's servers.
+    /// </summary>
+    public static string Control(string action, double value = 0) => Write(w =>
+    {
+        w.WriteString("type", "control");
+        w.WriteString("action", action);
+        w.WriteNumber("value", value);
+    });
+
     private static string Write(Action<Utf8JsonWriter> body)
     {
         using var stream = new MemoryStream();

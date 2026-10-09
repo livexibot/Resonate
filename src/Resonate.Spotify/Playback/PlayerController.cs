@@ -108,6 +108,12 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     /// <summary>See <see cref="UserCommandCount"/>.</summary>
     private long _userCommands;
 
+    // Resonate's own player, commanded directly while it plays (see TryDirect).
+    private readonly IDirectPlayer? _direct;
+
+    // The device Spotify said plays, with "Spotify Web API only"; under _gate.
+    private string? _webDeviceId;
+
     /// <param name="nextInt">Random numbers for shuffling, in [0, max); the system's cryptographic generator when null (tests pass their own).</param>
     public PlayerController(
         ILocalMediaChannel local,
@@ -117,8 +123,10 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         ISpotifyAppLauncher? launcher = null,
         TimeProvider? time = null,
         Func<int, int>? nextInt = null,
-        WebDeviceResolver? webDevices = null)
+        WebDeviceResolver? webDevices = null,
+        IDirectPlayer? direct = null)
     {
+        _direct = direct;
         _local = local;
         _appVolume = appVolume;
         _api = api;
@@ -180,6 +188,58 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     {
         get => _webDevices.PreferredName;
         set => _webDevices.PreferredName = value;
+    }
+
+    /// <summary>
+    /// What Resonate's own player says it plays, shown at once with "Spotify
+    /// Web API only" (the owner asked for less delay, 9 October 2026), as if
+    /// Spotify had answered: the same holds keep what the user just did on
+    /// screen. Only while it is the device that plays, or starts playing.
+    /// </summary>
+    public void ApplyOwnPlayerState(PlaybackState playback)
+    {
+        if (!_started || UseLocal || playback.Device?.Id is not { } device)
+        {
+            return;
+        }
+
+        long request;
+        long epoch;
+        lock (_gate)
+        {
+            if (!playback.IsPlaying && _webDeviceId is not null && _webDeviceId != device)
+            {
+                return;
+            }
+
+            request = ++_webRequests;
+            epoch = _commandEpoch;
+        }
+
+        ApplyWeb(playback, request, epoch);
+    }
+
+    /// <summary>
+    /// Sends <paramref name="action"/> straight to Resonate's own player when
+    /// it is the device that plays ("Spotify Web API only"): it acts at once,
+    /// with no trip to Spotify's servers. False otherwise.
+    /// </summary>
+    private bool TryDirect(string action, double value = 0)
+    {
+        if (UseLocal || _direct?.DeviceId is not { } own)
+        {
+            return false;
+        }
+
+        lock (_gate)
+        {
+            if (_webDeviceId != own)
+            {
+                return false;
+            }
+        }
+
+        return _direct.TryControl(action, value);
     }
 
     /// <summary>
@@ -343,7 +403,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                     // Up next: the edited order starts where the song was paused, in one command.
                     await WithDeviceAsync((id, c) => SendUpNextAsync(edits, id, c), ct, starts: true).ConfigureAwait(false);
                 }
-                else if (!await TryLocalAsync(_local.PlayAsync, ct).ConfigureAwait(false))
+                else if (!await TryLocalAsync(_local.PlayAsync, ct).ConfigureAwait(false) && !TryDirect("resume"))
                 {
                     await WithDeviceAsync((id, c) => _api.StartPlaybackAsync(null, id, c), ct, starts: true).ConfigureAwait(false);
                 }
@@ -369,7 +429,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         return RunTransportAsync(
             async ct =>
             {
-                if (!await TryLocalAsync(_local.PauseAsync, ct).ConfigureAwait(false))
+                if (!await TryLocalAsync(_local.PauseAsync, ct).ConfigureAwait(false) && !TryDirect("pause"))
                 {
                     await PauseOnDeviceAsync(ct).ConfigureAwait(false);
                 }
@@ -389,7 +449,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         return RunTransportAsync(
             async ct =>
             {
-                if (!await TryLocalAsync(_local.NextAsync, ct).ConfigureAwait(false))
+                if (!await TryLocalAsync(_local.NextAsync, ct).ConfigureAwait(false) && !TryDirect("next"))
                 {
                     await WithDeviceAsync(_api.SkipToNextAsync, ct).ConfigureAwait(false);
                 }
@@ -407,7 +467,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         return RunTransportAsync(
             async ct =>
             {
-                if (!await TryLocalAsync(_local.PreviousAsync, ct).ConfigureAwait(false))
+                if (!await TryLocalAsync(_local.PreviousAsync, ct).ConfigureAwait(false) && !TryDirect("previous"))
                 {
                     await WithDeviceAsync(_api.SkipToPreviousAsync, ct).ConfigureAwait(false);
                 }
@@ -1422,6 +1482,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             var now = _time.GetUtcNow();
             var s = _state;
             _webConnected = playback?.Device is not null;
+            _webDeviceId = playback?.Device?.Id;
             var item = TrackInfo.From(playback?.Item);
             var localIsTruth = HasSong(Local) && Local.HasTimeline;
 
@@ -1686,7 +1747,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             localCanSeek = Local.HasSession && Local.CanSeek;
         }
 
-        if (localCanSeek && await _local.SeekAsync(target, cancellationToken).ConfigureAwait(false))
+        if ((localCanSeek && await _local.SeekAsync(target, cancellationToken).ConfigureAwait(false)) || TryDirect("seek", target.TotalMilliseconds))
         {
             return;
         }
@@ -1703,7 +1764,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             _pendingVolume = null;
         }
 
-        if (UseLocal && _appVolume.TrySetVolume(target))
+        if ((UseLocal && _appVolume.TrySetVolume(target)) || TryDirect("volume", target))
         {
             return;
         }

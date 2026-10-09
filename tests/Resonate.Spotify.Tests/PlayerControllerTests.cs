@@ -606,6 +606,79 @@ public sealed class PlayerControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task Web_API_only_commands_Resonates_own_player_directly_while_it_plays()
+    {
+        var own = new FakeDirectPlayer("own-device");
+        using var player = new PlayerController(_local, _local, _web, new LocalDeviceResolver(_web, "MY-PC", _time), launcher: null, _time, direct: own);
+        _web.Playback = OnTheWeb(isPlaying: true, new Device { Id = "own-device", Name = "Resonate", Type = "Computer" });
+        player.Channel = ControlChannel.WebApi;
+        await player.StartAsync(TestContext.Current.CancellationToken);
+
+        await player.PauseAsync();
+        await player.PlayAsync();
+        await player.NextAsync();
+        await player.PreviousAsync();
+        await player.SeekAsync(TimeSpan.FromSeconds(30));
+        await player.SetVolumeAsync(0.4);
+
+        // Straight to the player on this PC; nothing goes through Spotify's servers.
+        Assert.Equal(["pause", "resume", "next", "previous", "seek 30000", "volume 0.4"], own.Commands);
+        Assert.Empty(_web.Commands);
+    }
+
+    [Fact]
+    public async Task Web_API_only_commands_another_device_through_the_Web_API()
+    {
+        var own = new FakeDirectPlayer("own-device");
+        using var player = new PlayerController(_local, _local, _web, new LocalDeviceResolver(_web, "MY-PC", _time), launcher: null, _time, direct: own);
+        _web.Playback = OnTheWeb(isPlaying: true, new Device { Id = "phone", Name = "Phone", Type = "Smartphone" });
+        player.Channel = ControlChannel.WebApi;
+        await player.StartAsync(TestContext.Current.CancellationToken);
+
+        await player.PauseAsync();
+
+        Assert.Empty(own.Commands);
+        Assert.Equal(["pause@"], _web.Commands);
+    }
+
+    [Fact]
+    public async Task What_the_own_player_reports_shows_at_once()
+    {
+        _web.Playback = OnTheWeb(isPlaying: true, new Device { Id = "own-device", Name = "Resonate", Type = "Computer" });
+        _player.Channel = ControlChannel.WebApi;
+        await _player.StartAsync(TestContext.Current.CancellationToken);
+
+        _player.ApplyOwnPlayerState(new PlaybackState
+        {
+            Device = new Device { Id = "own-device", Name = "Resonate", Type = "Computer", IsActive = true },
+            IsPlaying = true,
+            ProgressMs = 0,
+            Item = new PlayableItem { Name = "Next Song", Uri = "spotify:track:n", DurationMs = 120_000 },
+        });
+
+        Assert.Equal("Next Song", _player.State.Title);
+        Assert.Equal(TimeSpan.FromMinutes(2), _player.State.Duration);
+    }
+
+    [Fact]
+    public async Task A_paused_own_player_does_not_cover_another_device_that_plays()
+    {
+        _web.Playback = OnTheWeb(isPlaying: true, new Device { Id = "phone", Name = "Phone", Type = "Smartphone" });
+        _player.Channel = ControlChannel.WebApi;
+        await _player.StartAsync(TestContext.Current.CancellationToken);
+
+        _player.ApplyOwnPlayerState(new PlaybackState
+        {
+            Device = new Device { Id = "own-device", Name = "Resonate", Type = "Computer", IsActive = true },
+            IsPlaying = false,
+            Item = new PlayableItem { Name = "Old Song", Uri = "spotify:track:o", DurationMs = 120_000 },
+        });
+
+        Assert.Equal("Web Song", _player.State.Title);
+        Assert.True(_player.State.IsPlaying);
+    }
+
+    [Fact]
     public void A_window_of_at_most_100_songs_contains_the_chosen_one()
     {
         var uris = Enumerable.Range(0, 250).Select(i => $"spotify:track:{i}").ToList();
@@ -623,6 +696,20 @@ public sealed class PlayerControllerTests : IDisposable
         ProgressMs = 10_000,
         Item = new PlayableItem { Name = "Web Song", Uri = "spotify:track:w", DurationMs = 100_000 },
     };
+
+    /// <summary>Stands in for Resonate's own player, taking commands directly.</summary>
+    private sealed class FakeDirectPlayer(string deviceId) : IDirectPlayer
+    {
+        public List<string> Commands { get; } = [];
+
+        public string? DeviceId => deviceId;
+
+        public bool TryControl(string action, double value = 0)
+        {
+            Commands.Add(action is "seek" or "volume" ? $"{action} {value.ToString(System.Globalization.CultureInfo.InvariantCulture)}" : action);
+            return true;
+        }
+    }
 
     private static async Task WaitUntil(Func<bool> condition)
     {
