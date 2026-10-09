@@ -25,6 +25,8 @@ public sealed class BuiltInPlugins
     public const string SignalPath = "signal-path";
     public const string PauseOnLock = "pause-on-lock";
     public const string PauseOnUnplug = "pause-on-unplug";
+    public const string TrayIcon = "tray-icon";
+    public const string PlayerLyrics = "player-lyrics";
 
     private readonly AppSettings _settings;
     private readonly Action _save;
@@ -51,6 +53,8 @@ public sealed class BuiltInPlugins
         new(SignalPath, "Signal path", "A badge in the player that says whether you hear lossless."),
         new(PauseOnLock, "Pause on lock", "Pauses when you lock your PC and plays on when you unlock it."),
         new(PauseOnUnplug, "Pause on unplug", "Pauses when headphones or a speaker disconnect."),
+        new(TrayIcon, "Tray icon", "Closing the window keeps the music playing from the tray."),
+        new(PlayerLyrics, "Lyrics in the player", "The sung line under the song in the player bar."),
     ];
 
     /// <summary>Part of Resonate itself now (the owner's choice, 8 October 2026): always on, not listed.</summary>

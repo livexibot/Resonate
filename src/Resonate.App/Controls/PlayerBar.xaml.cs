@@ -77,6 +77,13 @@ public sealed partial class PlayerBar : UserControl
         _clock.Tick += (_, _) => UpdateClock();
     }
 
+    /// <summary>The line being sung (Lyrics in the player), or null for none.</summary>
+    public void ShowLyricLine(string? line)
+    {
+        LyricLineText.Text = line ?? string.Empty;
+        LyricLineText.Visibility = string.IsNullOrWhiteSpace(line) || _widthClass == PlayerWidthClass.Mini ? Visibility.Collapsed : Visibility.Visible;
+    }
+
     /// <summary>The window says when it is minimised or hidden, so the clock can rest.</summary>
     public void SetWindowShown(bool shown)
     {

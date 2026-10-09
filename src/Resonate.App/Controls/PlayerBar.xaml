@@ -105,6 +105,13 @@
                             x:Name="ArtistText"
                             Style="{StaticResource ResonateSecondaryTextStyle}"
                             Text="Pick a song to start" />
+                        <!-- Lyrics in the player (a built-in plugin): the line being sung -->
+                        <TextBlock
+                            x:Name="LyricLineText"
+                            Foreground="{StaticResource ResonateAccentBrush}"
+                            Style="{StaticResource ResonateCaptionTextStyle}"
+                            TextTrimming="CharacterEllipsis"
+                            Visibility="Collapsed" />
                     </StackPanel>
                 </Grid>
             </Grid>

@@ -148,7 +148,7 @@ public sealed partial class MainWindow : Window
         PlayerBar.AttachPlugins(services.Plugins);
         SetUpPlayerPlacement();
         AppWindow.Changed += OnAppWindowChanged;
-        AppWindow.Closing += (_, args) => args.Cancel = !ReadyToClose();
+        AppWindow.Closing += (_, args) => args.Cancel = HidesToTray() || !ReadyToClose();
         Closed += OnClosed;
 
         if (services.Account.IsSignedIn)
@@ -1372,6 +1372,8 @@ public sealed partial class MainWindow : Window
     /// <summary>Closes Resonate from one of its own buttons (see <see cref="ReadyToClose"/>).</summary>
     public void Quit()
     {
+        // Quitting on purpose never hides in the tray.
+        _quitFromTray = true;
         if (ReadyToClose())
         {
             Close();
