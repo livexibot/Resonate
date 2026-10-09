@@ -81,6 +81,14 @@ public sealed class SceneWeatherTests
             }
         }
 
+        // Japan's farther petals end their fall over the page's middle, where the player floats, and fall more slowly.
+        if (scene == ThemeScene.Japan)
+        {
+            Assert.All(behind, p => Assert.InRange(p.X + p.Wind, SceneWeather.BehindPetalsFrom - 1e-9, SceneWeather.BehindPetalsTo + 1e-9));
+            Assert.True(behind.Average(p => p.Fall) < front.Average(p => p.Fall) * 0.8);
+            Assert.True(behind.Average(p => p.Opacity) < front.Average(p => p.Opacity));
+        }
+
         // The soft, out-of-focus flakes are the nearest of all.
         Assert.DoesNotContain(behind, p => p.Sprite is null && p.Size > SceneWeather.FlakeSize * 2);
         if (scene == ThemeScene.Snow)

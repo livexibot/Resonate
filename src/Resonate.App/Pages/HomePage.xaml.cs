@@ -588,8 +588,9 @@ public sealed partial class HomePage : Page
     }
 
     /// <summary>
-    /// The greeting's background: a wash of the cover's colours (the look's
-    /// accents with no song at all), lighter on a light look. It is made off
+    /// The greeting's background: a wash of the cover's colours while the
+    /// look's "Colours follow the cover" is on, otherwise (and with no song at
+    /// all) of the look's accents, lighter on a light look. It is made off
     /// this thread's back, and fades over once; nothing moves afterwards.
     /// </summary>
     private void ShowWash(string? url, byte[]? bytes, string? name)
@@ -597,6 +598,11 @@ public sealed partial class HomePage : Page
         var palette = _services.Theme.Palette;
         ThemeColor? light = palette.IsLight ? palette.Background.Opaque : null;
         var look = _services.Theme.Current;
+        if (!StageColours.FollowsCover(look))
+        {
+            (url, bytes, name) = (null, null, null);
+        }
+
         object key = url ?? (object?)bytes ?? (object?)name ?? (look.Accent, look.Accent2);
         if (Equals(key, _washKey) && light == _washLight)
         {

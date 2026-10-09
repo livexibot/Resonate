@@ -219,7 +219,10 @@ public sealed class ArtworkSampler : IDisposable
             return last.Picture;
         }
 
-        var pixels = Equals(key, _key) ? _pixels : Equals(key, _washKey) ? _washCover : null;
+        // The backdrop's copy of the cover is larger than the wash's own.
+        var fromBackdrop = Equals(key, _key) && _pixels is not null;
+        var pixels = fromBackdrop ? _pixels : Equals(key, _washKey) ? _washCover : null;
+        var side = fromBackdrop ? BackdropSize : Size;
         if (pixels is null)
         {
             try
@@ -256,7 +259,7 @@ public sealed class ArtworkSampler : IDisposable
             _washCover = pixels;
         }
 
-        var wash = ArtworkColors.ColourWash(pixels, Size, Size, Size, Size);
+        var wash = ArtworkColors.ColourWash(pixels, side, side, Size, Size);
         if (light is { } background)
         {
             for (var i = 0; i < wash.Length; i += 4)

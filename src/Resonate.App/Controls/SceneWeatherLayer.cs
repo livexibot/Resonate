@@ -15,8 +15,10 @@ namespace Resonate.App.Controls;
 /// The farther, smaller part hangs under the player instead
 /// (<see cref="MainWindow.WeatherHost"/>), over the panels, so it passes behind
 /// the player; it falls from the top of the panels, drawn at the window's
-/// scale whatever the App size, and over the whole window if that place is
-/// not to be had.
+/// scale whatever the App size. While the panels are hidden (signing in),
+/// or that place is not to be had, it falls over the whole window; while a
+/// switch that keeps the scene lays a picture of the window over it, it
+/// falls over everything from where it was (<see cref="KeepInFront"/>).
 /// Sprites the compositor moves with expressions from the scene's clock
 /// (<see cref="SceneClock"/>, which ticks at a capped rate), so nothing else
 /// runs on the interface thread. It moves only while the window shows and
@@ -42,7 +44,15 @@ internal sealed partial class SceneWeatherLayer : Grid
     private bool _moving;
     private XamlRoot? _xamlRoot;
     private double _rasterization = 1;
-    private FrameworkElement? _behindHost;
+
+    // Where the farther weather belongs (under the player, while the shell it is in shows), where it hangs now
+    // (null: not there), whether it is in this layer's own visual instead, and whether a switch keeps it in front.
+    private FrameworkElement? _host;
+    private UIElement? _shell;
+    private long _shellToken;
+    private FrameworkElement? _hung;
+    private bool _inRoot;
+    private bool _lifted;
 
     public SceneWeatherLayer(ThemeService theme, SceneClock clock)
     {
@@ -63,6 +73,7 @@ internal sealed partial class SceneWeatherLayer : Grid
         // Until it has its place under the player, the farther weather falls here too, under the rest.
         _root.Children.InsertAtTop(_behind);
         _root.Children.InsertAtTop(_front);
+        _inRoot = true;
         ElementCompositionPreview.SetElementChildVisual(this, _root);
         SizeChanged += (_, e) =>
         {
@@ -142,7 +153,7 @@ internal sealed partial class SceneWeatherLayer : Grid
             _window.ShownChanged += OnShownChanged;
         }
 
-        HangBehind(_window?.WeatherHost);
+        Attach(_window);
         Show();
     }
 
@@ -164,7 +175,7 @@ internal sealed partial class SceneWeatherLayer : Grid
         }
 
         Stop();
-        HangBehind(null);
+        Attach(null);
     }
 
     private void OnThemeChanged(object? sender, EventArgs e) => Show();
@@ -175,23 +186,74 @@ internal sealed partial class SceneWeatherLayer : Grid
 
     private void OnAppSizeChanged(object? sender, EventArgs e) => FitBehind();
 
-    private void OnBehindHostSizeChanged(object sender, SizeChangedEventArgs e) => FitBehind();
+    private void OnHostSizeChanged(object sender, SizeChangedEventArgs e) => FitBehind();
+
+    private void OnShellVisibilityChanged(DependencyObject sender, DependencyProperty property) => Place();
 
     /// <summary>
-    /// Hangs the farther weather in <paramref name="host"/>, under the player,
-    /// or back under the rest of the weather when there is none (or it can not
-    /// be had).
+    /// For a switch that keeps the scene: the picture of the window laid over
+    /// it would hide the farther weather (pictures do not show it), so for the
+    /// switch's length it falls over everything, from where it was, and then
+    /// goes back under the player. A new scene is revealed with the weather in it.
     /// </summary>
-    private void HangBehind(FrameworkElement? host)
+    public void KeepInFront(bool inFront)
     {
-        if (ReferenceEquals(host, _behindHost))
+        if (_lifted != inFront)
         {
+            _lifted = inFront;
+            Place();
+        }
+    }
+
+    /// <summary>Follows <paramref name="window"/>'s place for the farther weather, or lets it go.</summary>
+    private void Attach(MainWindow? window)
+    {
+        var host = window?.WeatherHost;
+        if (!ReferenceEquals(host, _host))
+        {
+            if (_host is not null)
+            {
+                _host.SizeChanged -= OnHostSizeChanged;
+            }
+
+            _host = host;
+            if (_host is not null)
+            {
+                _host.SizeChanged += OnHostSizeChanged;
+            }
+        }
+
+        var shell = window?.WeatherShell;
+        if (!ReferenceEquals(shell, _shell))
+        {
+            _shell?.UnregisterPropertyChangedCallback(VisibilityProperty, _shellToken);
+            _shell = shell;
+            if (_shell is not null)
+            {
+                _shellToken = _shell.RegisterPropertyChangedCallback(VisibilityProperty, OnShellVisibilityChanged);
+            }
+        }
+
+        Place();
+    }
+
+    /// <summary>
+    /// Hangs the farther weather under the player, or, while that place is
+    /// hidden, missing or covered by a switch's picture, under the rest of the
+    /// weather in this layer.
+    /// </summary>
+    private void Place()
+    {
+        var target = !_lifted && _host is not null && _shell is { Visibility: Visibility.Visible } ? _host : null;
+        if (target is not null ? ReferenceEquals(target, _hung) : _inRoot)
+        {
+            FitBehind();
             return;
         }
 
-        if (_behindHost is { } old)
+        // Out of where it is first: a visual has one place at a time.
+        if (_hung is { } old)
         {
-            old.SizeChanged -= OnBehindHostSizeChanged;
             try
             {
                 ElementCompositionPreview.SetElementChildVisual(old, null);
@@ -201,20 +263,21 @@ internal sealed partial class SceneWeatherLayer : Grid
                 // Already gone with its window.
             }
 
-            _behindHost = null;
-        }
-        else
-        {
-            _root.Children.Remove(_behind);
+            _hung = null;
         }
 
-        if (host is not null)
+        if (_inRoot)
+        {
+            _root.Children.Remove(_behind);
+            _inRoot = false;
+        }
+
+        if (target is not null)
         {
             try
             {
-                ElementCompositionPreview.SetElementChildVisual(host, _behind);
-                host.SizeChanged += OnBehindHostSizeChanged;
-                _behindHost = host;
+                ElementCompositionPreview.SetElementChildVisual(target, _behind);
+                _hung = target;
             }
             catch (Exception)
             {
@@ -222,34 +285,64 @@ internal sealed partial class SceneWeatherLayer : Grid
             }
         }
 
-        if (_behindHost is null)
+        if (_hung is null)
         {
-            _root.Children.InsertAtBottom(_behind);
+            try
+            {
+                _root.Children.InsertAtBottom(_behind);
+                _inRoot = true;
+            }
+            catch (Exception)
+            {
+                // Still held where it was, on its way out with the window.
+            }
         }
 
         FitBehind();
     }
 
     /// <summary>
-    /// The farther weather's room: the host's, in the window's units, drawn at
-    /// the window's scale (App size enlarges the host's content); the layer's
-    /// own while it has no host.
+    /// The farther weather's room: under the player, the host's, in the
+    /// window's units, drawn at the window's scale (App size enlarges the
+    /// host's content); kept in front for a switch, the same room where it
+    /// was; otherwise the whole layer.
     /// </summary>
     private void FitBehind()
     {
-        if (_behindHost is { } host)
+        var scale = Math.Max(0.1, _theme.Scale);
+        if (_hung is { } hung)
         {
-            var scale = Math.Max(0.1, _theme.Scale);
+            _behind.Offset = Vector3.Zero;
             _behind.Scale = new Vector3((float)(1 / scale), (float)(1 / scale), 1);
-            _behindRoom.InsertScalar("W", (float)(host.ActualWidth * scale));
-            _behindRoom.InsertScalar("H", (float)(host.ActualHeight * scale));
+            SetRoom(hung.ActualWidth * scale, hung.ActualHeight * scale);
+            return;
         }
-        else
+
+        if (_lifted && _host is { ActualWidth: > 0 } host && _shell is { Visibility: Visibility.Visible })
         {
-            _behind.Scale = Vector3.One;
-            _behindRoom.InsertScalar("W", (float)ActualWidth);
-            _behindRoom.InsertScalar("H", (float)ActualHeight);
+            try
+            {
+                var origin = host.TransformToVisual(this).TransformPoint(default);
+                _behind.Offset = new Vector3((float)origin.X, (float)origin.Y, 0);
+                _behind.Scale = Vector3.One;
+                SetRoom(host.ActualWidth * scale, host.ActualHeight * scale);
+                return;
+            }
+            catch (Exception)
+            {
+                // Not in this window's tree: the whole layer below.
+            }
         }
+
+        _behind.Offset = Vector3.Zero;
+        _behind.Scale = Vector3.One;
+        SetRoom(ActualWidth, ActualHeight);
+    }
+
+    private void SetRoom(double width, double height)
+    {
+        _behindRoom.InsertScalar("W", (float)width);
+        _behindRoom.InsertScalar("H", (float)height);
     }
 
     /// <summary>On a display with another scale, petals and crystals take pictures at its sharpness.</summary>
