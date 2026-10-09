@@ -186,10 +186,11 @@
                                 <ColumnDefinition x:Name="LoudnessHeadingColumn" Width="0" />
                                 <ColumnDefinition x:Name="EnergyHeadingColumn" Width="0" />
                                 <ColumnDefinition x:Name="AddedHeadingColumn" Width="132" />
-                                <ColumnDefinition Width="40" />
-                                <ColumnDefinition Width="64" />
+                                <ColumnDefinition x:Name="LikeHeadingColumn" Width="40" />
+                                <ColumnDefinition x:Name="DurationHeadingColumn" Width="64" />
                             </Grid.ColumnDefinitions>
                             <TextBlock
+                                x:Name="NumberHeading"
                                 Width="{ThemeResource ResonateTrackNumberWidth}"
                                 Margin="0,0,12,0"
                                 Style="{StaticResource ResonateCaptionTextStyle}"
@@ -318,8 +319,8 @@
                             <ColumnDefinition Width="{x:Bind Columns.LoudnessWidth, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Columns.EnergyWidth, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Columns.AddedWidth, Mode=OneWay}" />
-                            <ColumnDefinition Width="40" />
-                            <ColumnDefinition Width="64" />
+                            <ColumnDefinition Width="{x:Bind Columns.LikeWidth, Mode=OneWay}" />
+                            <ColumnDefinition Width="{x:Bind Columns.DurationWidth, Mode=OneWay}" />
                         </Grid.ColumnDefinitions>
                         <TextBlock
                             Width="{ThemeResource ResonateTrackNumberWidth}"
@@ -327,7 +328,8 @@
                             VerticalAlignment="Center"
                             Style="{StaticResource ResonateSecondaryTextStyle}"
                             Text="{x:Bind Number, Mode=OneWay}"
-                            TextAlignment="Right" />
+                            TextAlignment="Right"
+                            Visibility="{x:Bind Columns.NumberVisibility, Mode=OneWay}" />
                         <Grid
                             Grid.Column="1"
                             Margin="0,0,16,0"
@@ -337,8 +339,8 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Grid
-                                Width="40"
-                                Height="40"
+                                Width="{x:Bind Columns.CoverPixels, Mode=OneWay}"
+                                Height="{x:Bind Columns.CoverPixels, Mode=OneWay}"
                                 Background="{x:Bind Cover.Background, Mode=OneWay}"
                                 CornerRadius="{ThemeResource ResonateCornerSmall}"
                                 Visibility="{x:Bind Columns.CoverVisibility, Mode=OneWay}">
@@ -401,24 +403,26 @@
                             VerticalAlignment="Center"
                             Style="{StaticResource ResonateSecondaryTextStyle}"
                             Text="{x:Bind DateAdded}" />
-                        <Button
-                            Grid.Column="9"
-                            Width="32"
-                            Height="32"
-                            AutomationProperties.Name="{x:Bind HeartLabel, Mode=OneWay}"
-                            Click="OnHeartClick"
-                            Content="{x:Bind HeartGlyph, Mode=OneWay}"
-                            FontSize="14"
-                            Foreground="{x:Bind HeartBrush, Mode=OneWay}"
-                            Style="{StaticResource ResonateIconButtonStyle}"
-                            ToolTipService.ToolTip="{x:Bind HeartLabel, Mode=OneWay}"
-                            Visibility="{x:Bind HeartVisibility}" />
+                        <Border Grid.Column="9" Visibility="{x:Bind Columns.LikeVisibility, Mode=OneWay}">
+                            <Button
+                                Width="32"
+                                Height="32"
+                                AutomationProperties.Name="{x:Bind HeartLabel, Mode=OneWay}"
+                                Click="OnHeartClick"
+                                Content="{x:Bind HeartGlyph, Mode=OneWay}"
+                                FontSize="14"
+                                Foreground="{x:Bind HeartBrush, Mode=OneWay}"
+                                Style="{StaticResource ResonateIconButtonStyle}"
+                                ToolTipService.ToolTip="{x:Bind HeartLabel, Mode=OneWay}"
+                                Visibility="{x:Bind HeartVisibility}" />
+                        </Border>
                         <TextBlock
                             Grid.Column="10"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Center"
                             Style="{StaticResource ResonateSecondaryTextStyle}"
-                            Text="{x:Bind Duration}" />
+                            Text="{x:Bind Duration}"
+                            Visibility="{x:Bind Columns.DurationVisibility, Mode=OneWay}" />
                     </Grid>
                 </DataTemplate>
             </ListView.ItemTemplate>

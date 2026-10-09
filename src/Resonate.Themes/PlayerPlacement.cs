@@ -6,7 +6,7 @@ public enum PlayerWidthClass
     /// <summary>Everything: the song, every control and the volume slider.</summary>
     Full,
 
-    /// <summary>Tighter, without the volume slider (the mouse wheel on the speaker button sets the volume).</summary>
+    /// <summary>Tighter, with the buttons in a row above the speaker and a shorter volume slider.</summary>
     Compact,
 
     /// <summary>A shorter bar: the song, previous, play and next over the progress bar, and the queue.</summary>

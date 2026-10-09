@@ -79,7 +79,10 @@ public sealed partial class ArtistPage
         try
         {
             var orbit = await BuiltInFeeds.OrbitAsync(_services);
-            view = await Task.Run(() => orbit.For(artistId), token);
+            var settings = _services.Settings;
+            var companions = Math.Clamp(settings.RelatedArtistsCount, 3, ArtistOrbit.MaxCompanions);
+            var albums = settings.RelatedArtistsAlbums ? ArtistOrbit.MaxAlbums : 0;
+            view = await Task.Run(() => orbit.For(artistId, companions, albums), token);
         }
         catch (Exception)
         {

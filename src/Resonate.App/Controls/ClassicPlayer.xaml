@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The classic player: the cover, a Winamp 2 style main window drawn from a
+  The classic player: a Winamp 2 style main window drawn from a
   skin pixel for pixel, the song in the app's own text, the plugin button
   and the heart. It sits where the player bar would, docked, floating or
   hovering like it, with the look's shadow behind it. In the mini player it
-  is just the cover and the skin (see ApplyMiniLook). See ClassicPlayer.xaml.cs.
+  is just the skin (see ApplyMiniLook). See ClassicPlayer.xaml.cs.
 -->
 <UserControl
     x:Class="Resonate.App.Controls.ClassicPlayer"
@@ -28,44 +28,13 @@
             CornerRadius="{ThemeResource ResonatePlayerCorner}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <!-- The cover: as tall as the skin; round, like a record, when spinning covers are on -->
-            <Grid
-                x:Name="CoverFrame"
-                Width="116"
-                Height="116"
-                VerticalAlignment="Center"
-                Background="{StaticResource ResonateSurfaceHoverBrush}"
-                CornerRadius="8">
-                <FontIcon
-                    x:Name="CoverGlyph"
-                    FontFamily="{StaticResource ResonateIconFont}"
-                    FontSize="20"
-                    Foreground="{StaticResource ResonateTextTertiaryBrush}"
-                    Glyph="&#xEC4F;" />
-                <Image
-                    x:Name="CoverImage"
-                    ImageOpened="OnCoverOpened"
-                    Opacity="0"
-                    Stretch="UniformToFill" />
-                <Ellipse
-                    x:Name="CoverHole"
-                    Width="12"
-                    Height="12"
-                    Fill="{StaticResource ResonatePlayerBrush}"
-                    Stroke="{StaticResource ResonateBorderBrush}"
-                    StrokeThickness="1"
-                    Visibility="Collapsed" />
-            </Grid>
-
             <!-- The skin, one skin pixel to a whole number of screen pixels; the visualiser is laid over its spot -->
             <Grid
                 x:Name="SkinHost"
-                Grid.Column="1"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Center"
                 AutomationProperties.Name="Winamp player"
@@ -97,7 +66,7 @@
             <!-- The song, always readable whatever the skin -->
             <StackPanel
                 x:Name="SongPanel"
-                Grid.Column="2"
+                Grid.Column="1"
                 VerticalAlignment="Center"
                 Spacing="2">
                 <TextBlock
@@ -114,7 +83,7 @@
 
             <StackPanel
                 x:Name="ButtonsPanel"
-                Grid.Column="3"
+                Grid.Column="2"
                 VerticalAlignment="Center"
                 Orientation="Horizontal"
                 Spacing="6">

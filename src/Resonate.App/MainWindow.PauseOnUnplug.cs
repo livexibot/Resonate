@@ -15,6 +15,7 @@ public sealed partial class MainWindow
 {
     private IDisposable? _outputWatch;
     private string? _outputName;
+    private string? _unpluggedFrom;
     private int _outputCheckQueued;
 
     partial void SetUpPauseOnUnplug()
@@ -75,11 +76,24 @@ public sealed partial class MainWindow
             return;
         }
 
-        var changed = _outputName is not null && output.Name != _outputName;
+        var previous = _outputName;
+        var changed = previous is not null && output.Name != previous;
         _outputName = output.Name;
-        if (pauseWhenChanged && changed && _services.Player.State.IsPlaying)
+        if (!pauseWhenChanged || !changed)
         {
+            return;
+        }
+
+        if (_services.Player.State.IsPlaying)
+        {
+            _unpluggedFrom = previous;
             await _services.Player.PauseAsync();
+        }
+        else if (output.Name == _unpluggedFrom && _services.Settings.PauseOnUnplugResume)
+        {
+            // The same headphones or speaker came back.
+            _unpluggedFrom = null;
+            await _services.Player.PlayAsync();
         }
     }
 }

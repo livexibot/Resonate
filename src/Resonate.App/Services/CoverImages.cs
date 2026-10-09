@@ -28,6 +28,14 @@ public sealed class CoverImages
     /// </summary>
     public static double Scale { get; set; } = 1;
 
+    /// <summary>
+    /// The display's scale (MainWindow.UpdateMinimumSize): covers are decoded
+    /// in screen pixels. "Logical" decoding read pictures made from bytes at
+    /// 100 %, before they were on screen, so they were stretched and soft at
+    /// 125 % (the owner's sidebar covers, 9 October 2026).
+    /// </summary>
+    public static double DisplayScale { get; set; } = 1;
+
     /// <param name="store">Where the bytes come from; null lets Windows load every address itself (demo mode).</param>
     public CoverImages(CoverStore? store) => Store = store;
 
@@ -78,7 +86,7 @@ public sealed class CoverImages
     /// </summary>
     public static async Task<(ImageSource? Image, bool Loaded)> FromBytesAsync(byte[] bytes, int displayWidth)
     {
-        var bitmap = new BitmapImage { DecodePixelWidth = DecodeWidth(displayWidth), DecodePixelType = DecodePixelType.Logical };
+        var bitmap = new BitmapImage { DecodePixelWidth = DecodeWidth(displayWidth), DecodePixelType = DecodePixelType.Physical };
         try
         {
             using var stream = await ImageStreams.FromBytesAsync(bytes);
@@ -93,7 +101,7 @@ public sealed class CoverImages
     }
 
     /// <summary>The width to decode a cover shown <paramref name="displayWidth"/> wide at, at the user's App size.</summary>
-    public static int DecodeWidth(int displayWidth) => (int)Math.Ceiling(displayWidth * Scale);
+    public static int DecodeWidth(int displayWidth) => (int)Math.Ceiling(displayWidth * Scale * DisplayScale);
 
     private Entry? Find(string? url, int displayWidth)
     {
@@ -110,7 +118,7 @@ public sealed class CoverImages
             return node.Value;
         }
 
-        var bitmap = new BitmapImage { DecodePixelWidth = key.Width, DecodePixelType = DecodePixelType.Logical };
+        var bitmap = new BitmapImage { DecodePixelWidth = key.Width, DecodePixelType = DecodePixelType.Physical };
         Task<bool> ready;
         Task<bool> missing;
         if (Store is null || !CoverStore.Handles(url))

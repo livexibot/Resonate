@@ -1,3 +1,5 @@
+using Microsoft.UI.Dispatching;
+
 namespace Resonate.App;
 
 /// <summary>
@@ -25,7 +27,52 @@ public sealed partial class MainWindow
         SetUpPauseOnUnplug();
         SetUpTray();
         SetUpPlayerLyrics();
+        SetUpSongNotifications();
+        SetUpKeepAwake();
+        SetUpTaskbarControls();
+        SetUpNowPlayingFile();
+        SetUpQuietHours();
+        SetUpPauseForSounds();
+        SetUpBeatGlow();
+        SetUpResumeOnStart();
+        SetUpMediaShortcuts();
+        SetUpStartWithWindows();
+        SetUpAlarm();
+        SetUpFocusTimer();
+        SetUpSkipIntros();
+        SetUpDeviceVolume();
     }
+
+    /// <summary>
+    /// Runs <paramref name="action"/> on the interface thread after the
+    /// player's state changed (the changes come on any thread, often several
+    /// at once): once for each burst, for plugins that follow the music.
+    /// </summary>
+    private void FollowPlayer(Action action)
+    {
+        var queued = 0;
+        _services.Player.StateChanged += (_, _) =>
+        {
+            if (Interlocked.Exchange(ref queued, 1) == 0)
+            {
+                DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
+                {
+                    Interlocked.Exchange(ref queued, 0);
+                    action();
+                });
+            }
+        };
+    }
+
+    /// <summary>Runs <paramref name="action"/> when the built-in plugin <paramref name="id"/> is turned on or off.</summary>
+    private void FollowPlugin(string id, Action action) =>
+        _services.BuiltIns.Changed += (_, changed) =>
+        {
+            if (changed == id)
+            {
+                action();
+            }
+        };
 
     partial void SetUpLyrics();
 
@@ -54,4 +101,32 @@ public sealed partial class MainWindow
     partial void SetUpTray();
 
     partial void SetUpPlayerLyrics();
+
+    partial void SetUpSongNotifications();
+
+    partial void SetUpKeepAwake();
+
+    partial void SetUpTaskbarControls();
+
+    partial void SetUpNowPlayingFile();
+
+    partial void SetUpQuietHours();
+
+    partial void SetUpPauseForSounds();
+
+    partial void SetUpBeatGlow();
+
+    partial void SetUpResumeOnStart();
+
+    partial void SetUpMediaShortcuts();
+
+    partial void SetUpStartWithWindows();
+
+    partial void SetUpAlarm();
+
+    partial void SetUpFocusTimer();
+
+    partial void SetUpSkipIntros();
+
+    partial void SetUpDeviceVolume();
 }

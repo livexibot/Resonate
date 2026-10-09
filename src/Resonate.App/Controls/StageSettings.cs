@@ -6,15 +6,12 @@ using Resonate.App.Services;
 namespace Resonate.App.Controls;
 
 /// <summary>
-/// The settings of the Home stage, its visualizer and the away screen,
+/// The settings of the Home stage and its visualizer,
 /// built in code: the visualizer's under Settings, Player, the stage's
-/// background under Layout, and the away screen's under its plugin.
+/// background under Layout.
 /// </summary>
 internal static class StageSettings
 {
-    /// <summary>The minutes the away screen can wait, the first being the shortest.</summary>
-    public static readonly int[] AwayMinutes = [2, 5, 10, 15];
-
     /// <summary>
     /// Home's visualizer (Settings, Player, Home visualizer): how it follows
     /// the music, how many of its parts there are and how large (Amount and
@@ -98,33 +95,6 @@ internal static class StageSettings
         on => services.Settings.HomeStageBlurredCover = on,
         services);
 
-    /// <summary>The away screen: how long to wait before it shows.</summary>
-    public static FrameworkElement AwayScreen(AppServices services)
-    {
-        var combo = new ComboBox { MinWidth = 140 };
-        foreach (var minutes in AwayMinutes)
-        {
-            combo.Items.Add($"{minutes} minutes");
-        }
-
-        combo.SelectedIndex = Math.Max(0, Array.IndexOf(AwayMinutes, AwayAfter(services.Settings)));
-        AutomationProperties.SetName(combo, "Show after");
-        combo.SelectionChanged += (_, _) =>
-        {
-            if (combo.SelectedIndex >= 0 && AwayMinutes[combo.SelectedIndex] != services.Settings.AwayScreenMinutes)
-            {
-                services.Settings.AwayScreenMinutes = AwayMinutes[combo.SelectedIndex];
-                services.SaveSettings();
-            }
-        };
-        return new SettingRow
-        {
-            Header = "Show after",
-            Description = "Without touching the mouse or keyboard.",
-            Content = combo,
-        };
-    }
-
     /// <summary>A stage option as a switch: saved and shown on every stage at once.</summary>
     private static SettingRow Switch(string header, string description, Func<bool> read, Action<bool> write, AppServices services)
     {
@@ -177,8 +147,4 @@ internal static class StageSettings
         ResetButton.Attach(slider, () => fallback, header);
         return new SettingRow { Header = header, Content = row };
     }
-
-    /// <summary>The away screen's wait in minutes: one of <see cref="AwayMinutes"/> (5 for anything else in the file).</summary>
-    public static int AwayAfter(AppSettings settings) =>
-        Array.IndexOf(AwayMinutes, settings.AwayScreenMinutes) >= 0 ? settings.AwayScreenMinutes : 5;
 }

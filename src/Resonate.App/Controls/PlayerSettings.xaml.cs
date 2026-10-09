@@ -60,6 +60,7 @@ public sealed partial class PlayerSettings : UserControl
 
         // Reset buttons: the glow goes back to the preset's, the size and place to automatic.
         _resets.Add(ResetButton.Attach(PlayerGlowSlider, () => Math.Round(ThemePresets.Origin(_theme.Current).PlayerGlow * 100), "Glow"));
+        _resets.Add(ResetButton.Attach(ProgressGlowSlider, () => Math.Round(ThemePresets.Origin(_theme.Current).ProgressGlow * 100), "Progress glow"));
         _resets.Add(ResetButton.Attach(PlayerWidthBox, "Width"));
         _resets.Add(ResetButton.Attach(PlayerHeightBox, "Height"));
         _resets.Add(ResetButton.Attach(PlayerXBox, "X"));
@@ -99,7 +100,11 @@ public sealed partial class PlayerSettings : UserControl
             ProgressPreview.BarStyle = look.Progress;
             PlayerGlowSlider.Value = Math.Round(look.PlayerGlow * 100);
             PlayerGlowText.Text = $"{PlayerGlowSlider.Value:0}%";
+            ProgressGlowSlider.Value = Math.Round(look.ProgressGlow * 100);
+            ProgressGlowText.Text = $"{ProgressGlowSlider.Value:0}%";
+            ProgressPreview.Glow = look.ProgressGlow;
             Select(SongChangeChoice, _services.Settings.SongChangeAnimation);
+            ButtonsAboveVolumeSwitch.IsOn = _theme.ButtonsAboveVolume;
 
             Select(StageVisualizerChoice, _services.Settings.HomeStageVisualizer ? look.StageVisualizer.ToString() : nameof(VisualizerStyle.Off));
             Select(PlayerVisualizerChoice, look.PlayerVisualizer.ToString());
@@ -155,6 +160,16 @@ public sealed partial class PlayerSettings : UserControl
         }
     }
 
+    private void OnProgressGlowChanged(object sender, RangeBaseValueChangedEventArgs e)
+    {
+        ProgressGlowText.Text = $"{e.NewValue:0}%";
+        if (!_loading)
+        {
+            var glow = e.NewValue / 100;
+            _theme.Edit(look => look with { ProgressGlow = glow });
+        }
+    }
+
     // The song change animation is the user's, not part of a look, so it skips Edit (which would make a custom copy).
     private void OnSongChangeChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -162,6 +177,14 @@ public sealed partial class PlayerSettings : UserControl
         {
             _services.Settings.SongChangeAnimation = song;
             _services.SaveSettings();
+        }
+    }
+
+    private void OnButtonsAboveVolumeToggled(object sender, RoutedEventArgs e)
+    {
+        if (!_loading)
+        {
+            _theme.ButtonsAboveVolume = ButtonsAboveVolumeSwitch.IsOn;
         }
     }
 

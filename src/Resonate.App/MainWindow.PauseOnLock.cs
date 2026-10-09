@@ -76,7 +76,7 @@ public sealed partial class MainWindow
             else if (!locked && _pausedForLock)
             {
                 _pausedForLock = false;
-                if (!player.State.IsPlaying)
+                if (!player.State.IsPlaying && _services.Settings.PauseOnLockResume)
                 {
                     _ = player.PlayAsync();
                 }

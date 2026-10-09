@@ -43,7 +43,19 @@ public sealed class AppSettings
     /// <summary>The sidebar shows each playlist's cover (always while it shows only covers).</summary>
     public bool ShowPlaylistCovers { get; set; } = true;
 
+    /// <summary>How large covers are in song lists and the sidebar, in percent (one of <see cref="AppScale.CoverSizes"/>).</summary>
+    public int CoverSize { get; set; } = AppScale.Normal;
+
+    /// <summary>Song lists show the row of column names (#, Title, Album...) above the songs.</summary>
+    public bool ShowColumnNames { get; set; } = true;
+
     /// <summary>Song lists' optional columns.</summary>
+    public bool ShowNumberColumn { get; set; } = true;
+
+    public bool ShowLikeColumn { get; set; } = true;
+
+    public bool ShowDurationColumn { get; set; } = true;
+
     public bool ShowAlbumColumn { get; set; } = true;
 
     public bool ShowAddedColumn { get; set; } = true;
@@ -63,6 +75,12 @@ public sealed class AppSettings
 
     /// <summary>The library sidebar runs the window's full height, beside the player (off unless the user switches it on).</summary>
     public bool SidebarFullHeight { get; set; }
+
+    /// <summary>Resonate opens when the user signs in to Windows, quietly in the tray (Settings, About; on at first, the owner's choice of 9 October 2026).</summary>
+    public bool StartWithWindows { get; set; } = true;
+
+    /// <summary>The player's buttons sit in a row above the volume (Settings, Player, Style).</summary>
+    public bool ButtonsAboveVolume { get; set; }
 
     /// <summary>Links the user hid from the sidebar (Settings, Layout), by page key. Home always shows; Local Files has <see cref="ShowLocalFiles"/>.</summary>
     public List<string> HiddenSidebarLinks { get; set; } = [];
@@ -309,10 +327,28 @@ public sealed class AppSettings
 
     public int PlayerVisualizerY { get; set; }
 
-    // Away screen
+    // Screensaver (was Away screen; its settings keep their names)
 
-    /// <summary>Minutes without touching the mouse or keyboard before the away screen shows (2, 5, 10 or 15).</summary>
+    /// <summary>Minutes without touching the mouse or keyboard before the screensaver shows (1, 2, 5, 10, 15 or 30).</summary>
     public int AwayScreenMinutes { get; set; } = 5;
+
+    /// <summary>The screensaver shows only while music plays (else also while paused or stopped).</summary>
+    public bool ScreensaverOnlyWhilePlaying { get; set; } = true;
+
+    /// <summary>The screensaver's visualizer (a <see cref="Resonate.Themes.VisualizerStyle"/> name, "Off"), or null for the look's Home style.</summary>
+    public string? ScreensaverVisualizer { get; set; }
+
+    /// <summary>The screensaver's background: "Song" (the cover's colours drifting), "Cover" (the blurred cover) or "Colour".</summary>
+    public string ScreensaverBackground { get; set; } = "Song";
+
+    /// <summary>The screensaver's colour, as #RRGGBB, with the "Colour" background.</summary>
+    public string ScreensaverColour { get; set; } = "#000000";
+
+    /// <summary>OLED mode: a black background, and everything moves further every minute so nothing burns in.</summary>
+    public bool ScreensaverOled { get; set; }
+
+    /// <summary>The screensaver shows the clock.</summary>
+    public bool ScreensaverClock { get; set; } = true;
 
     // Rediscover
 
@@ -335,7 +371,195 @@ public sealed class AppSettings
     /// <summary>The keys that open the summon bar from any app, such as "Ctrl+Shift+K"; null for none (nothing is taken until the user picks).</summary>
     public string? SummonBarShortcut { get; set; }
 
+    /// <summary>The user's own keys for the window's shortcuts, by command name (see <c>AppKeys</c>); an empty text means none.</summary>
+    public Dictionary<string, string> KeyShortcuts { get; set; } = [];
+
     // Signal path
+
+    // Song notifications
+
+    /// <summary>Notifications also while Resonate is the window in front.</summary>
+    public bool SongNotificationsAlways { get; set; }
+
+    // Keep PC awake
+
+    /// <summary>The display stays on too, not only the PC.</summary>
+    public bool KeepAwakeDisplay { get; set; }
+
+    // Now playing file
+
+    /// <summary>Where the playing song is written; null for "Now playing.txt" in Documents\Resonate.</summary>
+    public string? NowPlayingFilePath { get; set; }
+
+    /// <summary>What is written: {title}, {artist} and {album} are filled in.</summary>
+    public string NowPlayingFormat { get; set; } = "{artist} - {title}";
+
+    // Quiet hours
+
+    /// <summary>The hour quiet hours begin (0 to 23).</summary>
+    public int QuietHoursFrom { get; set; } = 22;
+
+    /// <summary>The hour quiet hours end (0 to 23).</summary>
+    public int QuietHoursTo { get; set; } = 7;
+
+    /// <summary>The loudest the volume may be during quiet hours, in percent.</summary>
+    public int QuietHoursVolume { get; set; } = 30;
+
+    // Desktop lyrics
+
+    /// <summary>Where the desktop lyrics window was left (screen pixels), or null for above the taskbar.</summary>
+    public WindowPlacement? DesktopLyricsPlace { get; set; }
+
+    /// <summary>How large the desktop lyrics are, in percent.</summary>
+    public int DesktopLyricsSize { get; set; } = 100;
+
+    // Beat glow
+
+    /// <summary>How strongly the window's edge glows, in percent.</summary>
+    public int BeatGlowStrength { get; set; } = 60;
+
+    // Media shortcuts (keys such as "Ctrl+Alt+Space"; null for none)
+
+    public string? ShortcutPlayPause { get; set; }
+
+    public string? ShortcutNext { get; set; }
+
+    public string? ShortcutPrevious { get; set; }
+
+    public string? ShortcutVolumeUp { get; set; }
+
+    public string? ShortcutVolumeDown { get; set; }
+
+    public string? ShortcutLike { get; set; }
+
+    // ---- Each plugin's own settings (the owner asked for every plugin to be "highly customizable", 9 October 2026) ----
+
+    /// <summary>Screensaver: how bright it is, 20 to 100 %.</summary>
+    public int ScreensaverBrightness { get; set; } = 100;
+
+    /// <summary>Rediscover songs: which kinds of card the row shows.</summary>
+    public bool RediscoverOnThisDay { get; set; } = true;
+
+    public bool RediscoverDust { get; set; } = true;
+
+    public bool RediscoverDeepCuts { get; set; } = true;
+
+    /// <summary>Related artists: how many artists, and the liked albums with them.</summary>
+    public int RelatedArtistsCount { get; set; } = 10;
+
+    public bool RelatedArtistsAlbums { get; set; } = true;
+
+    /// <summary>Smart playlists: listed in the sidebar, and its "New smart playlist" link.</summary>
+    public bool SmartPlaylistsInSidebar { get; set; } = true;
+
+    public bool SmartPlaylistsNewLink { get; set; } = true;
+
+    /// <summary>Compact window: the title bar's shape button, and which small shapes it may take.</summary>
+    public bool WindowShapesButton { get; set; } = true;
+
+    public bool WindowShapesStrip { get; set; } = true;
+
+    public bool WindowShapesColumn { get; set; } = true;
+
+    /// <summary>Quick search: also asks Spotify, after the library.</summary>
+    public bool QuickSearchSpotify { get; set; } = true;
+
+    /// <summary>Lossless badge: hidden while all is lossless, and its word beside the dot.</summary>
+    public bool LosslessBadgeOnlyWhenNot { get; set; }
+
+    public bool LosslessBadgeText { get; set; } = true;
+
+    /// <summary>Pause on lock: plays on after unlocking.</summary>
+    public bool PauseOnLockResume { get; set; } = true;
+
+    /// <summary>Pause on unplug: plays on when the same headphones or speaker come back.</summary>
+    public bool PauseOnUnplugResume { get; set; }
+
+    /// <summary>Lyrics in the player: the next line under the sung one.</summary>
+    public bool PlayerLyricsNextLine { get; set; } = true;
+
+    /// <summary>Song notifications: the cover, the album, and Windows' sound.</summary>
+    public bool SongNotificationsCover { get; set; } = true;
+
+    public bool SongNotificationsAlbum { get; set; }
+
+    public bool SongNotificationsSound { get; set; }
+
+    /// <summary>Keep PC awake: also while the music is paused.</summary>
+    public bool KeepAwakeWhilePaused { get; set; }
+
+    /// <summary>Now playing file: emptied while paused (else it keeps the song).</summary>
+    public bool NowPlayingClearWhenPaused { get; set; } = true;
+
+    /// <summary>Quiet hours: every day (0), weekdays (1) or weekends (2).</summary>
+    public int QuietHoursDays { get; set; }
+
+    /// <summary>Pause for other sounds: seconds of another app before it acts, quiet seconds before it plays on, and lowering the volume instead.</summary>
+    public int PauseForSoundsWait { get; set; } = 2;
+
+    public int PauseForSoundsResume { get; set; } = 3;
+
+    public bool PauseForSoundsLower { get; set; }
+
+    public int PauseForSoundsLowerTo { get; set; } = 20;
+
+    /// <summary>Desktop lyrics: the next line, and a dark background behind the text (0 to 100 %).</summary>
+    public bool DesktopLyricsNextLine { get; set; } = true;
+
+    public int DesktopLyricsBackground { get; set; }
+
+    /// <summary>Beat glow: how far in from the edge it reaches (10 to 60 %), and the accent (0) or the second accent (1).</summary>
+    public int BeatGlowSize { get; set; } = 38;
+
+    public int BeatGlowColour { get; set; }
+
+    /// <summary>Resume on start: from the start of the song instead of where it stopped.</summary>
+    public bool ResumeFromStart { get; set; }
+
+    /// <summary>Export history: all of it (0), or the last 7, 30 or 365 days.</summary>
+    public int HistoryExportDays { get; set; }
+
+    /// <summary>Alarm: when (local time), which days (0 every day, 1 weekdays, 2 weekends), what (a playlist ID, null for Liked Songs), how, and the day it last rang.</summary>
+    public int AlarmHour { get; set; } = 7;
+
+    public int AlarmMinute { get; set; }
+
+    public int AlarmDays { get; set; } = 1;
+
+    public string? AlarmPlaylist { get; set; }
+
+    public bool AlarmShuffle { get; set; } = true;
+
+    public int AlarmFadeMinutes { get; set; } = 2;
+
+    public int AlarmVolume { get; set; } = 50;
+
+    public DateOnly? AlarmLastRang { get; set; }
+
+    /// <summary>Focus timer: minutes of focus and of break, rounds, pausing for breaks, and Windows notifications.</summary>
+    public int FocusMinutes { get; set; } = 25;
+
+    public int FocusBreakMinutes { get; set; } = 5;
+
+    public int FocusRounds { get; set; } = 4;
+
+    public bool FocusPauseOnBreak { get; set; } = true;
+
+    public bool FocusNotify { get; set; } = true;
+
+    /// <summary>Skip intros and outros: seconds skipped at the start and the end, and songs shorter than this many seconds left alone.</summary>
+    public int SkipIntroSeconds { get; set; } = 10;
+
+    public int SkipOutroSeconds { get; set; }
+
+    public int SkipShortestSeconds { get; set; } = 90;
+
+    /// <summary>Volume per device: each output's volume by its name, a volume for new ones (0 keeps the volume), and a word when it changes.</summary>
+    public Dictionary<string, int> DeviceVolumes { get; set; } = [];
+
+    public int DeviceVolumeNew { get; set; }
+
+    public bool DeviceVolumeMessage { get; set; } = true;
 
     // ---- End of built-in plugins ----
 

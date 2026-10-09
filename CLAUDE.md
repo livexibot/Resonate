@@ -15,7 +15,10 @@ visitors; keep it short and in step with this file.
   2026; see "First milestone"). Releases are published with one
   installer, for ordinary (x64) Windows PCs (`Resonate-win-x64-Setup.exe`;
   the owner dropped arm64 and the portable zip on 8 October 2026 to save
-  build time); the latest is v0.14.0 (9 October 2026: the Japan and
+  build time); the latest is v0.15.0 (9 October 2026, evening: Resonate's
+  own player plays sound and takes commands directly, a centred narrow
+  sidebar, colour resets, "Song · Artist" with two lyric lines); v0.14.0
+  (the same day: the Japan and
   Snow looks, the end of the freeze and crash loop at 125 % scaling, the
   crash log, sliders that work while the bars sway, one cover on Home);
   v0.13.0 (the same day) brought Settings in six tabs, colours that
@@ -815,6 +818,122 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   interface thread, 300 ms after the burst), the music pauses. A headset
   whose jack shares one endpoint with the speakers changes nothing there.
   Measure: both on the owner's PC.
+- `WindowHook` passed on only WM_HOTKEY and the resize messages until
+  9 October 2026, so the tray icon's clicks and Pause on lock's session
+  changes never arrived; it now passes every message and each listener
+  picks its own.
+- Plugin names and settings (9 October 2026, the owner asked for obvious
+  names with one sentence each, and settings in a popup): the IDs stay,
+  the names are Screensaver (was Away screen), Rediscover songs, Edit the
+  queue (Up next), Related artists (Artist orbit), Compact window (Window
+  shapes), Quick search (Summon bar), Lossless badge (Signal path) and the
+  rest as before. A plugin that is on and has settings shows a gear
+  beside its switch, which opens them in a `ContentDialog`
+  (`BuiltInPluginSettings.Has`/`Create`, rows from `Controls/PluginRows`;
+  a downloaded plugin's settings the same way).
+- Screensaver (was the away screen inside the window; the owner asked on
+  9 October 2026 for it above every app, hiding the mouse, with its own
+  visualizer, background colour and an OLED mode): a borderless,
+  always-on-top window over the whole display Resonate is on
+  (`ScreensaverWindow`, `ShowCursor(false)` while it shows), after 1, 2,
+  5 (default), 10, 15 or 30 idle minutes, while music plays unless "Only
+  while music plays" is off, whichever app is in front (not over a
+  full-screen app, nor while Resonate is in front with a menu, dialog or
+  text field open). Settings: Visualizer (same as Home, Off or a style),
+  Background (song colours, blurred cover or a colour), OLED mode (black,
+  and the words and clock wander 64 px a minute), Clock, and Show now.
+  Any input wakes it (`UserPresence.LastInputTick`).
+- Twelve more built-in plugins (9 October 2026, the owner asked for "at
+  least 10 brand new plugins"): Song notifications (Windows App SDK app
+  notifications, registered while on, the cover written to
+  `notification-cover-*.jpg` in the cache folder; only while Resonate is
+  not in front unless set), Keep PC awake (`SetThreadExecutionState`
+  while music plays), Taskbar controls (`Resonate.Windows/TaskbarButtons`:
+  ITaskbarList3's thumbnail toolbar through raw vtable calls, icons drawn
+  in code, clicks as WM_COMMAND), Now playing file (one line for stream
+  overlays, "Now playing.txt" in Documents, Resonate unless set,
+  `NowPlayingText`), Quiet hours (the volume capped between two hours,
+  `QuietHours`), Pause for other sounds (`OtherAppSounds`: each program's
+  level meter in the mixer once a second, Resonate's own process tree and
+  Spotify left out; 2 s of another program pauses, 3 quiet seconds play
+  on), Desktop lyrics (`DesktopLyricsWindow`, frosted, always on top,
+  dragged anywhere, sharing the player's synced lyrics), Beat glow (the
+  window's edge glows in the accent with the bass, `BeatGlow`, from the
+  Home visualizer's sound), Resume on start, Media shortcuts (global keys
+  for play or pause, skip, volume and like, recorded like Quick search's
+  with `ShortcutBox`), Start with Windows (HKCU Run, `--background`:
+  into the tray or minimised; never from a local build or the demo) and
+  Export history (CSV through the Windows App SDK's save picker,
+  `HistoryCsv`, formula-safe cells). Measure on the owner's PC:
+  notifications from the unpackaged app, the taskbar buttons, the other
+  sounds' levels with a call, and the screensaver above a full-screen
+  window.
+- Images (9 October 2026, the owner found sidebar covers and the blurred
+  background soft): covers are decoded in screen pixels
+  (`DecodePixelType.Physical`, `CoverImages.DisplayScale`); "Logical"
+  read pictures made from bytes at 100 %. The blurred cover background is
+  drawn from a 512 px cover (160 before) off the interface thread. Cover
+  size (Settings, Layout, Size; 75 to 200 %) sizes the covers in song
+  lists and the sidebar (`AppScale.CoverSizes`). App size now runs 50 to
+  300 % and Text size 75 to 200 % in finer steps. Keyboard shortcut hints
+  ("Ctrl+F" on hover) are hidden on the root
+  (`KeyboardAcceleratorPlacementMode`).
+- Keyboard shortcuts (9 October 2026, the owner asked to change them in
+  Help, with Space playing and pausing): Settings, About, Help lists all
+  24 commands (`Resonate.Themes/AppKeys.cs`, tested: names, default keys,
+  taking keys from another command, keys a text field keeps, keys that
+  cannot be used) with a button per command that records new keys
+  (`Controls/KeyShortcutsList`; Esc cancels, Backspace leaves none, the
+  reset button puts the usual keys back). The user's keys are saved by
+  command name in `KeyShortcuts` (an empty text is none; `AppCommand`
+  values: append, never rename). The window takes them at once
+  (`MainWindow.Shortcuts.cs`): keys with Ctrl or Alt become keyboard
+  accelerators on the root, the rest (Space, Shift+Right) are caught in
+  the root's `PreviewKeyDown`; while a text field has the keyboard it
+  keeps every key without Ctrl or Alt and Ctrl with the keys that edit.
+  Quick search's Ctrl+K is one of them (only while its plugin is on).
+- Progress bars (9 October 2026, the owner asked for more and for the
+  wave to stop where it is): Shimmer, Liquid, Heartbeat, Dots and Ripple
+  join the styles (`ProgressStyle`, appended). The lines that roll (Wave,
+  Liquid, Heartbeat, Dots; shapes in `Resonate.Themes/ProgressPatterns`,
+  tested) are paused through their `AnimationController` when the music
+  pauses, so they hold where they are and go on from there; the wave was
+  flattened to 18 % before, which squashed its stroke. The volume bar
+  takes the plain line for the moving styles (`ProgressPatterns.ForVolume`).
+- "Buttons above volume" (Settings, Player, Style; `ButtonsAboveVolume`,
+  the user's own, off at first): on the full bar the plugins, devices,
+  lyrics and queue buttons sit in a row over the speaker and the slider,
+  right-aligned, at 32 px (`PlayerBar.ArrangeSide`).
+- Later on 9 October 2026 (the owner's requests): the tray icon, editing
+  the queue (Up next) and the taskbar buttons are part of the app
+  (`BuiltInPlugins.IsAlwaysOn`, not listed), so closing the window always
+  hides Resonate in the tray; Start with Windows is a switch in Settings,
+  About (`StartWithWindows`, on at first; the installed copy writes the
+  Run key at every start, a local build never). Every plugin has settings
+  behind its gear (`BuiltInPluginSettings.Create`, saved in `AppSettings`
+  under "Each plugin's own settings"; a change calls
+  `MainWindow.PluginOptionsChanged`). New plugins (`MainWindow.NewPlugins.cs`,
+  rules in `Resonate.Spotify/Playback/PluginRules.cs`, tested): Alarm
+  (a time, days, Liked Songs or a playlist, shuffle, a fade from 2 % up to
+  its volume, rings once a day within 5 minutes of its time, only while
+  Resonate runs), Focus timer (rounds of focus and breaks, pausing the
+  music for breaks, Windows notifications), Skip intros and outros (seconds
+  off the start and end of songs longer than a set length) and Volume per
+  device (each output's volume by name, put back when Windows switches
+  output). Liquid is retired for Comet (`ProgressPatterns.Current`; a
+  fading tail in the fill, a breathing halo and twinkling sparks, held on
+  pause), and a look's `ProgressGlow` adds a blurred band of the accent
+  under the played part (`SeekBar.GlowVisual`, Settings, Player, Style).
+  On a narrower player bar the buttons go above the volume instead of the
+  slider going away. Winamp shows no song cover (the owner's choice; the
+  mini player is the skin's width). Showing or hiding composition-animated
+  parts of the progress bar goes by `Visibility`: setting a handout
+  visual's opacity undoes XAML's `Opacity`.
+- Song lists can also hide the column names, # (number), Like and Length
+  (Settings, Layout, Song lists; `ShowColumnNames`, `ShowNumberColumn`,
+  `ShowLikeColumn`, `ShowDurationColumn`). Sidebar rows and song rows now
+  name themselves for screen readers (`ToString`), which also lets UI
+  Automation drive a demo copy for checks.
 
 Classic player and cover art (checked 2026-10-08):
 - Classic Winamp skins (`.wsz`, Winamp 2) are zip archives of BMP sheets

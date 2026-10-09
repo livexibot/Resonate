@@ -442,11 +442,19 @@ internal sealed partial class NowPlayingStage : Grid
     /// <summary>The look's colours and corners, and the clouds and blurred cover made readable for its text.</summary>
     private void ApplyLook()
     {
-        PlaceVisualizer(_services.Theme.Current.StageVisualizer);
+        PlaceVisualizer(ScreensaverStyle ?? _services.Theme.Current.StageVisualizer);
         var palette = _services.Theme.Palette;
         var home = _kind == StageKind.Home;
         var page = home ? palette.Surface.Over(palette.Background).Opaque : palette.Background.Opaque;
+
+        // The screensaver's own background: black for OLED, or the user's colour.
+        if (_kind == StageKind.Away && ScreensaverPlain is { } plain)
+        {
+            page = plain;
+        }
+
         _page = page;
+        _clouds.Visibility = _kind == StageKind.Away && ScreensaverPlain is not null ? Visibility.Collapsed : Visibility.Visible;
         Background = new SolidColorBrush(page.ToColor());
         var corner = home ? palette.CornerLarge : 0;
         CornerRadius = new CornerRadius(corner);
@@ -744,7 +752,7 @@ internal sealed partial class NowPlayingStage : Grid
         var safe = raw.Select(c => StageColours.ForText(c, palette)).ToList();
 
         // Dimmer on true black, for OLED screens; softer over the blurred cover.
-        var strength = _services.Settings.HomeStageBlurredCover ? 0.55 : 1.0;
+        var strength = BlurredCover ? 0.55 : 1.0;
         if (palette.Background.Opaque == ThemeColor.Black)
         {
             strength *= 0.6;
@@ -766,7 +774,7 @@ internal sealed partial class NowPlayingStage : Grid
         var version = ++_blurVersion;
         var palette = _services.Theme.Palette;
         var pixels = FollowsCover ? _pixels : StageColours.LookPicture(palette, SampleSize);
-        if (!_services.Settings.HomeStageBlurredCover || pixels is null)
+        if (!BlurredCover || pixels is null)
         {
             _blur.Visibility = Visibility.Collapsed;
             _blur.Source = null;
@@ -920,7 +928,33 @@ internal sealed partial class NowPlayingStage : Grid
     }
 
     /// <summary>The stage is in the window, the window shows, and the stage is on screen (not under the away screen).</summary>
-    private bool Seen => _attached && _onScreen && !(_covered && _kind == StageKind.Home) && (App.MainWindow?.IsShown ?? true);
+    private bool Seen => _attached && _onScreen && !(_covered && _kind == StageKind.Home) && (_kind == StageKind.Away || (App.MainWindow?.IsShown ?? true));
+
+    /// <summary>The blurred cover behind the stage: Home's switch, or the screensaver's Background.</summary>
+    private bool BlurredCover => _kind == StageKind.Away
+        ? _services.Settings.ScreensaverBackground == "Cover" && !_services.Settings.ScreensaverOled
+        : _services.Settings.HomeStageBlurredCover;
+
+    /// <summary>The screensaver's plain background (black in OLED mode, or the user's colour), or null for the song's colours.</summary>
+    private ThemeColor? ScreensaverPlain
+    {
+        get
+        {
+            var settings = _services.Settings;
+            if (settings.ScreensaverOled)
+            {
+                return ThemeColor.Black;
+            }
+
+            return settings.ScreensaverBackground == "Colour" && ThemeColor.TryParse(settings.ScreensaverColour, out var colour) ? colour.Opaque : null;
+        }
+    }
+
+    /// <summary>The screensaver's own visualizer style, or null for the look's Home style (or for Home itself).</summary>
+    private VisualizerStyle? ScreensaverStyle =>
+        _kind == StageKind.Away && _services.Settings.ScreensaverVisualizer is { } name && name != "Off" && Enum.TryParse<VisualizerStyle>(name, out var style)
+            ? VisualizerShapes.Current(style)
+            : null;
 
     /// <summary>The clouds drift only while the music plays and the stage can be seen.</summary>
     private void UpdateRunning()
@@ -940,7 +974,7 @@ internal sealed partial class NowPlayingStage : Grid
         _clouds.SetRunning(playing && !_screenTaken, animate);
 
         // With Windows' animations off the bars could only stand still, so they are not shown.
-        var bars = _services.Settings.HomeStageVisualizer && animate;
+        var bars = (_kind == StageKind.Away ? _services.Settings.ScreensaverVisualizer != "Off" : _services.Settings.HomeStageVisualizer) && animate;
         _visualizer.Visibility = bars ? Visibility.Visible : Visibility.Collapsed;
         _visualizer.SetRunning(bars && playing && !_screenTaken, _services.Visualiser.IsLive, animate);
         if (Seen && _upNextStale)
@@ -962,9 +996,10 @@ internal sealed partial class NowPlayingStage : Grid
     }
 
     /// <summary>A full-screen game or video, a presentation, the lock screen, or a display that is off or dimmed.</summary>
-    private static bool ScreenTaken()
+    private bool ScreenTaken()
     {
-        if (UserPresence.IsScreenTaken())
+        // The screensaver is the full-screen window itself.
+        if (_kind != StageKind.Away && UserPresence.IsScreenTaken())
         {
             return true;
         }

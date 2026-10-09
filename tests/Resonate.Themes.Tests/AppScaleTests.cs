@@ -7,30 +7,30 @@ public sealed partial class AppScaleTests
 {
     [Theory]
     [InlineData(100, 100)]
-    [InlineData(0, 80)]
-    [InlineData(-50, 80)]
-    [InlineData(500, 200)]
-    [InlineData(120, 125)]
-    [InlineData(105, 100)] // halfway: the smaller step
-    [InlineData(137, 125)]
-    [InlineData(138, 150)]
+    [InlineData(0, 50)]
+    [InlineData(-50, 50)]
+    [InlineData(500, 300)]
+    [InlineData(122, 120)]
+    [InlineData(102, 100)]
+    [InlineData(141, 133)] // halfway: the smaller step
+    [InlineData(142, 150)]
     public void Nearest_lands_any_setting_on_an_app_size(int saved, int expected) =>
         Assert.Equal(expected, AppScale.Nearest(saved, AppScale.AppSizes));
 
     [Theory]
-    [InlineData(100, 110)]
-    [InlineData(110, 125)]
+    [InlineData(100, 105)]
+    [InlineData(125, 133)]
     [InlineData(175, 200)]
-    [InlineData(200, 200)]
-    [InlineData(10, 80)]
+    [InlineData(300, 300)]
+    [InlineData(10, 50)]
     public void Larger_takes_the_next_step_up_and_stops_at_the_largest(int from, int expected) =>
         Assert.Equal(expected, AppScale.Larger(from, AppScale.AppSizes));
 
     [Theory]
-    [InlineData(100, 90)]
-    [InlineData(125, 110)]
-    [InlineData(80, 80)]
-    [InlineData(1000, 200)]
+    [InlineData(100, 95)]
+    [InlineData(125, 120)]
+    [InlineData(50, 50)]
+    [InlineData(1000, 300)]
     public void Smaller_takes_the_next_step_down_and_stops_at_the_smallest(int from, int expected) =>
         Assert.Equal(expected, AppScale.Smaller(from, AppScale.AppSizes));
 

@@ -4,7 +4,8 @@ namespace Resonate.App.Services;
 
 /// <summary>
 /// Messages Windows sends a window that WinUI does not pass on, such as a
-/// global shortcut (WM_HOTKEY) or the end of a resize (WM_EXITSIZEMOVE).
+/// global shortcut (WM_HOTKEY), the end of a resize (WM_EXITSIZEMOVE), the
+/// tray icon's clicks, a session change or a taskbar button's click.
 /// Listening subclasses the window (SetWindowSubclass, on the window's own
 /// thread, the interface thread); the subclass is removed again when the
 /// last listener stops, so nothing hooks into Windows while no plugin needs it.
@@ -24,8 +25,9 @@ internal static unsafe partial class WindowHook
     private static readonly Dictionary<nint, List<Action<uint, nint, nint>>> Listeners = [];
 
     /// <summary>
-    /// Calls <paramref name="listener"/> with the window's shortcut and resize
-    /// messages (the message and its two parameters) until the result is disposed.
+    /// Calls <paramref name="listener"/> with every message the window gets
+    /// (the message and its two parameters; it picks the ones it wants) until
+    /// the result is disposed.
     /// Call on the window's thread.
     /// </summary>
     public static IDisposable Listen(nint hwnd, Action<uint, nint, nint> listener)
@@ -55,13 +57,17 @@ internal static unsafe partial class WindowHook
     [UnmanagedCallersOnly]
     private static nint OnMessage(nint hwnd, uint message, nint wParam, nint lParam, nuint id, nuint data)
     {
-        if ((message is WmHotkey or WmEnterSizeMove or WmExitSizeMove) && Listeners.TryGetValue(hwnd, out var list))
+        // Every message: each listener picks its own. Until 9 October 2026 only
+        // these three were passed on, so the tray icon's clicks and Pause on
+        // lock's session changes never arrived.
+        if (Listeners.TryGetValue(hwnd, out var list))
         {
-            foreach (var listener in list.ToArray())
+            // By index, with no copy per message; a listener that stops itself only shifts the rest.
+            for (var i = 0; i < list.Count; i++)
             {
                 try
                 {
-                    listener(message, wParam, lParam);
+                    list[i](message, wParam, lParam);
                 }
                 catch (Exception)
                 {

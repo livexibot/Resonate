@@ -1,4 +1,5 @@
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
@@ -11,15 +12,17 @@ using Resonate.Windows;
 namespace Resonate.App;
 
 /// <summary>
-/// The away screen, a built-in plugin (see <see cref="BuiltInPlugins"/>):
-/// after a few minutes without the mouse or keyboard (5 by default) while
-/// music plays, Resonate shows the song, a clock and the next song over the
-/// whole window (<see cref="AwayScreen"/>), and the first touch brings
-/// everything back. It only takes over while Resonate is the window in
-/// front and shown, signed in, with no menu, dialog or text field open, and
-/// never while a full-screen game or video, a presentation or the lock
-/// screen has the display. While off, or while nothing plays, nothing runs:
-/// the idle check (every 5 seconds) runs only while it could show.
+/// The screensaver, a built-in plugin (see <see cref="BuiltInPlugins"/>; it
+/// was the away screen inside the window until the owner asked for it above
+/// every app, 9 October 2026): after a few minutes without the mouse or
+/// keyboard (5 by default), while music plays (or always, with its setting),
+/// the song, a clock and a visualizer cover the whole display Resonate is
+/// on, in a window of their own (<see cref="ScreensaverWindow"/>) with the
+/// pointer hidden, and the first touch brings everything back. Never while a
+/// full-screen game or video, a presentation or the lock screen has the
+/// display, nor while Resonate is in front with a menu, dialog or text field
+/// open. While off nothing runs: the idle check (every 5 seconds) runs only
+/// while it could show.
 /// </summary>
 public sealed partial class MainWindow
 {
@@ -27,22 +30,25 @@ public sealed partial class MainWindow
 
     private DispatcherQueueTimer? _awayTimer;
     private AwayScreen? _awayScreen;
+    private ScreensaverWindow? _screensaver;
     private bool _awayWatching;
+    private bool _awayHadFront;
     private int _awayStateQueued;
 
     partial void SetUpAwayScreen()
     {
-        _services.BuiltIns.Changed += (_, id) =>
-        {
-            if (id == BuiltInPlugins.AwayScreen)
-            {
-                WatchAway();
-            }
-        };
+        FollowPlugin(BuiltInPlugins.AwayScreen, WatchAway);
+        Closed += (_, _) => HideAway();
         WatchAway();
     }
 
-    /// <summary>Starts or stops following the player and the window, as the plugin is turned on or off.</summary>
+    /// <summary>Settings changed when the screensaver may show.</summary>
+    internal void FollowScreensaver() => UpdateAwayTimer();
+
+    /// <summary>Settings' "Show now": the screensaver at once, to try its look.</summary>
+    internal void ShowScreensaverNow() => ShowAway();
+
+    /// <summary>Starts or stops following the player, as the plugin is turned on or off.</summary>
     private void WatchAway()
     {
         var on = _services.BuiltIns.IsOn(BuiltInPlugins.AwayScreen);
@@ -52,12 +58,10 @@ public sealed partial class MainWindow
             if (on)
             {
                 _services.Player.StateChanged += OnAwayPlayerChanged;
-                ShownChanged += OnAwayShownChanged;
             }
             else
             {
                 _services.Player.StateChanged -= OnAwayPlayerChanged;
-                ShownChanged -= OnAwayShownChanged;
                 HideAway();
             }
         }
@@ -78,20 +82,11 @@ public sealed partial class MainWindow
         }
     }
 
-    private void OnAwayShownChanged(object? sender, EventArgs e)
-    {
-        if (!IsShown)
-        {
-            HideAway();
-        }
-
-        UpdateAwayTimer();
-    }
-
-    /// <summary>The idle check runs only while the plugin is on, music plays, the window shows and the screen is not up yet.</summary>
+    /// <summary>The idle check runs only while the plugin is on, the screensaver is not up, and music plays (unless it may show any time).</summary>
     private void UpdateAwayTimer()
     {
-        var check = _awayWatching && _awayScreen is null && IsShown && _services.Player.State.IsPlaying;
+        var check = _awayWatching && _awayScreen is null
+            && (_services.Player.State.IsPlaying || !_services.Settings.ScreensaverOnlyWhilePlaying);
         if (!check)
         {
             _awayTimer?.Stop();
@@ -114,19 +109,27 @@ public sealed partial class MainWindow
 
     private void CheckAway()
     {
-        var wait = TimeSpan.FromMinutes(StageSettings.AwayAfter(_services.Settings));
+        var wait = TimeSpan.FromMinutes(BuiltInPluginSettings.ScreensaverAfter(_services.Settings));
         if (UserPresence.IdleTime >= wait && MayShowAway())
         {
             ShowAway();
         }
     }
 
-    /// <summary>Resonate is in front, shown and signed in, nothing is open or being typed in, and nothing full screen has the display.</summary>
+    /// <summary>
+    /// Nothing full screen has the display, and when Resonate is in front,
+    /// nothing in it is open or being typed in.
+    /// </summary>
     private bool MayShowAway()
     {
-        if (!IsShown || ShellGrid.Visibility != Visibility.Visible || RootGrid.XamlRoot is not { } root || !UserPresence.IsForeground(Hwnd))
+        if (UserPresence.IsScreenTaken())
         {
             return false;
+        }
+
+        if (!IsShown || !UserPresence.IsForeground(Hwnd) || RootGrid.XamlRoot is not { } root)
+        {
+            return true;
         }
 
         // A menu, flyout or dialog is open (a tooltip under a resting pointer does not count). Asked of the
@@ -140,13 +143,12 @@ public sealed partial class MainWindow
             }
         }
 
-        return FocusManager.GetFocusedElement(root) is not (TextBox or PasswordBox or AutoSuggestBox or RichEditBox)
-            && !UserPresence.IsScreenTaken();
+        return FocusManager.GetFocusedElement(root) is not (TextBox or PasswordBox or AutoSuggestBox or RichEditBox);
     }
 
     private void ShowAway()
     {
-        if (_awayScreen is not null || Content is not ThemeHost host)
+        if (_awayScreen is not null)
         {
             return;
         }
@@ -154,14 +156,20 @@ public sealed partial class MainWindow
         var away = new AwayScreen(_services);
         away.WakeRequested += (_, _) => HideAway();
         _awayScreen = away;
-        // Over everything, a special look's decorations included.
-        host.Children.Add(away);
+        _awayHadFront = IsShown && UserPresence.IsForeground(Hwnd);
+
+        // The whole display Resonate is on, above every app.
+        var display = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary);
+        var theme = Content is FrameworkElement content ? content.ActualTheme : ElementTheme.Dark;
+        var window = new ScreensaverWindow(away, display.OuterBounds, theme);
+        _screensaver = window;
+        window.ShowOnTop();
         away.Appear();
         NowPlayingStage.SetCovered(true);
         UpdateAwayTimer();
     }
 
-    /// <summary>Brings the window back: the away screen fades out quickly (at once with Windows' animations off).</summary>
+    /// <summary>Brings everything back: the screensaver fades out quickly (at once with Windows' animations off).</summary>
     private void HideAway()
     {
         if (_awayScreen is not { } away)
@@ -169,13 +177,17 @@ public sealed partial class MainWindow
             return;
         }
 
+        var window = _screensaver;
         _awayScreen = null;
+        _screensaver = null;
         NowPlayingStage.SetCovered(false);
         away.Disappear(() =>
         {
-            if (Content is ThemeHost host)
+            window?.Close();
+            if (_awayHadFront && IsShown)
             {
-                host.Children.Remove(away);
+                // Resonate was in front: it is again.
+                Activate();
             }
         });
         UpdateAwayTimer();

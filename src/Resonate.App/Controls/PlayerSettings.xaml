@@ -137,6 +137,11 @@
                             <ComboBoxItem Content="Gradient" Tag="Gradient" />
                             <ComboBoxItem Content="Wave" Tag="Wave" />
                             <ComboBoxItem Content="Hairline" Tag="Minimal" />
+                            <ComboBoxItem Content="Shimmer" Tag="Shimmer" />
+                            <ComboBoxItem Content="Comet" Tag="Comet" />
+                            <ComboBoxItem Content="Heartbeat" Tag="Heartbeat" />
+                            <ComboBoxItem Content="Dots" Tag="Dots" />
+                            <ComboBoxItem Content="Ripple" Tag="Ripple" />
                         </ComboBox>
                         <controls:SeekBar
                             x:Name="ProgressPreview"
@@ -146,6 +151,21 @@
                             IsTabStop="False"
                             Maximum="600"
                             Value="240" />
+                    </StackPanel>
+                </controls:SettingRow>
+                <controls:SettingRow Header="Progress glow">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Slider
+                            x:Name="ProgressGlowSlider"
+                            Width="180"
+                            VerticalAlignment="Center"
+                            AutomationProperties.Name="Progress glow"
+                            IsThumbToolTipEnabled="False"
+                            Maximum="100"
+                            Minimum="0"
+                            StepFrequency="1"
+                            ValueChanged="OnProgressGlowChanged" />
+                        <TextBlock x:Name="ProgressGlowText" Style="{StaticResource PlayerValueTextStyle}" />
                     </StackPanel>
                 </controls:SettingRow>
                 <controls:SettingRow Header="Play button">
@@ -196,6 +216,15 @@
                         <ComboBoxItem Content="Fade" Tag="Fade" />
                         <ComboBoxItem Content="None" Tag="None" />
                     </ComboBox>
+                </controls:SettingRow>
+                <controls:SettingRow Header="Buttons above volume">
+                    <ToggleSwitch
+                        x:Name="ButtonsAboveVolumeSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Buttons above volume"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnButtonsAboveVolumeToggled" />
                 </controls:SettingRow>
             </StackPanel>
         </controls:SettingsGroup>

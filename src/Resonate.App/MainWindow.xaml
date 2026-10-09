@@ -7,60 +7,20 @@
     xmlns:vm="using:Resonate.App.ViewModels"
     Title="Resonate">
 
+    <!--
+        The shortcuts live on the root, so WinUI would show "Ctrl+F" as a hint
+        over anything the pointer rests on: hidden (the owner's report,
+        9 October 2026). Settings, About lists every shortcut.
+    -->
     <Grid
         x:Name="RootGrid"
         Background="{StaticResource ResonateTransparentBrush}"
+        KeyboardAcceleratorPlacementMode="Hidden"
         PreviewKeyDown="OnRootPreviewKeyDown">
         <Grid.RowDefinitions>
             <RowDefinition Height="44" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <Grid.KeyboardAccelerators>
-            <KeyboardAccelerator
-                Key="F"
-                Invoked="OnSearchAccelerator"
-                Modifiers="Control" />
-            <KeyboardAccelerator
-                Key="L"
-                Invoked="OnSearchAccelerator"
-                Modifiers="Control" />
-            <KeyboardAccelerator
-                Key="Right"
-                Invoked="OnNextAccelerator"
-                Modifiers="Control" />
-            <KeyboardAccelerator
-                Key="Left"
-                Invoked="OnPreviousAccelerator"
-                Modifiers="Control" />
-            <KeyboardAccelerator
-                Key="Left"
-                Invoked="OnBackAccelerator"
-                Modifiers="Menu" />
-            <KeyboardAccelerator
-                Key="S"
-                Invoked="OnShuffleAccelerator"
-                Modifiers="Control" />
-            <KeyboardAccelerator
-                Key="R"
-                Invoked="OnRepeatAccelerator"
-                Modifiers="Control" />
-            <KeyboardAccelerator
-                Key="Up"
-                Invoked="OnVolumeUpAccelerator"
-                Modifiers="Control" />
-            <KeyboardAccelerator
-                Key="Down"
-                Invoked="OnVolumeDownAccelerator"
-                Modifiers="Control" />
-            <KeyboardAccelerator
-                Key="N"
-                Invoked="OnNewPlaylistAccelerator"
-                Modifiers="Control" />
-            <KeyboardAccelerator
-                Key="M"
-                Invoked="OnMiniPlayerAccelerator"
-                Modifiers="Control" />
-        </Grid.KeyboardAccelerators>
 
         <!-- Title bar (the whole strip drags the window, except the back button) -->
         <Grid x:Name="AppTitleBar" Background="{StaticResource ResonateTransparentBrush}">
@@ -335,8 +295,8 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <Grid
-                                        Width="48"
-                                        Height="48"
+                                        Width="{x:Bind CoverSize, Mode=OneWay}"
+                                        Height="{x:Bind CoverSize, Mode=OneWay}"
                                         Background="{x:Bind Cover.Background, Mode=OneWay}"
                                         CornerRadius="{ThemeResource ResonateCornerSmall}"
                                         Visibility="{x:Bind CoverVisibility, Mode=OneWay}"

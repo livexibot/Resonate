@@ -13,11 +13,23 @@ public static class AppScale
     /// <summary>The usual size of both settings.</summary>
     public const int Normal = 100;
 
-    /// <summary>The steps App size offers, smallest first.</summary>
-    public static IReadOnlyList<int> AppSizes { get; } = [80, 90, 100, 110, 125, 150, 175, 200];
+    /// <summary>
+    /// The steps App size offers, smallest first: a browser's zoom steps, with
+    /// fives near the usual size (the owner asked for more, 9 October 2026).
+    /// </summary>
+    public static IReadOnlyList<int> AppSizes { get; } = [50, 60, 67, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 133, 150, 175, 200, 225, 250, 300];
+
+    /// <summary>
+    /// The steps Cover size offers (the covers in song lists and the
+    /// sidebar), smallest first; the owner asked for it, 9 October 2026.
+    /// </summary>
+    public static IReadOnlyList<int> CoverSizes { get; } = [75, 100, 125, 150, 175, 200];
+
+    /// <summary>A cover usually <paramref name="usual"/> pixels wide at <paramref name="percent"/> Cover size, on a step.</summary>
+    public static int Cover(int usual, int percent) => (int)Math.Round(usual * Nearest(percent, CoverSizes) / 100.0);
 
     /// <summary>The steps Text size offers, smallest first.</summary>
-    public static IReadOnlyList<int> TextSizes { get; } = [90, 100, 110, 125, 150];
+    public static IReadOnlyList<int> TextSizes { get; } = [75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 135, 150, 175, 200];
 
     /// <summary>
     /// Every text size the interface uses at the usual Text size, each a

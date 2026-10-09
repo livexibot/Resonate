@@ -34,25 +34,6 @@ public sealed partial class MainWindow
             // Menu items keep the text size they were made with (see ThemeService.ApplyTextSize).
             BuildPlaylistSortMenu();
         };
-
-        AddAppSizeKey((VirtualKey)0xBB, 1); // the plus key beside Backspace (VK_OEM_PLUS)
-        AddAppSizeKey((VirtualKey)0xBB, 1, VirtualKeyModifiers.Shift); // Ctrl+Shift+= types a plus on US keyboards
-        AddAppSizeKey(VirtualKey.Add, 1);
-        AddAppSizeKey((VirtualKey)0xBD, -1); // the minus key (VK_OEM_MINUS)
-        AddAppSizeKey(VirtualKey.Subtract, -1);
-        AddAppSizeKey(VirtualKey.Number0, 0);
-        AddAppSizeKey(VirtualKey.NumberPad0, 0);
-    }
-
-    private void AddAppSizeKey(VirtualKey key, int step, VirtualKeyModifiers also = VirtualKeyModifiers.None)
-    {
-        var accelerator = new KeyboardAccelerator { Key = key, Modifiers = VirtualKeyModifiers.Control | also };
-        accelerator.Invoked += (_, args) =>
-        {
-            args.Handled = true;
-            StepAppSize(step);
-        };
-        RootGrid.KeyboardAccelerators.Add(accelerator);
     }
 
     /// <summary>One step larger (1), smaller (-1) or back to the usual size (0), with a word about where it is now.</summary>
@@ -66,8 +47,9 @@ public sealed partial class MainWindow
             _ => AppScale.Normal,
         };
         theme.AppSize = size;
+        var back = AppKeys.For(AppCommand.AppSizeReset, _services.Settings.KeyShortcuts);
         ShowMessage(
-            size == AppScale.Normal ? "App size: 100%." : $"App size: {AppScale.Label(size)}. Ctrl+0 goes back to 100%.",
+            size == AppScale.Normal || back.Count == 0 ? $"App size: {AppScale.Label(size)}." : $"App size: {AppScale.Label(size)}. {AppKeys.Display(back)} goes back to 100%.",
             InfoBarSeverity.Informational);
     }
 
@@ -96,6 +78,8 @@ public sealed partial class MainWindow
             return;
         }
 
+        // Covers are decoded for this screen's pixels.
+        CoverImages.DisplayScale = GetDpiForWindow(Hwnd) / 96.0;
         if (WindowShapesOn)
         {
             // The Window shapes plugin lets the window shrink to a strip (MainWindow.WindowShapes.cs).

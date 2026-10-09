@@ -40,6 +40,9 @@ public sealed record StartupOptions
     /// <summary>Show sample data instead of a Spotify account (for screenshots and trying the look).</summary>
     public bool Demo { get; init; }
 
+    /// <summary>Started with Windows (Start with Windows, a built-in plugin): into the tray, or minimised.</summary>
+    public bool Background { get; init; }
+
     /// <summary>
     /// Keep settings, caches, plugins and the Spotify sign-in in this folder
     /// instead of the installed copy's, so a local build can run beside it
@@ -92,6 +95,9 @@ public sealed record StartupOptions
             {
                 case "--demo":
                     options = options with { Demo = true };
+                    break;
+                case "--background":
+                    options = options with { Background = true };
                     break;
                 case "--data" when next is not null:
                     options = options with { DataFolder = Path.GetFullPath(next) };

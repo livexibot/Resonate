@@ -15,8 +15,8 @@ namespace Resonate.App;
 /// <summary>
 /// The mini player (Ctrl+M), as Spotifast has it: the classic player in a
 /// small borderless window of its own while the full window is hidden. Its
-/// windows stack as Winamp 2 docked them, the main window on top (with the
-/// cover beside it), the equalizer and the playlist under it, each opened
+/// windows stack as Winamp 2 docked them, the main window on top, the
+/// equalizer and the playlist under it, each opened
 /// with the main window's EQ and PL buttons and rolled up by double-clicking
 /// its title bar. Every skin pixel covers a whole number of screen pixels at
 /// 1x to 4x. It stays on top of other windows (the clutter bar's A), moves by
@@ -136,7 +136,7 @@ internal sealed partial class MiniPlayerWindow : Window
         _host.Focus(FocusState.Programmatic);
     }
 
-    // Size: the cover and the main window on top, the equalizer and the playlist under the main window
+    // Size: the main window on top, the equalizer and the playlist under it
 
     /// <summary>
     /// Shows the windows that are open and sizes the window to them exactly;
@@ -147,18 +147,14 @@ internal sealed partial class MiniPlayerWindow : Window
     {
         var scale = Scale;
         var layout = ClassicStack.Arrange(_skins.MiniStack with { PlaylistHeight = _playlist.ShownHeight });
-        var cover = layout.MainHeight * scale;
-        var indent = new Thickness(cover / _raster, 0, 0, 0);
 
         // A closed window leaves the tree, so it reads and draws nothing (the playlist reads the queue only while it is in).
-        _equalizer.Margin = indent;
         _equalizer.SetScale(scale, _raster);
         Show(_equalizer, layout.EqualizerHeight > 0, 1);
-        _playlist.Margin = indent;
         _playlist.SetScale(scale, _raster);
         Show(_playlist, layout.PlaylistHeight > 0, _stack.Children.Count);
 
-        var size = new SizeInt32(cover + (ClassicStack.Width * scale), layout.Height * scale);
+        var size = new SizeInt32(ClassicStack.Width * scale, layout.Height * scale);
         if (AppWindow.ClientSize.Width != size.Width || AppWindow.ClientSize.Height != size.Height)
         {
             AppWindow.ResizeClient(size);

@@ -31,12 +31,12 @@ public sealed partial class MainWindow
     /// <summary>Songs at most added to the queue for a whole list (each one is a request to Spotify).</summary>
     private const int QueueListLimit = 25;
 
-    private KeyboardAccelerator? _summonAccelerator;
+    private bool _summonOn;
     private IDisposable? _summonHook;
     private SummonBarWindow? _summonBar;
     private IReadOnlyList<SummonCommand>? _summonCommands;
 
-    private bool SummonBarOn => _summonAccelerator is not null;
+    private bool SummonBarOn => _summonOn;
 
     partial void SetUpSummonBar()
     {
@@ -66,9 +66,7 @@ public sealed partial class MainWindow
 
         if (on)
         {
-            _summonAccelerator = new KeyboardAccelerator { Key = VirtualKey.K, Modifiers = VirtualKeyModifiers.Control };
-            _summonAccelerator.Invoked += OnSummonAccelerator;
-            RootGrid.KeyboardAccelerators.Add(_summonAccelerator);
+            _summonOn = true;
             if (RegisterSummonShortcut() is { } problem)
             {
                 ShowMessage("Summon bar: " + problem, InfoBarSeverity.Warning);
@@ -77,12 +75,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        if (_summonAccelerator is { } accelerator)
-        {
-            RootGrid.KeyboardAccelerators.Remove(accelerator);
-        }
-
-        _summonAccelerator = null;
+        _summonOn = false;
         UnregisterSummonShortcut();
         _summonBar?.Close();
         _summonBar = null;
@@ -158,12 +151,6 @@ public sealed partial class MainWindow
             var previous = GetForegroundWindow();
             DispatcherQueue.TryEnqueue(() => ToggleSummonBar(previous));
         }
-    }
-
-    private void OnSummonAccelerator(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
-    {
-        args.Handled = true;
-        ToggleSummonBar(Hwnd);
     }
 
     private void ToggleSummonBar(nint previousWindow)
