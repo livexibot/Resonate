@@ -384,6 +384,12 @@ internal sealed partial class NowPlayingStage : Grid
 
     private void OnThemeChanged(object? sender, EventArgs e)
     {
+        // With nothing playing the stage shows the look's accents, so a new look or accent reads them again.
+        if (_songShown && _shown is null)
+        {
+            ShowColours(null, null, null, null);
+        }
+
         ApplyLook();
         UpdateRunning();
     }
