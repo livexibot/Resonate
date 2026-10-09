@@ -15,9 +15,12 @@ visitors; keep it short and in step with this file.
   2026; see "First milestone"). Releases are published with one
   installer, for ordinary (x64) Windows PCs (`Resonate-win-x64-Setup.exe`;
   the owner dropped arm64 and the portable zip on 8 October 2026 to save
-  build time); the latest is v0.13.0 (9 October 2026: Settings in six
-  tabs, colours that follow the cover, new visualizers, reset buttons and
-  a new Search); before it v0.9.0
+  build time); the latest is v0.14.0 (9 October 2026: the Japan and
+  Snow looks, the end of the freeze and crash loop at 125 % scaling, the
+  crash log, sliders that work while the bars sway, one cover on Home);
+  v0.13.0 (the same day) brought Settings in six tabs, colours that
+  follow the cover, new visualizers, reset buttons and a new Search;
+  before them v0.9.0
   (8 October 2026: the owner's live edits, see below; v0.8.0 brought
   Resonate's own player for Web API only, the Home stage's visualizer
   and Settings in tabs, v0.7.0 swiping the playing song to skip, Web API only closing
@@ -93,7 +96,9 @@ visitors; keep it short and in step with this file.
   light); dark covers are untouched. Ember was replaced by Velvet. New
   built-in plugins: Tray icon (closing hides to the tray; its menu plays,
   pauses, skips and quits; `MainWindow.Tray.cs`) and Lyrics in the player
-  (the sung line under the song; it asks LRCLIB once per song while on).
+  (it asks LRCLIB once per song while on; while a song has lines the
+  player shows "Song · Artist" on one line, the song bold, and the sung
+  line and the next one under it, the owner's layout of 9 October 2026).
 - The owner's choices of 9 October 2026, evening (no saved albums,
   followed artists or podcasts, "I dont want those"): the player bar's
   devices button shows in both modes, so any Spotify Connect device can be
@@ -153,7 +158,17 @@ visitors; keep it short and in step with this file.
   exception handled and writes it to `crash.log` in the cache folder
   (512 KB, then `crash.old.log`; at most 100 a run); read it with
   `playback.log` when the owner reports a crash. The web player's
-  opening steps go to `playback.log` ("web player: ...").
+  opening steps go to `playback.log` ("web player: ..."), and so does
+  what the visualizer hears ("visualizer: ...": listening, hears the
+  music, nothing plays Spotify on this PC). The bars can only follow
+  music that plays on this PC; on 9 October 2026 the owner's music played
+  elsewhere (Resonate's web player had played nothing, the Spotify app was
+  closed), so they swayed on their own.
+- Narrow sidebar (9 October 2026): WinUI's list rows are at least 88 wide
+  (`ListViewItemMinWidth`) and padded 16 and 12, wider than the 84 px
+  sidebar, which put the icons and covers 13 px right of centre. The
+  sidebar lists' rows now have no minimum width or padding, and each
+  template carries the padding itself (`RowPadding`, none while narrow).
 - The feature update (pull request #9, 7 October 2026) adds Home with
   listening stats and daily mixes, Local Files, DJ, sorting and filtering
   of every list, likes, album and artist pages, truly random shuffle,
@@ -420,13 +435,21 @@ Windows:
   Playback SDK" in the developer app, in case Spotify checks it. Quality
   is the web player's (AAC, 256 kbps with Premium), not Lossless. The
   WebView2 is a controller on a message-only window (`HWND_MESSAGE`,
-  "an invisible WebView"), `IsVisible` false, InPrivate (nothing kept in
+  "an invisible WebView"), `IsVisible` true (Chromium holds back the
+  media of a page that has never been visible: with false, Spotify sent
+  the song, nothing played and it went back to its start after 2 s, the
+  owner's first real try, 9 October 2026; the window still never shows),
+  InPrivate (nothing kept in
   `%LocalAppData%\Resonate\webplayer`), with the page served from
   `https://player.resonate.example` (a secure origin, which protected
   audio needs). It allows only autoplay, no other permission, pop-up,
   download, navigation, developer tools or host objects. Browser
-  arguments: autoplay without a click, and no background timer
-  throttling, so Spotify keeps hearing from the device while paused. It
+  arguments: autoplay without a click, no background timer throttling,
+  so Spotify keeps hearing from the device while paused, and no occlusion
+  (the message-only window must never count as covered). CI's
+  `--web-player-check` also plays a moment of silence through an audio
+  element without a click ("sound without a click: ok"); with the page
+  hidden that never finished. It
   runs only with Web API only, "Play on this PC" and someone signed in,
   starts after the first frame (never in demo, timing or update runs),
   stops on sign-out, after failures tries again after 5 s, 15 s and then
@@ -1026,7 +1049,9 @@ Ripple, and a more interesting Home):
   (`ThemeDefinition.BasedOn`, set when a preset is first edited;
   `ThemePresets.Origin`), the user's own settings to a new
   `AppSettings`'s values, and the player's size and place boxes to
-  automatic.
+  automatic. Since the evening (the owner found some missing) a look's
+  colours have one too, back to the preset's colour, and plugins' number
+  settings back to the plugin's default.
 - Search (rebuilt 9 October 2026, the owner asked for it "more modern",
   with the last searches): a pill-shaped box with a search icon, filter
   chips (All, and only the kinds found), the top result

@@ -89,12 +89,30 @@
                             </Grid>
                         </Grid>
                     </controls:Elevation>
-                    <StackPanel
+                    <!--
+                        The song above its artists; with Lyrics in the player
+                        (a built-in plugin) "Song · Artist" on one line and the
+                        line being sung and the next one under it
+                        (PlayerBar.ShowLyricLine).
+                    -->
+                    <Grid
+                        x:Name="SongText"
                         Grid.Column="1"
                         VerticalAlignment="Center"
-                        Spacing="2">
+                        RowSpacing="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <TextBlock
                             x:Name="TitleText"
+                            Grid.ColumnSpan="3"
                             FontWeight="SemiBold"
                             PointerEntered="OnTitlePointerEntered"
                             PointerExited="OnTitlePointerExited"
@@ -102,17 +120,34 @@
                             Tapped="OnTitleTapped"
                             Text="Nothing playing" />
                         <TextBlock
+                            x:Name="SongDotText"
+                            Grid.Column="1"
+                            Margin="6,0"
+                            Style="{StaticResource ResonateSecondaryTextStyle}"
+                            Text="·"
+                            Visibility="Collapsed" />
+                        <TextBlock
                             x:Name="ArtistText"
+                            Grid.Row="1"
+                            Grid.ColumnSpan="3"
                             Style="{StaticResource ResonateSecondaryTextStyle}"
                             Text="Pick a song to start" />
-                        <!-- Lyrics in the player (a built-in plugin): the line being sung -->
                         <TextBlock
                             x:Name="LyricLineText"
+                            Grid.Row="1"
+                            Grid.ColumnSpan="3"
                             Foreground="{StaticResource ResonateAccentBrush}"
                             Style="{StaticResource ResonateCaptionTextStyle}"
                             TextTrimming="CharacterEllipsis"
                             Visibility="Collapsed" />
-                    </StackPanel>
+                        <TextBlock
+                            x:Name="NextLyricText"
+                            Grid.Row="2"
+                            Grid.ColumnSpan="3"
+                            Style="{StaticResource ResonateCaptionTextStyle}"
+                            TextTrimming="CharacterEllipsis"
+                            Visibility="Collapsed" />
+                    </Grid>
                 </Grid>
             </Grid>
 

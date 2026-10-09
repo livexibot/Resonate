@@ -5,8 +5,8 @@ using Resonate.Spotify.Lyrics;
 namespace Resonate.App;
 
 /// <summary>
-/// Lyrics in the player, a built-in plugin: the line being sung shows under
-/// the song in the player bar. The song's synced lyrics come from the same
+/// Lyrics in the player, a built-in plugin: the line being sung and the
+/// next one show under "Song · Artist" in the player bar. The song's synced lyrics come from the same
 /// library as the lyrics pane (LRCLIB, kept 30 days on this PC), asked once
 /// per song while the plugin is on; the line follows the player's clock four
 /// times a second, only while music plays and the window shows.
@@ -127,7 +127,9 @@ public sealed partial class MainWindow
             return;
         }
 
+        // The line being sung and the next one; before the first, only what comes.
         var index = lyrics.ActiveLine(_services.Player.State.PositionAt(DateTimeOffset.UtcNow));
-        PlayerBar.ShowLyricLine(index >= 0 ? lyrics.Lines[index].Text : null);
+        var next = index + 1 < lyrics.Lines.Count ? lyrics.Lines[index + 1].Text : null;
+        PlayerBar.ShowLyricLine(index >= 0 ? lyrics.Lines[index].Text : null, next);
     }
 }

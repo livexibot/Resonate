@@ -52,7 +52,8 @@ public sealed class WebPlayerUnavailableException : Exception
 /// token), "ready" and "notReady" (with <paramref name="DeviceId"/>), "error"
 /// (with <paramref name="Kind"/>: initialization, authentication, account,
 /// playback, script), "state" (what plays changed) or "check" (the CI check's
-/// result, with <paramref name="Widevine"/> and <paramref name="Sdk"/>).
+/// result, with <paramref name="Widevine"/>, <paramref name="Sdk"/> and
+/// <paramref name="Autoplay"/>, whether sound may start without a click).
 /// </param>
 public sealed record WebPlayerMessage(
     string Type,
@@ -60,7 +61,8 @@ public sealed record WebPlayerMessage(
     string? Kind = null,
     string? Text = null,
     string? Widevine = null,
-    string? Sdk = null)
+    string? Sdk = null,
+    string? Autoplay = null)
 {
     /// <summary>The message in <paramref name="json"/>, or null when it is not one.</summary>
     public static WebPlayerMessage? Parse(string? json)
@@ -85,7 +87,8 @@ public sealed record WebPlayerMessage(
                 Read(root, "kind"),
                 Read(root, "message"),
                 Read(root, "widevine"),
-                Read(root, "sdk"));
+                Read(root, "sdk"),
+                Read(root, "autoplay"));
         }
         catch (JsonException)
         {
