@@ -15,7 +15,11 @@ visitors; keep it short and in step with this file.
   2026; see "First milestone"). Releases are published with one
   installer, for ordinary (x64) Windows PCs (`Resonate-win-x64-Setup.exe`;
   the owner dropped arm64 and the portable zip on 8 October 2026 to save
-  build time); the latest is v0.15.0 (9 October 2026, evening: Resonate's
+  build time); the latest is v0.16.0 (9 October 2026, night: changeable
+  keyboard shortcuts, a screensaver above every app, settings for every
+  plugin, fourteen new plugins, new progress bars and a progress glow, the
+  tray icon, queue editing, taskbar buttons and Start with Windows built
+  in, no cover in Winamp); v0.15.0 (the same evening: Resonate's
   own player plays sound and takes commands directly, a centred narrow
   sidebar, colour resets, "Song · Artist" with two lyric lines); v0.14.0
   (the same day: the Japan and
