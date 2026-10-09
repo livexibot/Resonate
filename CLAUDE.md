@@ -15,7 +15,11 @@ visitors; keep it short and in step with this file.
   2026; see "First milestone"). Releases are published with one
   installer, for ordinary (x64) Windows PCs (`Resonate-win-x64-Setup.exe`;
   the owner dropped arm64 and the portable zip on 8 October 2026 to save
-  build time); the latest is v0.16.0 (9 October 2026, night: changeable
+  build time); the latest is v0.17.0 (9 October 2026, late night: four
+  new special looks, Synthwave, Liquid Chrome, Cyberpunk and Afterhours,
+  with moving scenery, weather and decorations, the Ocean dark preset in
+  Synthwave's old place, four new bundled fonts, and covers and accents
+  fixed); v0.16.0 (9 October 2026, night: changeable
   keyboard shortcuts, a screensaver above every app, settings for every
   plugin, fourteen new plugins, new progress bars and a progress glow, the
   tray icon, queue editing, taskbar buttons and Start with Windows built
@@ -1093,13 +1097,16 @@ Ripple, and a more interesting Home):
   a `Scale.Y` animation (found with the retired Radial): animate the whole
   `Scale` when a sprite turns. The player bar's visualizer has its own
   Width, Height (45 % of the bar at first) and Max height, and Retro
-  hides its unlit segments there. Presets: Synthwave and Paper Pills,
-  Bubblegum Pulse (Pills in its bar), Terminal Retro (and in its bar),
-  Velvet and Aurora Aurora (Silk in Aurora's bar), Sage Silk. CI's tour
+  hides its unlit segments there. Presets: Paper Pills, Bubblegum Pulse
+  (Pills in its bar), Terminal Retro (and in its bar), Velvet and Aurora
+  Aurora (Silk in Aurora's bar), Sage and Ocean Silk; Synthwave Mirror
+  (Lines in its bar), Liquid Chrome Silk, Cyberpunk Bars (Mirror in its
+  bar), Afterhours Aurora. CI's tour
   starts every style (`StageVisualizer.CheckMotion`).
 - Special looks (the owner's request, 9 October 2026: "themes around a
   certain aesthetic ... extremely good and custom made", tried in the demo
-  first): a fourth preset group, Special, with Japan and Snow. A look's
+  first): a fourth preset group, Special, with Japan and Snow (and since
+  that night four more, below). A look's
   `Scene` (`ThemeScene`, saved by name: append, never rename; also under
   Customize, Background) draws scenery behind the panels
   (`Controls/SceneArt.xaml`, XAML paths written by
@@ -1186,6 +1193,57 @@ Ripple, and a more interesting Home):
   the decorations at 5K and 165 Hz, that the branch and the piles sit
   right at 80 to 200 % App size, with the Winamp player and with the
   player on top, and that nothing reaches under the title bar's buttons.
+- Four more special looks (the owner's request, 9 October 2026, late:
+  "Synthwave (move from Dark preset and make it proper synthwave), Liquid
+  Chrome, Cyberpunk, Afterhours ... very unique feels with extra elements,
+  particles, graphics, effects", built cloud only and released at once):
+  Synthwave left the Dark group, which gained Ocean (teal and coral on a
+  deep sea gradient, floating player, Ripple progress, Silk). Each new
+  look has a scene (`ThemeScene` Synthwave, LiquidChrome, Cyberpunk,
+  Afterhours, appended), its own fonts (Tektur, Unbounded, Oxanium, Bodoni
+  Moda) and see-through panels (0.55 to 0.74). Scenery (one module each in
+  `tools/scenes`: `synthwave.py`, `chrome.py`, `cyberpunk.py`,
+  `afterhours.py`, sharing `sceneart.py`): Synthwave's striped sun behind
+  a city, wireframe mountains, palms and a neon grid racing towards you,
+  with twinkling and shooting stars; Liquid Chrome's studio lights, a
+  chrome ribbon and mirrored blobs drifting over a sea of liquid metal
+  rolling in swells; Cyberpunk's smog lit in neon, towers with lit floors,
+  flickering signs, a glitching hologram, sweeping searchlights, beacons,
+  flying cars and an airship; Afterhours' low clouds lit by the city, a
+  skyline with a lit crown, a suspension bridge, an elevated highway of
+  head and tail lights, a river of reflections and lights out of focus.
+  These scenes move: a moving element carries its motion as its `Tag`
+  and is named `<prefix>M<n>`, and its scene's grid `Tag` gives the
+  prefix and the count (`Sw 36`); `Resonate.Themes/SceneMotion.cs` turns a
+  tag (`twinkle`, `blink`, `flicker`, `sway`, `orbit`, `scroll`, `travel`,
+  `shoot`, `approach`, `spin`, `swing`, `pulse`, `glitch`; tested, every
+  period rounded to repeat a whole number of times per loop) into
+  compositor expressions on the scene clock, and `SceneArt` runs them on
+  the elements' own visuals (translation, opacity, rotation; only soft
+  glows grow, so nothing sharp is scaled) while the window shows and
+  animations are on, else each rests where it is drawn. Japan and Snow
+  have no moving scenery (`Jp 0`, `Sn 0`). Weather (`SceneWeather`, new
+  `Particle` fields appended with defaults: `Rise`, `Width`, `Slant`,
+  `Halts`, `From`, `Tint`, `Tail`): Synthwave's neon dust rising (soft
+  glowing dots in the sun's and grid's colours, a few large and blurred),
+  Liquid Chrome's chrome beads rising and wobbling (`SceneSprite.ChromeBead`),
+  Cyberpunk's slanting rain, some lit cyan or magenta (streaks drawn as
+  rotated gradient sprites with soft edges), and Afterhours' drops on the
+  window (`SceneSprite.Droplet`) that gather, then run down in fits and
+  starts leaving a wet trail, with fine rain beyond them behind the
+  player. Decorations: Liquid Chrome's drops of mercury that swell under
+  the player's and panels' bottom edges, stretch and fall
+  (`SceneLayout.Drips`, only where there is room below), and a sheen
+  sweeping across the player; Cyberpunk's neon HUD brackets on every
+  panel's and the player's corners in the look's two accents, flickering
+  and glitching each on its own beat (`SceneLayout.Framed`), and a scan
+  line passing down the page. Synthwave's and Afterhours' effects are all
+  in their scenery and weather. Cards carry a palm, a drop, a robot or a
+  city at night. CI's tour checks that every new scene showed all its
+  moving parts and that the compositor takes each expression
+  (`SceneArt.CheckMotion`, after the presets). Measure on the owner's PC:
+  the cost of the moving scenery, the rain and the drops at 5K and
+  165 Hz, and how the scenery crops on a narrow window.
 - Reset buttons (the owner's request, 9 October 2026): every slider and
   number box in Settings shows a small reset button while its value is
   not the default (`Controls/ResetButton`); drop-downs and switches have
@@ -1768,6 +1826,10 @@ Keep it obvious what is what:
   the catalog the app is built with (`-p:PluginCatalog=<file>`).
 - `tools/fonts/` rebuilds the fonts in `src/Resonate.App/Assets/Fonts`
   from Google Fonts' sources (see its README).
+- `tools/scenes/` writes the special looks' scenery into
+  `src/Resonate.App/Controls/SceneArt.xaml` (`build_scene_art.py`, one
+  module per scene, shared helpers in `sceneart.py`; run from the
+  repository's root).
 - `tests/` automated tests (`dotnet test`, run on Linux and Windows).
 - `docs/` user-facing guides (`plugins.md`).
 - `.github/workflows/` `ci.yml` (every pull request that changes more
@@ -1891,7 +1953,9 @@ when the work first needs them, then tick them off here.
   Black, Synthwave and Paper, and since 8 October 2026 (the owner asked
   for four more) Fluent (Mica, calm), Studio (console grey, floating
   player on top), Bubblegum (pastel gradient, corner player) and Terminal
-  (green on black, monospace, player docked on top). A test keeps every
+  (green on black, monospace, player docked on top). Since 9 October 2026
+  Synthwave is a special look and Ocean takes its place among the dark
+  ones (see "Special looks"). A test keeps every
   two presets apart in at least two shapes and every player position shown
   by one. Under them, Customize edits
   everything a look sets: colours, light, dark or black, backdrop
@@ -1975,8 +2039,10 @@ when the work first needs them, then tick them off here.
 - Decided (8 October 2026, the owner's request): App size and Text size
   are the user's own, not part of a look; the title bar keeps Windows'
   size; Ctrl+Plus, Ctrl+Minus and Ctrl+0 change App size as in a browser.
-- Fonts (asked 8 October 2026, "no wacky fonts"): 18 open-licence (SIL
-  OFL, no Reserved Font Name) families ship in `Assets/Fonts`, each one
+- Fonts (asked 8 October 2026, "no wacky fonts"): 22 open-licence (SIL
+  OFL, no Reserved Font Name) families ship in `Assets/Fonts` (Tektur,
+  Oxanium, Unbounded and Bodoni Moda since 9 October 2026, for the new
+  special looks; Orbitron and Audiowide reserve their names), each one
   `.ttc` with the Regular, SemiBold and Bold weights, next to its licence.
   `tools/fonts/build_fonts.py` rebuilds them byte for byte from a pinned
   google/fonts commit, checking each file's SHA-256 (Lora, Playfair

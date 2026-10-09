@@ -1,11 +1,15 @@
 namespace Resonate.Themes.Tests;
 
-/// <summary>The petals and snowflakes of the special looks' scenery.</summary>
+/// <summary>The weather of the special looks: petals, snowflakes, neon dust, chrome beads, rain and drops on the window.</summary>
 public sealed class SceneWeatherTests
 {
     [Theory]
     [InlineData(ThemeScene.Japan)]
     [InlineData(ThemeScene.Snow)]
+    [InlineData(ThemeScene.Synthwave)]
+    [InlineData(ThemeScene.LiquidChrome)]
+    [InlineData(ThemeScene.Cyberpunk)]
+    [InlineData(ThemeScene.Afterhours)]
     public void Everything_moves_a_whole_number_of_times_per_loop(ThemeScene scene)
     {
         for (var i = 0; i < SceneWeather.Count(scene); i++)
@@ -96,6 +100,55 @@ public sealed class SceneWeatherTests
             Assert.Contains(behind, p => p.Sprite is not null);
             Assert.Contains(front, p => p.Sprite is not null);
         }
+    }
+
+    [Fact]
+    public void Neon_dust_and_chrome_beads_rise_and_the_farther_ones_are_smaller_and_slower()
+    {
+        foreach (var scene in (ThemeScene[])[ThemeScene.Synthwave, ThemeScene.LiquidChrome])
+        {
+            var all = Enumerable.Range(0, SceneWeather.Count(scene)).Select(i => SceneWeather.Get(scene, i)).ToList();
+            Assert.All(all, p => Assert.True(p.Rise));
+            var behind = all.Where(p => p.Behind).ToList();
+            var near = all.Where(p => !p.Behind && p.Opacity > 0.3).ToList();
+            Assert.InRange(behind.Count, all.Count * 0.25, all.Count * 0.55);
+            Assert.True(behind.Max(p => p.Size) <= near.Min(p => p.Size), scene.ToString());
+            Assert.True(behind.Average(p => p.Fall) < near.Average(p => p.Fall), scene.ToString());
+        }
+
+        var motes = Enumerable.Range(0, SceneWeather.Count(ThemeScene.Synthwave)).Select(i => SceneWeather.Get(ThemeScene.Synthwave, i)).ToList();
+        Assert.All(motes, p => Assert.NotNull(p.Tint));
+        Assert.True(motes.Select(p => p.Tint).Distinct().Count() >= 3);
+        Assert.All(Enumerable.Range(0, SceneWeather.Count(ThemeScene.LiquidChrome)), i =>
+        {
+            var bead = SceneWeather.Get(ThemeScene.LiquidChrome, i);
+            Assert.Equal(SceneSprite.ChromeBead, bead.Sprite);
+            Assert.Equal(0, bead.Spin);
+            Assert.True(bead.Flutter > 0);
+        });
+    }
+
+    [Fact]
+    public void Rain_slants_as_streaks_and_drops_run_down_the_window_in_fits_and_starts()
+    {
+        var rain = Enumerable.Range(0, SceneWeather.Count(ThemeScene.Cyberpunk)).Select(i => SceneWeather.Get(ThemeScene.Cyberpunk, i)).ToList();
+        Assert.All(rain, p => Assert.True(p.Width > 0 && p.Size > p.Width * 10));
+        Assert.All(rain, p => Assert.InRange(p.Slant, -0.25, -0.1));
+        Assert.All(rain, p => Assert.False(p.Rise));
+        Assert.InRange(rain.Count(p => p.Behind), rain.Count * 0.4, rain.Count * 0.6);
+        Assert.True(rain.Where(p => p.Behind).Max(p => p.Size) <= rain.Where(p => !p.Behind).Min(p => p.Size));
+
+        // Quick: a streak crosses the window in about a second.
+        Assert.All(rain, p => Assert.InRange(1 / p.Fall, 0.5, 1.3));
+
+        var window = Enumerable.Range(0, SceneWeather.Count(ThemeScene.Afterhours)).Select(i => SceneWeather.Get(ThemeScene.Afterhours, i)).ToList();
+        var drops = window.Where(p => p.Sprite == SceneSprite.Droplet).ToList();
+        Assert.InRange(drops.Count, 8, 20);
+        Assert.All(drops, p => Assert.False(p.Behind));
+        Assert.All(drops, p => Assert.InRange(p.Halts, 2, 4));
+        Assert.All(drops, p => Assert.InRange(p.From, 0.05, 0.55));
+        Assert.All(drops, p => Assert.True(p.Tail > 2));
+        Assert.All(window.Except(drops), p => Assert.True(p.Behind && p.Width > 0 && p.Slant < 0));
     }
 
     private static void AssertWhole(double turns) => Assert.Equal(Math.Round(turns), turns, 6);

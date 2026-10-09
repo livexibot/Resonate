@@ -290,7 +290,7 @@ public sealed class ThemeLibraryTests
         Assert.Equal(ThemeLibrary.CustomId, library.ActiveId);
         Assert.Equal("Synthwave (custom)", edited.Name);
         Assert.Equal(20, library.Active.CornerRadius);
-        Assert.Equal(6, ThemePresets.Synthwave.CornerRadius);
+        Assert.Equal(4, ThemePresets.Synthwave.CornerRadius);
 
         library.Edit(t => t with { BorderWidth = 2 });
         Assert.Equal(20, library.Active.CornerRadius);

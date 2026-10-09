@@ -119,6 +119,10 @@
                         <ComboBoxItem Content="None" Tag="None" />
                         <ComboBoxItem Content="Japan" Tag="Japan" />
                         <ComboBoxItem Content="Snow" Tag="Snow" />
+                        <ComboBoxItem Content="Synthwave" Tag="Synthwave" />
+                        <ComboBoxItem Content="Liquid Chrome" Tag="LiquidChrome" />
+                        <ComboBoxItem Content="Cyberpunk" Tag="Cyberpunk" />
+                        <ComboBoxItem Content="Afterhours" Tag="Afterhours" />
                     </ComboBox>
                 </controls:SettingRow>
                 <controls:SettingRow Header="Cover blur">

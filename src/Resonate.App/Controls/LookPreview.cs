@@ -26,13 +26,17 @@ internal sealed partial class LookPreview : Grid
     private readonly ThemeDefinition _look;
     private readonly ThemePalette _palette;
 
-    /// <summary>A special look's card shows its scene's sign in the corner: a blossom or a snowflake.</summary>
+    /// <summary>A special look's card shows its scene's sign in the corner: a blossom, a snowflake, a palm, a drop, a robot or a city at night.</summary>
     private void AddSceneMark()
     {
         var mark = _look.Scene switch
         {
             ThemeScene.Japan => "\U0001F338",
             ThemeScene.Snow => "❄️",
+            ThemeScene.Synthwave => "\U0001F334",
+            ThemeScene.LiquidChrome => "\U0001F4A7",
+            ThemeScene.Cyberpunk => "\U0001F916",
+            ThemeScene.Afterhours => "\U0001F303",
             _ => null,
         };
         if (mark is null)

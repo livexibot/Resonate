@@ -206,6 +206,11 @@ internal sealed class ScreenshotTour
                 CheckPlayerPlacement();
             }
 
+            if (SceneArt.CheckMotion(Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(_root).Compositor) is { } sceneryError)
+            {
+                Record("The special looks' scenery could not move: " + sceneryError);
+            }
+
             number = await CoverEffectsAsync(number);
             number = await LayoutsAsync(number);
             number = await ClassicPlayerAsync(number);
