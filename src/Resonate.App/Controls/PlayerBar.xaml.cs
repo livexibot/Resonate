@@ -57,6 +57,9 @@ public sealed partial class PlayerBar : UserControl
     {
         InitializeComponent();
 
+        // The playing song's artists open their pages.
+        SongLinks.Attach(ArtistText, SongLinks.Artists, PlayingTrack.Get);
+
         // Fade covers in instead of popping them (runs on the compositor).
         ArtworkImage.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(180) };
 

@@ -23,6 +23,8 @@ public sealed class BuiltInPlugins
     public const string WindowShapes = "window-shapes";
     public const string SummonBar = "summon-bar";
     public const string SignalPath = "signal-path";
+    public const string PauseOnLock = "pause-on-lock";
+    public const string PauseOnUnplug = "pause-on-unplug";
 
     private readonly AppSettings _settings;
     private readonly Action _save;
@@ -47,6 +49,8 @@ public sealed class BuiltInPlugins
         new(WindowShapes, "Window shapes", "Shrink the window to a compact player or a strip that stays on top."),
         new(SummonBar, "Summon bar", "A shortcut opens a search box over any app."),
         new(SignalPath, "Signal path", "A badge in the player that says whether you hear lossless."),
+        new(PauseOnLock, "Pause on lock", "Pauses when you lock your PC and plays on when you unlock it."),
+        new(PauseOnUnplug, "Pause on unplug", "Pauses when headphones or a speaker disconnect."),
     ];
 
     /// <summary>Part of Resonate itself now (the owner's choice, 8 October 2026): always on, not listed.</summary>

@@ -452,8 +452,9 @@ only the owner's PC can tell):
   `GetForCurrentView` fails in WinUI 3.
 - Local Files' index is `local-files.json` and its cover thumbnails
   `local-covers\` in the cache folder, keyed by path, size and last-write
-  time. The first folders are Music and the real Downloads folder
-  (`SHGetKnownFolderPath`). Scanning starts after the first frame (never in
+  time. No folder is looked in until the user adds one (the owner's
+  choice, 9 October 2026; until then Music and Downloads were the first
+  folders). Scanning starts after the first frame (never in
   benchmark, update-check or demo runs), rescans only new or changed files,
   and watches the folders. `%APPDATA%\Spotify`, `%LOCALAPPDATA%\Spotify` and
   any `SpotifyAB.SpotifyMusic_*` folder are never scanned, watched or
@@ -664,6 +665,14 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   Web API only, or another device playing, reads CAN'T TELL and never
   touches Spotify's files. Local files are judged by their format.
   Measure: Bluetooth detection, the normalise key, device changes.
+- Pause on lock (9 October 2026, the owner asked for new plugins): pauses
+  when Windows locks and plays on at unlock if it paused
+  (`WTSRegisterSessionNotification`, `WM_WTSSESSION_CHANGE` through
+  `WindowHook`). Pause on unplug: when the default output's name changes
+  while music plays (`DefaultAudioOutput.Watch`, then `TryRead` off the
+  interface thread, 300 ms after the burst), the music pauses. A headset
+  whose jack shares one endpoint with the speakers changes nothing there.
+  Measure: both on the owner's PC.
 
 Classic player and cover art (checked 2026-10-08):
 - Classic Winamp skins (`.wsz`, Winamp 2) are zip archives of BMP sheets
@@ -695,14 +704,14 @@ Classic player and cover art (checked 2026-10-08):
   look. Spinning cover (off until the user turns it on): the playing
   cover is drawn round and turns once every 7 s while a song plays and the
   window shows (composition rotation, paused otherwise; still when Windows
-  animations are off). Blurred cover background (on unless the user turns
-  it off): looks whose backdrop is the song cover (Liquid Glass) show the
-  cover blurred and made vivid (`ArtworkColors.Vivid`: stronger colour,
-  shades lifted out of black but kept dark enough for white text), under
-  a light tint (0.32); while it is off they show a soft wash of the
-  cover's colours instead. With nothing playing they glow with the look's
-  two accents, never plain black. Both are one tiny bitmap stretched by
-  the GPU, so nothing is blurred per frame. Real covers are never decoded
+  animations are off). Cover blur (0 to 100 %, 60 at first; the owner
+  asked on 9 October 2026 for Liquid Glass to be "truly liquid"): looks
+  whose backdrop is the song cover show the cover itself, only blurred,
+  with no tint, wash, gradient or colour change, and the look's background
+  colour while nothing plays. One 160 px bitmap blurred once (box blur up
+  to 20 px) and stretched by the GPU, so nothing is blurred per frame.
+  Bright covers make white text harder to read; nothing dims them.
+  Real covers are never decoded
   in CI (demo covers are made-up gradients), so check Liquid Glass with
   real, dark covers on the owner's PC.
 - The mini player (`MiniPlayerWindow`, Ctrl+M, the button beside the

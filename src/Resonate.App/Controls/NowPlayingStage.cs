@@ -124,6 +124,7 @@ internal sealed partial class NowPlayingStage : Grid
         };
         _artists = new TextBlock { Style = (Style)resources["ResonateTitleTextStyle"], FontSize = away ? 26 : 22, FontWeight = Microsoft.UI.Text.FontWeights.Normal };
         _source = new TextBlock { Style = (Style)resources["ResonateSecondaryTextStyle"], FontSize = away ? 16 : 14 };
+        SongLinks.Attach(_artists, SongLinks.Artists, PlayingTrack.Get);
         _text.Children.Add(_eyebrow);
         _text.Children.Add(_title);
         _text.Children.Add(_artists);

@@ -83,8 +83,6 @@ public sealed partial class ThemeStudio : UserControl
     // True while controls are being set from the look (and while the page is built), so that is not taken as an edit.
     private bool _loading = true;
 
-    // The user switched the blurred cover on here, so a look without the song cover gets a word.
-    private bool _blurredCoverSwitchedOn;
 
     public ThemeStudio()
     {
@@ -213,7 +211,7 @@ public sealed partial class ThemeStudio : UserControl
             GapSlider.Value = look.PanelGap;
             AdaptiveAccentSwitch.IsOn = look.AdaptiveAccent;
             ShowSliderValues();
-            ShowCoverArt(look);
+            ShowCoverArt();
 
             foreach (var swatch in _swatches)
             {
@@ -221,7 +219,7 @@ public sealed partial class ThemeStudio : UserControl
             }
 
             GradientAngleRow.Visibility = look.Backdrop == WindowBackdrop.Gradient ? Visibility.Visible : Visibility.Collapsed;
-            TintRow.Visibility = look.Backdrop is WindowBackdrop.Artwork or WindowBackdrop.Mica or WindowBackdrop.Acrylic
+            TintRow.Visibility = look.Backdrop is WindowBackdrop.Mica or WindowBackdrop.Acrylic
                 ? Visibility.Visible
                 : Visibility.Collapsed;
             ProgressPreview.BarStyle = look.Progress;
@@ -251,22 +249,12 @@ public sealed partial class ThemeStudio : UserControl
         }
     }
 
-    /// <summary>
-    /// The cover art switches, and a word when the user has just switched the
-    /// blurred cover on but the look in use has a background of its own, so
-    /// nothing seems to happen.
-    /// </summary>
-    private void ShowCoverArt(ThemeDefinition look)
+    /// <summary>The cover art settings: the spinning cover and how much the song cover backdrop is blurred.</summary>
+    private void ShowCoverArt()
     {
         SpinningCoverSwitch.IsOn = _theme.SpinningCover;
-        BlurredCoverSwitch.IsOn = _theme.BlurredCoverBackground;
-
-        var hint = _blurredCoverSwitchedOn && _theme.BlurredCoverBackground && look.Backdrop != WindowBackdrop.Artwork;
-        BlurredCoverHint.Visibility = hint ? Visibility.Visible : Visibility.Collapsed;
-        if (hint)
-        {
-            BlurredCoverHint.Text = $"{look.Name} has its own background. Try {ThemePresets.Glass.Name}, or Song cover under Customize, Backdrop.";
-        }
+        CoverBlurSlider.Value = _theme.CoverBlur;
+        CoverBlurText.Text = $"{_theme.CoverBlur} %";
     }
 
     private void ShowSliderValues()
@@ -624,12 +612,13 @@ public sealed partial class ThemeStudio : UserControl
         }
     }
 
-    private void OnBlurredCoverToggled(object sender, RoutedEventArgs e)
+    private void OnCoverBlurChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
+        var blur = (int)Math.Round(e.NewValue);
+        CoverBlurText.Text = $"{blur} %";
         if (!_loading)
         {
-            _blurredCoverSwitchedOn = BlurredCoverSwitch.IsOn;
-            _theme.BlurredCoverBackground = BlurredCoverSwitch.IsOn;
+            _theme.CoverBlur = blur;
         }
     }
 

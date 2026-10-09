@@ -31,8 +31,8 @@ public static class StageBars
 
     public const double MaxHeight = 280;
 
-    /// <summary>A bar's height at rest (paused, or nothing playing), in device-independent pixels.</summary>
-    public const double RestHeight = 3;
+    /// <summary>A bar's height at rest (paused, or nothing playing): none, so nothing shows without music (the owner's request).</summary>
+    public const double RestHeight = 0;
 
     /// <summary>How long the made-up motion takes to repeat itself.</summary>
     public const double LoopSeconds = 1200;

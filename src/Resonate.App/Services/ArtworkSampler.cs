@@ -13,17 +13,22 @@ namespace Resonate.App.Services;
 
 /// <summary>
 /// Reads the playing song's cover for looks that use it: the picture behind
-/// the song cover backdrop (the cover itself, heavily blurred and made
-/// vivid, or, if the user turns that off, a soft wash of its colours) and
-/// its most striking colour for an accent that follows the cover. While
-/// nothing plays, the backdrop is a glow of the look's own accents. Works
-/// only while the look in use needs it.
+/// the song cover backdrop (the cover itself, only blurred, as much as the
+/// user chose; the owner asked for nothing else on it) and its most
+/// striking colour for an accent that follows the cover. While nothing
+/// plays there is no picture, and the look's background colour shows.
+/// Works only while the look in use needs it.
 /// </summary>
 public sealed class ArtworkSampler : IDisposable
 {
-    // Tiny on purpose: decoding, colour picking, blurring and the wash take well under a millisecond.
+    // Tiny on purpose: decoding and the wash take well under a millisecond.
     private const int Size = 40;
-    private const int BlurRadius = 3;
+
+    // The backdrop's cover: large enough to look like the cover with little blur, still blurred in a millisecond or two.
+    private const int BackdropSize = 160;
+
+    // The strongest blur (at 100 %), in the backdrop cover's pixels; three box passes make it soft.
+    private const int MaxBlurRadius = 20;
 
     private readonly PlayerRouter _player;
     private readonly ThemeService _theme;
@@ -34,15 +39,12 @@ public sealed class ArtworkSampler : IDisposable
     private object? _key;
     private int _updateQueued;
 
-    // The cover in _key at Size × Size once read, kept so switching the
-    // blurred cover on or off redraws at once, without downloading it again.
+    // The cover in _key at BackdropSize × BackdropSize once read, kept so a
+    // new blur amount redraws at once, without downloading it again.
     private byte[]? _pixels;
 
-    // Whether Blurred holds the blurred cover (true) or the wash (false).
-    private bool _showsBlurredCover;
-
-    // The look's accents Blurred glows with while nothing plays; null while it shows a cover.
-    private (ThemeColor, ThemeColor)? _glow;
+    // The blur Blurred was drawn with.
+    private int _shownBlur = -1;
 
     /// <summary>Call on the interface thread.</summary>
     /// <param name="covers">Where covers are kept; the player bar has usually fetched the playing one already.</param>
@@ -60,11 +62,7 @@ public sealed class ArtworkSampler : IDisposable
     /// <summary>Raised on the interface thread when <see cref="Blurred"/> changes.</summary>
     public event EventHandler? Changed;
 
-    /// <summary>
-    /// What the song cover backdrop shows: the blurred cover, or a wash of
-    /// its colours when the user turns that off; while nothing plays, a glow
-    /// of the look's accents. Null only before the first look that needs it.
-    /// </summary>
+    /// <summary>What the song cover backdrop shows: the blurred cover; null while nothing plays.</summary>
     public ImageSource? Blurred { get; private set; }
 
     public void Dispose()
@@ -90,9 +88,8 @@ public sealed class ArtworkSampler : IDisposable
 
     private void Update()
     {
-        // The user switched the blurred cover on or off: redrawn at once, even
-        // while another look shows, so a cover they turned off never comes back.
-        if (_showsBlurredCover != _theme.BlurredCoverBackground && Blurred is not null)
+        // The user moved the blur: redrawn at once.
+        if (_shownBlur != _theme.CoverBlur && _pixels is not null)
         {
             ShowBackdrop(_pixels);
         }
@@ -115,10 +112,11 @@ public sealed class ArtworkSampler : IDisposable
             _sampling = new CancellationTokenSource();
             _ = SampleAsync(state.ArtworkUrl, state.ArtworkBytes, name, _sampling.Token);
         }
-        else if (key is null && (Blurred is null || !Equals(_glow, (look.Accent, look.Accent2))))
+        else if (key is null && Blurred is not null)
         {
-            // Nothing plays (also at start-up): the glow follows the look's accents.
-            ShowBackdrop(null);
+            // Nothing plays: no picture, only the look's background colour.
+            Blurred = null;
+            Changed?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -136,7 +134,7 @@ public sealed class ArtworkSampler : IDisposable
 
             if (image is not null)
             {
-                pixels = await CoverDecoder.DecodeAsync(image, Size, cancellationToken);
+                pixels = await CoverDecoder.DecodeAsync(image, BackdropSize, cancellationToken);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -157,50 +155,37 @@ public sealed class ArtworkSampler : IDisposable
         if (pixels is null && name is not null)
         {
             var (from, to) = Artwork.PlaceholderColors(name);
-            pixels = ArtworkColors.Gradient(from, to, Size);
+            pixels = ArtworkColors.Gradient(from, to, BackdropSize);
         }
 
         _pixels = pixels;
         ShowBackdrop(pixels);
-        _theme.SetArtworkAccent(pixels is null ? null : ArtworkColors.PickAccent(pixels, Size, Size));
+        _theme.SetArtworkAccent(pixels is null ? null : ArtworkColors.PickAccent(pixels, BackdropSize, BackdropSize));
     }
 
     /// <summary>
-    /// Draws the backdrop picture from the cover (or, without one, from the
-    /// look's two accents): blurred and made vivid, so a dark cover still
-    /// glows through the look's tint, or a wash of its colours alone when the
-    /// user turns the blurred cover off.
+    /// Draws the backdrop picture from the cover, or none without one: only
+    /// blurred, by the user's amount, with no tint, wash or colour change.
+    /// One tiny bitmap stretched by the GPU, so nothing is blurred per frame.
     /// </summary>
     private void ShowBackdrop(byte[]? pixels)
     {
-        _showsBlurredCover = _theme.BlurredCoverBackground;
-        _glow = null;
+        _shownBlur = _theme.CoverBlur;
         if (pixels is null)
         {
-            var look = _theme.Current;
-            _glow = (look.Accent, look.Accent2);
-            pixels = ArtworkColors.Gradient(look.Accent.Opaque, look.Accent2.Opaque, Size);
+            Blurred = null;
+            Changed?.Invoke(this, EventArgs.Empty);
+            return;
         }
 
-        byte[] shown;
-        if (_showsBlurredCover)
-        {
-            shown = (byte[])pixels.Clone();
-            ArtworkColors.Blur(shown, Size, Size, BlurRadius);
-            ArtworkColors.Vivid(shown, Size, Size);
-        }
-        else
-        {
-            shown = ArtworkColors.ColourWash(pixels, Size, Size, Size, Size);
-        }
-
-        var picture = new WriteableBitmap(Size, Size);
+        var shown = (byte[])pixels.Clone();
+        ArtworkColors.Blur(shown, BackdropSize, BackdropSize, (int)Math.Round(MaxBlurRadius * _shownBlur / 100.0));
+        var picture = new WriteableBitmap(BackdropSize, BackdropSize);
         shown.CopyTo(picture.PixelBuffer);
         picture.Invalidate();
         Blurred = picture;
         Changed?.Invoke(this, EventArgs.Empty);
     }
-
     // How far a light look's wash on Home is mixed towards its background.
     private const double LightWash = 0.6;
 

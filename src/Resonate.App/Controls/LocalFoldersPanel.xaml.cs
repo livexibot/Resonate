@@ -48,7 +48,6 @@ public sealed partial class LocalFoldersPanel : UserControl
             Folders.Add(new LocalFolderItem(folder, !IsDemo, RemoveFolder));
         }
 
-        DefaultsButton.Visibility = _localFiles.UsesDefaultFolders || IsDemo ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void RemoveFolder(LocalFolderItem item)
@@ -130,11 +129,7 @@ public sealed partial class LocalFoldersPanel : UserControl
         RescanButton.IsEnabled = false;
     }
 
-    private void OnDefaultsClick(object sender, RoutedEventArgs e)
-    {
-        _localFiles.UseDefaultFolders();
-        ShowFolders();
-    }
+
 }
 
 /// <summary>One folder in the Local Files settings.</summary>

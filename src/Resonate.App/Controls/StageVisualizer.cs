@@ -22,7 +22,7 @@ namespace Resonate.App.Controls;
 /// heard, or "Listen to Spotify" off) each bar sways on its own under a
 /// slow wave (<see cref="StageBars"/>), worked out by the compositor with
 /// nothing on the interface thread. While nothing plays, or the stage is
-/// out of sight, the bars sink to a thin line and every animation stops,
+/// out of sight, the bars sink out of sight and every animation stops,
 /// so a still stage costs nothing. Built in code.
 /// </summary>
 internal sealed partial class StageVisualizer : Grid
@@ -419,7 +419,7 @@ internal sealed partial class StageVisualizer : Grid
         return height;
     }
 
-    /// <summary>The bars sink to a thin line and every animation ends, so nothing redraws while still.</summary>
+    /// <summary>The bars sink out of sight and every animation ends, so nothing redraws while still.</summary>
     private void StopMotion()
     {
         _clock?.Pause();

@@ -66,12 +66,7 @@
                     Click="OnRescanClick"
                     Content="Rescan"
                     Style="{StaticResource ResonateSubtleButtonStyle}" />
-                <Button
-                    x:Name="DefaultsButton"
-                    Click="OnDefaultsClick"
-                    Content="Use Music and Downloads"
-                    Style="{StaticResource ResonateSubtleButtonStyle}"
-                    Visibility="Collapsed" />
+
             </StackPanel>
             <TextBlock
                 x:Name="StatusText"
