@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/livexibot/Resonate/compare/v0.10.1...v0.11.0) (2026-10-09)
+
+
+### New features
+
+* song stats (BPM, key, loudness, energy) from ReccoBeats, off until switched on ([#52](https://github.com/livexibot/Resonate/issues/52)) ([c1ec1b9](https://github.com/livexibot/Resonate/commit/c1ec1b99756f93f869e487b1a831500728226e46))
+
 ## [0.10.1](https://github.com/livexibot/Resonate/compare/v0.10.0...v0.10.1) (2026-10-09)
 
 
