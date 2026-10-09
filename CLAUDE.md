@@ -107,7 +107,11 @@ visitors; keep it short and in step with this file.
   recolours the whole look (`CoverLook.Follow`: every colour takes the
   cover's hue with its own lightness and saturation, greys stay grey, the
   gradient runs between the cover's two colours from
-  `ArtworkColors.PickAccents`, a coloured outline follows the accent); the
+  `ArtworkColors.PickAccents`, a coloured outline follows the accent;
+  it also decides whether Home's stage, its visualizer, the away screen
+  and the greeting card take the song's cover colours or the look's own,
+  `StageColours.FollowsCover`, the owner's request of the same evening:
+  "make sure its consistent"); the
   visualizer's Bars and Bar width became Amount and Size, which every
   style reads (bars, dots, sparks, columns, rings: `VisualizerShapes`);
   and Visualizer, Advanced has Home's Width (20 to 100 %, centred),
@@ -663,7 +667,11 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
 - Home stage: the top of Home is the playing song, large, over five
   drifting clouds of the cover's colours (`Controls/CloudField`,
   `NowPlayingStage`, colours kept readable by `StageColours.ForText`, 7:1
-  and 4.5:1), or the blurred cover (its own switch, on at first). The
+  and 4.5:1), or the blurred cover (its own switch, on at first). Only
+  while the look's "Colours follow the cover" is on; otherwise the clouds
+  and bars take the look's two accents and the blurred cover becomes a
+  soft field of them (`StageColours.Pick`, `LookPicture`; the cover is
+  still read, so turning the switch on shows it at once). The
   640 px cover is `TrackInfo.FullImageUrl` / `PlayerState.FullArtworkUrl`.
   Each cloud is a colour brush through one dithered alpha mask
   (`Resonate.Themes/CloudMask`, 512 px, triangular noise of 4 alpha steps,
@@ -977,7 +985,20 @@ Ripple, and a more interesting Home):
   (`Controls/SceneWeatherLayer.cs`): 26 sakura petals (pictures) that
   turn, flutter and blow left from the branch, or 62 snowflakes, 10
   crystals that turn and tilt slowly and 8 soft out-of-focus flakes
-  (`Resonate.Themes/SceneWeather.cs`, tested). Both layers move by
+  (`Resonate.Themes/SceneWeather.cs`, tested). The smaller, farther part
+  (`SceneWeather.Particle.Behind`: 10 petals, two in five, smaller,
+  fainter and slower, blowing in to end over the page's middle where the
+  player floats; 31 flakes and 5 crystals, never a soft flake) passes
+  behind the player (the owner's request, 9 October 2026, for depth): it
+  hangs under the player in `MainWindow.WeatherHost` (a Canvas in
+  `ShellGrid` just before `PlayerSlot`, so over the panels; Window
+  shapes' column goes before it), counter-scaled by App size and falling
+  from the panels' top. Being in the live scene, it is revealed with a
+  new look; a switch that keeps the scene (quick edits too) lays a
+  picture without it over the window, so for the switch's length it falls
+  over everything from where it was (`ThemeHost.KeepWeatherInFront`,
+  from `ThemeTransitions`). While the panels are hidden (signing in) it
+  falls over the whole window. Both layers move by
   compositor expressions on one clock (`Helpers/SceneClock.cs`: `Time`
   repeats every 20 minutes, `Gather` counts the gathering), which ticks
   on a 15 ms `DispatcherQueueTimer` (about 64 times a second; not
@@ -1057,7 +1078,8 @@ Ripple, and a more interesting Home):
   `ThemePalette.AccentSoft`. Text fields are rounded
   (`ResonateCornerInput`) and outlined in the accent while typing.
 - Home: a greeting card (first name, date, a line about today) beside what
-  plays or played last, on a wash of the cover's colours
+  plays or played last, on a wash of the cover's colours (the look's
+  accents while "Colours follow the cover" is off)
   (`ArtworkSampler.GetWashAsync`, cached, mixed towards the background on
   light looks). The day and week cards have bar charts (`Controls/BarStrip`,
   plain elements built in code, rising once on first load) from

@@ -8,6 +8,16 @@ namespace Resonate.App;
 public sealed partial class MainWindow
 {
     /// <summary>
+    /// Where a special look's farther weather is hung (see Controls/SceneWeatherLayer):
+    /// over the panels and under the player, in the content's units, while
+    /// <see cref="WeatherShell"/> shows.
+    /// </summary>
+    internal FrameworkElement WeatherHost => WeatherBehindPlayer;
+
+    /// <summary>The panels and the player, hidden while signing in.</summary>
+    internal UIElement WeatherShell => ShellGrid;
+
+    /// <summary>
     /// Where the panels and the player are, in <paramref name="layer"/>'s
     /// units, for a special look's decorations; null while the page does not
     /// show (signing in, a window shape without it).

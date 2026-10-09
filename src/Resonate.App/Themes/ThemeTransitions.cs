@@ -171,6 +171,8 @@ internal sealed class ThemeTransitions
                 return;
             }
 
+            // The picture now on screen leaves out the weather that passes behind the player; with the same scene it stays in front meanwhile.
+            _host.KeepWeatherInFront(!newScene);
             apply();
             _done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             _spec = spec;
@@ -253,6 +255,7 @@ internal sealed class ThemeTransitions
             _host.Edge.Visibility = Visibility.Collapsed;
             Empty(_host.Overlay);
             Empty(_host.Underlay);
+            _host.KeepWeatherInFront(false);
             Showing = null;
         }
 

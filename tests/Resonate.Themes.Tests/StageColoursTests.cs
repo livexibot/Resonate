@@ -100,6 +100,48 @@ public sealed class StageColoursTests
         Assert.Equal(StageColours.BurnInShift(3, 6), StageColours.BurnInShift(12, 6));
     }
 
+    [Fact]
+    public void The_stage_follows_the_cover_only_while_the_look_does()
+    {
+        var snow = ThemePresets.Find("snow")!;
+        var palette = ThemePalette.From(snow);
+        IReadOnlyList<ThemeColor> cover = [ThemeColor.FromRgb(0xA03080), ThemeColor.FromRgb(0x7020A0)];
+
+        Assert.False(StageColours.FollowsCover(snow));
+        Assert.True(StageColours.FollowsCover(snow with { AdaptiveAccent = true }));
+        Assert.Equal([palette.Accent.Opaque, palette.Accent2.Opaque], StageColours.Pick(false, cover, palette));
+        Assert.Same(cover, StageColours.Pick(true, cover, palette));
+
+        // Following the cover with none known yet: the look's accents.
+        Assert.Equal([palette.Accent.Opaque, palette.Accent2.Opaque], StageColours.Pick(true, null, palette));
+        Assert.Equal([palette.Accent.Opaque, palette.Accent2.Opaque], StageColours.Pick(true, [], palette));
+    }
+
+    [Theory]
+    [MemberData(nameof(PresetTests.PresetIds), MemberType = typeof(PresetTests))]
+    public void The_looks_own_stage_colours_keep_text_and_bars_readable(string preset)
+    {
+        var palette = ThemePalette.From(ThemePresets.Find(preset)!);
+        var page = palette.Surface.Over(palette.Background).Opaque;
+        foreach (var colour in StageColours.Pick(false, null, palette))
+        {
+            Assert.True(StageColours.Readable(StageColours.ForText(colour, palette), palette));
+            Assert.True(ThemeColor.ContrastRatio(StageColours.ForBars(colour, page), page) >= 3);
+        }
+
+        // The soft field that stands in for the blurred cover: from one accent to the other, readable once made safe.
+        var field = StageColours.LookPicture(palette, Size);
+        Assert.Equal(Size * Size * 4, field.Length);
+        Assert.Equal(palette.Accent.Opaque, new ThemeColor(0xFF, field[2], field[1], field[0]));
+        var last = field.Length - 4;
+        Assert.Equal(palette.Accent2.Opaque, new ThemeColor(0xFF, field[last + 2], field[last + 1], field[last]));
+        StageColours.ForText(field, palette);
+        for (var i = 0; i < field.Length; i += 4)
+        {
+            Assert.True(StageColours.Readable(new ThemeColor(0xFF, field[i + 2], field[i + 1], field[i]), palette));
+        }
+    }
+
     private static byte[] Fill(Func<int, int, ThemeColor> colourAt)
     {
         var pixels = new byte[Size * Size * 4];
