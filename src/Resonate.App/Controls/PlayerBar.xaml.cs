@@ -179,6 +179,7 @@ public sealed partial class PlayerBar : UserControl
         }
 
         ShowSongChange(state);
+        AnimateSongChange(state);
         TitleText.Text = state.Title ?? "Nothing playing";
         ArtistText.Text = state.Artists ?? (state.IsConnected ? string.Empty : "Pick a song to start");
 

@@ -30,6 +30,15 @@ public sealed class AppSettings
     /// <summary>How much the song cover backdrop (Liquid Glass) is blurred, 0 to 100.</summary>
     public int CoverBlur { get; set; } = 60;
 
+    /// <summary>How a page comes in when another opens: Default, Rise, DrillIn, Slide, Fade or None.</summary>
+    public string PageAnimation { get; set; } = "Default";
+
+    /// <summary>How a new song arrives in the player bar: Fade, Slide, Pop or None.</summary>
+    public string SongChangeAnimation { get; set; } = "Slide";
+
+    /// <summary>A glow of the accent around the player, 0 (none) to 100.</summary>
+    public int PlayerGlow { get; set; }
+
     /// <summary>Song lists show each song's cover (Settings, Layout, Song lists).</summary>
     public bool ShowSongCovers { get; set; } = true;
 

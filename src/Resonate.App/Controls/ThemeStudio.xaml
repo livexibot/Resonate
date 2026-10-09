@@ -70,6 +70,45 @@
                         <TextBlock x:Name="CoverBlurText" Style="{StaticResource StudioValueTextStyle}" />
                     </StackPanel>
                 </controls:SettingRow>
+                <controls:SettingRow Header="Player glow">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Slider
+                            x:Name="PlayerGlowSlider"
+                            AutomationProperties.Name="Player glow"
+                            Maximum="100"
+                            Minimum="0"
+                            StepFrequency="1"
+                            Style="{StaticResource StudioSliderStyle}"
+                            ValueChanged="OnPlayerGlowChanged" />
+                        <TextBlock x:Name="PlayerGlowText" Style="{StaticResource StudioValueTextStyle}" />
+                    </StackPanel>
+                </controls:SettingRow>
+                <controls:SettingRow Header="Page animation">
+                    <ComboBox
+                        x:Name="PageAnimationChoice"
+                        MinWidth="170"
+                        AutomationProperties.Name="Page animation"
+                        SelectionChanged="OnAnimationChoiceChanged">
+                        <ComboBoxItem Content="Default" Tag="Default" />
+                        <ComboBoxItem Content="Rise" Tag="Rise" />
+                        <ComboBoxItem Content="Drill in" Tag="DrillIn" />
+                        <ComboBoxItem Content="Slide" Tag="Slide" />
+                        <ComboBoxItem Content="Fade" Tag="Fade" />
+                        <ComboBoxItem Content="None" Tag="None" />
+                    </ComboBox>
+                </controls:SettingRow>
+                <controls:SettingRow Header="Song change">
+                    <ComboBox
+                        x:Name="SongChangeChoice"
+                        MinWidth="170"
+                        AutomationProperties.Name="Song change"
+                        SelectionChanged="OnAnimationChoiceChanged">
+                        <ComboBoxItem Content="Slide" Tag="Slide" />
+                        <ComboBoxItem Content="Pop" Tag="Pop" />
+                        <ComboBoxItem Content="Fade" Tag="Fade" />
+                        <ComboBoxItem Content="None" Tag="None" />
+                    </ComboBox>
+                </controls:SettingRow>
             </StackPanel>
         </controls:SettingsGroup>
 

@@ -104,6 +104,13 @@ public sealed partial class Elevation : ContentControl
 
     private void OnThemeChanged(object? sender, EventArgs e) => UpdateShadow(animate: true);
 
+    /// <summary>The accent's glow around the player (Settings, Themes, Effects, Player glow), stronger and wider as it grows.</summary>
+    private static ShadowSpec PlayerGlow(ThemePalette palette, int strength)
+    {
+        var g = Math.Clamp(strength, 0, 100) / 100.0;
+        return new ShadowSpec(16 + (44 * g), 0, 0, palette.Accent.WithAlpha(0.2 + (0.55 * g)));
+    }
+
     private void UpdateShadow(bool animate)
     {
         if (_shadowHost is null || App.Services is null)
@@ -117,6 +124,7 @@ public sealed partial class Elevation : ContentControl
         {
             ElevationLevel.Panel => palette.PanelShadow,
             ElevationLevel.Item => palette.ItemShadow,
+            ElevationLevel.Player when App.Services.Settings.PlayerGlow > 0 => PlayerGlow(palette, App.Services.Settings.PlayerGlow),
             ElevationLevel.Player when PlayerPlacement.Floats(theme.Current.PlayerLayout) => palette.PanelShadow,
             ElevationLevel.PlayButton => palette.PlayButtonShadow,
             _ => ShadowSpec.None,

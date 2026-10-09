@@ -254,6 +254,11 @@ public sealed partial class ThemeStudio : UserControl
     {
         CoverBlurSlider.Value = _theme.CoverBlur;
         CoverBlurText.Text = $"{_theme.CoverBlur} %";
+        PlayerGlowSlider.Value = _theme.PlayerGlow;
+        PlayerGlowText.Text = $"{_theme.PlayerGlow} %";
+        var settings = App.Services.Settings;
+        Select(PageAnimationChoice, settings.PageAnimation);
+        Select(SongChangeChoice, settings.SongChangeAnimation);
     }
 
     private void ShowSliderValues()
@@ -603,6 +608,37 @@ public sealed partial class ThemeStudio : UserControl
     }
 
     // The cover art settings are not part of a look, so they skip Edit (which would make a custom copy).
+    private void OnPlayerGlowChanged(object sender, RangeBaseValueChangedEventArgs e)
+    {
+        var glow = (int)Math.Round(e.NewValue);
+        PlayerGlowText.Text = $"{glow} %";
+        if (!_loading)
+        {
+            _theme.PlayerGlow = glow;
+        }
+    }
+
+    private void OnAnimationChoiceChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading)
+        {
+            return;
+        }
+
+        var settings = App.Services.Settings;
+        if (PageAnimationChoice.SelectedItem is ComboBoxItem { Tag: string page })
+        {
+            settings.PageAnimation = page;
+        }
+
+        if (SongChangeChoice.SelectedItem is ComboBoxItem { Tag: string song })
+        {
+            settings.SongChangeAnimation = song;
+        }
+
+        App.Services.SaveSettings();
+    }
+
     private void OnCoverBlurChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
         var blur = (int)Math.Round(e.NewValue);
