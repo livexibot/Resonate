@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/livexibot/Resonate/compare/v0.11.0...v0.12.0) (2026-10-09)
+
+
+### New features
+
+* lighter while playing, visualizer styles, tray icon, Velvet theme ([#54](https://github.com/livexibot/Resonate/issues/54)) ([bae9ae8](https://github.com/livexibot/Resonate/commit/bae9ae85ba03174a5b31d4449d45e8d8354f5d4d))
+
 ## [0.11.0](https://github.com/livexibot/Resonate/compare/v0.10.1...v0.11.0) (2026-10-09)
 
 
