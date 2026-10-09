@@ -458,10 +458,14 @@ internal sealed partial class StageVisualizer : Grid
             hasRoom = height >= MinRoom;
         }
 
-        // The user's width, centred, inside the stage's rounded corners.
+        // The user's width, centred and moved by the user's X and Y, inside the stage's rounded corners.
         var size = DrawSize();
-        var offset = (_size.X - size.X) / 2;
-        _root.Offset = new Vector3(offset, 0, 0);
+        var placing = App.Services.Settings;
+        var moved = new Vector2(
+            InBar ? placing.PlayerVisualizerX : placing.HomeStageX,
+            InBar ? placing.PlayerVisualizerY : placing.HomeStageY);
+        var offset = new Vector2((_size.X - size.X) / 2, 0) + moved;
+        _root.Offset = new Vector3(offset, 0);
         ClipToCorners(offset);
         _root.IsVisible = hasRoom;
         if (hasRoom)
@@ -477,7 +481,7 @@ internal sealed partial class StageVisualizer : Grid
     }
 
     /// <summary>Clips a drawing along the bottom to the stage's rounded corners; one around the cover reaches past its box, so it is never clipped.</summary>
-    private void ClipToCorners(float offset)
+    private void ClipToCorners(Vector2 offset)
     {
         if (_clipCorner <= 0 || InBar || _drawing.AroundCover)
         {
@@ -496,7 +500,7 @@ internal sealed partial class StageVisualizer : Grid
         }
 
         // The root is moved by the offset; the clip stays on the stage.
-        _clipShape.Offset = new Vector2(-offset, 0);
+        _clipShape.Offset = -offset;
         _clipShape.Size = _size;
         _clipShape.CornerRadius = new Vector2(_clipCorner);
     }

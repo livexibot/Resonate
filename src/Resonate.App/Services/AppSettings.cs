@@ -271,6 +271,12 @@ public sealed class AppSettings
     /// <summary>The most Home's visualizer may grow, in pixels, 40 to 600.</summary>
     public int HomeStageMaxHeight { get; set; } = 280;
 
+    /// <summary>How far Home's visualizer is moved right (negative: left), in pixels.</summary>
+    public int HomeStageX { get; set; }
+
+    /// <summary>How far Home's visualizer is moved down (negative: up), in pixels.</summary>
+    public int HomeStageY { get; set; }
+
     /// <summary>How smoothly the bars rise and fall, 0 (snappy) to 100 (soft).</summary>
     public int HomeStageSmoothing { get; set; } = 60;
 
@@ -283,6 +289,10 @@ public sealed class AppSettings
     public int PlayerVisualizerAmount { get; set; } = 64;
 
     public int PlayerVisualizerSize { get; set; } = 56;
+
+    public int PlayerVisualizerX { get; set; }
+
+    public int PlayerVisualizerY { get; set; }
 
     // Away screen
 

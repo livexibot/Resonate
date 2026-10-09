@@ -113,7 +113,9 @@ visitors; keep it short and in step with this file.
   visualizer has its own Sensitivity, Smoothing, Amount and Size
   (`PlayerVisualizer*` settings), so Settings, Player has a Home
   visualizer group and a Player visualizer group; Listen to Spotify,
-  shared by both, sits under Home's.
+  shared by both, sits under Home's. Both have X and Y under Advanced
+  (`HomeStageX`/`Y`, `PlayerVisualizerX`/`Y`, pixels), which move the
+  drawing while the clip stays on the stage.
 - Playback (9 October 2026): Spotify's media session can be there with
   nothing in it (Spotify just started hidden, or it went blank), and
   Spotify takes a local Play then and does nothing. The player now keeps

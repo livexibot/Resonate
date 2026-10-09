@@ -19,8 +19,8 @@ internal static class StageSettings
     /// Home's visualizer (Settings, Player, Home visualizer): how it follows
     /// the music, how many of its parts there are and how large (Amount and
     /// Size mean bars, dots, sparks, columns or rings, whatever the style),
-    /// whether the visualizers hear Spotify, and its width and height under
-    /// Advanced.
+    /// whether the visualizers hear Spotify, and its width, height and place
+    /// under Advanced.
     /// </summary>
     public static IEnumerable<FrameworkElement> HomeVisualizer(AppServices services)
     {
@@ -41,27 +41,16 @@ internal static class StageSettings
                     services.Visualiser.ListensToSpotify = on;
                 },
                 services),
-            new Expander
-            {
-                Header = "Advanced",
-                IsExpanded = false,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                Content = new StackPanel
-                {
-                    Spacing = 6,
-                    Children =
-                    {
-                        Slider("Width", 20, 100, () => settings.HomeStageWidth, v => settings.HomeStageWidth = v, "%", services),
-                        Slider("Height", 10, 60, () => settings.HomeStageHeight, v => settings.HomeStageHeight = v, "%", services),
-                        Slider("Max height", 40, 600, () => settings.HomeStageMaxHeight, v => settings.HomeStageMaxHeight = v, "px", services),
-                    },
-                },
-            },
+            Advanced(
+                Slider("Width", 20, 100, () => settings.HomeStageWidth, v => settings.HomeStageWidth = v, "%", services),
+                Slider("Height", 10, 60, () => settings.HomeStageHeight, v => settings.HomeStageHeight = v, "%", services),
+                Slider("Max height", 40, 600, () => settings.HomeStageMaxHeight, v => settings.HomeStageMaxHeight = v, "px", services),
+                Slider("X", -800, 800, () => settings.HomeStageX, v => settings.HomeStageX = v, "px", services),
+                Slider("Y", -400, 400, () => settings.HomeStageY, v => settings.HomeStageY = v, "px", services)),
         ];
     }
 
-    /// <summary>The player bar's visualizer (Settings, Player, Player visualizer): its own Sensitivity, Smoothing, Amount and Size.</summary>
+    /// <summary>The player bar's visualizer (Settings, Player, Player visualizer): its own Sensitivity, Smoothing, Amount and Size, and X and Y under Advanced.</summary>
     public static IEnumerable<FrameworkElement> PlayerVisualizer(AppServices services)
     {
         var settings = services.Settings;
@@ -71,7 +60,29 @@ internal static class StageSettings
             Slider("Smoothing", 0, 100, () => settings.PlayerVisualizerSmoothing, v => settings.PlayerVisualizerSmoothing = v, "%", services),
             Slider("Amount", 16, 96, () => settings.PlayerVisualizerAmount, v => settings.PlayerVisualizerAmount = v, string.Empty, services),
             Slider("Size", 20, 90, () => settings.PlayerVisualizerSize, v => settings.PlayerVisualizerSize = v, "%", services),
+            Advanced(
+                Slider("X", -800, 800, () => settings.PlayerVisualizerX, v => settings.PlayerVisualizerX = v, "px", services),
+                Slider("Y", -100, 100, () => settings.PlayerVisualizerY, v => settings.PlayerVisualizerY = v, "px", services)),
         ];
+    }
+
+    /// <summary>A folded "Advanced" section holding <paramref name="rows"/>.</summary>
+    private static Expander Advanced(params FrameworkElement[] rows)
+    {
+        var panel = new StackPanel { Spacing = 6 };
+        foreach (var row in rows)
+        {
+            panel.Children.Add(row);
+        }
+
+        return new Expander
+        {
+            Header = "Advanced",
+            IsExpanded = false,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Content = panel,
+        };
     }
 
     /// <summary>The Home stage's background: the blurred cover behind the clouds (Settings, Layout, Pages).</summary>
