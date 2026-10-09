@@ -82,9 +82,28 @@ public sealed partial class SearchPage : Page
         // Setting the text before the page is shown does not always raise
         // TextChanged, so search for it here.
         _ = SearchAsync(query, TimeSpan.Zero);
+        TrackColumns.OptionsChanged += OnColumnOptionsChanged;
     }
 
-    protected override void OnNavigatedFrom(NavigationEventArgs e) => _search?.Cancel();
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        _search?.Cancel();
+        TrackColumns.OptionsChanged -= OnColumnOptionsChanged;
+    }
+
+    /// <summary>Cover size changed in Settings: the songs and recently viewed take it at once.</summary>
+    private void OnColumnOptionsChanged(object? sender, EventArgs e)
+    {
+        foreach (var row in _allSongs)
+        {
+            row.RefreshCover();
+        }
+
+        if (RecentSection.Visibility == Visibility.Visible)
+        {
+            ShowRecent(true);
+        }
+    }
 
     private void OnQueryChanged(object sender, TextChangedEventArgs e)
     {
@@ -283,7 +302,7 @@ public sealed partial class SearchPage : Page
                 break;
             case RecentSearchKind.Song:
                 var row = _allSongs[0];
-                image = row.Track.LargeImageUrl ?? row.Track.SmallImageUrl;
+                image = CoverImages.UrlFor(row.Track, 104);
                 TopTitle.Text = row.Track.Title;
                 TopKind.Text = "Song · " + row.Track.Artists;
                 _openTop = () => Play(row);

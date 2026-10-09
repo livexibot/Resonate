@@ -215,13 +215,13 @@
         <!-- A song played lately, with when; a click plays it. -->
         <DataTemplate x:Key="RecentCardTemplate" x:DataType="vm:RecentCard">
             <controls:HoverLift
-                Width="140"
+                Width="{x:Bind CardSize}"
                 Padding="0,0,0,8"
                 ToolTipService.ToolTip="{x:Bind Tooltip}">
                 <StackPanel Spacing="2">
                     <Grid
-                        Width="140"
-                        Height="140"
+                        Width="{x:Bind CardSize}"
+                        Height="{x:Bind CardSize}"
                         Margin="0,0,0,8"
                         Background="{x:Bind Cover.Background, Mode=OneWay}"
                         CornerRadius="{ThemeResource ResonateCornerMedium}">
@@ -240,7 +240,7 @@
                 <controls:HoverReveal
                     Width="40"
                     Height="40"
-                    Margin="0,92,8,0"
+                    Margin="{x:Bind PlayMargin}"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
                     Background="{StaticResource ResonateAccentBrush}"
@@ -323,13 +323,13 @@
         <!-- One of the top songs on Spotify: a large rank, the cover, title and artists. A click plays the list from it. -->
         <DataTemplate x:Key="TopSongTemplate" x:DataType="vm:TopSongRow">
             <Grid
-                Height="64"
+                Height="{x:Bind RowHeight}"
                 Padding="4,0,8,0"
                 Background="{StaticResource ResonateTransparentBrush}"
                 ColumnSpacing="14">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="48" />
+                    <ColumnDefinition Width="{x:Bind CoverColumn}" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock
@@ -354,8 +354,8 @@
                     Visibility="{x:Bind OtherVisibility}" />
                 <Grid
                     Grid.Column="1"
-                    Width="48"
-                    Height="48"
+                    Width="{x:Bind CoverSize}"
+                    Height="{x:Bind CoverSize}"
                     Background="{x:Bind Cover.Background, Mode=OneWay}"
                     CornerRadius="{ThemeResource ResonateCornerSmall}">
                     <Image Source="{x:Bind Cover.Image}" Stretch="UniformToFill" />

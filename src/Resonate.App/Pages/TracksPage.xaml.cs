@@ -28,7 +28,6 @@ public sealed partial class TracksPage : Page
     private const double CompactWidth = 600;
     private const int CoverSize = 232;
     private const int CompactCoverSize = 128;
-    private const double RowHeight = 56;
 
     /// <summary>The longest the songs wait for their covers, so a list opened again shows both at once.</summary>
     private static readonly TimeSpan CoverWait = TimeSpan.FromMilliseconds(150);
@@ -121,6 +120,7 @@ public sealed partial class TracksPage : Page
         foreach (var row in _rows)
         {
             row.RefreshStats();
+            row.RefreshCover();
         }
     }
 
@@ -240,15 +240,18 @@ public sealed partial class TracksPage : Page
             return;
         }
 
-        var count = TrackList.ActualHeight > 0 ? (int)Math.Ceiling(TrackList.ActualHeight / RowHeight) + 1 : 24;
+        var count = TrackList.ActualHeight > 0 ? (int)Math.Ceiling(TrackList.ActualHeight / _columns.RowHeight) + 1 : 24;
         var (sort, filter) = (_sort, _filter);
         var first = InOwnOrder
             ? tracks.Take(count).ToList()
             : await Task.Run(() => TrackSorter.Apply(tracks.Where(t => TrackSorter.Matches(t, filter)), sort).Take(count).ToList(), token);
 
+        var width = TrackRow.CoverWidth;
         var covers = first
-            .Where(t => t.FilePath is null && t.SmallImageUrl is not null)
-            .Select(t => _services.Covers.GetReadyAsync(t.SmallImageUrl, TrackRow.CoverWidth))
+            .Where(t => t.FilePath is null)
+            .Select(t => CoverImages.UrlFor(t, width))
+            .Where(url => url is not null)
+            .Select(url => _services.Covers.GetReadyAsync(url, width))
             .ToList();
         if (covers.Count > 0)
         {

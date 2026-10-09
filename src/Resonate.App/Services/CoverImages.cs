@@ -103,6 +103,14 @@ public sealed class CoverImages
     /// <summary>The width to decode a cover shown <paramref name="displayWidth"/> wide at, at the user's App size.</summary>
     public static int DecodeWidth(int displayWidth) => (int)Math.Ceiling(displayWidth * Scale * DisplayScale);
 
+    /// <summary>
+    /// The address of <paramref name="track"/>'s cover shown
+    /// <paramref name="displayWidth"/> wide: Spotify's 64 px picture only
+    /// while that covers the screen pixels, else its 300 or 640 px one, so a
+    /// larger Cover size stays sharp (the owner found it soft, 9 October 2026).
+    /// </summary>
+    public static string? UrlFor(TrackInfo track, int displayWidth) => track.ImageFor(DecodeWidth(displayWidth));
+
     private Entry? Find(string? url, int displayWidth)
     {
         if (string.IsNullOrEmpty(url) || !Uri.TryCreate(url, UriKind.Absolute, out var uri))

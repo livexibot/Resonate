@@ -64,6 +64,17 @@ public sealed partial class AppScaleTests
     public void The_smallest_window_grows_with_the_app_size_within_the_screen(int minimum, int percent, int available, int expected) =>
         Assert.Equal(expected, AppScale.MinimumWindow(minimum, percent, available));
 
+    [Theory]
+    [InlineData(75, 30, 56)]
+    [InlineData(100, 40, 56)]
+    [InlineData(150, 60, 76)]
+    [InlineData(200, 80, 96)]
+    public void Larger_covers_keep_their_room_in_the_row(int percent, int cover, double row)
+    {
+        Assert.Equal(cover, AppScale.Cover(40, percent));
+        Assert.Equal(row, AppScale.CoverRow(56, 40, AppScale.Cover(40, percent)));
+    }
+
     [Fact]
     public void Labels_are_whole_percentages() => Assert.Equal("125%", AppScale.Label(125));
 

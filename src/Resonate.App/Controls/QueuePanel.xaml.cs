@@ -86,6 +86,12 @@ public sealed partial class QueuePanel : UserControl
         player.StateChanged += OnStateChanged;
         player.QueueChanged += OnQueueChanged;
 
+        // Settings (which shares this column) may have changed Cover size meanwhile.
+        foreach (var row in _rows)
+        {
+            row.RefreshCover();
+        }
+
         _queueKey = null;
         Show(player.State, player.ActiveSource);
         _ = RefreshAsync();

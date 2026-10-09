@@ -28,6 +28,16 @@ public static class AppScale
     /// <summary>A cover usually <paramref name="usual"/> pixels wide at <paramref name="percent"/> Cover size, on a step.</summary>
     public static int Cover(int usual, int percent) => (int)Math.Round(usual * Nearest(percent, CoverSizes) / 100.0);
 
+    /// <summary>
+    /// A row that is usually <paramref name="usualRow"/> tall around a cover
+    /// usually <paramref name="usualCover"/> wide, holding a cover
+    /// <paramref name="cover"/> wide: it keeps the same room above and below
+    /// a larger cover, so covers never touch from row to row, and never gets
+    /// shorter than usual (the text still needs it).
+    /// </summary>
+    public static double CoverRow(double usualRow, double usualCover, double cover) =>
+        Math.Max(usualRow, cover + (usualRow - usualCover));
+
     /// <summary>The steps Text size offers, smallest first.</summary>
     public static IReadOnlyList<int> TextSizes { get; } = [75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 135, 150, 175, 200];
 

@@ -63,7 +63,6 @@ public sealed partial class HomePage : Page
     // that show only the cards that fit (a little more than the grid's own
     // gap, so a card never wraps onto a second row).
     private const double MixPitch = 176 + 8;
-    private const double RecentPitch = 140 + 8;
 
     private const string SunGlyph = "";
     private const string MoonGlyph = "";
@@ -81,6 +80,7 @@ public sealed partial class HomePage : Page
     private CancellationTokenSource _leaving = new();
     private HomeContent? _shownContent;
     private PlayRecord? _shownNewest;
+    private int _coverSizeShown;
     private PlayRecord? _lastPlay;
 
     // Whether the history has been shown, so _lastPlay is known.
@@ -178,6 +178,8 @@ public sealed partial class HomePage : Page
         _services.Home.History.Changed += OnHomeChanged;
         _services.Player.StateChanged += OnPlayerChanged;
         _services.Theme.Changed += OnThemeChanged;
+        _coverSizeShown = AppScale.Nearest(_services.Settings.CoverSize, AppScale.CoverSizes);
+        TrackColumns.OptionsChanged += OnCoverOptionsChanged;
         OnStageNavigatedTo();
         OnRediscoverNavigatedTo();
         _ = LoadAsync();
@@ -189,9 +191,26 @@ public sealed partial class HomePage : Page
         _services.Home.History.Changed -= OnHomeChanged;
         _services.Player.StateChanged -= OnPlayerChanged;
         _services.Theme.Changed -= OnThemeChanged;
+        TrackColumns.OptionsChanged -= OnCoverOptionsChanged;
         OnStageNavigatedFrom();
         OnRediscoverNavigatedFrom();
         _leaving.Cancel();
+    }
+
+    /// <summary>Cover size changed in Settings (open beside Home): the top songs and recently played are made again at the new size.</summary>
+    private void OnCoverOptionsChanged(object? sender, EventArgs e)
+    {
+        // Every song list option comes here; only a new Cover size touches Home.
+        var size = AppScale.Nearest(_services.Settings.CoverSize, AppScale.CoverSizes);
+        if (size == _coverSizeShown)
+        {
+            return;
+        }
+
+        _coverSizeShown = size;
+        _shownTop = null;
+        _shownNewest = null;
+        Show();
     }
 
     // The built-in plugins on Home (see BuiltInPlugins), each in its own HomePage.<Name>.cs.
@@ -408,7 +427,7 @@ public sealed partial class HomePage : Page
         MixesMoreButton.Visibility = _allMixes.Count > mixesFit ? Visibility.Visible : Visibility.Collapsed;
         MixesMoreButton.Content = _mixesExpanded ? "Show less" : "Show all";
 
-        var recentFit = Fitting(RecentPitch);
+        var recentFit = Fitting(RecentCard.CoverSize + 8);
         ShowFirst(Recent, _allRecent, _recentExpanded ? _allRecent.Count : recentFit);
         RecentMoreButton.Visibility = _allRecent.Count > recentFit ? Visibility.Visible : Visibility.Collapsed;
         RecentMoreButton.Content = _recentExpanded ? "Show less" : "Show all";
