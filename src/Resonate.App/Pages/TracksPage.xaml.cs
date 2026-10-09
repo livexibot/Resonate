@@ -107,9 +107,21 @@ public sealed partial class TracksPage : Page
         _services.Player.StateChanged += OnPlayerStateChanged;
         _services.Likes.Changed += OnLikesChanged;
         _services.Theme.SizeChanged += OnTextSizeChanged;
+        TrackColumns.OptionsChanged += OnColumnOptionsChanged;
         _source.Attach(OnSourceChanged);
         _hero.Attach();
         _ = LoadAsync();
+    }
+
+    /// <summary>Settings, Layout, Song lists changed: covers and columns follow at once.</summary>
+    private void OnColumnOptionsChanged(object? sender, EventArgs e)
+    {
+        _columns.Reload();
+        FitToWidth(TrackList.ActualWidth > 0 ? TrackList.ActualWidth : double.PositiveInfinity);
+        foreach (var row in _rows)
+        {
+            row.RefreshStats();
+        }
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -118,6 +130,7 @@ public sealed partial class TracksPage : Page
         _services.Player.StateChanged -= OnPlayerStateChanged;
         _services.Likes.Changed -= OnLikesChanged;
         _services.Theme.SizeChanged -= OnTextSizeChanged;
+        TrackColumns.OptionsChanged -= OnColumnOptionsChanged;
         _filterTimer.Stop();
         _filterTimer.Tick -= OnFilterTick;
         _hero.Detach();

@@ -166,7 +166,7 @@ public static class ThemePresets
         PlayButton = PlayButtonStyle.Outline,
         Cover = CoverStyle.Vinyl,
         PlayerGlow = 0.6,
-        StageVisualizer = VisualizerStyle.Bars,
+        StageVisualizer = VisualizerStyle.Radial,
         PlayerVisualizer = VisualizerStyle.Lines,
     };
 
@@ -274,7 +274,7 @@ public static class ThemePresets
         Progress = ProgressStyle.Gradient,
         Cover = CoverStyle.Vinyl,
         PlayerGlow = 0.2,
-        StageVisualizer = VisualizerStyle.Dots,
+        StageVisualizer = VisualizerStyle.Pulse,
         PlayerVisualizer = VisualizerStyle.Dots,
     };
 
@@ -304,8 +304,8 @@ public static class ThemePresets
         PlayButton = PlayButtonStyle.Outline,
         Cover = CoverStyle.Square,
         PlayerGlow = 0.35,
-        StageVisualizer = VisualizerStyle.Bars,
-        PlayerVisualizer = VisualizerStyle.Bars,
+        StageVisualizer = VisualizerStyle.Retro,
+        PlayerVisualizer = VisualizerStyle.Retro,
     };
 
     /// <summary>A late-night listening room: deep burgundy velvet, gold light, serif titles and the record turning.</summary>
@@ -337,7 +337,7 @@ public static class ThemePresets
         PlayButton = PlayButtonStyle.Filled,
         Cover = CoverStyle.Vinyl,
         PlayerGlow = 0.35,
-        StageVisualizer = VisualizerStyle.Mirror,
+        StageVisualizer = VisualizerStyle.Embers,
         PlayerVisualizer = VisualizerStyle.Lines,
     };
     /// <summary>Calm green-grey paper tones with a deep green accent.</summary>
@@ -361,7 +361,7 @@ public static class ThemePresets
         TextFont = "Figtree",
         PlayerLayout = PlayerLayout.Docked,
         Progress = ProgressStyle.Bold,
-        StageVisualizer = VisualizerStyle.Lines,
+        StageVisualizer = VisualizerStyle.Wave,
     };
 
     /// <summary>True black with northern-lights accents: teal and violet glows and a hovering pill.</summary>
@@ -388,8 +388,8 @@ public static class ThemePresets
         Progress = ProgressStyle.Gradient,
         Cover = CoverStyle.Vinyl,
         PlayerGlow = 0.5,
-        StageVisualizer = VisualizerStyle.Mirror,
-        PlayerVisualizer = VisualizerStyle.Mirror,
+        StageVisualizer = VisualizerStyle.Helix,
+        PlayerVisualizer = VisualizerStyle.Wave,
     };
 
     /// <summary>Dark looks, the default first.</summary>

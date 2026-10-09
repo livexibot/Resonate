@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The Themes tab of Settings: the presets, the user's own looks, the
-  effects and a customizer for everything a look sets, each in a section
-  that folds away. Changes show at once; see ThemeStudio.xaml.cs.
+  The Themes tab of Settings: the presets, the user's own looks and a
+  customizer for a look's colours, background, shape and fonts, each in a
+  section that folds away (the player's part of a look is under Settings,
+  Player). Changes show at once; see ThemeStudio.xaml.cs.
 -->
 <UserControl
     x:Class="Resonate.App.Controls.ThemeStudio"
@@ -52,52 +53,6 @@
                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
                 ScrollViewer.VerticalScrollMode="Disabled"
                 SelectionMode="Single" />
-        </controls:SettingsGroup>
-
-        <!-- Effects: the user's own choices, kept whatever look is in use (not part of a look) -->
-        <controls:SettingsGroup StartsCollapsed="True" Header="Effects">
-            <StackPanel Spacing="6">
-                <controls:SettingRow Header="Cover blur">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Slider
-                            x:Name="CoverBlurSlider"
-                            AutomationProperties.Name="Cover blur"
-                            Maximum="100"
-                            Minimum="0"
-                            StepFrequency="1"
-                            Style="{StaticResource StudioSliderStyle}"
-                            ValueChanged="OnCoverBlurChanged" />
-                        <TextBlock x:Name="CoverBlurText" Style="{StaticResource StudioValueTextStyle}" />
-                    </StackPanel>
-                </controls:SettingRow>
-
-                <controls:SettingRow Header="Page animation">
-                    <ComboBox
-                        x:Name="PageAnimationChoice"
-                        MinWidth="170"
-                        AutomationProperties.Name="Page animation"
-                        SelectionChanged="OnAnimationChoiceChanged">
-                        <ComboBoxItem Content="Default" Tag="Default" />
-                        <ComboBoxItem Content="Rise" Tag="Rise" />
-                        <ComboBoxItem Content="Drill in" Tag="DrillIn" />
-                        <ComboBoxItem Content="Slide" Tag="Slide" />
-                        <ComboBoxItem Content="Fade" Tag="Fade" />
-                        <ComboBoxItem Content="None" Tag="None" />
-                    </ComboBox>
-                </controls:SettingRow>
-                <controls:SettingRow Header="Song change">
-                    <ComboBox
-                        x:Name="SongChangeChoice"
-                        MinWidth="170"
-                        AutomationProperties.Name="Song change"
-                        SelectionChanged="OnAnimationChoiceChanged">
-                        <ComboBoxItem Content="Slide" Tag="Slide" />
-                        <ComboBoxItem Content="Pop" Tag="Pop" />
-                        <ComboBoxItem Content="Fade" Tag="Fade" />
-                        <ComboBoxItem Content="None" Tag="None" />
-                    </ComboBox>
-                </controls:SettingRow>
-            </StackPanel>
         </controls:SettingsGroup>
 
         <controls:SettingsGroup x:Name="CustomizeGroup" StartsCollapsed="True" Header="Customize">
@@ -155,6 +110,19 @@
                         <ComboBoxItem Content="Acrylic (Windows)" Tag="Acrylic" />
                     </ComboBox>
                 </controls:SettingRow>
+                <controls:SettingRow Header="Cover blur">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Slider
+                            x:Name="CoverBlurSlider"
+                            AutomationProperties.Name="Cover blur"
+                            Maximum="100"
+                            Minimum="0"
+                            StepFrequency="1"
+                            Style="{StaticResource StudioSliderStyle}"
+                            ValueChanged="OnCoverBlurChanged" />
+                        <TextBlock x:Name="CoverBlurText" Style="{StaticResource StudioValueTextStyle}" />
+                    </StackPanel>
+                </controls:SettingRow>
                 <controls:SettingRow
                     x:Name="GradientAngleRow"
                     Header="Gradient angle">
@@ -193,18 +161,6 @@
                             Style="{StaticResource StudioSliderStyle}"
                             ValueChanged="OnSliderChanged" />
                         <TextBlock x:Name="PanelOpacityText" Style="{StaticResource StudioValueTextStyle}" />
-                    </StackPanel>
-                </controls:SettingRow>                <controls:SettingRow Header="Player glow">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Slider
-                            x:Name="PlayerGlowSlider"
-                            AutomationProperties.Name="Player glow"
-                            Maximum="100"
-                            Minimum="0"
-                            StepFrequency="1"
-                            Style="{StaticResource StudioSliderStyle}"
-                            ValueChanged="OnSliderChanged" />
-                        <TextBlock x:Name="PlayerGlowText" Style="{StaticResource StudioValueTextStyle}" />
                     </StackPanel>
                 </controls:SettingRow>
 
@@ -286,76 +242,6 @@
                         SelectionChanged="OnFontChanged"
                         Style="{StaticResource StudioComboStyle}"
                         TextSubmitted="OnFontTextSubmitted" />
-                </controls:SettingRow>
-
-                <!-- Player -->
-                <TextBlock Style="{StaticResource StudioSectionTextStyle}" Text="PLAYER" />
-                <controls:SettingRow Header="Progress bar">
-                    <StackPanel Spacing="10">
-                        <ComboBox
-                            x:Name="ProgressChoice"
-                            SelectionChanged="OnChoiceChanged"
-                            Style="{StaticResource StudioComboStyle}">
-                            <ComboBoxItem Content="Line" Tag="Line" />
-                            <ComboBoxItem Content="Bold" Tag="Bold" />
-                            <ComboBoxItem Content="Gradient" Tag="Gradient" />
-                            <ComboBoxItem Content="Wave" Tag="Wave" />
-                            <ComboBoxItem Content="Hairline" Tag="Minimal" />
-                        </ComboBox>
-                        <controls:SeekBar
-                            x:Name="ProgressPreview"
-                            AutomationProperties.Name="Progress bar preview"
-                            IsAdvancing="True"
-                            IsHitTestVisible="False"
-                            IsTabStop="False"
-                            Maximum="600"
-                            Value="240" />
-                    </StackPanel>
-                </controls:SettingRow>
-                <controls:SettingRow Header="Home visualizer">
-                    <ComboBox
-                        x:Name="StageVisualizerChoice"
-                        AutomationProperties.Name="Home visualizer"
-                        SelectionChanged="OnChoiceChanged"
-                        Style="{StaticResource StudioComboStyle}">
-                        <ComboBoxItem Content="Bars" Tag="Bars" />
-                        <ComboBoxItem Content="Mirror" Tag="Mirror" />
-                        <ComboBoxItem Content="Dots" Tag="Dots" />
-                        <ComboBoxItem Content="Lines" Tag="Lines" />
-                    </ComboBox>
-                </controls:SettingRow>
-                <controls:SettingRow Header="Player visualizer">
-                    <ComboBox
-                        x:Name="PlayerVisualizerChoice"
-                        AutomationProperties.Name="Player visualizer"
-                        SelectionChanged="OnChoiceChanged"
-                        Style="{StaticResource StudioComboStyle}">
-                        <ComboBoxItem Content="Off" Tag="Off" />
-                        <ComboBoxItem Content="Bars" Tag="Bars" />
-                        <ComboBoxItem Content="Mirror" Tag="Mirror" />
-                        <ComboBoxItem Content="Dots" Tag="Dots" />
-                        <ComboBoxItem Content="Lines" Tag="Lines" />
-                    </ComboBox>
-                </controls:SettingRow>
-                <controls:SettingRow Header="Play button">
-                    <ComboBox
-                        x:Name="PlayButtonChoice"
-                        SelectionChanged="OnChoiceChanged"
-                        Style="{StaticResource StudioComboStyle}">
-                        <ComboBoxItem Content="Filled" Tag="Filled" />
-                        <ComboBoxItem Content="Outline" Tag="Outline" />
-                        <ComboBoxItem Content="Symbol only" Tag="Plain" />
-                    </ComboBox>
-                </controls:SettingRow>
-                <controls:SettingRow Header="Cover">
-                    <ComboBox
-                        x:Name="CoverChoice"
-                        SelectionChanged="OnChoiceChanged"
-                        Style="{StaticResource StudioComboStyle}">
-                        <ComboBoxItem Content="Rounded" Tag="Rounded" />
-                        <ComboBoxItem Content="Square" Tag="Square" />
-                        <ComboBoxItem Content="Vinyl" Tag="Vinyl" />
-                    </ComboBox>
                 </controls:SettingRow>
 
                 <!-- Keeping and sharing -->

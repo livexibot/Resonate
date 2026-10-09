@@ -118,6 +118,24 @@ public enum VisualizerStyle
 
     /// <summary>No visualizer (for the player bar).</summary>
     Off,
+
+    /// <summary>A hi-fi meter: columns of lit segments, with peaks that fall back slowly.</summary>
+    Retro,
+
+    /// <summary>A wave of dots travelling across, as tall as the music is loud.</summary>
+    Wave,
+
+    /// <summary>Two strands of dots twisting around each other.</summary>
+    Helix,
+
+    /// <summary>Bars around the cover, the lows at the bottom (Home only).</summary>
+    Radial,
+
+    /// <summary>Rings around the cover that swell with the lows, mids and highs, over a glow (Home only).</summary>
+    Pulse,
+
+    /// <summary>Sparks drifting upwards, brighter and larger as their band gets louder.</summary>
+    Embers,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<ProgressStyle>))]
@@ -320,7 +338,7 @@ public sealed record ThemeDefinition
         PlayerLayout = Enum.IsDefined(PlayerLayout) ? PlayerLayout : PlayerLayout.Docked,
         PlayerGlow = double.IsFinite(PlayerGlow) ? Math.Clamp(PlayerGlow, 0, 1) : 0,
         StageVisualizer = Enum.IsDefined(StageVisualizer) && StageVisualizer != VisualizerStyle.Off ? StageVisualizer : VisualizerStyle.Bars,
-        PlayerVisualizer = Enum.IsDefined(PlayerVisualizer) ? PlayerVisualizer : VisualizerStyle.Off,
+        PlayerVisualizer = Enum.IsDefined(PlayerVisualizer) && VisualizerShapes.FitsPlayerBar(PlayerVisualizer) ? PlayerVisualizer : VisualizerStyle.Off,
         Progress = Enum.IsDefined(Progress) ? Progress : ProgressStyle.Line,
         PlayButton = Enum.IsDefined(PlayButton) ? PlayButton : PlayButtonStyle.Filled,
         Cover = Enum.IsDefined(Cover) ? Cover : CoverStyle.Rounded,

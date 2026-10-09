@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The Layout tab of Settings: where the player sits, which links and
-  buttons show, and how large everything is drawn. See LayoutSettings.xaml.cs.
+  The Layout tab of Settings: how pages open, which links and buttons
+  show, what song lists show, and how large everything is drawn. See
+  LayoutSettings.xaml.cs.
 -->
 <UserControl
     x:Class="Resonate.App.Controls.LayoutSettings"
@@ -10,92 +11,30 @@
     xmlns:controls="using:Resonate.App.Controls">
 
     <StackPanel x:Name="Sections" Spacing="20">
-        <!-- The player -->
-        <controls:SettingsGroup Header="Player">
+        <!-- How pages open, and Home's background -->
+        <controls:SettingsGroup Header="Pages">
+            <StackPanel x:Name="PagesRows" Spacing="6">
+                <controls:SettingRow Header="Page animation">
+                    <ComboBox
+                        x:Name="PageAnimationChoice"
+                        MinWidth="170"
+                        AutomationProperties.Name="Page animation"
+                        SelectionChanged="OnPageAnimationChanged">
+                        <ComboBoxItem Content="Default" Tag="Default" />
+                        <ComboBoxItem Content="Rise" Tag="Rise" />
+                        <ComboBoxItem Content="Drill in" Tag="DrillIn" />
+                        <ComboBoxItem Content="Slide" Tag="Slide" />
+                        <ComboBoxItem Content="Fade" Tag="Fade" />
+                        <ComboBoxItem Content="None" Tag="None" />
+                    </ComboBox>
+                </controls:SettingRow>
+            </StackPanel>
+        </controls:SettingsGroup>
+
+        <!-- Links in the sidebar and buttons in the title bar (Home and Settings always show) -->
+        <controls:SettingsGroup Header="Sidebar and buttons">
             <StackPanel Spacing="6">
-                <controls:SettingRow Description="Kept with the look." Header="Placement">
-                    <ComboBox
-                        x:Name="PlayerEdgeChoice"
-                        MinWidth="170"
-                        AutomationProperties.Name="Player placement"
-                        SelectionChanged="OnPlayerLayoutChanged">
-                        <ComboBoxItem Content="Top" Tag="Top" />
-                        <ComboBoxItem Content="Bottom" Tag="Bottom" />
-                        <ComboBoxItem Content="Left" Tag="Left" />
-                        <ComboBoxItem Content="Right" Tag="Right" />
-                    </ComboBox>
-                </controls:SettingRow>
-                <controls:SettingRow Description="Floating sits over the page; move it anywhere under Advanced." Header="Player type">
-                    <ComboBox
-                        x:Name="PlayerTypeChoice"
-                        MinWidth="170"
-                        AutomationProperties.Name="Player type"
-                        SelectionChanged="OnPlayerLayoutChanged">
-                        <ComboBoxItem Content="Docked" Tag="Docked" />
-                        <ComboBoxItem Content="Inset" Tag="Inset" />
-                        <ComboBoxItem Content="Floating" Tag="Floating" />
-                    </ComboBox>
-                </controls:SettingRow>
-                <Expander
-                    x:Name="PlayerAdvancedExpander"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Stretch"
-                    Header="Advanced"
-                    IsExpanded="False">
-                    <StackPanel Spacing="6">
-                        <controls:SettingRow Description="Empty for automatic." Header="Width">
-                            <NumberBox
-                                x:Name="PlayerWidthBox"
-                                MinWidth="120"
-                                AutomationProperties.Name="Player width"
-                                Maximum="4000"
-                                Minimum="200"
-                                PlaceholderText="Auto"
-                                SpinButtonPlacementMode="Compact"
-                                ValueChanged="OnPlayerAdvancedChanged" />
-                        </controls:SettingRow>
-                        <controls:SettingRow Description="Empty for automatic." Header="Height">
-                            <NumberBox
-                                x:Name="PlayerHeightBox"
-                                MinWidth="120"
-                                AutomationProperties.Name="Player height"
-                                Maximum="400"
-                                Minimum="48"
-                                PlaceholderText="Auto"
-                                SpinButtonPlacementMode="Compact"
-                                ValueChanged="OnPlayerAdvancedChanged" />
-                        </controls:SettingRow>
-                        <controls:SettingRow Description="Moves it right; negative moves it left." Header="X">
-                            <NumberBox
-                                x:Name="PlayerXBox"
-                                MinWidth="120"
-                                AutomationProperties.Name="Player X"
-                                Maximum="4000"
-                                Minimum="-4000"
-                                PlaceholderText="0"
-                                SmallChange="10"
-                                SpinButtonPlacementMode="Compact"
-                                ValueChanged="OnPlayerAdvancedChanged" />
-                        </controls:SettingRow>
-                        <controls:SettingRow Description="Moves it down; negative moves it up." Header="Y">
-                            <NumberBox
-                                x:Name="PlayerYBox"
-                                MinWidth="120"
-                                AutomationProperties.Name="Player Y"
-                                Maximum="4000"
-                                Minimum="-4000"
-                                PlaceholderText="0"
-                                SmallChange="10"
-                                SpinButtonPlacementMode="Compact"
-                                ValueChanged="OnPlayerAdvancedChanged" />
-                        </controls:SettingRow>
-                        <Button
-                            Click="OnPlayerAdvancedResetClick"
-                            Content="Reset size and position"
-                            Style="{StaticResource ResonateSubtleButtonStyle}" />
-                    </StackPanel>
-                </Expander>
-                <controls:SettingRow Description="The player sits beside it." Header="Sidebar runs full height">
+                <controls:SettingRow Header="Sidebar runs full height">
                     <ToggleSwitch
                         x:Name="SidebarFullHeightSwitch"
                         MinWidth="0"
@@ -104,12 +43,6 @@
                         OnContent=""
                         Toggled="OnSidebarFullHeightToggled" />
                 </controls:SettingRow>
-            </StackPanel>
-        </controls:SettingsGroup>
-
-        <!-- Links in the sidebar and buttons in the title bar (Home and Settings always show) -->
-        <controls:SettingsGroup Header="Sidebar and buttons">
-            <StackPanel Spacing="6">
                 <controls:SettingRow Header="Search">
                     <ToggleSwitch
                         x:Name="SearchLinkSwitch"

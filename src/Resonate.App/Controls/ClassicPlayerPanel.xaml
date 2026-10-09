@@ -8,11 +8,6 @@
 
     <controls:SettingsGroup x:Name="Group" StartsCollapsed="True" Header="Winamp">
         <StackPanel Spacing="12">
-            <TextBlock
-                Style="{StaticResource ResonateSecondaryTextStyle}"
-                Text="Classic skins and a mini player."
-                TextWrapping="Wrap" />
-
             <StackPanel Spacing="6">
                 <controls:SettingRow Description="In place of the player bar." Header="Use the Winamp player">
                     <ToggleSwitch

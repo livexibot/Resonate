@@ -174,15 +174,43 @@ public static class StageBars
         }
     }
 
+    /// <summary>
+    /// The spectrum's bands gathered into a few broad <paramref name="levels"/>
+    /// (lows, mids, highs …), each the average of its share of the bands, 0 to 1.
+    /// </summary>
+    public static void Average(ReadOnlySpan<float> bands, Span<float> levels)
+    {
+        var used = Math.Min(bands.Length, UsedBands);
+        if (used == 0 || levels.IsEmpty)
+        {
+            levels.Clear();
+            return;
+        }
+
+        for (var i = 0; i < levels.Length; i++)
+        {
+            var from = i * used / levels.Length;
+            var to = Math.Max(from + 1, (i + 1) * used / levels.Length);
+            var sum = 0f;
+            for (var b = from; b < to; b++)
+            {
+                sum += bands[b];
+            }
+
+            var level = Math.Clamp(sum / (to - from) / SpectrumRows, 0f, 1f);
+            levels[i] = MathF.Pow(level, Lift);
+        }
+    }
+
     /// <summary>Where bar <paramref name="index"/> sits across the row, 0 (left) to 1 (right).</summary>
     private static double Across(int index, int count) => count > 1 ? index / (double)(count - 1) : 0;
 
     /// <summary>The nearest speed that turns a whole number of times per loop.</summary>
-    private static double Turns(double radiansPerSecond) =>
+    internal static double Turns(double radiansPerSecond) =>
         Math.Tau * Math.Max(1, Math.Round(radiansPerSecond * LoopSeconds / Math.Tau)) / LoopSeconds;
 
     /// <summary>A fixed number from 0 to 1 for a bar and a purpose.</summary>
-    private static double Hash(int index, int salt)
+    internal static double Hash(int index, int salt)
     {
         var h = (uint)((index * 73856093) ^ (salt * 19349663)) * 2654435761u;
         h ^= h >> 15;

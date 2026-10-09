@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Player tab of Settings: where the player sits, how it looks, and the
+  visualizers. Where it sits and how it looks are part of the look (a
+  preset is copied first, as under Customize); the rest belongs to the
+  user. See PlayerSettings.xaml.cs.
+-->
+<UserControl
+    x:Class="Resonate.App.Controls.PlayerSettings"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Resonate.App.Controls">
+
+    <UserControl.Resources>
+        <Style x:Key="PlayerValueTextStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{ThemeResource ResonateTextFont}" />
+            <Setter Property="FontSize" Value="{ThemeResource ResonateFontSize13}" />
+            <Setter Property="Foreground" Value="{StaticResource ResonateTextSecondaryBrush}" />
+            <Setter Property="MinWidth" Value="44" />
+            <Setter Property="TextAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="PlayerComboStyle" TargetType="ComboBox">
+            <Setter Property="MinWidth" Value="170" />
+        </Style>
+    </UserControl.Resources>
+
+    <StackPanel x:Name="Sections" Spacing="20">
+        <!-- Where the player sits -->
+        <controls:SettingsGroup Header="Position">
+            <StackPanel Spacing="6">
+                <controls:SettingRow Header="Placement">
+                    <ComboBox
+                        x:Name="PlayerEdgeChoice"
+                        AutomationProperties.Name="Player placement"
+                        SelectionChanged="OnPlayerLayoutChanged"
+                        Style="{StaticResource PlayerComboStyle}">
+                        <ComboBoxItem Content="Top" Tag="Top" />
+                        <ComboBoxItem Content="Bottom" Tag="Bottom" />
+                        <ComboBoxItem Content="Left" Tag="Left" />
+                        <ComboBoxItem Content="Right" Tag="Right" />
+                    </ComboBox>
+                </controls:SettingRow>
+                <controls:SettingRow Header="Type">
+                    <ComboBox
+                        x:Name="PlayerTypeChoice"
+                        AutomationProperties.Name="Player type"
+                        SelectionChanged="OnPlayerLayoutChanged"
+                        Style="{StaticResource PlayerComboStyle}">
+                        <ComboBoxItem Content="Docked" Tag="Docked" />
+                        <ComboBoxItem Content="Inset" Tag="Inset" />
+                        <ComboBoxItem Content="Floating" Tag="Floating" />
+                    </ComboBox>
+                </controls:SettingRow>
+                <Expander
+                    x:Name="PlayerAdvancedExpander"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    Header="Advanced"
+                    IsExpanded="False">
+                    <StackPanel Spacing="6">
+                        <controls:SettingRow Header="Width">
+                            <NumberBox
+                                x:Name="PlayerWidthBox"
+                                MinWidth="120"
+                                AutomationProperties.Name="Player width"
+                                Maximum="4000"
+                                Minimum="200"
+                                PlaceholderText="Auto"
+                                SpinButtonPlacementMode="Compact"
+                                ValueChanged="OnPlayerAdvancedChanged" />
+                        </controls:SettingRow>
+                        <controls:SettingRow Header="Height">
+                            <NumberBox
+                                x:Name="PlayerHeightBox"
+                                MinWidth="120"
+                                AutomationProperties.Name="Player height"
+                                Maximum="400"
+                                Minimum="48"
+                                PlaceholderText="Auto"
+                                SpinButtonPlacementMode="Compact"
+                                ValueChanged="OnPlayerAdvancedChanged" />
+                        </controls:SettingRow>
+                        <controls:SettingRow Header="X">
+                            <NumberBox
+                                x:Name="PlayerXBox"
+                                MinWidth="120"
+                                AutomationProperties.Name="Player X"
+                                Maximum="4000"
+                                Minimum="-4000"
+                                PlaceholderText="0"
+                                SmallChange="10"
+                                SpinButtonPlacementMode="Compact"
+                                ValueChanged="OnPlayerAdvancedChanged" />
+                        </controls:SettingRow>
+                        <controls:SettingRow Header="Y">
+                            <NumberBox
+                                x:Name="PlayerYBox"
+                                MinWidth="120"
+                                AutomationProperties.Name="Player Y"
+                                Maximum="4000"
+                                Minimum="-4000"
+                                PlaceholderText="0"
+                                SmallChange="10"
+                                SpinButtonPlacementMode="Compact"
+                                ValueChanged="OnPlayerAdvancedChanged" />
+                        </controls:SettingRow>
+                        <Button
+                            Click="OnPlayerAdvancedResetClick"
+                            Content="Reset size and position"
+                            Style="{StaticResource ResonateSubtleButtonStyle}" />
+                    </StackPanel>
+                </Expander>
+            </StackPanel>
+        </controls:SettingsGroup>
+
+        <!-- How the player looks -->
+        <controls:SettingsGroup Header="Style">
+            <StackPanel Spacing="6">
+                <controls:SettingRow Header="Progress bar">
+                    <StackPanel Spacing="10">
+                        <ComboBox
+                            x:Name="ProgressChoice"
+                            AutomationProperties.Name="Progress bar"
+                            SelectionChanged="OnChoiceChanged"
+                            Style="{StaticResource PlayerComboStyle}">
+                            <ComboBoxItem Content="Line" Tag="Line" />
+                            <ComboBoxItem Content="Bold" Tag="Bold" />
+                            <ComboBoxItem Content="Gradient" Tag="Gradient" />
+                            <ComboBoxItem Content="Wave" Tag="Wave" />
+                            <ComboBoxItem Content="Hairline" Tag="Minimal" />
+                        </ComboBox>
+                        <controls:SeekBar
+                            x:Name="ProgressPreview"
+                            AutomationProperties.Name="Progress bar preview"
+                            IsAdvancing="True"
+                            IsHitTestVisible="False"
+                            IsTabStop="False"
+                            Maximum="600"
+                            Value="240" />
+                    </StackPanel>
+                </controls:SettingRow>
+                <controls:SettingRow Header="Play button">
+                    <ComboBox
+                        x:Name="PlayButtonChoice"
+                        AutomationProperties.Name="Play button"
+                        SelectionChanged="OnChoiceChanged"
+                        Style="{StaticResource PlayerComboStyle}">
+                        <ComboBoxItem Content="Filled" Tag="Filled" />
+                        <ComboBoxItem Content="Outline" Tag="Outline" />
+                        <ComboBoxItem Content="Symbol only" Tag="Plain" />
+                    </ComboBox>
+                </controls:SettingRow>
+                <controls:SettingRow Header="Cover">
+                    <ComboBox
+                        x:Name="CoverChoice"
+                        AutomationProperties.Name="Cover"
+                        SelectionChanged="OnChoiceChanged"
+                        Style="{StaticResource PlayerComboStyle}">
+                        <ComboBoxItem Content="Rounded" Tag="Rounded" />
+                        <ComboBoxItem Content="Square" Tag="Square" />
+                        <ComboBoxItem Content="Vinyl" Tag="Vinyl" />
+                    </ComboBox>
+                </controls:SettingRow>
+                <controls:SettingRow Header="Glow">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Slider
+                            x:Name="PlayerGlowSlider"
+                            Width="180"
+                            VerticalAlignment="Center"
+                            AutomationProperties.Name="Player glow"
+                            IsThumbToolTipEnabled="False"
+                            Maximum="100"
+                            Minimum="0"
+                            StepFrequency="1"
+                            ValueChanged="OnGlowChanged" />
+                        <TextBlock x:Name="PlayerGlowText" Style="{StaticResource PlayerValueTextStyle}" />
+                    </StackPanel>
+                </controls:SettingRow>
+                <controls:SettingRow Header="Song change">
+                    <ComboBox
+                        x:Name="SongChangeChoice"
+                        AutomationProperties.Name="Song change"
+                        SelectionChanged="OnSongChangeChanged"
+                        Style="{StaticResource PlayerComboStyle}">
+                        <ComboBoxItem Content="Slide" Tag="Slide" />
+                        <ComboBoxItem Content="Pop" Tag="Pop" />
+                        <ComboBoxItem Content="Fade" Tag="Fade" />
+                        <ComboBoxItem Content="None" Tag="None" />
+                    </ComboBox>
+                </controls:SettingRow>
+            </StackPanel>
+        </controls:SettingsGroup>
+
+        <!-- The visualizers on Home and in the player bar; the rows after these two are built in code (StageSettings) -->
+        <controls:SettingsGroup Header="Visualizer">
+            <StackPanel x:Name="VisualizerRows" Spacing="6">
+                <controls:SettingRow Header="Home">
+                    <ComboBox
+                        x:Name="StageVisualizerChoice"
+                        AutomationProperties.Name="Home visualizer"
+                        SelectionChanged="OnStageVisualizerChanged"
+                        Style="{StaticResource PlayerComboStyle}" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="Player">
+                    <ComboBox
+                        x:Name="PlayerVisualizerChoice"
+                        AutomationProperties.Name="Player visualizer"
+                        SelectionChanged="OnChoiceChanged"
+                        Style="{StaticResource PlayerComboStyle}" />
+                </controls:SettingRow>
+            </StackPanel>
+        </controls:SettingsGroup>
+    </StackPanel>
+</UserControl>

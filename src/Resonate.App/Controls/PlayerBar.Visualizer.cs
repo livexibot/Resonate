@@ -22,7 +22,7 @@ public sealed partial class PlayerBar
     {
         var theme = App.Services.Theme;
         var style = theme.Current.PlayerVisualizer;
-        if (style == VisualizerStyle.Off)
+        if (style == VisualizerStyle.Off || !VisualizerShapes.FitsPlayerBar(style))
         {
             if (_barVisualizer is { } old)
             {
@@ -39,6 +39,7 @@ public sealed partial class PlayerBar
         {
             _barVisualizer = new StageVisualizer(App.Services.Visualiser)
             {
+                InBar = true,
                 Opacity = BarVisualizerOpacity,
                 Margin = new Thickness(0, 0, 0, 2),
             };

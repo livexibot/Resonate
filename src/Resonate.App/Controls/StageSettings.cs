@@ -6,49 +6,41 @@ using Resonate.App.Services;
 namespace Resonate.App.Controls;
 
 /// <summary>
-/// The settings of the Home stage and the away screen (built-in plugins),
-/// shown under their switches in Settings, Plugins. Built in code, like
-/// the rest of that section.
+/// The settings of the Home stage, its visualizer and the away screen,
+/// built in code: the visualizer's under Settings, Player, the stage's
+/// background under Layout, and the away screen's under its plugin.
 /// </summary>
 internal static class StageSettings
 {
     /// <summary>The minutes the away screen can wait, the first being the shortest.</summary>
     public static readonly int[] AwayMinutes = [2, 5, 10, 15];
 
-    /// <summary>The Home stage: the visualizer and whether it hears Spotify, and the blurred cover behind the clouds.</summary>
-    public static FrameworkElement HomeStage(AppServices services) => new StackPanel
-    {
-        Spacing = 4,
-        Children =
-        {
-            Switch(
-                "Visualizer",
-                string.Empty,
-                () => services.Settings.HomeStageVisualizer,
-                on => services.Settings.HomeStageVisualizer = on,
-                services),
-            Slider("Sensitivity", 50, 200, () => services.Settings.HomeStageSensitivity, v => services.Settings.HomeStageSensitivity = v, "%", services),
-            Slider("Smoothing", 0, 100, () => services.Settings.HomeStageSmoothing, v => services.Settings.HomeStageSmoothing = v, "%", services),
-            Slider("Bars", 16, 96, () => services.Settings.HomeStageBars, v => services.Settings.HomeStageBars = v, string.Empty, services),
-            Slider("Bar width", 20, 90, () => services.Settings.HomeStageBarWidth, v => services.Settings.HomeStageBarWidth = v, "%", services),
-            Switch(
-                "Listen to Spotify",
-                "The bars hear Spotify's sound only. Nothing is kept.",
-                () => services.Settings.HomeStageListens,
-                on =>
-                {
-                    services.Settings.HomeStageListens = on;
-                    services.Visualiser.ListensToSpotify = on;
-                },
-                services),
-            Switch(
-                "Blurred cover",
-                string.Empty,
-                () => services.Settings.HomeStageBlurredCover,
-                on => services.Settings.HomeStageBlurredCover = on,
-                services),
-        },
-    };
+    /// <summary>How the visualizers follow the music, and whether they hear Spotify (Settings, Player, Visualizer).</summary>
+    public static IEnumerable<FrameworkElement> Visualizer(AppServices services) =>
+    [
+        Slider("Sensitivity", 50, 200, () => services.Settings.HomeStageSensitivity, v => services.Settings.HomeStageSensitivity = v, "%", services),
+        Slider("Smoothing", 0, 100, () => services.Settings.HomeStageSmoothing, v => services.Settings.HomeStageSmoothing = v, "%", services),
+        Slider("Bars", 16, 96, () => services.Settings.HomeStageBars, v => services.Settings.HomeStageBars = v, string.Empty, services),
+        Slider("Bar width", 20, 90, () => services.Settings.HomeStageBarWidth, v => services.Settings.HomeStageBarWidth = v, "%", services),
+        Switch(
+            "Listen to Spotify",
+            string.Empty,
+            () => services.Settings.HomeStageListens,
+            on =>
+            {
+                services.Settings.HomeStageListens = on;
+                services.Visualiser.ListensToSpotify = on;
+            },
+            services),
+    ];
+
+    /// <summary>The Home stage's background: the blurred cover behind the clouds (Settings, Layout, Pages).</summary>
+    public static FrameworkElement HomeStage(AppServices services) => Switch(
+        "Blurred cover on Home",
+        string.Empty,
+        () => services.Settings.HomeStageBlurredCover,
+        on => services.Settings.HomeStageBlurredCover = on,
+        services);
 
     /// <summary>The away screen: how long to wait before it shows.</summary>
     public static FrameworkElement AwayScreen(AppServices services)
@@ -80,7 +72,7 @@ internal static class StageSettings
     /// <summary>A stage option as a switch: saved and shown on every stage at once.</summary>
     private static SettingRow Switch(string header, string description, Func<bool> read, Action<bool> write, AppServices services)
     {
-        var toggle = new ToggleSwitch { OnContent = "On", OffContent = "Off", IsOn = read() };
+        var toggle = new ToggleSwitch { OnContent = string.Empty, OffContent = string.Empty, MinWidth = 0, IsOn = read() };
         AutomationProperties.SetName(toggle, header);
         toggle.Toggled += (_, _) =>
         {
