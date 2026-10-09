@@ -904,6 +904,31 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   the user's own, off at first): on the full bar the plugins, devices,
   lyrics and queue buttons sit in a row over the speaker and the slider,
   right-aligned, at 32 px (`PlayerBar.ArrangeSide`).
+- Later on 9 October 2026 (the owner's requests): the tray icon, editing
+  the queue (Up next) and the taskbar buttons are part of the app
+  (`BuiltInPlugins.IsAlwaysOn`, not listed), so closing the window always
+  hides Resonate in the tray; Start with Windows is a switch in Settings,
+  About (`StartWithWindows`, on at first; the installed copy writes the
+  Run key at every start, a local build never). Every plugin has settings
+  behind its gear (`BuiltInPluginSettings.Create`, saved in `AppSettings`
+  under "Each plugin's own settings"; a change calls
+  `MainWindow.PluginOptionsChanged`). New plugins (`MainWindow.NewPlugins.cs`,
+  rules in `Resonate.Spotify/Playback/PluginRules.cs`, tested): Alarm
+  (a time, days, Liked Songs or a playlist, shuffle, a fade from 2 % up to
+  its volume, rings once a day within 5 minutes of its time, only while
+  Resonate runs), Focus timer (rounds of focus and breaks, pausing the
+  music for breaks, Windows notifications), Skip intros and outros (seconds
+  off the start and end of songs longer than a set length) and Volume per
+  device (each output's volume by name, put back when Windows switches
+  output). Liquid is retired for Comet (`ProgressPatterns.Current`; a
+  fading tail in the fill, a breathing halo and twinkling sparks, held on
+  pause), and a look's `ProgressGlow` adds a blurred band of the accent
+  under the played part (`SeekBar.GlowVisual`, Settings, Player, Style).
+  On a narrower player bar the buttons go above the volume instead of the
+  slider going away. Winamp shows no song cover (the owner's choice; the
+  mini player is the skin's width). Showing or hiding composition-animated
+  parts of the progress bar goes by `Visibility`: setting a handout
+  visual's opacity undoes XAML's `Opacity`.
 - Song lists can also hide the column names, # (number), Like and Length
   (Settings, Layout, Song lists; `ShowColumnNames`, `ShowNumberColumn`,
   `ShowLikeColumn`, `ShowDurationColumn`). Sidebar rows and song rows now
