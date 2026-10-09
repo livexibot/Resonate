@@ -184,6 +184,7 @@ public sealed class AppServices : IDisposable
     {
         var settingsStore = new SettingsStore(AppPaths.SettingsFile);
         var settings = settingsStore.Load();
+        PlaybackLogFile.Start(AppPaths.CacheFolder);
 
         var http = new HttpClient(new SocketsHttpHandler
         {
