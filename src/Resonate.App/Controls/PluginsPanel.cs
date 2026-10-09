@@ -38,7 +38,8 @@ internal sealed partial class PluginsPanel : StackPanel
         var items = new List<(string Name, FrameworkElement Element)>();
         foreach (var plugin in BuiltInPlugins.All)
         {
-            var card = new BuiltInCard(plugin, BuiltInPluginSettings.Create(plugin.Id, services));
+            var id = plugin.Id;
+            var card = new BuiltInCard(plugin, BuiltInPluginSettings.Has(id) ? () => BuiltInPluginSettings.Create(id, services) : null);
             _builtInCards[plugin.Id] = card;
             items.Add((plugin.Name, Build(card)));
             RefreshBuiltIn(card);
@@ -98,13 +99,65 @@ internal sealed partial class PluginsPanel : StackPanel
                 _builtIns.Set(card.Plugin.Id, card.Switch.IsOn);
             }
         };
-        panel.Children.Add(new SettingRow { Header = card.Plugin.Name, Description = card.Plugin.Description, Content = card.Switch });
-        if (card.Settings is not null)
+        card.Gear.Click += (_, _) =>
         {
-            panel.Children.Add(card.Settings);
+            if (card.MakeSettings?.Invoke() is { } settings)
+            {
+                _ = ShowSettingsAsync(card.Plugin.Name, settings);
+            }
+        };
+        panel.Children.Add(new SettingRow { Header = card.Plugin.Name, Description = card.Plugin.Description, Content = Controls(card.Gear, card.Switch, card.Plugin.Name) });
+        return panel;
+    }
+
+    /// <summary>The plugin's switch, and before it the button that opens its settings while it is on.</summary>
+    private static StackPanel Controls(Button gear, ToggleSwitch toggle, string name)
+    {
+        gear.Style = (Style)Application.Current.Resources["ResonateIconButtonStyle"];
+        gear.Content = "\uE713";
+        gear.VerticalAlignment = VerticalAlignment.Center;
+        gear.Visibility = Visibility.Collapsed;
+        AutomationProperties.SetName(gear, name + " settings");
+        ToolTipService.SetToolTip(gear, "Settings");
+        return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Children = { gear, toggle } };
+    }
+
+    /// <summary>
+    /// A plugin's settings in a popup over Settings (the owner's request,
+    /// 9 October 2026): opened by the gear beside its switch while it is on.
+    /// </summary>
+    private async Task ShowSettingsAsync(string name, FrameworkElement settings)
+    {
+        if (XamlRoot is null)
+        {
+            return;
         }
 
-        return panel;
+        var dialog = new ContentDialog
+        {
+            Title = name,
+            Content = new ScrollViewer { Content = settings, MaxHeight = 560, Padding = new Thickness(0, 0, 12, 0) },
+            CloseButtonText = "Done",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = XamlRoot,
+            RequestedTheme = ActualTheme,
+        };
+        try
+        {
+            await dialog.ShowAsync();
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            // Another dialog is open: this one waits for the next click.
+        }
+        finally
+        {
+            // The settings may be shown again in a new popup.
+            if (dialog.Content is ScrollViewer viewer)
+            {
+                viewer.Content = null;
+            }
+        }
     }
 
     private void OnBuiltInChanged(object? sender, string id)
@@ -128,10 +181,7 @@ internal sealed partial class PluginsPanel : StackPanel
             _updating = false;
         }
 
-        if (card.Settings is not null)
-        {
-            card.Settings.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
-        }
+        card.Gear.Visibility = on && card.MakeSettings is not null ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private StackPanel Build(Card card)
@@ -144,7 +194,8 @@ internal sealed partial class PluginsPanel : StackPanel
         card.Switch.OffContent = "Off";
         AutomationProperties.SetName(card.Switch, manifest.Name);
         card.Switch.Toggled += (_, _) => OnToggled(card);
-        panel.Children.Add(new SettingRow { Header = manifest.Name, Description = manifest.Description, Content = card.Switch });
+        card.Gear.Click += (_, _) => _ = ShowSettingsAsync(manifest.Name, card.Settings);
+        panel.Children.Add(new SettingRow { Header = manifest.Name, Description = manifest.Description, Content = Controls(card.Gear, card.Switch, manifest.Name) });
 
         var details = new StackPanel { Spacing = 6, Padding = new Thickness(16, 0, 16, 0) };
         card.Progress.Maximum = 1;
@@ -171,7 +222,7 @@ internal sealed partial class PluginsPanel : StackPanel
             });
         }
 
-        panel.Children.Add(card.Settings);
+        // The settings open in a popup (the gear), not under the switch.
         return panel;
     }
 
@@ -446,7 +497,7 @@ internal sealed partial class PluginsPanel : StackPanel
             card.Error.Message = view.Error ?? string.Empty;
             card.Error.IsOpen = view.Error is not null;
 
-            card.Settings.Visibility = view.IsOn && view.Manifest.Settings.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            card.Gear.Visibility = view.IsOn && view.Manifest.Settings.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             foreach (var (key, show) in card.Show)
             {
                 show(view.Settings[key]);
@@ -458,14 +509,16 @@ internal sealed partial class PluginsPanel : StackPanel
         }
     }
 
-    /// <summary>The switch of one built-in plugin, and its settings (shown while it is on), if it has any.</summary>
-    private sealed class BuiltInCard(BuiltInPlugin plugin, FrameworkElement? settings)
+    /// <summary>The switch of one built-in plugin, and what makes its settings (opened in a popup while it is on), if it has any.</summary>
+    private sealed class BuiltInCard(BuiltInPlugin plugin, Func<FrameworkElement?>? makeSettings)
     {
         public BuiltInPlugin Plugin { get; } = plugin;
 
         public ToggleSwitch Switch { get; } = new();
 
-        public FrameworkElement? Settings { get; } = settings;
+        public Button Gear { get; } = new();
+
+        public Func<FrameworkElement?>? MakeSettings { get; } = makeSettings;
     }
 
     /// <summary>The controls of one plugin.</summary>
@@ -474,6 +527,8 @@ internal sealed partial class PluginsPanel : StackPanel
         public PluginManifest Manifest { get; } = manifest;
 
         public ToggleSwitch Switch { get; } = new();
+
+        public Button Gear { get; } = new();
 
         public ProgressBar Progress { get; } = new();
 

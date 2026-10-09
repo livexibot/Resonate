@@ -99,6 +99,14 @@ internal partial interface IAudioSessionControl2
     int GetProcessId(out uint processId);
 }
 
+/// <summary>How loud a session plays right now (Pause for other sounds); the session control answers for it.</summary>
+[GeneratedComInterface]
+[Guid("C02216F6-8C67-4B5B-9D00-D008E73E0064")]
+internal partial interface IAudioMeterInformation
+{
+    float GetPeakValue();
+}
+
 [GeneratedComInterface]
 [Guid("87CE5498-68D6-44E5-9215-6DA47EF883D8")]
 internal partial interface ISimpleAudioVolume

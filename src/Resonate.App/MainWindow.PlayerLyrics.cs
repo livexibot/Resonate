@@ -5,11 +5,13 @@ using Resonate.Spotify.Lyrics;
 namespace Resonate.App;
 
 /// <summary>
-/// Lyrics in the player, a built-in plugin: the line being sung and the
-/// next one show under "Song · Artist" in the player bar. The song's synced lyrics come from the same
-/// library as the lyrics pane (LRCLIB, kept 30 days on this PC), asked once
-/// per song while the plugin is on; the line follows the player's clock four
-/// times a second, only while music plays and the window shows.
+/// Lyrics in the player and Desktop lyrics, built-in plugins: the line being
+/// sung and the next one, under "Song · Artist" in the player bar and in a
+/// small window on top of every app (<see cref="DesktopLyricsWindow"/>). The
+/// song's synced lyrics come from the same library as the lyrics pane
+/// (LRCLIB, kept 30 days on this PC), asked once per song while either is
+/// on; the lines follow the player's clock four times a second, only while
+/// music plays and something shows them.
 /// </summary>
 public sealed partial class MainWindow
 {
@@ -21,14 +23,19 @@ public sealed partial class MainWindow
     private SongLyrics? _playerLyrics;
     private CancellationTokenSource? _lyricLoading;
     private int _lyricQueued;
+    private DesktopLyricsWindow? _desktopLyrics;
+
+    private bool InPlayerLyricsOn => _services.BuiltIns.IsOn(BuiltInPlugins.PlayerLyrics);
+
+    private bool DesktopLyricsOn => _services.BuiltIns.IsOn(BuiltInPlugins.DesktopLyrics);
 
     partial void SetUpPlayerLyrics()
     {
         _services.BuiltIns.Changed += (_, id) =>
         {
-            if (id == BuiltInPlugins.PlayerLyrics)
+            if (id is BuiltInPlugins.PlayerLyrics or BuiltInPlugins.DesktopLyrics)
             {
-                TurnPlayerLyrics(_services.BuiltIns.IsOn(id));
+                FollowLyricPlugins();
             }
         };
         _services.Player.StateChanged += (_, _) =>
@@ -43,7 +50,44 @@ public sealed partial class MainWindow
             }
         };
         ShownChanged += (_, _) => FollowPlayerLyrics();
-        TurnPlayerLyrics(_services.BuiltIns.IsOn(BuiltInPlugins.PlayerLyrics));
+        Closed += (_, _) => CloseDesktopLyrics();
+        FollowLyricPlugins();
+    }
+
+    /// <summary>Either plugin turned on or off: the player bar's lines, the desktop window, and whether lyrics are followed at all.</summary>
+    private void FollowLyricPlugins()
+    {
+        if (!InPlayerLyricsOn)
+        {
+            PlayerBar.ShowLyricLine(null);
+        }
+
+        if (DesktopLyricsOn)
+        {
+            if (_desktopLyrics is null)
+            {
+                _desktopLyrics = new DesktopLyricsWindow(_services);
+                _desktopLyrics.Closed += (_, _) => _desktopLyrics = null;
+                _desktopLyrics.ShowQuietly();
+            }
+        }
+        else
+        {
+            CloseDesktopLyrics();
+        }
+
+        TurnPlayerLyrics(InPlayerLyricsOn || DesktopLyricsOn);
+        ShowLyricLine();
+    }
+
+    /// <summary>Settings changed the desktop lyrics' size.</summary>
+    internal void RefreshDesktopLyrics() => _desktopLyrics?.ApplySize();
+
+    private void CloseDesktopLyrics()
+    {
+        var window = _desktopLyrics;
+        _desktopLyrics = null;
+        window?.Close();
     }
 
     private void TurnPlayerLyrics(bool on)
@@ -69,7 +113,7 @@ public sealed partial class MainWindow
         FollowPlayerLyrics();
     }
 
-    /// <summary>A new song gets its lyrics looked up; the line follows only while it plays and the window shows.</summary>
+    /// <summary>A new song gets its lyrics looked up; the lines follow only while it plays and something shows them.</summary>
     private void FollowPlayerLyrics()
     {
         if (!_playerLyricsOn || _lyricTimer is null)
@@ -84,6 +128,7 @@ public sealed partial class MainWindow
             _lyricSong = song;
             _playerLyrics = null;
             PlayerBar.ShowLyricLine(null);
+            ShowLyricLine();
             _lyricLoading?.Cancel();
             if (LyricsQuery.For(state.Title, state.Artists, state.Album, state.Duration) is { } query)
             {
@@ -92,7 +137,8 @@ public sealed partial class MainWindow
             }
         }
 
-        if (state.IsPlaying && IsShown && _playerLyrics is { IsSynced: true })
+        var shown = (IsShown && InPlayerLyricsOn) || _desktopLyrics is not null;
+        if (state.IsPlaying && shown && _playerLyrics is { IsSynced: true })
         {
             _lyricTimer.Start();
             ShowLyricLine();
@@ -112,6 +158,7 @@ public sealed partial class MainWindow
             {
                 _playerLyrics = lyrics;
                 FollowPlayerLyrics();
+                ShowLyricLine();
             }
         }
         catch (Exception ex) when (ex is OperationCanceledException or HttpRequestException or IOException or System.Text.Json.JsonException)
@@ -122,14 +169,22 @@ public sealed partial class MainWindow
 
     private void ShowLyricLine()
     {
-        if (_playerLyrics is not { IsSynced: true } lyrics)
+        var state = _services.Player.State;
+        string? line = null;
+        string? next = null;
+        if (_playerLyrics is { IsSynced: true } lyrics)
         {
-            return;
+            // The line being sung and the next one; before the first, only what comes.
+            var index = lyrics.ActiveLine(state.PositionAt(DateTimeOffset.UtcNow));
+            next = index + 1 < lyrics.Lines.Count ? lyrics.Lines[index + 1].Text : null;
+            line = index >= 0 ? lyrics.Lines[index].Text : null;
+            if (InPlayerLyricsOn)
+            {
+                PlayerBar.ShowLyricLine(line, next);
+            }
         }
 
-        // The line being sung and the next one; before the first, only what comes.
-        var index = lyrics.ActiveLine(_services.Player.State.PositionAt(DateTimeOffset.UtcNow));
-        var next = index + 1 < lyrics.Lines.Count ? lyrics.Lines[index + 1].Text : null;
-        PlayerBar.ShowLyricLine(index >= 0 ? lyrics.Lines[index].Text : null, next);
+        // Without synced lyrics the desktop window shows the song itself.
+        _desktopLyrics?.Show(state.Title is null ? null : (line, next, state.Title, state.Artists));
     }
 }

@@ -13,8 +13,8 @@ using Windows.Foundation;
 namespace Resonate.App.Controls;
 
 /// <summary>
-/// The away screen, a built-in plugin: over the whole window, the song that
-/// plays (<see cref="NowPlayingStage"/>), a large clock and the next song.
+/// The screensaver, a built-in plugin, in its own window above every app
+/// (<see cref="ScreensaverWindow"/>): the song that plays (<see cref="NowPlayingStage"/>), a large clock and the next song.
 /// The first touch of the mouse or keyboard asks for it to go
 /// (<see cref="WakeRequested"/>), and is not passed on: a click lands here,
 /// not on the button underneath, and no shortcut runs; media keys pass.
@@ -26,6 +26,9 @@ namespace Resonate.App.Controls;
 internal sealed partial class AwayScreen : UserControl
 {
     private const double ShiftRange = 6;
+
+    // OLED mode: the words and the clock wander much further each minute.
+    private const double OledShiftRange = 64;
     private const double DimmedOpacity = 0.15;
 
     private static readonly TimeSpan FadeIn = TimeSpan.FromMilliseconds(400);
@@ -38,6 +41,7 @@ internal sealed partial class AwayScreen : UserControl
     private readonly TextBlock _clock;
     private readonly TextBlock _date;
     private readonly DispatcherQueueTimer _poll;
+    private readonly double _shiftRange;
     private uint? _shownTick;
     private long _minute = -1;
     private DateTimeOffset? _pausedSince;
@@ -73,6 +77,9 @@ internal sealed partial class AwayScreen : UserControl
             IsHitTestVisible = false,
             Children = { _clock, _date },
         };
+
+        _shiftRange = services.Settings.ScreensaverOled ? OledShiftRange : ShiftRange;
+        _clockPanel.Visibility = services.Settings.ScreensaverClock ? Visibility.Visible : Visibility.Collapsed;
 
         // A see-through background, so every touch lands here (the stage itself takes none).
         Content = new Grid { Background = services.Theme.GetBrush("ResonateTransparentBrush"), Children = { _stage, _clockPanel } };
@@ -237,7 +244,7 @@ internal sealed partial class AwayScreen : UserControl
         _minute = minute;
         _clock.Text = now.ToString("t", CultureInfo.CurrentCulture);
         _date.Text = now.ToString("dddd d MMMM", CultureInfo.CurrentCulture).ToUpper(CultureInfo.CurrentCulture);
-        var (x, y) = StageColours.BurnInShift(minute, ShiftRange);
+        var (x, y) = StageColours.BurnInShift(minute, _shiftRange);
         var shift = new Vector3((float)x, (float)y, 0);
         _stage.Body.Translation = shift;
         _clockPanel.Translation = -shift;

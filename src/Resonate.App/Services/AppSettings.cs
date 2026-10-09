@@ -312,10 +312,28 @@ public sealed class AppSettings
 
     public int PlayerVisualizerY { get; set; }
 
-    // Away screen
+    // Screensaver (was Away screen; its settings keep their names)
 
-    /// <summary>Minutes without touching the mouse or keyboard before the away screen shows (2, 5, 10 or 15).</summary>
+    /// <summary>Minutes without touching the mouse or keyboard before the screensaver shows (1, 2, 5, 10, 15 or 30).</summary>
     public int AwayScreenMinutes { get; set; } = 5;
+
+    /// <summary>The screensaver shows only while music plays (else also while paused or stopped).</summary>
+    public bool ScreensaverOnlyWhilePlaying { get; set; } = true;
+
+    /// <summary>The screensaver's visualizer (a <see cref="Resonate.Themes.VisualizerStyle"/> name, "Off"), or null for the look's Home style.</summary>
+    public string? ScreensaverVisualizer { get; set; }
+
+    /// <summary>The screensaver's background: "Song" (the cover's colours drifting), "Cover" (the blurred cover) or "Colour".</summary>
+    public string ScreensaverBackground { get; set; } = "Song";
+
+    /// <summary>The screensaver's colour, as #RRGGBB, with the "Colour" background.</summary>
+    public string ScreensaverColour { get; set; } = "#000000";
+
+    /// <summary>OLED mode: a black background, and everything moves further every minute so nothing burns in.</summary>
+    public bool ScreensaverOled { get; set; }
+
+    /// <summary>The screensaver shows the clock.</summary>
+    public bool ScreensaverClock { get; set; } = true;
 
     // Rediscover
 
@@ -339,6 +357,62 @@ public sealed class AppSettings
     public string? SummonBarShortcut { get; set; }
 
     // Signal path
+
+    // Song notifications
+
+    /// <summary>Notifications also while Resonate is the window in front.</summary>
+    public bool SongNotificationsAlways { get; set; }
+
+    // Keep PC awake
+
+    /// <summary>The display stays on too, not only the PC.</summary>
+    public bool KeepAwakeDisplay { get; set; }
+
+    // Now playing file
+
+    /// <summary>Where the playing song is written; null for "Now playing.txt" in Documents\Resonate.</summary>
+    public string? NowPlayingFilePath { get; set; }
+
+    /// <summary>What is written: {title}, {artist} and {album} are filled in.</summary>
+    public string NowPlayingFormat { get; set; } = "{artist} - {title}";
+
+    // Quiet hours
+
+    /// <summary>The hour quiet hours begin (0 to 23).</summary>
+    public int QuietHoursFrom { get; set; } = 22;
+
+    /// <summary>The hour quiet hours end (0 to 23).</summary>
+    public int QuietHoursTo { get; set; } = 7;
+
+    /// <summary>The loudest the volume may be during quiet hours, in percent.</summary>
+    public int QuietHoursVolume { get; set; } = 30;
+
+    // Desktop lyrics
+
+    /// <summary>Where the desktop lyrics window was left (screen pixels), or null for above the taskbar.</summary>
+    public WindowPlacement? DesktopLyricsPlace { get; set; }
+
+    /// <summary>How large the desktop lyrics are, in percent.</summary>
+    public int DesktopLyricsSize { get; set; } = 100;
+
+    // Beat glow
+
+    /// <summary>How strongly the window's edge glows, in percent.</summary>
+    public int BeatGlowStrength { get; set; } = 60;
+
+    // Media shortcuts (keys such as "Ctrl+Alt+Space"; null for none)
+
+    public string? ShortcutPlayPause { get; set; }
+
+    public string? ShortcutNext { get; set; }
+
+    public string? ShortcutPrevious { get; set; }
+
+    public string? ShortcutVolumeUp { get; set; }
+
+    public string? ShortcutVolumeDown { get; set; }
+
+    public string? ShortcutLike { get; set; }
 
     // ---- End of built-in plugins ----
 

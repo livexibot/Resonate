@@ -31,5 +31,10 @@ public partial class App : Application
 
         _window = new MainWindow(Services);
         _window.Activate();
+        if (StartupOptions.Current.Background)
+        {
+            // Started with Windows: out of the way at once.
+            _window.GoToBackground();
+        }
     }
 }
