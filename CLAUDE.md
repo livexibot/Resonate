@@ -15,7 +15,10 @@ visitors; keep it short and in step with this file.
   2026; see "First milestone"). Releases are published with one
   installer, for ordinary (x64) Windows PCs (`Resonate-win-x64-Setup.exe`;
   the owner dropped arm64 and the portable zip on 8 October 2026 to save
-  build time); the latest is v0.14.0 (9 October 2026: the Japan and
+  build time); the latest is v0.15.0 (9 October 2026, evening: Resonate's
+  own player plays sound and takes commands directly, a centred narrow
+  sidebar, colour resets, "Song · Artist" with two lyric lines); v0.14.0
+  (the same day: the Japan and
   Snow looks, the end of the freeze and crash loop at 125 % scaling, the
   crash log, sliders that work while the bars sway, one cover on Home);
   v0.13.0 (the same day) brought Settings in six tabs, colours that
