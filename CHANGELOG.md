@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.14.0](https://github.com/livexibot/Resonate/compare/v0.13.0...v0.14.0) (2026-10-09)
+
+
+### New features
+
+* Japan and Snow looks with scenery, falling petals and snow that gather over the app ([f753005](https://github.com/livexibot/Resonate/commit/f753005794fefc8bc0c4462d95f57f04eb2824f2))
+
+
+### Fixes
+
+* no more freezes or crashes at 125 % display scaling, and a crash log instead of crashes ([f753005](https://github.com/livexibot/Resonate/commit/f753005794fefc8bc0c4462d95f57f04eb2824f2))
+* Sensitivity and Smoothing change the bars when no sound is heard, and Home shows one cover after a skip ([f753005](https://github.com/livexibot/Resonate/commit/f753005794fefc8bc0c4462d95f57f04eb2824f2))
+
 ## [0.13.0](https://github.com/livexibot/Resonate/compare/v0.12.0...v0.13.0) (2026-10-09)
 
 
