@@ -89,6 +89,7 @@ public sealed partial class MainWindow : Window
     {
         _services = services;
         InitializeComponent();
+        PlaylistNavItem.ShowCovers = _services.Settings.ShowPlaylistCovers;
 
         SetMinimumSize();
         ExtendsContentIntoTitleBar = true;
@@ -467,6 +468,16 @@ public sealed partial class MainWindow : Window
     }
 
     private bool? _sidebarCompact;
+
+    /// <summary>Shows or hides the playlists' covers in the sidebar (Settings, Layout).</summary>
+    internal void ShowPlaylistCovers(bool show)
+    {
+        PlaylistNavItem.ShowCovers = show;
+        foreach (var item in Playlists)
+        {
+            item.RefreshCompact();
+        }
+    }
 
     /// <summary>Icons and covers only, without names or the Playlists heading, while the sidebar is at its narrowest.</summary>
     private void ApplySidebarCompact(bool compact)

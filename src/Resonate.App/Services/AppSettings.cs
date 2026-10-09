@@ -31,6 +31,19 @@ public sealed class AppSettings
     /// <summary>How much the song cover backdrop (Liquid Glass) is blurred, 0 to 100.</summary>
     public int CoverBlur { get; set; } = 60;
 
+    /// <summary>Song lists show each song's cover (Settings, Layout, Song lists).</summary>
+    public bool ShowSongCovers { get; set; } = true;
+
+    /// <summary>The sidebar shows each playlist's cover (always while it shows only covers).</summary>
+    public bool ShowPlaylistCovers { get; set; } = true;
+
+    /// <summary>Song lists' optional columns.</summary>
+    public bool ShowAlbumColumn { get; set; } = true;
+
+    public bool ShowAddedColumn { get; set; } = true;
+
+    public bool ShowYearColumn { get; set; }
+
     /// <summary>The library sidebar runs the window's full height, beside the player (off unless the user switches it on).</summary>
     public bool SidebarFullHeight { get; set; }
 

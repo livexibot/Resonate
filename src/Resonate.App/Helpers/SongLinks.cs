@@ -63,6 +63,8 @@ public static class SongLinks
             return;
         }
 
+        // Only as wide as its words, so a click beside them lands on the row, not on a link.
+        text.HorizontalAlignment = HorizontalAlignment.Left;
         text.PointerEntered += OnPointerEntered;
         text.PointerMoved += OnPointerMoved;
         text.PointerExited += OnPointerLeft;
@@ -172,7 +174,14 @@ public static class SongLinks
         // Drawn like the text around it until the pointer is on it.
         var link = new Hyperlink { Foreground = text.Foreground, UnderlineStyle = UnderlineStyle.None, IsTabStop = false };
         link.Inlines.Add(new Run { Text = name });
-        link.Click += (_, _) => Open(text, index);
+        // Windows lets a link take clicks to the end of its line; only one on the name itself opens the page.
+        link.Click += (_, _) =>
+        {
+            if (link.UnderlineStyle == UnderlineStyle.Single)
+            {
+                Open(text, index);
+            }
+        };
         return link;
     }
 

@@ -180,6 +180,7 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="5*" />
                                 <ColumnDefinition x:Name="AlbumHeadingColumn" Width="3*" />
+                                <ColumnDefinition x:Name="YearHeadingColumn" Width="0" />
                                 <ColumnDefinition x:Name="AddedHeadingColumn" Width="132" />
                                 <ColumnDefinition Width="40" />
                                 <ColumnDefinition Width="64" />
@@ -222,9 +223,13 @@
                                     Foreground="{StaticResource ResonateAccentBrush}"
                                     Visibility="Collapsed" />
                             </StackPanel>
+                            <TextBlock
+                                Grid.Column="3"
+                                Style="{StaticResource ResonateCaptionTextStyle}"
+                                Text="Year" />
                             <StackPanel
                                 x:Name="AddedHeading"
-                                Grid.Column="3"
+                                Grid.Column="4"
                                 Background="{StaticResource ResonateTransparentBrush}"
                                 Orientation="Horizontal"
                                 Spacing="6"
@@ -240,7 +245,7 @@
                             </StackPanel>
                             <StackPanel
                                 x:Name="DurationHeading"
-                                Grid.Column="5"
+                                Grid.Column="6"
                                 HorizontalAlignment="Right"
                                 Background="{StaticResource ResonateTransparentBrush}"
                                 Orientation="Horizontal"
@@ -287,6 +292,7 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="5*" />
                             <ColumnDefinition Width="{x:Bind Columns.AlbumWidth, Mode=OneWay}" />
+                            <ColumnDefinition Width="{x:Bind Columns.YearWidth, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Columns.AddedWidth, Mode=OneWay}" />
                             <ColumnDefinition Width="40" />
                             <ColumnDefinition Width="64" />
@@ -301,16 +307,17 @@
                         <Grid
                             Grid.Column="1"
                             Margin="0,0,16,0"
-                            ColumnSpacing="12">
+                            ColumnSpacing="{x:Bind Columns.CoverSpacing}">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition Width="{x:Bind Columns.CoverWidth}" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Grid
                                 Width="40"
                                 Height="40"
                                 Background="{x:Bind Cover.Background, Mode=OneWay}"
-                                CornerRadius="{ThemeResource ResonateCornerSmall}">
+                                CornerRadius="{ThemeResource ResonateCornerSmall}"
+                                Visibility="{x:Bind Columns.CoverVisibility}">
                                 <Image Source="{x:Bind Cover.Image}" Stretch="UniformToFill" />
                             </Grid>
                             <StackPanel
@@ -339,9 +346,15 @@
                             Margin="0,0,12,0"
                             VerticalAlignment="Center"
                             Style="{StaticResource ResonateSecondaryTextStyle}"
+                            Text="{x:Bind Year}" />
+                        <TextBlock
+                            Grid.Column="4"
+                            Margin="0,0,12,0"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource ResonateSecondaryTextStyle}"
                             Text="{x:Bind DateAdded}" />
                         <Button
-                            Grid.Column="4"
+                            Grid.Column="5"
                             Width="32"
                             Height="32"
                             AutomationProperties.Name="{x:Bind HeartLabel, Mode=OneWay}"
@@ -353,7 +366,7 @@
                             ToolTipService.ToolTip="{x:Bind HeartLabel, Mode=OneWay}"
                             Visibility="{x:Bind HeartVisibility}" />
                         <TextBlock
-                            Grid.Column="5"
+                            Grid.Column="6"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Center"
                             Style="{StaticResource ResonateSecondaryTextStyle}"
