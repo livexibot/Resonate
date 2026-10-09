@@ -451,6 +451,15 @@ public sealed partial class PlaylistNavItem : ObservableObject
 
     public double ColumnGap => Compact ? 0 : 12;
 
+    /// <summary>
+    /// A sidebar row's room on either side, which WinUI's own row padding
+    /// gave before: none while <see cref="Compact"/>, so the cover sits
+    /// exactly in the middle.
+    /// </summary>
+    public Thickness RowPadding => SidebarRowPadding(Compact);
+
+    internal static Thickness SidebarRowPadding(bool compact) => compact ? new Thickness(0) : new Thickness(16, 0, 12, 0);
+
     /// <summary>Picks up a change of <see cref="Compact"/> or <see cref="ShowCovers"/>.</summary>
     public void RefreshCompact()
     {
@@ -459,6 +468,7 @@ public sealed partial class PlaylistNavItem : ObservableObject
         OnPropertyChanged(nameof(CoverColumnWidth));
         OnPropertyChanged(nameof(RowAlignment));
         OnPropertyChanged(nameof(ColumnGap));
+        OnPropertyChanged(nameof(RowPadding));
         OnPropertyChanged(nameof(SpeakerVisibility));
     }
 
@@ -570,10 +580,14 @@ public sealed partial class NavItem : ObservableObject
     /// <summary>The icon sits in the middle of the row while the sidebar is narrow, like the covers under it.</summary>
     public HorizontalAlignment ContentAlignment => PlaylistNavItem.Compact ? HorizontalAlignment.Center : HorizontalAlignment.Left;
 
+    /// <summary>The row's room on either side (see <see cref="PlaylistNavItem.RowPadding"/>).</summary>
+    public Thickness RowPadding => PlaylistNavItem.SidebarRowPadding(PlaylistNavItem.Compact);
+
     public void RefreshCompact()
     {
         OnPropertyChanged(nameof(LabelVisibility));
         OnPropertyChanged(nameof(ContentAlignment));
+        OnPropertyChanged(nameof(RowPadding));
     }
 
     public string Key { get; }

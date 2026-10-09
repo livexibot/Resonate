@@ -210,6 +210,18 @@
                         SelectionChanged="OnNavSelectionChanged"
                         SelectionMode="Single"
                         SizeChanged="OnNavListSizeChanged">
+                        <!--
+                            Rows as wide as the list and with no padding of their own
+                            (WinUI's rows are at least 88 wide, wider than the narrow
+                            sidebar, which pushed them off centre); each row keeps its
+                            padding itself (RowPadding).
+                        -->
+                        <ListView.ItemContainerStyle>
+                            <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
+                                <Setter Property="MinWidth" Value="0" />
+                                <Setter Property="Padding" Value="0" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
                         <ListView.Resources>
                             <!-- The pill shows which link is chosen, so the rows draw no selection of their own. -->
                             <x:Boolean x:Key="ListViewItemSelectionIndicatorVisualEnabled">False</x:Boolean>
@@ -221,6 +233,7 @@
                             <DataTemplate x:DataType="vm:NavItem">
                                 <StackPanel
                                     Height="40"
+                                    Margin="{x:Bind RowPadding, Mode=OneWay}"
                                     HorizontalAlignment="{x:Bind ContentAlignment, Mode=OneWay}"
                                     Background="{StaticResource ResonateTransparentBrush}"
                                     Orientation="Horizontal"
@@ -296,10 +309,23 @@
                         PointerMoved="OnPlaylistPointerMoved"
                         SelectionChanged="OnPlaylistSelectionChanged"
                         SelectionMode="Single">
+                        <!--
+                            Rows as wide as the list and with no padding of their own
+                            (WinUI's rows are at least 88 wide, wider than the narrow
+                            sidebar, which pushed them off centre); each row keeps its
+                            padding itself (RowPadding).
+                        -->
+                        <ListView.ItemContainerStyle>
+                            <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
+                                <Setter Property="MinWidth" Value="0" />
+                                <Setter Property="Padding" Value="0" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="vm:PlaylistNavItem">
                                 <Grid
                                     MinHeight="64"
+                                    Margin="{x:Bind RowPadding, Mode=OneWay}"
                                     HorizontalAlignment="{x:Bind RowAlignment, Mode=OneWay}"
                                     Background="{StaticResource ResonateTransparentBrush}"
                                     ColumnSpacing="{x:Bind ColumnGap, Mode=OneWay}">
