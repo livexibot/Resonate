@@ -306,7 +306,7 @@
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="vm:TrackRow">
                     <Grid
-                        MinHeight="56"
+                        MinHeight="{x:Bind Columns.RowHeight, Mode=OneWay}"
                         Background="{StaticResource ResonateTransparentBrush}"
                         Opacity="{x:Bind RowOpacity}">
                         <Grid.ColumnDefinitions>
@@ -344,7 +344,7 @@
                                 Background="{x:Bind Cover.Background, Mode=OneWay}"
                                 CornerRadius="{ThemeResource ResonateCornerSmall}"
                                 Visibility="{x:Bind Columns.CoverVisibility, Mode=OneWay}">
-                                <Image Source="{x:Bind Cover.Image}" Stretch="UniformToFill" />
+                                <Image Source="{x:Bind Cover.Image, Mode=OneWay}" Stretch="UniformToFill" />
                             </Grid>
                             <StackPanel
                                 Grid.Column="1"

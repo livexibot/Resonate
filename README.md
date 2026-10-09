@@ -20,11 +20,13 @@ you theme every part of it.
 
 ## Themes
 
-Fourteen looks to start from, in three groups: Dark (Midnight, Liquid
-Glass, Ember, Fluent, Studio, Synthwave), Light (Daylight, Paper, Sage,
-Bubblegum) and OLED (Black, Aurora, Pure Black, Terminal). A customizer
+Twenty looks to start from, in four groups: Dark (Midnight, Liquid
+Glass, Velvet, Ocean, Fluent, Studio), Light (Daylight, Paper, Sage,
+Bubblegum), OLED (Black, Aurora, Pure Black, Terminal) and Special (Japan,
+Snow, Synthwave, Liquid Chrome, Cyberpunk, Afterhours), whose scenery
+moves behind the panels, with weather over them. A customizer
 covers everything: colours, light or dark, the backdrop, corners, shadows,
-fonts (Windows' own plus 18 open-licence fonts that come with Resonate),
+fonts (Windows' own plus 22 open-licence fonts that come with Resonate),
 and how the player, its progress bar and buttons look. The player sits
 at the top, bottom, left or right of the page, docked, inset or floating
 over it, with its own size and offset if you like, and the sidebar can

@@ -59,6 +59,13 @@ public sealed record TrackInfo(
     /// <summary>The cover at about 640 pixels, for the large now-playing views; null when Spotify has none that big.</summary>
     public string? FullImageUrl { get; init; }
 
+    /// <summary>
+    /// The cover to show <paramref name="pixels"/> screen pixels wide: the
+    /// smallest of Spotify's pictures that is not stretched there (see
+    /// <see cref="ImagePicker.ForSize"/>).
+    /// </summary>
+    public string? ImageFor(int pixels) => ImagePicker.ForSize(pixels, SmallImageUrl, LargeImageUrl, FullImageUrl);
+
     /// <summary>The first artist's name, for grouping and statistics.</summary>
     public string PrimaryArtist => ArtistRefs.Count > 0 ? ArtistRefs[0].Name : Artists;
 
@@ -147,4 +154,21 @@ public static class ImagePicker
         best ??= images.MaxBy(i => i.Width ?? 0);
         return best?.Url;
     }
+
+    /// <summary>The width of a song's small picture (<see cref="TrackInfo.SmallImageUrl"/>).</summary>
+    public const int SmallSize = 64;
+
+    /// <summary>The width of a song's large picture (<see cref="TrackInfo.LargeImageUrl"/>).</summary>
+    public const int LargeSize = 300;
+
+    /// <summary>
+    /// Of a song's small (64 px), large (300 px) and full (640 px) pictures,
+    /// the smallest that covers <paramref name="pixels"/> screen pixels, so a
+    /// cover drawn larger (Cover size, display scaling) stays sharp; the
+    /// nearest one Spotify has when that one is missing.
+    /// </summary>
+    public static string? ForSize(int pixels, string? small, string? large, string? full) =>
+        pixels <= SmallSize ? small ?? large ?? full
+        : pixels <= LargeSize ? large ?? full ?? small
+        : full ?? large ?? small;
 }

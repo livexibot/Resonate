@@ -34,7 +34,7 @@ internal sealed partial class ThemeHost : Grid
             Children =
             {
                 new BackdropLayer(services.Theme, services.Artwork),
-                ClipToSize(new SceneArt()),
+                ClipToSize(new SceneArt(clock)),
                 content,
             },
         };

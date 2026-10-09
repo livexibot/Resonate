@@ -11,7 +11,9 @@ namespace Resonate.App.Controls;
 
 /// <summary>
 /// The weather of a special look, drifting over the whole window: sakura
-/// petals for Japan, snow and a few crystals for Snow (<see cref="SceneWeather"/>).
+/// petals for Japan, snow and a few crystals for Snow, neon dust for
+/// Synthwave, chrome beads for Liquid Chrome, rain for Cyberpunk, drops on
+/// the window for Afterhours (<see cref="SceneWeather"/>).
 /// The farther, smaller part hangs under the player instead
 /// (<see cref="MainWindow.WeatherHost"/>), over the panels, so it passes behind
 /// the player; it falls from the top of the panels' area (under a player on
@@ -39,6 +41,7 @@ internal sealed partial class SceneWeatherLayer : Grid
     private readonly CompositionPropertySet _room;
     private readonly CompositionPropertySet _behindRoom;
     private readonly List<(SpriteVisual Sprite, CompositionBrush? Owned, CompositionColorGradientStop[] Stops, SceneWeather.Particle Particle)> _particles = [];
+    private readonly List<CompositionObject> _owned = [];
     private MainWindow? _window;
     private ThemeScene _scene;
     private bool _moving;
@@ -85,7 +88,7 @@ internal sealed partial class SceneWeatherLayer : Grid
         Unloaded += OnUnloaded;
     }
 
-    /// <summary>For CI's screenshot tour: starts both scenes' motion on visuals nobody sees, so a mistake in an expression shows. Null when all is well.</summary>
+    /// <summary>For CI's screenshot tour: starts every scene's motion on visuals nobody sees, so a mistake in an expression shows. Null when all is well.</summary>
     public static string? CheckMotion(Compositor compositor)
     {
         var clock = compositor.CreatePropertySet();
@@ -97,7 +100,7 @@ internal sealed partial class SceneWeatherLayer : Grid
         var sprite = compositor.CreateSpriteVisual();
         try
         {
-            foreach (var scene in (ThemeScene[])[ThemeScene.Japan, ThemeScene.Snow])
+            foreach (var scene in Enum.GetValues<ThemeScene>())
             {
                 for (var i = 0; i < SceneWeather.Count(scene); i++)
                 {
@@ -410,20 +413,34 @@ internal sealed partial class SceneWeatherLayer : Grid
         {
             var particle = SceneWeather.Get(_scene, i);
             var size = (float)particle.Size;
+            var width = particle.Width > 0 ? (float)particle.Width : size;
             var sprite = _compositor.CreateSpriteVisual();
-            sprite.Size = new Vector2(size);
-            sprite.CenterPoint = new Vector3(size / 2, size / 2, 0);
+            sprite.Size = new Vector2(width, size);
+            sprite.CenterPoint = new Vector3(width / 2, size / 2, 0);
             sprite.Opacity = 0;
+            if (particle.Slant != 0)
+            {
+                // A streak leans the way it falls, its edges smoothed.
+                sprite.RotationAngleInDegrees = (float)(-Math.Atan(particle.Slant) * 180 / Math.PI);
+                sprite.BorderMode = CompositionBorderMode.Soft;
+            }
+
             if (particle.Sprite is { } picture)
             {
-                // Petals and crystals are pictures, shared by every sprite that shows one.
+                // Petals, crystals, beads and drops are pictures, shared by every sprite that shows one.
                 sprite.Brush = SceneSpriteBrushes.Get(_compositor, picture, size * pixels);
                 _particles.Add((sprite, null, [], particle));
             }
             else
             {
-                var brush = _compositor.CreateRadialGradientBrush();
-                var stops = FlakeStops(particle);
+                CompositionGradientBrush brush = particle.Width > 0 ? _compositor.CreateLinearGradientBrush() : _compositor.CreateRadialGradientBrush();
+                if (brush is CompositionLinearGradientBrush streak)
+                {
+                    streak.StartPoint = Vector2.Zero;
+                    streak.EndPoint = new Vector2(0, 1);
+                }
+
+                var stops = particle.Width > 0 ? StreakStops(particle) : FlakeStops(particle);
                 foreach (var stop in stops)
                 {
                     brush.ColorStops.Add(stop);
@@ -433,13 +450,31 @@ internal sealed partial class SceneWeatherLayer : Grid
                 _particles.Add((sprite, brush, stops, particle));
             }
 
+            if (particle.Tail > 0)
+            {
+                sprite.Children.InsertAtBottom(Trail(particle));
+            }
+
             (particle.Behind ? _behind : _front).Children.InsertAtTop(sprite);
         }
     }
 
-    /// <summary>A flake's soft white: crisp when small, out of focus when large.</summary>
+    /// <summary>A flake's soft white, or a mote's glow in its colour: crisp when small, out of focus when large.</summary>
     private CompositionColorGradientStop[] FlakeStops(SceneWeather.Particle particle)
     {
+        if (particle.Tint is { } tint)
+        {
+            // A mote: a white-hot heart in a glow of its colour.
+            var blurred = particle.Size > SceneWeather.MoteSize * 2;
+            return
+            [
+                _compositor.CreateColorGradientStop(0, tint.Mix(ThemeColor.White, blurred ? 0.2 : 0.65).ToColor()),
+                _compositor.CreateColorGradientStop(blurred ? 0.3f : 0.22f, tint.WithAlpha(blurred ? 0.6 : 0.9).ToColor()),
+                _compositor.CreateColorGradientStop(blurred ? 0.7f : 0.5f, tint.WithAlpha(blurred ? 0.25 : 0.3).ToColor()),
+                _compositor.CreateColorGradientStop(1, tint.WithAlpha(0).ToColor()),
+            ];
+        }
+
         var soft = particle.Size > SceneWeather.FlakeSize * 2;
         return
         [
@@ -449,16 +484,63 @@ internal sealed partial class SceneWeatherLayer : Grid
         ];
     }
 
+    /// <summary>A streak of rain: clear at its top, brightest at its leading end.</summary>
+    private CompositionColorGradientStop[] StreakStops(SceneWeather.Particle particle)
+    {
+        var tint = particle.Tint ?? ThemeColor.White;
+        return
+        [
+            _compositor.CreateColorGradientStop(0, tint.WithAlpha(0).ToColor()),
+            _compositor.CreateColorGradientStop(0.75f, tint.WithAlpha(0.7).ToColor()),
+            _compositor.CreateColorGradientStop(1, tint.Mix(ThemeColor.White, 0.4).ToColor()),
+        ];
+    }
+
+    /// <summary>A drop's wet trail on the glass above it, fading upwards, moving with it.</summary>
+    private SpriteVisual Trail(SceneWeather.Particle particle)
+    {
+        var size = (float)particle.Size;
+        var width = size * 0.3f;
+        var length = size * (float)particle.Tail;
+        var brush = _compositor.CreateLinearGradientBrush();
+        brush.StartPoint = Vector2.Zero;
+        brush.EndPoint = new Vector2(0, 1);
+        var clear = _compositor.CreateColorGradientStop(0, ThemeColor.FromRgb(0xC9D6E6).WithAlpha(0).ToColor());
+        var wet = _compositor.CreateColorGradientStop(1, ThemeColor.FromRgb(0xC9D6E6).WithAlpha(0.2).ToColor());
+        brush.ColorStops.Add(clear);
+        brush.ColorStops.Add(wet);
+        var trail = _compositor.CreateSpriteVisual();
+        trail.Size = new Vector2(width, length);
+        trail.Offset = new Vector3((size - width) / 2, (size * 0.25f) - length, 0);
+        trail.Brush = brush;
+        _owned.AddRange([clear, wet, brush, trail]);
+        return trail;
+    }
+
     /// <summary>Each particle's motion: where it is, how bright, and for a petal or a crystal how it turns and tumbles.</summary>
     private static IEnumerable<(string Property, string Expression)> Motion(SceneWeather.Particle p)
     {
-        static string N(double value) => VisualizerShapes.Number(value);
+        static string N(double value) => value < 0 ? $"({VisualizerShapes.Number(value)})" : VisualizerShapes.Number(value);
         var size = N(p.Size);
         var half = N(p.Size / 2);
+        var halfWide = p.Width > 0 ? N(p.Width / 2) : half;
 
-        // How far through its fall, 0 at the top to 1 below the bottom.
+        // How far through its fall, 0 at the top (or the bottom, rising) to 1 past the other end; with halts, in fits and starts.
         var fall = $"Mod({Clock}.Time * {N(p.Fall)} + {N(p.Start)}, 1)";
-        yield return ("Offset", $"Vector3({N(p.X)} * {Room}.W + {N(p.Wind)} * {fall} * {Room}.W + {N(p.Sway)} * Sin({Clock}.Time * {N(p.SwaySpeed)} + {N(p.SwayPhase)}) - {half}, -{size} + {fall} * ({Room}.H + 2 * {size}) - {half}, 0)");
+        if (p.Halts > 0)
+        {
+            var turn = Math.Tau * p.Halts;
+            fall = $"({fall} - Sin({fall} * {N(turn)}) / {N(turn)})";
+        }
+
+        var drift = p.Slant != 0 ? $"{N(p.Slant)} * {fall} * ({Room}.H + 2 * {size})" : $"{N(p.Wind)} * {fall} * {Room}.W";
+        var y = (p.Rise, p.From) switch
+        {
+            (true, _) => $"{Room}.H + {size} - {fall} * ({Room}.H + 2 * {size}) - {half}",
+            (_, > 0) => $"{N(p.From)} * {Room}.H + {fall} * ({N(1 - p.From)} * {Room}.H + {size}) - {half}",
+            _ => $"-{size} + {fall} * ({Room}.H + 2 * {size}) - {half}",
+        };
+        yield return ("Offset", $"Vector3({N(p.X)} * {Room}.W + {drift} + {N(p.Sway)} * Sin({Clock}.Time * {N(p.SwaySpeed)} + {N(p.SwayPhase)}) - {halfWide}, {y}, 0)");
         yield return ("Opacity", $"{N(p.Opacity)} * Clamp({fall} * 12, 0, 1) * Clamp((1 - {fall}) * 12, 0, 1)");
         if (p.Spin != 0)
         {
@@ -467,8 +549,13 @@ internal sealed partial class SceneWeatherLayer : Grid
 
         if (p.Flutter != 0)
         {
-            // A petal flutters to nearly edge on; a crystal only tilts.
-            var least = p.Sprite is SceneSprite.Crystal or SceneSprite.CrystalPlate ? 0.6 : 0.3;
+            // A petal flutters to nearly edge on; a crystal only tilts; a bead of chrome only wobbles.
+            var least = p.Sprite switch
+            {
+                SceneSprite.Crystal or SceneSprite.CrystalPlate => 0.6,
+                SceneSprite.ChromeBead => 0.86,
+                _ => 0.3,
+            };
             yield return ("Scale", $"Vector3({N(least)} + {N(1 - least)} * Abs(Cos({Clock}.Time * {N(p.Flutter)} + {N(p.SwayPhase)})), 1, 1)");
         }
     }
@@ -510,6 +597,12 @@ internal sealed partial class SceneWeatherLayer : Grid
     {
         _front.Children.RemoveAll();
         _behind.Children.RemoveAll();
+        foreach (var owned in _owned)
+        {
+            owned.Dispose();
+        }
+
+        _owned.Clear();
         foreach (var (sprite, owned, stops, _) in _particles)
         {
             // Shared picture brushes stay; a flake's own gradient goes with it.

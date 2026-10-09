@@ -19,7 +19,9 @@ the folder match and that every file holds the right faces and names.
 The families: Inter, Manrope, DM Sans, Plus Jakarta Sans, Outfit, Figtree,
 Space Grotesk, Work Sans, Sora, Rubik, Montserrat, Poppins, Nunito and Geist
 (sans serif); Literata and Newsreader (serif); JetBrains Mono and Geist Mono
-(monospace). About 7 MB in all.
+(monospace); Tektur, Oxanium, Unbounded and Bodoni Moda (display faces for
+the Synthwave, Cyberpunk, Liquid Chrome and Afterhours looks). About 9 MB
+in all.
 
 ## Rebuilding
 

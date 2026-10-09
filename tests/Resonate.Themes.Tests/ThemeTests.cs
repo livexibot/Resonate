@@ -58,9 +58,9 @@ public sealed class ThemeColorTests
 public sealed class PresetTests
 {
     [Fact]
-    public void There_are_sixteen_presets_in_four_groups_with_unique_ids_and_names()
+    public void There_are_twenty_presets_in_four_groups_with_unique_ids_and_names()
     {
-        Assert.Equal(16, ThemePresets.All.Count);
+        Assert.Equal(20, ThemePresets.All.Count);
         Assert.Equal(ThemePresets.Dark.Count + ThemePresets.Light.Count + ThemePresets.Black.Count + ThemePresets.Special.Count, ThemePresets.All.Count);
         Assert.All(ThemePresets.Special, p => Assert.NotEqual(ThemeScene.None, p.Scene));
         Assert.All(ThemePresets.Dark.Concat(ThemePresets.Light).Concat(ThemePresets.Black), p => Assert.Equal(ThemeScene.None, p.Scene));
@@ -290,7 +290,7 @@ public sealed class ThemeLibraryTests
         Assert.Equal(ThemeLibrary.CustomId, library.ActiveId);
         Assert.Equal("Synthwave (custom)", edited.Name);
         Assert.Equal(20, library.Active.CornerRadius);
-        Assert.Equal(6, ThemePresets.Synthwave.CornerRadius);
+        Assert.Equal(4, ThemePresets.Synthwave.CornerRadius);
 
         library.Edit(t => t with { BorderWidth = 2 });
         Assert.Equal(20, library.Active.CornerRadius);

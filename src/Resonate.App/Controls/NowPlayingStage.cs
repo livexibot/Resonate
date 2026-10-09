@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Resonate.App.Helpers;
 using Resonate.App.Services;
 using Resonate.App.Themes;
+using Resonate.App.ViewModels;
 using Resonate.Spotify.History;
 using Resonate.Spotify.Library;
 using Resonate.Spotify.Playback;
@@ -50,6 +51,7 @@ internal sealed partial class NowPlayingStage : Grid
     private const int SampleSize = 40;
     private const int BlurRadius = 3;
     private const int UpNextCount = 3;
+    private const int UpNextCover = 44;
     private const double CoverCorner = 8;
     private const string PlayGlyph = "";
     private const string PauseGlyph = "";
@@ -98,6 +100,7 @@ internal sealed partial class NowPlayingStage : Grid
     private object? _coverSong;
     private object? _coverArt;
     private string? _coverFull;
+    private Brush? _coverTile;
     private bool _frontIsFull;
     private object? _colourKey;
     private CancellationTokenSource? _colourLoading;
@@ -105,6 +108,7 @@ internal sealed partial class NowPlayingStage : Grid
     private byte[]? _pixels;
     private int _blurVersion;
     private string? _upNextKey;
+    private IReadOnlyList<TrackInfo> _upNextShown = [];
     private bool _upNextStale;
     private CancellationTokenSource? _upNextLoading;
     private bool _wide = true;
@@ -206,7 +210,12 @@ internal sealed partial class NowPlayingStage : Grid
                 ShowFront();
             }
         };
-        _coverFront.ImageFailed += (_, _) => _coverBack.Source = null;
+        _coverFront.ImageFailed += (_, _) =>
+        {
+            // No picture after all: the album's colour tile.
+            _coverBack.Source = null;
+            _cover.Background = _coverTile;
+        };
 
         Body = new Grid
         {
@@ -313,6 +322,7 @@ internal sealed partial class NowPlayingStage : Grid
         _services.Theme.Changed += OnThemeChanged;
         _services.Visualiser.LiveChanged += OnLiveChanged;
         OptionsChanged += OnOptionsChanged;
+        TrackColumns.OptionsChanged += OnCoverOptionsChanged;
         if (App.MainWindow is { } window)
         {
             window.ShownChanged += OnShownChanged;
@@ -336,6 +346,7 @@ internal sealed partial class NowPlayingStage : Grid
         _services.Theme.Changed -= OnThemeChanged;
         _services.Visualiser.LiveChanged -= OnLiveChanged;
         OptionsChanged -= OnOptionsChanged;
+        TrackColumns.OptionsChanged -= OnCoverOptionsChanged;
         if (App.MainWindow is { } window)
         {
             window.ShownChanged -= OnShownChanged;
@@ -378,6 +389,9 @@ internal sealed partial class NowPlayingStage : Grid
         });
 
     private void OnShownChanged(object? sender, EventArgs e) => UpdateRunning();
+
+    // Cover size changed: the songs up next are drawn again at the new size, without asking Spotify again.
+    private void OnCoverOptionsChanged(object? sender, EventArgs e) => ShowUpNextRows(_upNextShown);
 
     // A local file started or stopped playing: the bars follow its sound, or sway on their own.
     private void OnLiveChanged(object? sender, EventArgs e) => UpdateRunning();
@@ -568,11 +582,20 @@ internal sealed partial class NowPlayingStage : Grid
 
             HideFront();
             _coverFront.Source = null;
-            _cover.Background = Artwork.PlaceholderBrush(song.Name);
+            _coverTile = Artwork.PlaceholderBrush(song.Name);
             if (song.SmallUrl is null && song.Bytes is null && song.FullUrl is null)
             {
                 // No picture at all: the album's colour tile.
                 _coverBack.Source = null;
+                _cover.Background = _coverTile;
+            }
+            else
+            {
+                // Behind the picture, the accent: as Home's stage fades on
+                // scrolling, it is what shows through the cover (the album's
+                // colour tile did, blue under an orange accent; the owner's
+                // picture, 9 October 2026).
+                _cover.Background = _services.Theme.GetBrush("ResonateAccentBrush");
             }
         }
 
@@ -874,6 +897,7 @@ internal sealed partial class NowPlayingStage : Grid
 
     private void ShowUpNextRows(IReadOnlyList<TrackInfo> upcoming)
     {
+        _upNextShown = upcoming;
         if (_upNextLine is not null)
         {
             _upNextLine.Text = upcoming.Count > 0 ? $"Up next: {upcoming[0].Title} · {upcoming[0].Artists}" : string.Empty;
@@ -885,6 +909,8 @@ internal sealed partial class NowPlayingStage : Grid
             return;
         }
 
+        // At the user's Cover size, like every song's cover.
+        var size = AppScale.Cover(UpNextCover, _services.Settings.CoverSize);
         for (var i = 0; i < _upNextRows.Count; i++)
         {
             var (cover, image, title, artists, row) = _upNextRows[i];
@@ -898,19 +924,38 @@ internal sealed partial class NowPlayingStage : Grid
             row.Visibility = Visibility.Visible;
             title.Text = track.Title;
             artists.Text = track.Artists;
-            cover.Background = Artwork.PlaceholderBrush(track.Album.Length > 0 ? track.Album : track.Title);
-            image.Source = track.FilePath is not null
-                ? LocalArtwork.For(track, 44)
-                : Artwork.FromUrl(track.SmallImageUrl ?? track.LargeImageUrl, 44);
+            cover.Width = cover.Height = size;
+
+            // The accent behind a picture, like the big cover's; the album's colour tile when there is none.
+            var tile = Artwork.PlaceholderBrush(track.Album.Length > 0 ? track.Album : track.Title);
+            Task<bool> missing;
+            var source = track.FilePath is not null
+                ? LocalArtwork.For(track, size, out missing)
+                : _services.Covers.Get(CoverImages.UrlFor(track, size), size, out missing);
+            image.Source = source;
+            cover.Background = source is null ? tile : _services.Theme.GetBrush("ResonateAccentBrush");
+            if (source is not null)
+            {
+                _ = ShowTileIfMissingAsync(new WeakReference<Grid>(cover), new WeakReference<Image>(image), source, missing, tile);
+            }
         }
 
         _upNext.Visibility = upcoming.Count > 0 && ActualHeight >= 560 ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    // Holds the row only weakly: a cover that never answers must not keep Home in memory.
+    private static async Task ShowTileIfMissingAsync(WeakReference<Grid> cover, WeakReference<Image> image, ImageSource source, Task<bool> missing, Brush tile)
+    {
+        if (await missing && image.TryGetTarget(out var shown) && ReferenceEquals(shown.Source, source) && cover.TryGetTarget(out var box))
+        {
+            box.Background = tile;
+        }
+    }
+
     private static (Grid Cover, Image Image, TextBlock Title, TextBlock Artists, Grid Row) UpNextRow(ResourceDictionary resources)
     {
         var image = new Image { Stretch = Stretch.UniformToFill };
-        var cover = new Grid { Width = 44, Height = 44, CornerRadius = new CornerRadius(4), Children = { image } };
+        var cover = new Grid { Width = UpNextCover, Height = UpNextCover, CornerRadius = new CornerRadius(4), Children = { image } };
         var title = new TextBlock { Style = (Style)resources["ResonateBodyTextStyle"], FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
         var artists = new TextBlock { Style = (Style)resources["ResonateCaptionTextStyle"] };
         var words = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center, Children = { title, artists } };

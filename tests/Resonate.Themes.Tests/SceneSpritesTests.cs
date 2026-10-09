@@ -1,6 +1,6 @@
 namespace Resonate.Themes.Tests;
 
-/// <summary>The special looks' little pictures: petals, blossoms, crystals and glints.</summary>
+/// <summary>The special looks' little pictures: petals, blossoms, crystals, glints, chrome beads and raindrops.</summary>
 public sealed class SceneSpritesTests
 {
     [Theory]
@@ -12,6 +12,8 @@ public sealed class SceneSpritesTests
     [InlineData(SceneSprite.Crystal)]
     [InlineData(SceneSprite.CrystalPlate)]
     [InlineData(SceneSprite.Glint)]
+    [InlineData(SceneSprite.ChromeBead)]
+    [InlineData(SceneSprite.Droplet)]
     public void Each_picture_is_a_centred_shape_on_clear_corners(SceneSprite sprite)
     {
         foreach (var size in (int[])[24, 48, SceneSprites.Size])
@@ -20,12 +22,12 @@ public sealed class SceneSpritesTests
             Assert.Equal(size * size * 4, pixels.Length);
             byte Alpha(int x, int y) => pixels[(((y * size) + x) * 4) + 3];
 
-            // Nothing in the corners; something solid in the middle (a glint is only fine rays and a small heart).
+            // Nothing in the corners; something solid in the middle (a glint is only fine rays and a small heart, a raindrop mostly clear).
             Assert.Equal(0, Alpha(0, 0));
             Assert.Equal(0, Alpha(size - 1, 0));
             Assert.Equal(0, Alpha(0, size - 1));
             Assert.Equal(0, Alpha(size - 1, size - 1));
-            var solid = sprite == SceneSprite.Glint
+            var solid = sprite is SceneSprite.Glint or SceneSprite.Droplet
                 ? Enumerable.Range(0, size * size).Count(i => pixels[(i * 4) + 3] > 100) > size * size / 250
                 : Enumerable.Range(0, size * size).Count(i => pixels[(i * 4) + 3] > 200) > size * size / 40;
             Assert.True(solid);

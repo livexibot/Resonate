@@ -22,7 +22,12 @@ namespace Resonate.App.Controls;
 /// right corner that sheds a petal now and then, and petals that gather in
 /// piles on the player's shoulders and the page's edge, for Japan; a snowy
 /// spruce bough in the same place, snow that settles on the panels and the
-/// player, icicles that grow under it and frost in two corners, for Snow.
+/// player, icicles that grow under it and frost in two corners, for Snow;
+/// drops of mercury that swell under the panels' and the player's bottom
+/// edges and fall, and a sheen of light that sweeps across the player, for
+/// Liquid Chrome; neon brackets on the panels' and the player's corners that
+/// flicker and glitch now and then, and a scan line passing down the page,
+/// for Cyberpunk.
 /// Shapes are XAML paths, drawn once; pictures are composition sprites;
 /// everything that moves is an expression on the scene's clock
 /// (<see cref="SceneClock"/>), which ticks at a capped rate only while the
@@ -101,6 +106,10 @@ internal sealed partial class SceneDecorLayer : Canvas
                 _ = SceneDecor.Bough(scene);
             }
 
+            motions.AddRange(DripMotion(new SceneLayout.Drip(0, 0, 10, SceneMotion.Frequency(9), 0.3, 1)));
+            motions.AddRange(SweepMotion(SceneMotion.Frequency(9), 0.2, 400, 120));
+            motions.AddRange(ScanMotion(SceneMotion.Frequency(12), 0.4, 600));
+            motions.AddRange(HudMotion(2).Select(m => (m.Property == "Translation" ? "Offset" : m.Property, m.Expression)));
             _ = SceneDecor.Cap(2, 900, 18, 14, 9, 20);
             _ = SceneDecor.Frost(5, 18, SceneLayout.FrostReach);
             foreach (var (property, expression) in motions)
@@ -236,7 +245,7 @@ internal sealed partial class SceneDecorLayer : Canvas
             _clock.Restart();
         }
 
-        Watch(_scene != ThemeScene.None && !_failed);
+        Watch(Decorated && !_failed);
         Guard(Relayout);
         Guard(Refresh);
     }
@@ -340,9 +349,12 @@ internal sealed partial class SceneDecorLayer : Canvas
 
     // ------------------------------------------------------------ layout
 
+    /// <summary>Whether the scene has decorations: Synthwave's and Afterhours' are all in their scenery and weather.</summary>
+    private bool Decorated => _scene is ThemeScene.Japan or ThemeScene.Snow or ThemeScene.LiquidChrome or ThemeScene.Cyberpunk;
+
     private void Relayout()
     {
-        if (_scene == ThemeScene.None)
+        if (!Decorated)
         {
             return;
         }
@@ -368,13 +380,20 @@ internal sealed partial class SceneDecorLayer : Canvas
                 wanted.Add("bough");
             }
 
-            if (_scene == ThemeScene.Japan)
+            switch (_scene)
             {
-                LayOutPiles(frame, wanted);
-            }
-            else
-            {
-                LayOutSnow(frame, wanted);
+                case ThemeScene.Japan:
+                    LayOutPiles(frame, wanted);
+                    break;
+                case ThemeScene.Snow:
+                    LayOutSnow(frame, wanted);
+                    break;
+                case ThemeScene.LiquidChrome:
+                    LayOutChrome(frame, wanted);
+                    break;
+                case ThemeScene.Cyberpunk:
+                    LayOutHud(frame, wanted);
+                    break;
             }
         }
 
@@ -431,6 +450,55 @@ internal sealed partial class SceneDecorLayer : Canvas
             var piece = Ensure(key, frost.Radius, 0, () => BuildFrost(frost));
             Place(piece, frost.X, frost.Y, frost.FlipX ? -frost.Scale : frost.Scale, frost.FlipY ? -frost.Scale : frost.Scale);
             wanted.Add(key);
+        }
+    }
+
+    private void LayOutChrome(SceneFrame frame, HashSet<string> wanted)
+    {
+        var drips = SceneLayout.Drips(frame);
+        for (var i = 0; i < drips.Count; i++)
+        {
+            var drip = drips[i];
+            var key = $"drip{i}";
+            var piece = Ensure(key, (drip.Size, drip.Frequency, drip.Phase, Sharpness), 1, () => BuildDrip(drip));
+            Place(piece, drip.X, drip.Y, drip.Scale, drip.Scale);
+            wanted.Add(key);
+        }
+
+        var s = Math.Max(0.1, frame.Scale);
+        if (frame.Player is { } player && player.Width / s >= 140 && player.Height / s >= 24)
+        {
+            var (width, height) = (Math.Round(player.Width / s), Math.Round(player.Height / s));
+            var piece = Ensure("sheen", (width, height, frame.PlayerRadius), 2, () => BuildSheen(width, height, frame.PlayerRadius));
+            Place(piece, player.X, player.Y, s, s);
+            wanted.Add("sheen");
+        }
+    }
+
+    private void LayOutHud(SceneFrame frame, HashSet<string> wanted)
+    {
+        var s = Math.Max(0.1, frame.Scale);
+        var look = _theme.Current;
+        var framed = SceneLayout.Framed(frame);
+        for (var i = 0; i < framed.Count; i++)
+        {
+            var (box, player) = framed[i];
+            var (width, height) = (Math.Round(box.Width / s), Math.Round(box.Height / s));
+            var colour = player ? look.Accent2 : look.Accent;
+            var key = $"hud{i}";
+            var seed = i;
+            var piece = Ensure(key, (width, height, colour), 2, () => BuildBrackets(width, height, colour, seed));
+            Place(piece, box.X, box.Y, s, s);
+            wanted.Add(key);
+        }
+
+        var page = frame.Page;
+        if (page.Width / s >= 200 && page.Height / s >= 160)
+        {
+            var (width, height) = (Math.Round(page.Width / s), Math.Round(page.Height / s));
+            var piece = Ensure("scan", (width, height, frame.PanelRadius, look.Accent), 0, () => BuildScan(width, height, frame.PanelRadius, look.Accent));
+            Place(piece, page.X, page.Y, s, s);
+            wanted.Add("scan");
         }
     }
 
@@ -892,6 +960,189 @@ internal sealed partial class SceneDecorLayer : Canvas
         return piece;
     }
 
+    // ------------------------------------------------------------ liquid chrome
+
+    /// <summary>A drop of mercury hanging from an edge: it swells, stretches, lets go and falls, then gathers again.</summary>
+    private Piece BuildDrip(SceneLayout.Drip drip)
+    {
+        var piece = new Piece();
+        var placement = new CompositeTransform();
+        var outer = new Canvas { IsHitTestVisible = false, RenderTransform = placement };
+        var holder = _compositor.CreateContainerVisual();
+        piece.Owned.Add(holder);
+        ElementCompositionPreview.SetElementChildVisual(outer, holder);
+        piece.Sprites = outer;
+        var bead = Sprite(SceneSprite.ChromeBead, drip.Size, Pixels, piece);
+
+        // It grows down from the edge.
+        var half = (float)drip.Size / 2;
+        bead.CenterPoint = new Vector3(half, 0, 0);
+        holder.Children.InsertAtTop(bead);
+        piece.Element = outer;
+        piece.Placement = placement;
+        piece.Motions = _ => [.. DripMotion(drip).Select(m => new Motion(bead, m))];
+        piece.Rest = () =>
+        {
+            bead.Offset = new Vector3(-half, -2, 0);
+            bead.Scale = new Vector3(0.7f, 0.7f, 1);
+            bead.Opacity = 1;
+        };
+        return piece;
+    }
+
+    /// <summary>A band of light sweeping across the player now and then, as over polished metal, inside its rounded edge.</summary>
+    private Piece BuildSheen(double width, double height, double radius)
+    {
+        var piece = new Piece();
+        var placement = new CompositeTransform();
+        var outer = new Canvas { IsHitTestVisible = false, RenderTransform = placement };
+        var holder = _compositor.CreateContainerVisual();
+        holder.Size = new Vector2((float)width, (float)height);
+        var shape = _compositor.CreateRoundedRectangleGeometry();
+        shape.Size = holder.Size;
+        shape.CornerRadius = new Vector2((float)Math.Min(radius, height / 2));
+        var clip = _compositor.CreateGeometricClip(shape);
+        holder.Clip = clip;
+        ElementCompositionPreview.SetElementChildVisual(outer, holder);
+        piece.Sprites = outer;
+
+        var bandWidth = (float)Math.Max(90, height * 2.4);
+        var brush = _compositor.CreateLinearGradientBrush();
+        brush.StartPoint = Vector2.Zero;
+        brush.EndPoint = new Vector2(1, 0);
+        CompositionColorGradientStop[] stops =
+        [
+            _compositor.CreateColorGradientStop(0, ThemeColor.White.WithAlpha(0).ToColor()),
+            _compositor.CreateColorGradientStop(0.42f, ThemeColor.FromRgb(0xE8EEFF).WithAlpha(0.07).ToColor()),
+            _compositor.CreateColorGradientStop(0.5f, ThemeColor.White.WithAlpha(0.2).ToColor()),
+            _compositor.CreateColorGradientStop(0.58f, ThemeColor.FromRgb(0xF6E4FF).WithAlpha(0.07).ToColor()),
+            _compositor.CreateColorGradientStop(1, ThemeColor.White.WithAlpha(0).ToColor()),
+        ];
+        foreach (var stop in stops)
+        {
+            brush.ColorStops.Add(stop);
+        }
+
+        var band = _compositor.CreateSpriteVisual();
+        band.Size = new Vector2(bandWidth, (float)(height * 3));
+        band.CenterPoint = new Vector3(bandWidth / 2, (float)(height * 1.5), 0);
+        band.RotationAngleInDegrees = 20;
+        band.Brush = brush;
+        band.Opacity = 0;
+        holder.Children.InsertAtTop(band);
+        piece.Owned.AddRange([holder, shape, clip, brush, .. stops, band]);
+
+        var frequency = SceneMotion.Frequency(9);
+        piece.Element = outer;
+        piece.Placement = placement;
+        piece.Motions = _ => [.. SweepMotion(frequency, 0.15, width, height).Select(m => new Motion(band, m))];
+        piece.Rest = () => band.Opacity = 0;
+        return piece;
+    }
+
+    // ------------------------------------------------------------ cyberpunk
+
+    /// <summary>A HUD's neon brackets on a box's four corners, with a tick beside the top left one and a faint glow, flickering and now and then glitching.</summary>
+    private Piece BuildBrackets(double width, double height, ThemeColor colour, int seed)
+    {
+        var piece = new Piece();
+        var placement = new CompositeTransform();
+        var outer = new Canvas { IsHitTestVisible = false, RenderTransform = placement };
+        var holder = _compositor.CreateContainerVisual();
+        ElementCompositionPreview.SetElementChildVisual(outer, holder);
+        piece.Sprites = outer;
+        piece.Owned.Add(holder);
+
+        const float thick = 2;
+        const float outside = 5;
+        var arm = (float)Math.Clamp(Math.Min(width, height) / 5, 8, 22);
+        var (w, h) = ((float)width, (float)height);
+        var bars = new List<(float X, float Y, float W, float H)>();
+        foreach (var (x, y, right, bottom) in (ReadOnlySpan<(float, float, bool, bool)>)[(-outside, -outside, false, false), (w + outside, -outside, true, false), (-outside, h + outside, false, true), (w + outside, h + outside, true, true)])
+        {
+            var left = right ? x - arm : x;
+            var top = bottom ? y - arm : y;
+            bars.Add((left, bottom ? y - thick : y, arm, thick));
+            bars.Add((right ? x - thick : x, top, thick, arm));
+        }
+
+        bars.Add((-outside + arm + 4, -outside, 7, thick));
+        bars.Add((-outside + arm + 14, -outside, 3, thick));
+
+        // Two wider, fainter copies under each bar for a glow, then the bar itself.
+        foreach (var (grow, alpha) in (ReadOnlySpan<(float, double)>)[(4, 0.08), (2, 0.18), (0, 0.95)])
+        {
+            var brush = _compositor.CreateColorBrush(colour.Mix(ThemeColor.White, grow == 0 ? 0.25 : 0).WithAlpha(alpha).ToColor());
+            piece.Owned.Add(brush);
+            foreach (var bar in bars)
+            {
+                var sprite = _compositor.CreateSpriteVisual();
+                sprite.Size = new Vector2(bar.W + (2 * grow), bar.H + (2 * grow));
+                sprite.Offset = new Vector3(bar.X - grow, bar.Y - grow, 0);
+                sprite.Brush = brush;
+                holder.Children.InsertAtTop(sprite);
+                piece.Owned.Add(sprite);
+            }
+        }
+
+        piece.Element = outer;
+        piece.Placement = placement;
+        piece.Motions = _ => [.. HudMotion(seed).Select(m => new Motion(holder, m.Property == "Translation" ? "Offset" : m.Property, m.Expression))];
+        piece.Rest = () =>
+        {
+            holder.Offset = Vector3.Zero;
+            holder.Opacity = 1;
+        };
+        return piece;
+    }
+
+    /// <summary>A faint line of light passing down the page now and then, trailing a glow, inside its edge.</summary>
+    private Piece BuildScan(double width, double height, double radius, ThemeColor colour)
+    {
+        var piece = new Piece();
+        var placement = new CompositeTransform();
+        var outer = new Canvas { IsHitTestVisible = false, RenderTransform = placement };
+        var holder = _compositor.CreateContainerVisual();
+        holder.Size = new Vector2((float)width, (float)height);
+        var shape = _compositor.CreateRoundedRectangleGeometry();
+        shape.Size = holder.Size;
+        shape.CornerRadius = new Vector2((float)radius);
+        var clip = _compositor.CreateGeometricClip(shape);
+        holder.Clip = clip;
+        ElementCompositionPreview.SetElementChildVisual(outer, holder);
+        piece.Sprites = outer;
+
+        var brush = _compositor.CreateLinearGradientBrush();
+        brush.StartPoint = Vector2.Zero;
+        brush.EndPoint = new Vector2(0, 1);
+        CompositionColorGradientStop[] stops =
+        [
+            _compositor.CreateColorGradientStop(0, colour.WithAlpha(0).ToColor()),
+            _compositor.CreateColorGradientStop(0.88f, colour.WithAlpha(0.05).ToColor()),
+            _compositor.CreateColorGradientStop(0.97f, colour.WithAlpha(0.14).ToColor()),
+            _compositor.CreateColorGradientStop(0.985f, colour.Mix(ThemeColor.White, 0.5).WithAlpha(0.32).ToColor()),
+            _compositor.CreateColorGradientStop(1, colour.WithAlpha(0).ToColor()),
+        ];
+        foreach (var stop in stops)
+        {
+            brush.ColorStops.Add(stop);
+        }
+
+        var band = _compositor.CreateSpriteVisual();
+        band.Size = new Vector2((float)width, ScanHeight);
+        band.Brush = brush;
+        band.Opacity = 0;
+        holder.Children.InsertAtTop(band);
+        piece.Owned.AddRange([holder, shape, clip, brush, .. stops, band]);
+
+        var frequency = SceneMotion.Frequency(12);
+        piece.Element = outer;
+        piece.Placement = placement;
+        piece.Motions = _ => [.. ScanMotion(frequency, 0.4, height).Select(m => new Motion(band, m))];
+        piece.Rest = () => band.Opacity = 0;
+        return piece;
+    }
+
     // ------------------------------------------------------------ drawing
 
     private SpriteVisual Sprite(SceneSprite picture, double size, double pixels, Piece piece)
@@ -1017,6 +1268,59 @@ internal sealed partial class SceneDecorLayer : Canvas
     }
 
     /// <summary>The bough's slow sway about where it comes in.</summary>
+    // How tall the scan line's glow is, in the content's units.
+    private const float ScanHeight = 140;
+
+    /// <summary>
+    /// A drop of mercury: it gathers under the edge and swells for most of
+    /// its period, stretches, lets go and falls <see cref="SceneLayout.DripFall"/>,
+    /// gone by the time it lands.
+    /// </summary>
+    private static IEnumerable<(string Property, string Expression)> DripMotion(SceneLayout.Drip drip)
+    {
+        var half = drip.Size / 2;
+        var u = $"Mod({Clock}.Time * {N(drip.Frequency)} + {N(drip.Phase)}, 1)";
+        var g = $"Clamp({u} / 0.7, 0, 1)";
+        var grow = $"(0.25 + 0.75 * {g} * {g} * (3 - 2 * {g}))";
+        var drop = $"Clamp(({u} - 0.76) / 0.24, 0, 1)";
+        var stretch = $"Clamp(({u} - 0.6) / 0.16, 0, 1) * (1 - {drop})";
+        yield return ("Offset", $"Vector3({N(-half)}, -2 + {N(SceneLayout.DripFall)} * {drop} * {drop}, 0)");
+        yield return ("Scale", $"Vector3({grow} * (1 - 0.14 * {stretch}), {grow} * (1 + 0.4 * {stretch}), 1)");
+        yield return ("Opacity", $"Clamp({u} * 25, 0, 1) * (1 - {drop} * {drop})");
+    }
+
+    /// <summary>A band of light across a box <paramref name="width"/> wide, in the first <paramref name="share"/> of each period, eased.</summary>
+    private static IEnumerable<(string Property, string Expression)> SweepMotion(double frequency, double share, double width, double height)
+    {
+        var bandWidth = Math.Max(90, height * 2.4);
+        var u = $"Mod({Clock}.Time * {N(frequency)} + 0.5, 1)";
+        var q = $"Clamp({u} / {N(share)}, 0, 1)";
+        yield return ("Offset", $"Vector3({N(-bandWidth * 1.3)} + {N(width + (bandWidth * 2.6))} * {q} * {q} * (3 - 2 * {q}), {N(-height)}, 0)");
+        yield return ("Opacity", $"Clamp({q} * 30, 0, 1) * Clamp((1 - {q}) * 30, 0, 1)");
+    }
+
+    /// <summary>A scan line down a box <paramref name="height"/> tall, in the first <paramref name="share"/> of each period.</summary>
+    private static IEnumerable<(string Property, string Expression)> ScanMotion(double frequency, double share, double height)
+    {
+        var u = $"Mod({Clock}.Time * {N(frequency)} + 0.3, 1)";
+        var q = $"Clamp({u} / {N(share)}, 0, 1)";
+        yield return ("Offset", $"Vector3(0, {N(-ScanHeight)} + {N(height + ScanHeight)} * {q}, 0)");
+        yield return ("Opacity", $"Clamp({q} * 20, 0, 1) * Clamp((1 - {q}) * 20, 0, 1)");
+    }
+
+    /// <summary>A HUD bracket's flicker and glitch, each box on its own beat.</summary>
+    private static IEnumerable<(string Property, string Expression)> HudMotion(int seed)
+    {
+        // Spread out by the golden ratio, so no two boxes keep time.
+        double Spread(int salt) => ((seed + 1) * 0.6180339887 * salt) % 1;
+        var flicker = 6 + (3 * Spread(1));
+        var glitch = 11 + (7 * Spread(2));
+        var motion = SceneMotion.Parse(FormattableString.Invariant(
+            $"flicker p={flicker:0.##} ph={Spread(3):0.###} w=0.015 lo=0.3; glitch p={glitch:0.##} ph={Spread(5):0.###} w=0.02 dx=3"));
+        yield return ("Translation", motion.Translation!);
+        yield return ("Opacity", motion.Opacity!);
+    }
+
     private static (string Property, string Expression) SwayMotion()
     {
         var (a, w, b, v) = SceneDecor.BoughSway;

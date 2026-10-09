@@ -57,17 +57,17 @@
         </DataTemplate>
         <DataTemplate x:Key="RecentTemplate" x:DataType="vm:RecentPickItem">
             <Grid
-                Width="300"
+                Width="{x:Bind TileWidth}"
                 Padding="8"
                 Background="{StaticResource ResonateTransparentBrush}"
                 ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="48" />
+                    <ColumnDefinition Width="{x:Bind CoverColumn}" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <Grid
-                    Width="48"
-                    Height="48"
+                    Width="{x:Bind CoverSize}"
+                    Height="{x:Bind CoverSize}"
                     Background="{x:Bind Cover.Background, Mode=OneWay}"
                     CornerRadius="{x:Bind CoverCorner}">
                     <Image Source="{x:Bind Cover.Image}" Stretch="UniformToFill" />
@@ -267,21 +267,21 @@
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="vm:TrackRow">
                                     <Grid
-                                        MinHeight="56"
+                                        MinHeight="{x:Bind Columns.CoverRowHeight, Mode=OneWay}"
                                         Background="{StaticResource ResonateTransparentBrush}"
                                         ColumnSpacing="16">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="40" />
+                                            <ColumnDefinition Width="{x:Bind Columns.CoverColumn, Mode=OneWay}" />
                                             <ColumnDefinition Width="5*" />
                                             <ColumnDefinition Width="3*" />
                                             <ColumnDefinition Width="56" />
                                         </Grid.ColumnDefinitions>
                                         <Grid
-                                            Width="40"
-                                            Height="40"
+                                            Width="{x:Bind Columns.CoverPixels, Mode=OneWay}"
+                                            Height="{x:Bind Columns.CoverPixels, Mode=OneWay}"
                                             Background="{x:Bind Cover.Background, Mode=OneWay}"
                                             CornerRadius="{ThemeResource ResonateCornerSmall}">
-                                            <Image Source="{x:Bind Cover.Image}" Stretch="UniformToFill" />
+                                            <Image Source="{x:Bind Cover.Image, Mode=OneWay}" Stretch="UniformToFill" />
                                         </Grid>
                                         <StackPanel
                                             Grid.Column="1"

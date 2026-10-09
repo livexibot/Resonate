@@ -26,11 +26,17 @@ public enum SceneSprite
 
     /// <summary>A four-pointed sparkle, for ice and snow catching the light.</summary>
     Glint,
+
+    /// <summary>A bead of liquid chrome: a mirrored sphere with the studio's light above, a dark horizon and a pearl glow below.</summary>
+    ChromeBead,
+
+    /// <summary>A drop of rain on a window: nearly clear, a darker rim, the city's warm light caught in its lower half and a bright spot near its top.</summary>
+    Droplet,
 }
 
 /// <summary>
-/// The special looks' little pictures (petals, blossoms, snow crystals and
-/// sparkles), drawn in code as PNG files so Windows' own decoder can take
+/// The special looks' little pictures (petals, blossoms, snow crystals,
+/// sparkles, chrome beads and raindrops), drawn in code as PNG files so Windows' own decoder can take
 /// them (<see cref="PngWriter"/>), like the stage's cloud mask. Each is
 /// <see cref="Size"/> pixels square with its shape centred, sampled 6 x 6
 /// times per pixel for smooth edges, and the same every time.
@@ -66,6 +72,8 @@ public static class SceneSprites
             SceneSprite.Crystal => (x, y) => Crystal(x, y, branched: true),
             SceneSprite.CrystalPlate => (x, y) => Crystal(x, y, branched: false),
             SceneSprite.Glint => Glint,
+            SceneSprite.ChromeBead => ChromeBead,
+            SceneSprite.Droplet => Droplet,
             _ => throw new ArgumentOutOfRangeException(nameof(sprite)),
         };
 
@@ -293,6 +301,78 @@ public static class SceneSprites
         light = Math.Max(light, 0.45 * Math.Max(Ray((x + y) * d, (x - y) * d, 0.5, 0.025), Ray((x - y) * d, (x + y) * d, 0.5, 0.025)));
         light = Math.Max(light, Math.Exp(-((x * x) + (y * y)) / 0.018));
         return light < 0.004 ? default : Solid(ThemeColor.FromRgb(0xF6FBFF), Math.Min(1, light));
+    }
+
+    private static Rgba ChromeBead(double x, double y)
+    {
+        const double radius = 0.9;
+        var r = Math.Sqrt((x * x) + (y * y)) / radius;
+        if (r > 1)
+        {
+            return default;
+        }
+
+        // The sphere's surface tilts away towards its rim, so what it mirrors is squeezed there: the sky above, the floor below.
+        var tilt = y / radius;
+        var bent = Math.Sign(tilt) * Math.Pow(Math.Abs(tilt), 0.7);
+        var stops = (ReadOnlySpan<(double At, uint Rgb)>)
+        [
+            (-1, 0xF7F9FD), (-0.6, 0xD3DAE6), (-0.18, 0x7C8597), (-0.02, 0x1E222B), (0.12, 0x333A48),
+            (0.42, 0xA9B3C6), (0.7, 0xE6D8F1), (0.86, 0xC9E6F6), (1, 0x8E95A8),
+        ];
+        var c = ThemeColor.FromRgb(stops[^1].Rgb);
+        for (var i = 1; i < stops.Length; i++)
+        {
+            if (bent <= stops[i].At)
+            {
+                var t = (bent - stops[i - 1].At) / (stops[i].At - stops[i - 1].At);
+                c = ThemeColor.FromRgb(stops[i - 1].Rgb).Mix(ThemeColor.FromRgb(stops[i].Rgb), Smooth(0, 1, t));
+                break;
+            }
+        }
+
+        // Darker towards the rim, then a thin bright edge of light below, and the softbox's reflection above left.
+        c = c.Mix(ThemeColor.FromRgb(0x14161C), 0.55 * Smooth(0.72, 1, r));
+        c = c.Mix(ThemeColor.FromRgb(0xFFE8FA), 0.8 * Smooth(0.86, 0.97, r) * Smooth(0.2, 0.7, y / radius));
+        var (hx, hy) = ((x + 0.32) / 0.3, (y + 0.42) / 0.16);
+        c = c.Mix(White, 0.95 * Math.Exp(-((hx * hx) + (hy * hy)) * 2));
+        var (sx, sy) = ((x - 0.34) / 0.08, (y + 0.22) / 0.06);
+        c = c.Mix(White, 0.9 * Math.Exp(-((sx * sx) + (sy * sy)) * 3));
+        return Solid(c, Smooth(1, 0.96, r));
+    }
+
+    private static Rgba Droplet(double x, double y)
+    {
+        // A little fuller below than above, as a drop hangs on glass.
+        var angle = Math.Atan2(y, x);
+        var radius = 0.62 * (1 + (0.1 * Math.Sin(angle)));
+        var r = Math.Sqrt((x * x) + (y * y)) / radius;
+        if (r > 1)
+        {
+            return default;
+        }
+
+        var down = Math.Sin(angle) * r;
+        var rim = Smooth(0.7, 1, r);
+
+        // Nearly clear, its rim dark above and lit below, the city's light caught as a warm crescent inside its lower edge.
+        var c = ThemeColor.FromRgb(0xC9D6E6);
+        var alpha = 0.16;
+        c = c.Mix(ThemeColor.FromRgb(0x0E1118), rim * Smooth(0.2, -0.6, down));
+        alpha += 0.5 * rim * Smooth(0.3, -0.5, down);
+        // The light comes from the city below and to one side, so it gathers in the lower right of the rim.
+        var side = Math.Cos(angle - 1.1);
+        var crescent = Smooth(0.62, 0.86, r) * Smooth(0.99, 0.9, r) * Smooth(0.35, 0.95, side) * 0.8;
+        c = c.Mix(ThemeColor.FromRgb(0xFFD7A3), crescent);
+        alpha = Math.Max(alpha, 0.85 * crescent);
+
+        // A small streak of light near the top left, along the curve of the rim.
+        var (u, v) = ((x * 0.8) + (y * 0.6), (y * 0.8) - (x * 0.6));
+        var (hx, hy) = ((u + 0.32) / 0.07, (v + 0.12) / 0.15);
+        var spot = Math.Exp(-((hx * hx) + (hy * hy)) * 2) * 0.9;
+        c = c.Mix(White, spot);
+        alpha = Math.Max(alpha, spot);
+        return Solid(c, Math.Min(1, alpha) * Smooth(1, 0.94, r));
     }
 
     private static double Hexagon(double x, double y)

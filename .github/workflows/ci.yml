@@ -216,8 +216,11 @@ jobs:
         run: |
           $folder = Join-Path $env:GITHUB_WORKSPACE 'artifacts/screenshots'
           $process = Start-Process -FilePath artifacts/win-x64/Resonate.exe -ArgumentList '--screenshots', $folder -PassThru
-          if (-not $process.WaitForExit(120000)) { $process.Kill(); throw 'The screenshot tour did not finish.' }
-          Get-ChildItem $folder | Format-Table Name, Length
+          # The tour waits about two minutes in all and grows with every
+          # preset; on a timeout the list shows how far it got.
+          $finished = $process.WaitForExit(240000)
+          Get-ChildItem $folder | Sort-Object LastWriteTime | Format-Table Name, Length, LastWriteTime
+          if (-not $finished) { $process.Kill(); throw 'The screenshot tour did not finish.' }
 
       # Artifacts need a GitHub login to download, so the screenshots are also
       # kept as a commit under refs/screenshots/pr-<number> (a hidden ref, not

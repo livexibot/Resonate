@@ -230,6 +230,74 @@ public static class SceneLayout
     }
 
     /// <summary>
+    /// A drop of mercury hanging under a bottom edge, for Liquid Chrome: its
+    /// middle at (<see cref="X"/>, <see cref="Y"/>), on the edge, in the
+    /// window's units; its size in the content's, drawn <see cref="Scale"/>
+    /// times larger; how many times a second it swells and falls (a whole
+    /// number of times per loop) and where in that it starts.
+    /// </summary>
+    public readonly record struct Drip(double X, double Y, double Size, double Frequency, double Phase, double Scale);
+
+    /// <summary>How far a drop of mercury falls before it is gone, in the content's units.</summary>
+    public const double DripFall = 64;
+
+    /// <summary>
+    /// Drops of mercury under the panels' and the player's bottom edges, one
+    /// for every 260 units or so (at most four an edge), away from the
+    /// corners; none under an edge without room below it for half the fall
+    /// (one by the window's bottom), nor where the player covers the edge.
+    /// </summary>
+    public static IReadOnlyList<Drip> Drips(SceneFrame frame)
+    {
+        var s = Math.Max(0.1, frame.Scale);
+        var drips = new List<Drip>();
+        void Along(int seed, SceneBox? box, double radius, bool player)
+        {
+            if (box is not { } b || b.Width / s < 120 || b.Bottom + (DripFall * s / 2) > frame.Window.Bottom)
+            {
+                return;
+            }
+
+            var margin = (radius + 16) * s;
+            var count = Math.Clamp((int)(b.Width / s / 260), 1, 4);
+            var span = b.Width - (2 * margin);
+            for (var k = 0; k < count; k++)
+            {
+                double H(int salt) => StageBars.Hash((seed * 8) + k, 120 + salt);
+                var x = b.X + margin + (span * (k + 0.2 + (0.6 * H(1))) / count);
+                if (!player && Covered(frame, new SceneBox(x - (8 * s), b.Bottom - (4 * s), 16 * s, 6 * s)))
+                {
+                    continue;
+                }
+
+                drips.Add(new Drip(x, b.Bottom, 8 + (6 * H(2)), SceneMotion.Frequency(7 + (8 * H(3))), H(4), s));
+            }
+        }
+
+        Along(1, frame.Sidebar, frame.PanelRadius, false);
+        Along(2, frame.Page, frame.PanelRadius, false);
+        Along(7, frame.Pane, frame.PanelRadius, false);
+        Along(3, frame.Player, frame.PlayerRadius, true);
+        return drips;
+    }
+
+    /// <summary>The panels and the player a HUD frames with corner brackets, for Cyberpunk, and whether each is the player.</summary>
+    public static IReadOnlyList<(SceneBox Box, bool Player)> Framed(SceneFrame frame)
+    {
+        var s = Math.Max(0.1, frame.Scale);
+        var framed = new List<(SceneBox Box, bool Player)>(4);
+        foreach (var (box, player) in (ReadOnlySpan<(SceneBox? Box, bool Player)>)[(frame.Sidebar, false), (frame.Page, false), (frame.Pane, false), (frame.Player, true)])
+        {
+            if (box is { } b && b.Width / s >= 80 && b.Height / s >= 30)
+            {
+                framed.Add((b, player));
+            }
+        }
+
+        return framed;
+    }
+
+    /// <summary>
     /// Where snow on the top edge of <paramref name="box"/> must keep low, in
     /// the edge's units: under the title bar's content on the left (the back
     /// button and the app's name) and on the right (its buttons and Windows'

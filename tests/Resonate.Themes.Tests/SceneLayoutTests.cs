@@ -152,4 +152,42 @@ public sealed class SceneLayoutTests
         var wide = Player with { X = 300, Width = 1280 };
         Assert.Equal([5], SceneLayout.Frost(Frame(player: wide)).Select(f => f.Seed));
     }
+    [Fact]
+    public void Mercury_drips_from_edges_with_room_below_them_away_from_the_corners_and_never_from_under_the_player()
+    {
+        // The hovering player's bottom edge has room under it; the panels reach the window's bottom and have none.
+        var drips = SceneLayout.Drips(Frame(player: Player));
+        Assert.NotEmpty(drips);
+        Assert.All(drips, d => Assert.Equal(Player.Bottom, d.Y));
+        Assert.All(drips, d => Assert.InRange(d.X, Player.X + 44 + 16, Player.Right - 44 - 16));
+        Assert.InRange(drips.Count, 1, 4);
+
+        // A sidebar that ends above a docked player drips onto it; a page edge the player lies over does not drip.
+        var docked = new SceneBox(12, 920, 1576, 68);
+        var frame = Frame(player: docked, sidebar: Sidebar with { Height = 860 }, page: Page with { Height = 860 });
+        var above = SceneLayout.Drips(frame);
+        Assert.Contains(above, d => d.Y == 904 && d.X < Sidebar.Right);
+        Assert.Contains(above, d => d.Y == 904 && d.X > Page.X);
+        Assert.DoesNotContain(above, d => d.Y == docked.Bottom);
+
+        foreach (var drip in drips.Concat(above))
+        {
+            var turns = drip.Frequency * SceneWeather.LoopSeconds;
+            Assert.Equal(Math.Round(turns), turns, 9);
+            Assert.InRange(drip.Size, 8, 14);
+            Assert.InRange(drip.Phase, 0, 1);
+        }
+
+        Assert.Equal(drips, SceneLayout.Drips(Frame(player: Player)));
+    }
+
+    [Fact]
+    public void A_hud_frames_every_panel_and_the_player_big_enough_to_carry_it()
+    {
+        var framed = SceneLayout.Framed(Frame(new SceneBox(1200, 44, 388, 944), Player, page: Page with { Width = 892 }));
+        Assert.Equal(4, framed.Count);
+        Assert.Single(framed, f => f.Player);
+        Assert.Equal(Player, framed.Single(f => f.Player).Box);
+        Assert.DoesNotContain(SceneLayout.Framed(Frame(player: Player with { Width = 60 })), f => f.Player);
+    }
 }

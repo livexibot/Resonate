@@ -31,6 +31,7 @@ public static class BundledFonts
     /// <summary>Every bundled font, in alphabetical order.</summary>
     public static IReadOnlyList<BundledFont> All { get; } =
     [
+        new("Bodoni Moda", "BodoniModa.ttc", FontKind.Serif),
         new("DM Sans", "DMSans.ttc", FontKind.Sans),
         new("Figtree", "Figtree.ttc", FontKind.Sans),
         new("Geist", "Geist.ttc", FontKind.Sans),
@@ -43,11 +44,14 @@ public static class BundledFonts
         new("Newsreader", "Newsreader.ttc", FontKind.Serif),
         new("Nunito", "Nunito.ttc", FontKind.Sans),
         new("Outfit", "Outfit.ttc", FontKind.Sans),
+        new("Oxanium", "Oxanium.ttc", FontKind.Sans),
         new("Plus Jakarta Sans", "PlusJakartaSans.ttc", FontKind.Sans),
         new("Poppins", "Poppins.ttc", FontKind.Sans),
         new("Rubik", "Rubik.ttc", FontKind.Sans),
         new("Sora", "Sora.ttc", FontKind.Sans),
         new("Space Grotesk", "SpaceGrotesk.ttc", FontKind.Sans),
+        new("Tektur", "Tektur.ttc", FontKind.Sans),
+        new("Unbounded", "Unbounded.ttc", FontKind.Sans),
         new("Work Sans", "WorkSans.ttc", FontKind.Sans),
     ];
 
