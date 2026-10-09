@@ -264,6 +264,11 @@ internal sealed class ScreenshotTour
             Record("The Home stage's visualizer could not move: " + motionError);
         }
 
+        if (SceneWeatherLayer.CheckMotion(Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(_root).Compositor) is { } weatherError)
+        {
+            Record("The special looks' weather could not move: " + weatherError);
+        }
+
         if (_window.CurrentPage is HomePage home)
         {
             home.ScrollTo(HomeSection.Mixes);

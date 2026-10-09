@@ -17,7 +17,8 @@ internal sealed partial class ThemeHost : Grid
     {
         Underlay = new Grid { IsHitTestVisible = false };
         Edge = new Border { IsHitTestVisible = false, Visibility = Visibility.Collapsed };
-        Scene = new Grid { Children = { new BackdropLayer(services.Theme, services.Artwork), content } };
+        // A special look's scenery sits behind the panels and its weather over them.
+        Scene = new Grid { Children = { new BackdropLayer(services.Theme, services.Artwork), new SceneArt(), content, new SceneWeatherLayer(services.Theme) } };
         Overlay = new Grid { IsHitTestVisible = false };
         Children.Add(Underlay);
         Children.Add(Edge);

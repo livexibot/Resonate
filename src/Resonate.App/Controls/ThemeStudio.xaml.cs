@@ -93,6 +93,7 @@ public sealed partial class ThemeStudio : UserControl
         _choices = new()
         {
             [BackdropChoice] = (look, tag) => look with { Backdrop = Enum.Parse<WindowBackdrop>(tag) },
+            [SceneChoice] = (look, tag) => look with { Scene = Enum.Parse<ThemeScene>(tag) },
             [ButtonsChoice] = (look, tag) => look with { Buttons = Enum.Parse<ButtonShape>(tag) },
             [ShadowChoice] = (look, tag) => look with { Shadow = Enum.Parse<ShadowStyle>(tag) },
         };
@@ -204,6 +205,7 @@ public sealed partial class ThemeStudio : UserControl
             // Room for the colours' names at the user's Text size.
             SwatchGrid.ItemWidth = SwatchWidth * _theme.TextScale;
             Select(BackdropChoice, look.Backdrop.ToString());
+            Select(SceneChoice, look.Scene.ToString());
             Select(ButtonsChoice, look.Buttons.ToString());
             Select(ShadowChoice, look.Shadow.ToString());
             ShowFont(DisplayFontChoice, look.DisplayFont);
@@ -318,11 +320,11 @@ public sealed partial class ThemeStudio : UserControl
         }
     }
 
-    /// <summary>The presets under Dark, Light and OLED, each with its default first; names only.</summary>
+    /// <summary>The presets under Dark, Light, OLED and Special, each with its default first; names only.</summary>
     private void BuildPresetGroups()
     {
         var resources = Application.Current.Resources;
-        foreach (var (title, presets) in new[] { ("Dark", ThemePresets.Dark), ("Light", ThemePresets.Light), ("OLED", ThemePresets.Black) })
+        foreach (var (title, presets) in new[] { ("Dark", ThemePresets.Dark), ("Light", ThemePresets.Light), ("OLED", ThemePresets.Black), ("Special", ThemePresets.Special) })
         {
             var grid = new GridView
             {

@@ -110,6 +110,17 @@
                         <ComboBoxItem Content="Acrylic (Windows)" Tag="Acrylic" />
                     </ComboBox>
                 </controls:SettingRow>
+                <controls:SettingRow Header="Scene">
+                    <ComboBox
+                        x:Name="SceneChoice"
+                        AutomationProperties.Name="Scene"
+                        SelectionChanged="OnChoiceChanged"
+                        Style="{StaticResource StudioComboStyle}">
+                        <ComboBoxItem Content="None" Tag="None" />
+                        <ComboBoxItem Content="Japan" Tag="Japan" />
+                        <ComboBoxItem Content="Snow" Tag="Snow" />
+                    </ComboBox>
+                </controls:SettingRow>
                 <controls:SettingRow Header="Cover blur">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Slider

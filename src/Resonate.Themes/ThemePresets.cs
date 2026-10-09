@@ -392,6 +392,83 @@ public static class ThemePresets
         PlayerVisualizer = VisualizerStyle.Silk,
     };
 
+    /// <summary>
+    /// A Japanese night, a special look: ink-dark indigo sky to a crimson dusk,
+    /// vermilion like a torii gate, sakura pink, washi-white text and a serif,
+    /// with Mount Fuji, a pagoda, a torii and a cherry branch behind the
+    /// panels and petals drifting over them.
+    /// </summary>
+    public static ThemeDefinition Japan { get; } = new()
+    {
+        Id = "japan",
+        Name = "Japan",
+        Background = ThemeColor.FromRgb(0x15132A),
+        Background2 = ThemeColor.FromRgb(0x3C1426),
+        Sidebar = ThemeColor.FromRgb(0x18122A),
+        Surface = ThemeColor.FromRgb(0x1B1428),
+        Player = ThemeColor.FromRgb(0x140F20),
+        Text = ThemeColor.FromRgb(0xF7EFE6),
+        Accent = ThemeColor.FromRgb(0xEE5A45),
+        Accent2 = ThemeColor.FromRgb(0xF4A7C1),
+        Border = ThemeColor.FromRgb(0xEE5A45).WithAlpha(0.24),
+        Backdrop = WindowBackdrop.Gradient,
+        GradientAngle = 180,
+        PanelOpacity = 0.68,
+        CornerRadius = 6,
+        Buttons = ButtonShape.Rounded,
+        BorderWidth = 1,
+        PanelGap = 12,
+        Shadow = ShadowStyle.Soft,
+        DisplayFont = "Newsreader",
+        TextFont = "DM Sans",
+        PlayerLayout = PlayerLayout.Hovering,
+        Progress = ProgressStyle.Line,
+        PlayButton = PlayButtonStyle.Outline,
+        Cover = CoverStyle.Square,
+        PlayerGlow = 0.25,
+        StageVisualizer = VisualizerStyle.Silk,
+        PlayerVisualizer = VisualizerStyle.Off,
+        Scene = ThemeScene.Japan,
+    };
+
+    /// <summary>
+    /// A snowy night, a special look: deep navy to a pale blue horizon, ice-blue
+    /// light and frosted panels, with stars, snow-capped mountains, a pine
+    /// forest and drifts behind them and snow falling over everything.
+    /// </summary>
+    public static ThemeDefinition Snow { get; } = new()
+    {
+        Id = "snow",
+        Name = "Snow",
+        Background = ThemeColor.FromRgb(0x0A1424),
+        Background2 = ThemeColor.FromRgb(0x2B4A6B),
+        Sidebar = ThemeColor.FromRgb(0x0E1B2E),
+        Surface = ThemeColor.FromRgb(0x112138),
+        Player = ThemeColor.FromRgb(0x0D1A2C),
+        Text = ThemeColor.FromRgb(0xF2F8FF),
+        Accent = ThemeColor.FromRgb(0x8CD4FF),
+        Accent2 = ThemeColor.FromRgb(0xD8ECFF),
+        Border = ThemeColor.White.WithAlpha(0.14),
+        Backdrop = WindowBackdrop.Gradient,
+        GradientAngle = 180,
+        PanelOpacity = 0.6,
+        CornerRadius = 18,
+        Buttons = ButtonShape.Round,
+        BorderWidth = 1,
+        PanelGap = 12,
+        Shadow = ShadowStyle.Glow,
+        DisplayFont = "Outfit",
+        TextFont = "Manrope",
+        PlayerLayout = PlayerLayout.Hovering,
+        Progress = ProgressStyle.Gradient,
+        PlayButton = PlayButtonStyle.Filled,
+        Cover = CoverStyle.Rounded,
+        PlayerGlow = 0.3,
+        StageVisualizer = VisualizerStyle.Aurora,
+        PlayerVisualizer = VisualizerStyle.Off,
+        Scene = ThemeScene.Snow,
+    };
+
     /// <summary>Dark looks, the default first.</summary>
     public static IReadOnlyList<ThemeDefinition> Dark { get; } = [Midnight, Glass, Velvet, Fluent, Studio, Synthwave];
 
@@ -400,7 +477,10 @@ public static class ThemePresets
 
     /// <summary>True-black looks for OLED screens, the default first.</summary>
     public static IReadOnlyList<ThemeDefinition> Black { get; } = [Oled, Aurora, PureBlack, Terminal];
-    public static IReadOnlyList<ThemeDefinition> All { get; } = [.. Dark, .. Light, .. Black];
+    /// <summary>Special looks, built around one aesthetic with scenery of their own.</summary>
+    public static IReadOnlyList<ThemeDefinition> Special { get; } = [Japan, Snow];
+
+    public static IReadOnlyList<ThemeDefinition> All { get; } = [.. Dark, .. Light, .. Black, .. Special];
 
     public static ThemeDefinition Default => Midnight;
 

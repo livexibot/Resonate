@@ -147,6 +147,23 @@ public enum VisualizerStyle
     Aurora,
 }
 
+/// <summary>
+/// The scenery a special look draws (saved by name: append, never rename):
+/// art behind the panels and weather drifting over the window.
+/// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter<ThemeScene>))]
+public enum ThemeScene
+{
+    /// <summary>No scenery.</summary>
+    None,
+
+    /// <summary>A Japanese night: the moon, Mount Fuji, a pagoda, a torii gate, a cherry branch and falling sakura petals.</summary>
+    Japan,
+
+    /// <summary>A snowy night: stars, snow-capped mountains, a pine forest, snowdrifts and falling snow.</summary>
+    Snow,
+}
+
 [JsonConverter(typeof(JsonStringEnumConverter<ProgressStyle>))]
 public enum ProgressStyle
 {
@@ -318,6 +335,9 @@ public sealed record ThemeDefinition
     /// <summary>A visualizer along the player bar; Off for none.</summary>
     public VisualizerStyle PlayerVisualizer { get; init; } = VisualizerStyle.Off;
 
+    /// <summary>The scenery of a special look; None for the others.</summary>
+    public ThemeScene Scene { get; init; }
+
     public ProgressStyle Progress { get; init; } = ProgressStyle.Line;
 
     public PlayButtonStyle PlayButton { get; init; } = PlayButtonStyle.Filled;
@@ -351,6 +371,7 @@ public sealed record ThemeDefinition
         PlayerGlow = double.IsFinite(PlayerGlow) ? Math.Clamp(PlayerGlow, 0, 1) : 0,
         StageVisualizer = Enum.IsDefined(StageVisualizer) && StageVisualizer != VisualizerStyle.Off ? VisualizerShapes.Current(StageVisualizer) : VisualizerStyle.Bars,
         PlayerVisualizer = Enum.IsDefined(PlayerVisualizer) && VisualizerShapes.FitsPlayerBar(VisualizerShapes.Current(PlayerVisualizer)) ? VisualizerShapes.Current(PlayerVisualizer) : VisualizerStyle.Off,
+        Scene = Enum.IsDefined(Scene) ? Scene : ThemeScene.None,
         Progress = Enum.IsDefined(Progress) ? Progress : ProgressStyle.Line,
         PlayButton = Enum.IsDefined(PlayButton) ? PlayButton : PlayButtonStyle.Filled,
         Cover = Enum.IsDefined(Cover) ? Cover : CoverStyle.Rounded,

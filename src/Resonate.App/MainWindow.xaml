@@ -217,6 +217,7 @@
                             <DataTemplate x:DataType="vm:NavItem">
                                 <StackPanel
                                     Height="40"
+                                    HorizontalAlignment="{x:Bind ContentAlignment, Mode=OneWay}"
                                     Background="{StaticResource ResonateTransparentBrush}"
                                     Orientation="Horizontal"
                                     Spacing="14">
@@ -295,8 +296,9 @@
                             <DataTemplate x:DataType="vm:PlaylistNavItem">
                                 <Grid
                                     MinHeight="64"
+                                    HorizontalAlignment="{x:Bind RowAlignment, Mode=OneWay}"
                                     Background="{StaticResource ResonateTransparentBrush}"
-                                    ColumnSpacing="12">
+                                    ColumnSpacing="{x:Bind ColumnGap, Mode=OneWay}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="{x:Bind CoverColumnWidth, Mode=OneWay}" />
                                         <ColumnDefinition Width="*" />

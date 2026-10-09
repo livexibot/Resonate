@@ -18,8 +18,13 @@ public sealed partial class SettingsPane : UserControl
     /// <summary>The pane's width until the user drags it.</summary>
     public const double DefaultWidth = 520;
 
-    /// <summary>The narrowest the pane gets; the rows of buttons in Settings need about this much.</summary>
-    public const double MinimumWidth = 440;
+    /// <summary>
+    /// The narrowest the pane gets: two preset cards side by side (each 208
+    /// wide with its 4 of spacing) inside Settings' 24 of padding on each
+    /// side, and a little to spare; any narrower and they stood one per row
+    /// (the owner's request, 9 October 2026).
+    /// </summary>
+    public const double MinimumWidth = 480;
 
     private static readonly Vector3 ClosedOffset = new(24, 0, 0);
 

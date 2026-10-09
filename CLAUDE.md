@@ -15,7 +15,9 @@ visitors; keep it short and in step with this file.
   2026; see "First milestone"). Releases are published with one
   installer, for ordinary (x64) Windows PCs (`Resonate-win-x64-Setup.exe`;
   the owner dropped arm64 and the portable zip on 8 October 2026 to save
-  build time); the latest is v0.9.0
+  build time); the latest is v0.13.0 (9 October 2026: Settings in six
+  tabs, colours that follow the cover, new visualizers, reset buttons and
+  a new Search); before it v0.9.0
   (8 October 2026: the owner's live edits, see below; v0.8.0 brought
   Resonate's own player for Web API only, the Home stage's visualizer
   and Settings in tabs, v0.7.0 swiping the playing song to skip, Web API only closing
@@ -885,6 +887,25 @@ Ripple, and a more interesting Home):
   Bubblegum Pulse (Pills in its bar), Terminal Retro (and in its bar),
   Velvet and Aurora Aurora (Silk in Aurora's bar), Sage Silk. CI's tour
   starts every style (`StageVisualizer.CheckMotion`).
+- Special looks (the owner's request, 9 October 2026: "themes around a
+  certain aesthetic ... extremely good and custom made", tried in the demo
+  first): a fourth preset group, Special, with Japan and Snow. A look's
+  `Scene` (`ThemeScene`, saved by name: append, never rename; also under
+  Customize, Background) draws scenery behind the panels
+  (`Controls/SceneArt.xaml`, XAML paths written by
+  `tools/scenes/build_scene_art.py`: Japan's moon, cherry branch over it,
+  Mount Fuji, hills, a lit pagoda and a torii; Snow's stars, crescent moon,
+  two snow-capped ranges, a pine forest and drifts; each made only while
+  shown, `x:Load`) and weather over the whole window
+  (`Controls/SceneWeatherLayer.cs`: 26 sakura petals that turn and
+  flutter, or 72 snowflakes with 8 soft out-of-focus ones; compositor
+  expressions on one 20-minute clock, maths in
+  `Resonate.Themes/SceneWeather.cs`, tested; moving only while the window
+  shows and Windows' animations are on, every animation stopped
+  otherwise). The special looks' panels are see-through (0.68 and 0.6) so
+  the scenery shows, and their cards carry a blossom or a snowflake. CI's
+  tour starts both weathers' motion (`SceneWeatherLayer.CheckMotion`).
+  Measure: the weather's cost at 5K and 165 Hz.
 - Reset buttons (the owner's request, 9 October 2026): every slider and
   number box in Settings shows a small reset button while its value is
   not the default (`Controls/ResetButton`); drop-downs and switches have
@@ -1635,7 +1656,7 @@ when the work first needs them, then tick them off here.
 - Decided (8 October 2026, the owner's requests): Settings opens in a
   pane on the right of the window beside the page, not in place of it.
   It shares the queue's column and grip (`MainWindow.LayOutPanes`; its
-  width is kept in `SettingsPaneWidth`, 440 to 960), so opening one closes
+  width is kept in `SettingsPaneWidth`, 480 to 960, so two preset cards always fit side by side), so opening one closes
   the other; a click on a grip without dragging keeps no width. The player
   bar has no like button (songs are still liked from lists and menus).
   Setting descriptions stay short: the owner found them too wordy, for
