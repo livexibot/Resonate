@@ -89,6 +89,7 @@ public sealed partial class MainWindow : Window
     {
         _services = services;
         InitializeComponent();
+        PlaylistNavItem.ShowCovers = _services.Settings.ShowPlaylistCovers;
 
         SetMinimumSize();
         ExtendsContentIntoTitleBar = true;
@@ -468,6 +469,16 @@ public sealed partial class MainWindow : Window
 
     private bool? _sidebarCompact;
 
+    /// <summary>Shows or hides the playlists' covers in the sidebar (Settings, Layout).</summary>
+    internal void ShowPlaylistCovers(bool show)
+    {
+        PlaylistNavItem.ShowCovers = show;
+        foreach (var item in Playlists)
+        {
+            item.RefreshCompact();
+        }
+    }
+
     /// <summary>Icons and covers only, without names or the Playlists heading, while the sidebar is at its narrowest.</summary>
     private void ApplySidebarCompact(bool compact)
     {
@@ -633,9 +644,7 @@ public sealed partial class MainWindow : Window
         BackButton.Visibility = _history.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         UpdateTitleBarPassthrough();
 
-        NavigationTransitionInfo transition = remember
-            ? new EntranceNavigationTransitionInfo()
-            : new SlideNavigationTransitionInfo { Effect = SlideNavigationTransitionEffect.FromLeft };
+        var (transition, drillIn) = PageTransition(remember);
         switch (key)
         {
             case HomeKey:
@@ -651,9 +660,49 @@ public sealed partial class MainWindow : Window
                 ContentFrame.Navigate(typeof(ArtistPage), key[ArtistPrefix.Length..], transition);
                 break;
             default:
-                ContentFrame.Navigate(typeof(TracksPage), key, remember ? new DrillInNavigationTransitionInfo() : transition);
+                ContentFrame.Navigate(typeof(TracksPage), key, drillIn);
                 break;
         }
+
+        if (_services.Settings.PageAnimation == "Fade" && _services.Theme.AnimationsEnabled)
+        {
+            FadeInPage();
+        }
+    }
+
+    /// <summary>
+    /// How the page comes in (Settings, Themes, Effects, Page animation), and
+    /// how a song list does, which drills in by default. Going back slides
+    /// from the left with Default, Rise and Slide.
+    /// </summary>
+    private (NavigationTransitionInfo Page, NavigationTransitionInfo List) PageTransition(bool forward)
+    {
+        NavigationTransitionInfo back = new SlideNavigationTransitionInfo { Effect = SlideNavigationTransitionEffect.FromLeft };
+        switch (_services.Settings.PageAnimation)
+        {
+            case "Rise":
+                return forward ? (new EntranceNavigationTransitionInfo(), new EntranceNavigationTransitionInfo()) : (back, back);
+            case "DrillIn":
+                return (new DrillInNavigationTransitionInfo(), new DrillInNavigationTransitionInfo());
+            case "Slide":
+                NavigationTransitionInfo right = new SlideNavigationTransitionInfo { Effect = SlideNavigationTransitionEffect.FromRight };
+                return forward ? (right, right) : (back, back);
+            case "Fade" or "None":
+                return (new SuppressNavigationTransitionInfo(), new SuppressNavigationTransitionInfo());
+            default:
+                return forward ? (new EntranceNavigationTransitionInfo(), new DrillInNavigationTransitionInfo()) : (back, back);
+        }
+    }
+
+    /// <summary>The new page fades in on the compositor (the Fade page animation).</summary>
+    private void FadeInPage()
+    {
+        var visual = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(ContentFrame);
+        var fade = visual.Compositor.CreateScalarKeyFrameAnimation();
+        fade.InsertKeyFrame(0, 0);
+        fade.InsertKeyFrame(1, 1);
+        fade.Duration = TimeSpan.FromMilliseconds(220);
+        visual.StartAnimation("Opacity", fade);
     }
 
     private void SelectNav(string key)

@@ -655,6 +655,7 @@ public sealed class OwnPlayer : IOwnDevice, IDisposable
         }
 
         _status = status;
+        PlaybackLog.Note($"own player: {status}");
         if (status == OwnPlayerStatus.Ready)
         {
             _deviceWaiter.TrySetResult(_deviceId);

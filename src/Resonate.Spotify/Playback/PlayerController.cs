@@ -284,8 +284,31 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         _devices.Invalidate();
     }
 
-    private Task<bool> TryLocalAsync(Func<CancellationToken, Task<bool>> command, CancellationToken cancellationToken) =>
-        UseLocal ? command(cancellationToken) : Task.FromResult(false);
+    /// <summary>
+    /// Sends a command through Windows' media controls, or returns false so
+    /// the caller uses the Web API: also while Spotify's session has no song
+    /// in it (Spotify just started, or it went blank), when Spotify takes a
+    /// local play or skip and does nothing.
+    /// </summary>
+    private Task<bool> TryLocalAsync(Func<CancellationToken, Task<bool>> command, CancellationToken cancellationToken)
+    {
+        bool hasSong;
+        lock (_gate)
+        {
+            hasSong = HasSong(_lastLocal);
+        }
+
+        if (!UseLocal || !hasSong)
+        {
+            PlaybackLog.Note(UseLocal ? "local: no song in Spotify's session, using the Web API" : "web api only");
+            return Task.FromResult(false);
+        }
+
+        return command(cancellationToken);
+    }
+
+    /// <summary>Spotify's session describes a song (it can be there with nothing in it).</summary>
+    private static bool HasSong(LocalMediaSnapshot snapshot) => snapshot.HasSession && !string.IsNullOrEmpty(snapshot.Title);
 
     public Task TogglePlayPauseAsync() => State.IsPlaying ? PauseAsync() : PlayAsync();
 
@@ -1242,12 +1265,14 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         }
         catch (SpotifyApiException ex) when (ex.RetryAfter is { } wait)
         {
+            PlaybackLog.Note($"web: {(int)ex.StatusCode} {(ex.IsQuotaExceeded ? "quota exceeded" : "too many requests")}, waiting {wait.TotalSeconds:0} s");
             _webPausedUntil = _time.GetUtcNow() + wait;
         }
         catch (Exception ex) when (ex is SpotifyApiException or HttpRequestException or TaskCanceledException or JsonException && !cancellationToken.IsCancellationRequested)
         {
             // Offline, a passing error, or something other than Spotify answering
             // (such as a Wi-Fi sign-in page): try again on the next round.
+            PlaybackLog.Note($"web: asking what plays failed: {DescribeError(ex)}");
         }
     }
 
@@ -1292,14 +1317,23 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         lock (_gate)
         {
             var now = _time.GetUtcNow();
+            var before = _lastLocal;
             _lastLocal = snapshot;
             var s = _state;
-
-            if (!snapshot.HasSession)
+            if (HasSong(before) != HasSong(snapshot) || before.HasSession != snapshot.HasSession || before.IsPlaying != snapshot.IsPlaying)
             {
+                PlaybackLog.Note($"local: session {(snapshot.HasSession ? "yes" : "no")}, song {(HasSong(snapshot) ? "yes" : "no")}, {(snapshot.IsPlaying ? "playing" : "paused")}");
+            }
+
+            if (!HasSong(snapshot))
+            {
+                // No session, or one with nothing in it: what plays is not
+                // known here, so the song shown stays and the Web API says
+                // what plays (asked at once when the session just went blank).
+                fetchDetails = HasSong(before);
                 SetState(s with
                 {
-                    IsConnected = _webConnected,
+                    IsConnected = snapshot.HasSession || _webConnected,
                     IsPlaying = _webConnected && s.IsPlaying,
                     Position = s.PositionAt(now),
                     PositionTimestamp = now,
@@ -1389,15 +1423,16 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             var s = _state;
             _webConnected = playback?.Device is not null;
             var item = TrackInfo.From(playback?.Item);
-            var localIsTruth = Local.HasSession && Local.HasTimeline;
+            var localIsTruth = HasSong(Local) && Local.HasTimeline;
 
             // Spotify's answer often still describes the song before; the next poll asks again.
             _needsWebDetails = localIsTruth && _needsWebDetails && item is not null && !TitlesMatch(item.Title, s.Title)
                 && ++_webDetailsMisses < MaxWebDetailsMisses;
 
+            NoteWeb(playback, item);
             if (playback is null)
             {
-                if (!Local.HasSession)
+                if (!HasSong(Local))
                 {
                     SetState(s with { IsConnected = false, IsPlaying = false, Position = s.PositionAt(now), PositionTimestamp = now });
                 }
@@ -1412,6 +1447,20 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         FollowSession();
     }
 
+    private (bool Device, bool Item, bool Playing)? _lastWebNote;
+
+    /// <summary>Notes in the playback log when Spotify's answer changes (not every poll).</summary>
+    private void NoteWeb(PlaybackState? playback, TrackInfo? item)
+    {
+        var now = (playback?.Device is not null, item is not null, playback?.IsPlaying == true);
+        if (_lastWebNote != now)
+        {
+            _lastWebNote = now;
+            PlaybackLog.Note(playback is null
+                ? "web: nothing active (no device playing)"
+                : $"web: device {(now.Item1 ? "yes" : "no")}, song {(now.Item2 ? "yes" : "no")}, {(now.Item3 ? "playing" : "paused")}");
+        }
+    }
     /// <summary>
     /// Whether Spotify now plays something other than the list Resonate
     /// started: another playlist or album (from the Spotify app, a phone), or
@@ -1487,6 +1536,12 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                     FullArtworkUrl = item.FullImageUrl,
                 };
             }
+        }
+        else if (item is null && s.Title is not null)
+        {
+            // A device with no song (between songs, or long after a pause):
+            // the song shown stays, only the playing state follows.
+            next = next with { IsPlaying = ResolvePlaying(playback.IsPlaying, s.IsPlaying, now) };
         }
         else if (!IsHeldForNewTrack(item?.Title, now))
         {
@@ -1880,6 +1935,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         catch (Exception ex)
         {
             revert?.Invoke();
+            PlaybackLog.Note($"command failed: {DescribeError(ex)}");
             ErrorOccurred?.Invoke(this, DescribeError(ex));
             return false;
         }
@@ -2025,7 +2081,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             bool needsWeb;
             lock (_gate)
             {
-                needsWeb = first || !UseLocal || !_lastLocal.HasSession || !_lastLocal.HasTimeline || _needsWebDetails;
+                needsWeb = first || !UseLocal || !HasSong(_lastLocal) || !_lastLocal.HasTimeline || _needsWebDetails;
             }
 
             if (needsWeb)

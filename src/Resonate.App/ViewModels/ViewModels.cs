@@ -118,16 +118,42 @@ public sealed partial class TrackColumns : ObservableObject
     /// <summary>Below this list width the date added column goes.</summary>
     public const double AddedMinWidth = 760;
 
+    /// <summary>Below this list width the year column goes.</summary>
+    public const double YearMinWidth = 680;
+
     private readonly bool _album;
     private readonly bool _dateAdded;
+    private readonly bool _year;
     private GridLength _albumWidth;
     private GridLength _addedWidth;
+    private GridLength _yearWidth;
 
+    /// <param name="album">The list has an album column (not on an album's own page).</param>
+    /// <param name="dateAdded">The list knows when songs were added.</param>
     public TrackColumns(bool album, bool dateAdded)
     {
-        _album = album;
-        _dateAdded = dateAdded;
+        // What the user chose under Settings, Layout, Song lists; read when the list opens.
+        var settings = App.Services.Settings;
+        _album = album && settings.ShowAlbumColumn;
+        _dateAdded = dateAdded && settings.ShowAddedColumn;
+        _year = settings.ShowYearColumn;
+        ShowsCovers = settings.ShowSongCovers;
         Fit(double.PositiveInfinity);
+    }
+
+    /// <summary>Each row shows its song's cover.</summary>
+    public bool ShowsCovers { get; }
+
+    public GridLength CoverWidth => ShowsCovers ? new GridLength(40) : new GridLength(0);
+
+    public double CoverSpacing => ShowsCovers ? 12 : 0;
+
+    public Visibility CoverVisibility => ShowsCovers ? Visibility.Visible : Visibility.Collapsed;
+
+    public GridLength YearWidth
+    {
+        get => _yearWidth;
+        private set => Set(ref _yearWidth, value);
     }
 
     public GridLength AlbumWidth
@@ -150,6 +176,7 @@ public sealed partial class TrackColumns : ObservableObject
     {
         AlbumWidth = _album && width >= AlbumMinWidth * textScale ? new GridLength(3, GridUnitType.Star) : new GridLength(0);
         AddedWidth = _dateAdded && width >= AddedMinWidth * textScale ? new GridLength(132 * textScale) : new GridLength(0);
+        YearWidth = _year && width >= YearMinWidth * textScale ? new GridLength(72 * textScale) : new GridLength(0);
     }
 }
 
@@ -198,6 +225,9 @@ public sealed partial class TrackRow : ObservableObject
     public string DateAdded { get; }
 
     public string Duration => Format.Duration(Track.Duration);
+
+    /// <summary>The year its album came out, for the Year column.</summary>
+    public string Year => Track.ReleaseYear?.ToString(System.Globalization.CultureInfo.CurrentCulture) ?? string.Empty;
 
     public double RowOpacity => Track.IsPlayable || Track.IsLocal ? 1 : 0.45;
 
@@ -292,8 +322,20 @@ public sealed partial class PlaylistNavItem : ObservableObject
 
     public Visibility TextVisibility => Compact ? Visibility.Collapsed : Visibility.Visible;
 
-    /// <summary>Picks up a change of <see cref="Compact"/>.</summary>
-    public void RefreshCompact() => OnPropertyChanged(nameof(TextVisibility));
+    /// <summary>The user's choice to show playlist covers (Settings, Layout); covers always show while <see cref="Compact"/>.</summary>
+    public static bool ShowCovers { get; set; } = true;
+
+    public Visibility CoverVisibility => ShowCovers || Compact ? Visibility.Visible : Visibility.Collapsed;
+
+    public GridLength CoverColumnWidth => ShowCovers || Compact ? new GridLength(48) : new GridLength(0);
+
+    /// <summary>Picks up a change of <see cref="Compact"/> or <see cref="ShowCovers"/>.</summary>
+    public void RefreshCompact()
+    {
+        OnPropertyChanged(nameof(TextVisibility));
+        OnPropertyChanged(nameof(CoverVisibility));
+        OnPropertyChanged(nameof(CoverColumnWidth));
+    }
 
     public Brush PlaceholderBrush { get; }
 

@@ -364,6 +364,7 @@ internal sealed partial class NowPlayingStage : Grid
 
     private void OnOptionsChanged(object? sender, EventArgs e)
     {
+        _visualizer.ApplyOptions();
         ApplyLook();
         UpdateRunning();
     }

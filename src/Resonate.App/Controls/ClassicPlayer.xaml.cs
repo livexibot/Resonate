@@ -868,7 +868,7 @@ public sealed partial class ClassicPlayer : UserControl
     {
         var theme = _services.Theme;
         var size = CoverFrame.Width;
-        var round = theme.SpinningCover;
+        var round = theme.CoverIsRecord;
         CoverFrame.CornerRadius = new CornerRadius(round ? size / 2 : CoverCorner);
         CoverHole.Visibility = round ? Visibility.Visible : Visibility.Collapsed;
         _coverSpin.Update(round && theme.AnimationsEnabled && _loaded, _shown.IsPlaying && _windowShown, (float)size);

@@ -259,6 +259,9 @@ public sealed record ThemeDefinition
     /// <summary>How far the player is moved down from its place (negative: up).</summary>
     public double? PlayerOffsetY { get; init; }
 
+    /// <summary>A glow of the accent around the player, 0 (none) to 1.</summary>
+    public double PlayerGlow { get; init; }
+
     public ProgressStyle Progress { get; init; } = ProgressStyle.Line;
 
     public PlayButtonStyle PlayButton { get; init; } = PlayButtonStyle.Filled;
@@ -289,6 +292,7 @@ public sealed record ThemeDefinition
         Buttons = Enum.IsDefined(Buttons) ? Buttons : ButtonShape.Round,
         Shadow = Enum.IsDefined(Shadow) ? Shadow : ShadowStyle.Soft,
         PlayerLayout = Enum.IsDefined(PlayerLayout) ? PlayerLayout : PlayerLayout.Docked,
+        PlayerGlow = double.IsFinite(PlayerGlow) ? Math.Clamp(PlayerGlow, 0, 1) : 0,
         Progress = Enum.IsDefined(Progress) ? Progress : ProgressStyle.Line,
         PlayButton = Enum.IsDefined(PlayButton) ? PlayButton : PlayButtonStyle.Filled,
         Cover = Enum.IsDefined(Cover) ? Cover : CoverStyle.Rounded,

@@ -103,6 +103,7 @@ public sealed partial class ThemeStudio : UserControl
             [GradientAngleSlider] = (look, value) => look with { GradientAngle = value },
             [TintSlider] = (look, value) => look with { BackdropTint = value / 100 },
             [PanelOpacitySlider] = (look, value) => look with { PanelOpacity = value / 100 },
+            [PlayerGlowSlider] = (look, value) => look with { PlayerGlow = value / 100 },
             [CornerSlider] = (look, value) => look with { CornerRadius = value },
             [BorderSlider] = (look, value) => look with { BorderWidth = value },
             [GapSlider] = (look, value) => look with { PanelGap = value },
@@ -206,6 +207,7 @@ public sealed partial class ThemeStudio : UserControl
             GradientAngleSlider.Value = look.GradientAngle;
             TintSlider.Value = Math.Round(look.BackdropTint * 100);
             PanelOpacitySlider.Value = Math.Round(look.PanelOpacity * 100);
+            PlayerGlowSlider.Value = Math.Round(look.PlayerGlow * 100);
             CornerSlider.Value = look.CornerRadius;
             BorderSlider.Value = look.BorderWidth;
             GapSlider.Value = look.PanelGap;
@@ -252,9 +254,12 @@ public sealed partial class ThemeStudio : UserControl
     /// <summary>The cover art settings: the spinning cover and how much the song cover backdrop is blurred.</summary>
     private void ShowCoverArt()
     {
-        SpinningCoverSwitch.IsOn = _theme.SpinningCover;
         CoverBlurSlider.Value = _theme.CoverBlur;
         CoverBlurText.Text = $"{_theme.CoverBlur} %";
+
+        var settings = App.Services.Settings;
+        Select(PageAnimationChoice, settings.PageAnimation);
+        Select(SongChangeChoice, settings.SongChangeAnimation);
     }
 
     private void ShowSliderValues()
@@ -262,6 +267,7 @@ public sealed partial class ThemeStudio : UserControl
         GradientAngleText.Text = $"{GradientAngleSlider.Value:0}°";
         TintText.Text = $"{TintSlider.Value:0}%";
         PanelOpacityText.Text = $"{PanelOpacitySlider.Value:0}%";
+        PlayerGlowText.Text = $"{PlayerGlowSlider.Value:0}%";
         CornerText.Text = $"{CornerSlider.Value:0}";
         BorderText.Text = $"{BorderSlider.Value:0.#}";
         GapText.Text = $"{GapSlider.Value:0}";
@@ -603,13 +609,26 @@ public sealed partial class ThemeStudio : UserControl
         }
     }
 
-    // The cover art switches are not part of a look, so they skip Edit (which would make a custom copy).
-    private void OnSpinningCoverToggled(object sender, RoutedEventArgs e)
+    // The cover art settings are not part of a look, so they skip Edit (which would make a custom copy).
+    private void OnAnimationChoiceChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!_loading)
+        if (_loading)
         {
-            _theme.SpinningCover = SpinningCoverSwitch.IsOn;
+            return;
         }
+
+        var settings = App.Services.Settings;
+        if (PageAnimationChoice.SelectedItem is ComboBoxItem { Tag: string page })
+        {
+            settings.PageAnimation = page;
+        }
+
+        if (SongChangeChoice.SelectedItem is ComboBoxItem { Tag: string song })
+        {
+            settings.SongChangeAnimation = song;
+        }
+
+        App.Services.SaveSettings();
     }
 
     private void OnCoverBlurChanged(object sender, RangeBaseValueChangedEventArgs e)

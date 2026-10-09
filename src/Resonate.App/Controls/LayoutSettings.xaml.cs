@@ -77,6 +77,11 @@ public sealed partial class LayoutSettings : UserControl
             LocalFilesLinkSwitch.IsOn = _services.LocalFiles.ShowInSidebar;
             DjLinkSwitch.IsOn = !hidden.Contains(MainWindow.DjKey);
             MiniPlayerButtonSwitch.IsOn = _services.Settings.ShowMiniPlayerButton;
+            PlaylistCoversSwitch.IsOn = _services.Settings.ShowPlaylistCovers;
+            SongCoversSwitch.IsOn = _services.Settings.ShowSongCovers;
+            AlbumColumnSwitch.IsOn = _services.Settings.ShowAlbumColumn;
+            YearColumnSwitch.IsOn = _services.Settings.ShowYearColumn;
+            AddedColumnSwitch.IsOn = _services.Settings.ShowAddedColumn;
 
             AppSizeChoice.SelectedIndex = IndexOf(AppScale.AppSizes, _theme.AppSize);
             TextSizeChoice.SelectedIndex = IndexOf(AppScale.TextSizes, _theme.TextSize);
@@ -190,6 +195,24 @@ public sealed partial class LayoutSettings : UserControl
 
         _services.SaveSettings();
         App.MainWindow?.ShowSidebarLinks();
+    }
+
+    // Covers and columns belong to the user; song lists read them when they open.
+    private void OnSongListToggled(object sender, RoutedEventArgs e)
+    {
+        if (_loading)
+        {
+            return;
+        }
+
+        var settings = _services.Settings;
+        settings.ShowSongCovers = SongCoversSwitch.IsOn;
+        settings.ShowAlbumColumn = AlbumColumnSwitch.IsOn;
+        settings.ShowYearColumn = YearColumnSwitch.IsOn;
+        settings.ShowAddedColumn = AddedColumnSwitch.IsOn;
+        settings.ShowPlaylistCovers = PlaylistCoversSwitch.IsOn;
+        _services.SaveSettings();
+        App.MainWindow?.ShowPlaylistCovers(settings.ShowPlaylistCovers);
     }
 
     private void OnMiniPlayerButtonToggled(object sender, RoutedEventArgs e)

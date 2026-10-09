@@ -89,6 +89,24 @@ public sealed class PlayerControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task A_blank_media_session_keeps_the_song_and_play_goes_through_the_Web_API()
+    {
+        await StartPlayingSongA();
+        var title = _player.State.Title;
+
+        // Spotify's session stays but says nothing (it went blank, or nothing is loaded yet).
+        _local.Report(new LocalMediaSnapshot { HasSession = true, PositionUpdatedAt = _time.GetUtcNow() });
+        Assert.Equal(title, _player.State.Title);
+        Assert.True(_player.State.IsConnected);
+
+        await _player.PauseAsync();
+        await _player.PlayAsync();
+
+        // A local play would be taken and do nothing; Spotify is asked to play through the Web API.
+        Assert.Equal(["pause@here", "play@here"], _web.Commands);
+    }
+
+    [Fact]
     public async Task Falls_back_to_the_Web_API_on_this_computer()
     {
         await StartPlayingSongA();

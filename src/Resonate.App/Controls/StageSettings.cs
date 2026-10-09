@@ -23,10 +23,14 @@ internal static class StageSettings
         {
             Switch(
                 "Visualizer",
-                "Bars that move with the music.",
+                string.Empty,
                 () => services.Settings.HomeStageVisualizer,
                 on => services.Settings.HomeStageVisualizer = on,
                 services),
+            Slider("Sensitivity", 50, 200, () => services.Settings.HomeStageSensitivity, v => services.Settings.HomeStageSensitivity = v, "%", services),
+            Slider("Smoothing", 0, 100, () => services.Settings.HomeStageSmoothing, v => services.Settings.HomeStageSmoothing = v, "%", services),
+            Slider("Bars", 16, 96, () => services.Settings.HomeStageBars, v => services.Settings.HomeStageBars = v, string.Empty, services),
+            Slider("Bar width", 20, 90, () => services.Settings.HomeStageBarWidth, v => services.Settings.HomeStageBarWidth = v, "%", services),
             Switch(
                 "Listen to Spotify",
                 "The bars hear Spotify's sound only. Nothing is kept.",
@@ -39,7 +43,7 @@ internal static class StageSettings
                 services),
             Switch(
                 "Blurred cover",
-                "The cover, blurred, behind the clouds.",
+                string.Empty,
                 () => services.Settings.HomeStageBlurredCover,
                 on => services.Settings.HomeStageBlurredCover = on,
                 services),
@@ -88,6 +92,41 @@ internal static class StageSettings
             }
         };
         return new SettingRow { Header = header, Description = description, Content = toggle };
+    }
+
+    /// <summary>A stage option as a slider of whole numbers: saved, and shown on every stage, as it moves.</summary>
+    private static SettingRow Slider(string header, int minimum, int maximum, Func<int> read, Action<int> write, string unit, AppServices services)
+    {
+        var slider = new Slider
+        {
+            Minimum = minimum,
+            Maximum = maximum,
+            StepFrequency = 1,
+            Width = 180,
+            Value = Math.Clamp(read(), minimum, maximum),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        AutomationProperties.SetName(slider, header);
+        var value = new TextBlock
+        {
+            MinWidth = 40,
+            VerticalAlignment = VerticalAlignment.Center,
+            Style = (Style)Application.Current.Resources["ResonateSecondaryTextStyle"],
+            Text = $"{read()}{(unit.Length > 0 ? " " + unit : string.Empty)}",
+        };
+        slider.ValueChanged += (_, e) =>
+        {
+            var v = (int)Math.Round(e.NewValue);
+            value.Text = $"{v}{(unit.Length > 0 ? " " + unit : string.Empty)}";
+            if (v != read())
+            {
+                write(v);
+                services.SaveSettings();
+                NowPlayingStage.NotifyOptionsChanged();
+            }
+        };
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { slider, value } };
+        return new SettingRow { Header = header, Content = row };
     }
 
     /// <summary>The away screen's wait in minutes: one of <see cref="AwayMinutes"/> (5 for anything else in the file).</summary>

@@ -298,7 +298,7 @@
                                     Background="{StaticResource ResonateTransparentBrush}"
                                     ColumnSpacing="12">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="48" />
+                                        <ColumnDefinition Width="{x:Bind CoverColumnWidth, Mode=OneWay}" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
@@ -307,6 +307,7 @@
                                         Height="48"
                                         Background="{x:Bind Cover.Background, Mode=OneWay}"
                                         CornerRadius="{ThemeResource ResonateCornerSmall}"
+                                        Visibility="{x:Bind CoverVisibility, Mode=OneWay}"
                                         ToolTipService.ToolTip="{x:Bind Name}">
                                         <Image Source="{x:Bind Cover.Image}" Stretch="UniformToFill" />
                                     </Grid>

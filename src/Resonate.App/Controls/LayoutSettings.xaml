@@ -146,6 +146,15 @@
                         OnContent=""
                         Toggled="OnLinkToggled" />
                 </controls:SettingRow>
+                <controls:SettingRow Header="Playlist covers">
+                    <ToggleSwitch
+                        x:Name="PlaylistCoversSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Playlist covers"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnSongListToggled" />
+                </controls:SettingRow>
                 <controls:SettingRow Description="Ctrl+M opens it either way." Header="Mini player button">
                     <ToggleSwitch
                         x:Name="MiniPlayerButtonSwitch"
@@ -154,6 +163,48 @@
                         OffContent=""
                         OnContent=""
                         Toggled="OnMiniPlayerButtonToggled" />
+                </controls:SettingRow>
+            </StackPanel>
+        </controls:SettingsGroup>
+
+        <!-- Song lists: covers and optional columns, the user's own; read when a list opens -->
+        <controls:SettingsGroup Header="Song lists">
+            <StackPanel Spacing="6">
+                <controls:SettingRow Header="Song covers">
+                    <ToggleSwitch
+                        x:Name="SongCoversSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Song covers"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnSongListToggled" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="Album">
+                    <ToggleSwitch
+                        x:Name="AlbumColumnSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Album column"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnSongListToggled" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="Year">
+                    <ToggleSwitch
+                        x:Name="YearColumnSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Year column"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnSongListToggled" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="Date added">
+                    <ToggleSwitch
+                        x:Name="AddedColumnSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Date added column"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnSongListToggled" />
                 </controls:SettingRow>
             </StackPanel>
         </controls:SettingsGroup>
