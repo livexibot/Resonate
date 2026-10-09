@@ -46,7 +46,7 @@ public sealed class ThemeService
     private ThemeTransitions? _transitions;
     private ThemeDefinition? _applied;
     private bool _shownIsLight;
-    private ThemeColor? _artworkAccent;
+    private (ThemeColor Accent, ThemeColor Second)? _artworkAccent;
     private long _morphStart;
     private ThemeTransitionSpec _morphSpec;
     private bool _morphing;
@@ -350,8 +350,8 @@ public sealed class ThemeService
         }
     }
 
-    /// <summary>The playing song's accent colour (null without a colourful cover), for looks that follow the cover.</summary>
-    public void SetArtworkAccent(ThemeColor? accent)
+    /// <summary>The playing song's two colours (null without a colourful cover), for looks that follow the cover.</summary>
+    public void SetArtworkAccent((ThemeColor Accent, ThemeColor Second)? accent)
     {
         if (_artworkAccent == accent)
         {
@@ -374,8 +374,9 @@ public sealed class ThemeService
             ? brush
             : new SolidColorBrush(Microsoft.UI.Colors.Transparent);
 
+    /// <summary>The look's palette; one that follows the cover takes the cover's colours throughout (<see cref="CoverLook"/>).</summary>
     private ThemePalette PaletteFor(ThemeDefinition look) =>
-        ThemePalette.From(look, look.AdaptiveAccent ? _artworkAccent : null);
+        ThemePalette.From(look.AdaptiveAccent && _artworkAccent is { } cover ? CoverLook.Follow(look, cover.Accent, cover.Second) : look);
 
     private void FlushPendingEdit()
     {

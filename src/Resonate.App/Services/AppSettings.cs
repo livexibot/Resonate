@@ -256,11 +256,20 @@ public sealed class AppSettings
     /// <summary>How strongly the bars answer the sound, 50 to 200 %.</summary>
     public int HomeStageSensitivity { get; set; } = 100;
 
-    /// <summary>How much of each step a bar fills, 20 to 90 %.</summary>
+    /// <summary>The visualizers' Size: how large each bar, dot, spark or ring line is, 20 to 90 %.</summary>
     public int HomeStageBarWidth { get; set; } = 56;
 
-    /// <summary>How many bars, 16 to 96 (fewer when the stage is too narrow for them).</summary>
+    /// <summary>The visualizers' Amount: how many bars, dots, sparks or rings, 16 to 96 (fewer when there is no room for them).</summary>
     public int HomeStageBars { get; set; } = 64;
+
+    /// <summary>How much of the stage's width Home's visualizer spans, centred, 20 to 100 %.</summary>
+    public int HomeStageWidth { get; set; } = 100;
+
+    /// <summary>How tall Home's visualizer may grow, as a share of the stage's height, 10 to 60 %.</summary>
+    public int HomeStageHeight { get; set; } = 26;
+
+    /// <summary>The most Home's visualizer may grow, in pixels, 40 to 600.</summary>
+    public int HomeStageMaxHeight { get; set; } = 280;
 
     /// <summary>How smoothly the bars rise and fall, 0 (snappy) to 100 (soft).</summary>
     public int HomeStageSmoothing { get; set; } = 60;

@@ -15,13 +15,18 @@ internal static class StageSettings
     /// <summary>The minutes the away screen can wait, the first being the shortest.</summary>
     public static readonly int[] AwayMinutes = [2, 5, 10, 15];
 
-    /// <summary>How the visualizers follow the music, and whether they hear Spotify (Settings, Player, Visualizer).</summary>
+    /// <summary>
+    /// How the visualizers follow the music, how many of their parts there
+    /// are and how large (Amount and Size mean bars, dots, sparks or rings,
+    /// whatever the style), whether they hear Spotify, and Home's width and
+    /// height under Advanced (Settings, Player, Visualizer).
+    /// </summary>
     public static IEnumerable<FrameworkElement> Visualizer(AppServices services) =>
     [
         Slider("Sensitivity", 50, 200, () => services.Settings.HomeStageSensitivity, v => services.Settings.HomeStageSensitivity = v, "%", services),
         Slider("Smoothing", 0, 100, () => services.Settings.HomeStageSmoothing, v => services.Settings.HomeStageSmoothing = v, "%", services),
-        Slider("Bars", 16, 96, () => services.Settings.HomeStageBars, v => services.Settings.HomeStageBars = v, string.Empty, services),
-        Slider("Bar width", 20, 90, () => services.Settings.HomeStageBarWidth, v => services.Settings.HomeStageBarWidth = v, "%", services),
+        Slider("Amount", 16, 96, () => services.Settings.HomeStageBars, v => services.Settings.HomeStageBars = v, string.Empty, services),
+        Slider("Size", 20, 90, () => services.Settings.HomeStageBarWidth, v => services.Settings.HomeStageBarWidth = v, "%", services),
         Switch(
             "Listen to Spotify",
             string.Empty,
@@ -32,6 +37,23 @@ internal static class StageSettings
                 services.Visualiser.ListensToSpotify = on;
             },
             services),
+        new Expander
+        {
+            Header = "Advanced",
+            IsExpanded = false,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Content = new StackPanel
+            {
+                Spacing = 6,
+                Children =
+                {
+                    Slider("Width", 20, 100, () => services.Settings.HomeStageWidth, v => services.Settings.HomeStageWidth = v, "%", services),
+                    Slider("Height", 10, 60, () => services.Settings.HomeStageHeight, v => services.Settings.HomeStageHeight = v, "%", services),
+                    Slider("Max height", 40, 600, () => services.Settings.HomeStageMaxHeight, v => services.Settings.HomeStageMaxHeight = v, "px", services),
+                },
+            },
+        },
     ];
 
     /// <summary>The Home stage's background: the blurred cover behind the clouds (Settings, Layout, Pages).</summary>

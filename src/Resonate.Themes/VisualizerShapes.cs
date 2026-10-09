@@ -32,9 +32,6 @@ public static class VisualizerShapes
     /// <summary>How many sound levels the Embers follow (each spark one of them).</summary>
     public const int EmberChannels = 12;
 
-    /// <summary>The Pulse's rings around the cover.</summary>
-    public const int PulseRings = 3;
-
     /// <summary>The space the Radial bars leave between the cover and their feet.</summary>
     public const double RadialGap = 6;
 
@@ -66,12 +63,23 @@ public static class VisualizerShapes
     /// <summary>A peak that falls back <see cref="PeakFall"/> a second, but never below the level.</summary>
     public static float Peak(float peak, float level, float seconds) => Math.Max(level, peak - (PeakFall * Math.Max(0, seconds)));
 
-    /// <summary>How many dots a Wave (or each Helix strand) has across <paramref name="width"/>.</summary>
-    public static int WaveDots(double width, bool helix)
+    /// <summary>The user's Amount (<see cref="StageBars.MinCount"/> to <see cref="StageBars.MaxCount"/>) as a share, 0 to 1.</summary>
+    public static double AmountShare(int amount) =>
+        Math.Clamp((amount - StageBars.MinCount) / (double)(StageBars.MaxCount - StageBars.MinCount), 0, 1);
+
+    /// <summary>The user's Size (a fill of 0.2 to 0.9) as a share, 0 to 1.</summary>
+    public static double SizeShare(double fill) => Math.Clamp((fill - 0.2) / 0.7, 0, 1);
+
+    /// <summary>A dot's or line's size between <paramref name="smallest"/> and <paramref name="largest"/> for the user's Size.</summary>
+    public static double SizeBetween(double smallest, double largest, double fill) => smallest + ((largest - smallest) * SizeShare(fill));
+
+    /// <summary>How many dots a Wave (or each Helix strand) has: the user's Amount, as many as fit across <paramref name="width"/>.</summary>
+    public static int WaveDots(double width, bool helix, int amount)
     {
-        var pitch = helix ? 12 : 9;
-        var fits = width > 0 ? (int)(width / pitch) : 24;
-        return Math.Clamp(fits, 24, StageBars.MaxCount);
+        var share = AmountShare(amount);
+        var wanted = (int)Math.Round(helix ? 16 + (56 * share) : 24 + (72 * share));
+        var fits = width > 0 ? (int)(width / (helix ? 8 : 5)) : wanted;
+        return Math.Clamp(Math.Min(wanted, fits), 12, StageBars.MaxCount);
     }
 
     /// <summary>Where dot <paramref name="index"/> of <paramref name="count"/> is in the wave, in radians.</summary>
@@ -81,9 +89,13 @@ public static class VisualizerShapes
     /// <summary>How fast the wave travels, in radians a second (whole turns per loop).</summary>
     public static double WaveSpeed(bool helix) => StageBars.Turns(helix ? 1.6 : 2.4);
 
-    /// <summary>How many sparks rise across <paramref name="width"/>.</summary>
-    public static int EmberCount(double width) =>
-        width > 0 ? Math.Clamp((int)(width / 26), 14, 56) : 14;
+    /// <summary>How many sparks rise: the user's Amount, as many as fit across <paramref name="width"/>.</summary>
+    public static int EmberCount(double width, int amount)
+    {
+        var wanted = (int)Math.Round(10 + (62 * AmountShare(amount)));
+        var fits = width > 0 ? (int)(width / 12) : wanted;
+        return Math.Clamp(Math.Min(wanted, fits), 6, StageBars.MaxCount);
+    }
 
     /// <summary>
     /// Spark <paramref name="index"/>: where it rises across the row (0 to
@@ -129,14 +141,17 @@ public static class VisualizerShapes
         return ((side / 2) + (reach * sin), (side / 2) - (reach * cos), degrees % 360);
     }
 
-    /// <summary>How far Pulse ring <paramref name="ring"/> sits outside the cover at rest.</summary>
-    public static double PulseInset(int ring, double reach) => reach * (0.16 + (0.2 * ring));
+    /// <summary>How many rings the Pulse has for the user's Amount: 2 to 5.</summary>
+    public static int PulseRingCount(int amount) => 2 + (int)Math.Round(AmountShare(amount) * 3);
+
+    /// <summary>How far Pulse ring <paramref name="ring"/> of <paramref name="rings"/> sits outside the cover at rest.</summary>
+    public static double PulseInset(int ring, int rings, double reach) => reach * (0.16 + (0.6 * ring / Math.Max(1, rings - 1)));
 
     /// <summary>How much Pulse ring <paramref name="ring"/> may grow (beyond 1) so it reaches <paramref name="reach"/> outside a cover <paramref name="side"/> wide.</summary>
-    public static double PulseGrowth(int ring, double side, double reach)
+    public static double PulseGrowth(int ring, int rings, double side, double reach)
     {
         var half = side / 2;
-        return half <= 0 ? 0 : Math.Max(0, ((half + reach) / (half + PulseInset(ring, reach))) - 1);
+        return half <= 0 ? 0 : Math.Max(0, ((half + reach) / (half + PulseInset(ring, rings, reach))) - 1);
     }
 
     /// <summary>A number as a composition expression writes it, the same in every language.</summary>

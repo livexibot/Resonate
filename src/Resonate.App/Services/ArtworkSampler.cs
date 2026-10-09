@@ -161,7 +161,7 @@ public sealed class ArtworkSampler : IDisposable
 
         _pixels = pixels;
         ShowBackdrop(pixels);
-        _theme.SetArtworkAccent(pixels is null ? null : ArtworkColors.PickAccent(pixels, BackdropSize, BackdropSize));
+        _theme.SetArtworkAccent(pixels is null ? null : ArtworkColors.PickAccents(pixels, BackdropSize, BackdropSize));
     }
 
     /// <summary>

@@ -89,7 +89,11 @@ public static class StageBars
         width > 0 ? Math.Clamp((int)(width / MinPitch), MinCount, MaxCount) : MinCount;
 
     /// <summary>The tallest bar for a stage <paramref name="stageHeight"/> tall.</summary>
-    public static double Height(double stageHeight) => Math.Max(0, Math.Min(stageHeight * HeightShare, MaxHeight));
+    public static double Height(double stageHeight) => Height(stageHeight, HeightShare, MaxHeight);
+
+    /// <summary>The tallest bar for a stage <paramref name="stageHeight"/> tall, at most <paramref name="share"/> of it and <paramref name="most"/> pixels.</summary>
+    public static double Height(double stageHeight, double share, double most) =>
+        Math.Max(0, Math.Min(stageHeight * Math.Max(0, share), Math.Max(0, most)));
 
     /// <summary>
     /// How tall bar <paramref name="index"/> of <paramref name="count"/> may

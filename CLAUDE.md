@@ -97,7 +97,17 @@ visitors; keep it short and in step with this file.
   Home's stage has a skip button beside its play button; six more
   visualizer styles (Retro, Wave, Helix, Radial, Pulse, Embers; see "Look,
   layouts and switching"); and Settings regrouped so Themes holds only the
-  look's colours, background, shape and fonts (see "Decisions").
+  look's colours, background, shape and fonts (see "Decisions"). Then:
+  "Accent follows the cover" became "Colours follow the cover" and
+  recolours the whole look (`CoverLook.Follow`: every colour takes the
+  cover's hue with its own lightness and saturation, greys stay grey, the
+  gradient runs between the cover's two colours from
+  `ArtworkColors.PickAccents`, a coloured outline follows the accent); the
+  visualizer's Bars and Bar width became Amount and Size, which every
+  style reads (bars, dots, sparks, columns, rings: `VisualizerShapes`);
+  and Visualizer, Advanced has Home's Width (20 to 100 %, centred),
+  Height (10 to 60 % of the stage) and Max height (40 to 600 px)
+  (`HomeStageWidth`, `HomeStageHeight`, `HomeStageMaxHeight`).
 - Playback (9 October 2026): Spotify's media session can be there with
   nothing in it (Spotify just started hidden, or it went blank), and
   Spotify takes a local Play then and does nothing. The player now keeps
@@ -1607,7 +1617,7 @@ when the work first needs them, then tick them off here.
   Position with Placement, Type and Advanced; Style with progress bar,
   play button, cover, glow and song change; Visualizer with Home's and the
   player's styles, Home's Off being the user's switch, and sensitivity,
-  smoothing, bars, bar width and Listen to Spotify; then Winamp), Layout
+  smoothing, Amount, Size, Listen to Spotify and Advanced; then Winamp), Layout
   (Pages: page animation and the blurred cover on Home; sidebar and
   buttons, with the sidebar running full height; song lists; App size and
   Text size), Plugins, Playback (was Misc: playback and the Spotify app,

@@ -15,7 +15,7 @@ internal sealed class WaveDrawing(VisualizerCanvas canvas, bool helix) : Visuali
     private readonly List<(SpriteVisual Dot, CompositionRadialGradientBrush Brush, CompositionColorGradientStop[] Stops, int Strand, int Index)> _dots = [];
     private int _count;
 
-    public override int CountFor(Vector2 size, int wanted) => VisualizerShapes.WaveDots(size.X, helix);
+    public override int CountFor(Vector2 size, int wanted) => VisualizerShapes.WaveDots(size.X, helix, wanted);
 
     public override void Place(Vector2 size, float height)
     {
@@ -25,9 +25,12 @@ internal sealed class WaveDrawing(VisualizerCanvas canvas, bool helix) : Visuali
         }
 
         var pitch = size.X / _count;
-        var dot = helix
-            ? Math.Clamp(pitch * 0.55f, 3f, Canvas.InBar ? 5f : 8f)
-            : Math.Clamp(pitch * 0.55f, 2.5f, Canvas.InBar ? 3.5f : 6f);
+        // The user's Size, never wider than the step between two dots.
+        var dot = (float)Math.Min(
+            pitch * 0.9,
+            helix
+                ? VisualizerShapes.SizeBetween(3, Canvas.InBar ? 6 : 12, Canvas.Fill)
+                : VisualizerShapes.SizeBetween(2, Canvas.InBar ? 4 : 9, Canvas.Fill));
         Geometry.InsertScalar("Pitch", pitch);
         Geometry.InsertScalar("D", dot);
         Geometry.InsertScalar("Mid", size.Y - (height / 2));

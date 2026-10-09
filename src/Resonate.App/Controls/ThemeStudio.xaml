@@ -87,7 +87,7 @@
                     ItemHeight="52"
                     ItemWidth="164"
                     Orientation="Horizontal" />
-                <controls:SettingRow Description="Takes its colour from the song." Header="Accent follows the cover">
+                <controls:SettingRow Header="Colours follow the cover">
                     <ToggleSwitch
                         x:Name="AdaptiveAccentSwitch"
                         MinWidth="0"
@@ -151,7 +151,7 @@
                         <TextBlock x:Name="TintText" Style="{StaticResource StudioValueTextStyle}" />
                     </StackPanel>
                 </controls:SettingRow>
-                <controls:SettingRow Description="Lower for glass." Header="Panel opacity">
+                <controls:SettingRow Header="Panel opacity">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Slider
                             x:Name="PanelOpacitySlider"
@@ -227,7 +227,7 @@
 
                 <!-- Text -->
                 <TextBlock Style="{StaticResource StudioSectionTextStyle}" Text="TEXT" />
-                <controls:SettingRow Description="Or type any installed font." Header="Headings">
+                <controls:SettingRow Header="Headings">
                     <ComboBox
                         x:Name="DisplayFontChoice"
                         IsEditable="True"

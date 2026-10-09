@@ -16,6 +16,9 @@ public static class ArtworkColors
     // A wash's second colour sits at least this many hue bins (60 degrees) from its first.
     private const int DistinctHueBins = 4;
 
+    // A cover of one colour gets its second accent this many degrees round the colour wheel.
+    private const double SecondHueTurn = 32;
+
     // The wash's two pools of colour: where they sit (0 to 1 across the
     // picture), how far they spread, and how much the deep colour shows
     // everywhere. Fixed, so nothing of the cover's layout reaches the wash.
@@ -48,6 +51,34 @@ public static class ArtworkColors
 
         var (h, s, l) = hues.Colour(best).ToHsl();
         return ThemeColor.FromHsl(h, Math.Max(s, 0.55), Math.Clamp(l, 0.48, 0.68));
+    }
+
+    /// <summary>
+    /// The cover's two colours for a look that follows it: the most prominent
+    /// lively colour and a second, clearly different one (or, for a cover of
+    /// one colour, the same hue turned a little), both vivid enough for
+    /// accents; null for a black-and-white or nearly empty cover.
+    /// </summary>
+    public static (ThemeColor Accent, ThemeColor Second)? PickAccents(ReadOnlySpan<byte> bgra, int width, int height)
+    {
+        CheckSize(bgra, width, height);
+        var hues = new HueHistogram(bgra);
+        var best = hues.Best();
+        if (!hues.IsColourful(best, width * height))
+        {
+            return null;
+        }
+
+        var (h, s, l) = hues.Colour(best).ToHsl();
+        var accent = ThemeColor.FromHsl(h, Math.Max(s, 0.55), Math.Clamp(l, 0.48, 0.68));
+        var other = hues.Best(awayFrom: best);
+        if (other >= 0 && hues.Weight(other) >= Math.Max(width * height * 0.004, hues.Weight(best) * 0.1))
+        {
+            var (h2, s2, l2) = hues.Colour(other).ToHsl();
+            return (accent, ThemeColor.FromHsl(h2, Math.Max(s2, 0.5), Math.Clamp(l2, 0.5, 0.7)));
+        }
+
+        return (accent, ThemeColor.FromHsl(h + SecondHueTurn, Math.Max(s, 0.55), Math.Clamp(l + 0.08, 0.5, 0.74)));
     }
 
     /// <summary>

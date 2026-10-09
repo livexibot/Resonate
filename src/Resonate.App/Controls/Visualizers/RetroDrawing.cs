@@ -46,7 +46,7 @@ internal sealed class RetroDrawing(VisualizerCanvas canvas) : VisualizerDrawing(
 
         _height = height;
         var pitch = size.X / _columns.Count;
-        var width = Math.Max(2f, (float)(pitch * Math.Max(Canvas.Fill, 0.6)));
+        var width = Math.Max(2f, (float)(pitch * Canvas.Fill));
         var segment = height / segments;
         Geometry.InsertScalar("Pitch", pitch);
         Geometry.InsertScalar("Width", width);

@@ -375,7 +375,7 @@ internal sealed partial class StageVisualizer : Grid
         }
 
         Place();
-        if (_drawing.CountFor(_size, App.Services.Settings.HomeStageBars) != _drawing.Built)
+        if (_drawing.CountFor(DrawSize(), App.Services.Settings.HomeStageBars) != _drawing.Built)
         {
             _rebuild.Stop();
             _rebuild.Start();
@@ -391,7 +391,7 @@ internal sealed partial class StageVisualizer : Grid
         }
 
         _canvas.Fill = Math.Clamp(App.Services.Settings.HomeStageBarWidth, 20, 90) / 100.0;
-        var count = _drawing.CountFor(_size, App.Services.Settings.HomeStageBars);
+        var count = _drawing.CountFor(DrawSize(), App.Services.Settings.HomeStageBars);
         if (count == _drawing.Built && !force)
         {
             Place();
@@ -435,14 +435,20 @@ internal sealed partial class StageVisualizer : Grid
         }
         else
         {
-            height = Math.Min(StageBars.Height(_size.Y), _room);
+            // The user's height and its cap (Settings, Player, Visualizer, Advanced), and never under the words.
+            var settings = App.Services.Settings;
+            var most = StageBars.Height(_size.Y, Math.Clamp(settings.HomeStageHeight, 10, 60) / 100.0, Math.Clamp(settings.HomeStageMaxHeight, 40, 600));
+            height = Math.Min(most, _room);
             hasRoom = height >= MinRoom;
         }
 
+        // The user's width, centred.
+        var size = DrawSize();
+        _root.Offset = new Vector3((_size.X - size.X) / 2, 0, 0);
         _root.IsVisible = hasRoom;
         if (hasRoom)
         {
-            _drawing.Place(_size, (float)height);
+            _drawing.Place(size, (float)height);
         }
 
         if (hasRoom != _hasRoom)
@@ -450,6 +456,18 @@ internal sealed partial class StageVisualizer : Grid
             _hasRoom = hasRoom;
             Refresh();
         }
+    }
+
+    /// <summary>The room the drawing spans: Home's along the bottom takes the user's share of the width, centred.</summary>
+    private Vector2 DrawSize()
+    {
+        if (InBar || _drawing.AroundCover)
+        {
+            return _size;
+        }
+
+        var share = Math.Clamp(App.Services.Settings.HomeStageWidth, 20, 100) / 100f;
+        return new Vector2(_size.X * share, _size.Y);
     }
 
     /// <summary>The drawing's expressions start, and the energy rises from rest.</summary>

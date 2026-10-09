@@ -14,11 +14,11 @@ internal sealed class EmbersDrawing(VisualizerCanvas canvas) : VisualizerDrawing
 {
     private readonly List<(SpriteVisual Spark, CompositionRadialGradientBrush Brush, CompositionColorGradientStop[] Stops, double Across)> _sparks = [];
 
-    public override int CountFor(Vector2 size, int wanted) => VisualizerShapes.EmberCount(size.X);
+    public override int CountFor(Vector2 size, int wanted) => VisualizerShapes.EmberCount(size.X, wanted);
 
     public override void Place(Vector2 size, float height)
     {
-        var dot = Canvas.InBar ? 7f : 14f;
+        var dot = (float)(Canvas.InBar ? VisualizerShapes.SizeBetween(4, 10, Canvas.Fill) : VisualizerShapes.SizeBetween(6, 24, Canvas.Fill));
         Geometry.InsertScalar("W", size.X);
         Geometry.InsertScalar("Bottom", size.Y);
         Geometry.InsertScalar("Travel", Math.Max(0, height));

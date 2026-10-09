@@ -5,15 +5,14 @@ using Resonate.Themes;
 namespace Resonate.App.Controls.Visualizers;
 
 /// <summary>
-/// Three rings in the cover's shape around it, over a soft glow: the outer
-/// ring and the glow swell with the lows, the middle one with the mids and
-/// the inner one with the highs. Drawn in the cover's box (behind the
+/// Two to five rings (the user's Amount) in the cover's shape around it,
+/// over a soft glow: the outer ring and the glow swell with the lows, the
+/// inner one with the highs and those between with the bands between; the
+/// user's Size is the rings' thickness. Drawn in the cover's box (behind the
 /// cover), so they move and shrink with it.
 /// </summary>
 internal sealed class PulseDrawing(VisualizerCanvas canvas) : VisualizerDrawing(canvas)
 {
-    private const float Stroke = 2;
-
     private readonly List<(ShapeVisual Visual, CompositionSpriteShape Shape, CompositionRoundedRectangleGeometry Outline, CompositionColorBrush Brush)> _rings = [];
     private SpriteVisual? _glow;
     private CompositionRadialGradientBrush? _glowBrush;
@@ -23,7 +22,7 @@ internal sealed class PulseDrawing(VisualizerCanvas canvas) : VisualizerDrawing(
 
     public override bool Averages => true;
 
-    public override int CountFor(Vector2 size, int wanted) => VisualizerShapes.PulseRings;
+    public override int CountFor(Vector2 size, int wanted) => VisualizerShapes.PulseRingCount(wanted);
 
     public override void Place(Vector2 size, float height)
     {
@@ -34,6 +33,7 @@ internal sealed class PulseDrawing(VisualizerCanvas canvas) : VisualizerDrawing(
 
         var side = Math.Min(size.X, size.Y);
         var reach = Canvas.Reach;
+        var stroke = (float)VisualizerShapes.SizeBetween(1, 5, Canvas.Fill);
         var centre = new Vector2(side / 2);
 
         // The glow reaches a little past the outer ring; inside the cover's edge it is hidden by the cover.
@@ -44,17 +44,18 @@ internal sealed class PulseDrawing(VisualizerCanvas canvas) : VisualizerDrawing(
         _glowStops[1].Offset = Math.Clamp(side / glow, 0, 0.95f);
         for (var r = 0; r < _rings.Count; r++)
         {
-            var (visual, _, outline, _) = _rings[r];
-            var inset = (float)VisualizerShapes.PulseInset(r, reach);
+            var (visual, shape, outline, _) = _rings[r];
+            var inset = (float)VisualizerShapes.PulseInset(r, _rings.Count, reach);
             var ring = side + (2 * inset);
-            var box = ring + (Stroke * 2);
+            var box = ring + (stroke * 2);
+            shape.StrokeThickness = stroke;
             visual.Size = new Vector2(box);
             visual.Offset = new Vector3(centre - new Vector2(box / 2), 0);
             visual.CenterPoint = new Vector3(box / 2, box / 2, 0);
             outline.Size = new Vector2(ring);
-            outline.Offset = new Vector2(Stroke);
+            outline.Offset = new Vector2(stroke);
             outline.CornerRadius = new Vector2((float)(Canvas.Corner + inset));
-            Geometry.InsertScalar("M" + r, (float)VisualizerShapes.PulseGrowth(r, side, reach));
+            Geometry.InsertScalar("M" + r, (float)VisualizerShapes.PulseGrowth(r, _rings.Count, side, reach));
             if (!Moving)
             {
                 visual.Opacity = 0;
@@ -100,7 +101,7 @@ internal sealed class PulseDrawing(VisualizerCanvas canvas) : VisualizerDrawing(
             var brush = Compositor.CreateColorBrush();
             var shape = Compositor.CreateSpriteShape(outline);
             shape.StrokeBrush = brush;
-            shape.StrokeThickness = Stroke;
+            shape.StrokeThickness = 2;
             var visual = Compositor.CreateShapeVisual();
             visual.Shapes.Add(shape);
             visual.Opacity = 0;

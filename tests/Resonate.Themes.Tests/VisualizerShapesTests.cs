@@ -82,8 +82,25 @@ public sealed class VisualizerShapesTests
     {
         var turns = VisualizerShapes.WaveSpeed(helix) * StageBars.LoopSeconds / Math.Tau;
         Assert.Equal(Math.Round(turns), turns, 6);
-        Assert.InRange(VisualizerShapes.WaveDots(1600, helix), 24, StageBars.MaxCount);
-        Assert.Equal(24, VisualizerShapes.WaveDots(100, helix));
+        Assert.InRange(VisualizerShapes.WaveDots(1600, helix, 64), 12, StageBars.MaxCount);
+        Assert.Equal(12, VisualizerShapes.WaveDots(30, helix, 96));
+    }
+
+    [Fact]
+    public void Amount_and_size_mean_more_and_larger_in_every_style()
+    {
+        Assert.True(VisualizerShapes.WaveDots(4000, helix: false, 96) > VisualizerShapes.WaveDots(4000, helix: false, 16));
+        Assert.True(VisualizerShapes.WaveDots(4000, helix: true, 96) > VisualizerShapes.WaveDots(4000, helix: true, 16));
+        Assert.True(VisualizerShapes.EmberCount(4000, 96) > VisualizerShapes.EmberCount(4000, 16));
+        Assert.True(VisualizerShapes.RetroColumns(4000, 96) > VisualizerShapes.RetroColumns(4000, 16));
+        Assert.True(VisualizerShapes.RadialCount(400, 96) > VisualizerShapes.RadialCount(400, 16));
+        Assert.Equal(2, VisualizerShapes.PulseRingCount(16));
+        Assert.Equal(5, VisualizerShapes.PulseRingCount(96));
+        Assert.Equal(2, VisualizerShapes.SizeBetween(2, 9, 0.2), 6);
+        Assert.Equal(9, VisualizerShapes.SizeBetween(2, 9, 0.9), 6);
+
+        // Never more than fit.
+        Assert.True(VisualizerShapes.EmberCount(120, 96) <= 10);
     }
 
     [Fact]
@@ -121,12 +138,15 @@ public sealed class VisualizerShapesTests
     {
         const double side = 300;
         const double reach = 40;
-        for (var ring = 0; ring < VisualizerShapes.PulseRings; ring++)
+        for (var rings = 2; rings <= 5; rings++)
         {
-            var rest = (side / 2) + VisualizerShapes.PulseInset(ring, reach);
-            var loudest = rest * (1 + VisualizerShapes.PulseGrowth(ring, side, reach));
-            Assert.Equal((side / 2) + reach, loudest, 6);
-            Assert.True(VisualizerShapes.PulseInset(ring, reach) < reach);
+            for (var ring = 0; ring < rings; ring++)
+            {
+                var rest = (side / 2) + VisualizerShapes.PulseInset(ring, rings, reach);
+                var loudest = rest * (1 + VisualizerShapes.PulseGrowth(ring, rings, side, reach));
+                Assert.Equal((side / 2) + reach, loudest, 6);
+                Assert.True(VisualizerShapes.PulseInset(ring, rings, reach) < reach);
+            }
         }
     }
 
