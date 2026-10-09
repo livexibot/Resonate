@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.15.0](https://github.com/livexibot/Resonate/compare/v0.14.0...v0.15.0) (2026-10-09)
+
+
+### New features
+
+* lyrics in the player show "Song · Artist" with the sung line and the next one ([31e2ce2](https://github.com/livexibot/Resonate/commit/31e2ce2cb985a07c732c12a9dfaea9cbae68ddc0))
+* reset buttons for a look's colours and plugins' number settings ([31e2ce2](https://github.com/livexibot/Resonate/commit/31e2ce2cb985a07c732c12a9dfaea9cbae68ddc0))
+
+
+### Fixes
+
+* Resonate's own player plays sound, so Spotify Web API only needs no browser tab ([31e2ce2](https://github.com/livexibot/Resonate/commit/31e2ce2cb985a07c732c12a9dfaea9cbae68ddc0))
+* the narrow sidebar's icons and covers sit in the middle ([31e2ce2](https://github.com/livexibot/Resonate/commit/31e2ce2cb985a07c732c12a9dfaea9cbae68ddc0))
+
+
+### Faster
+
+* faster controls with Resonate's own player ([#62](https://github.com/livexibot/Resonate/issues/62)) ([e96f522](https://github.com/livexibot/Resonate/commit/e96f52292450661aaf7fbf6de0393f5e5cfdd511))
+
 ## [0.14.0](https://github.com/livexibot/Resonate/compare/v0.13.0...v0.14.0) (2026-10-09)
 
 
