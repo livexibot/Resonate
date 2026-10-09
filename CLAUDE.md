@@ -467,8 +467,16 @@ Windows:
   runtime itself still sends Microsoft its required diagnostic data (and
   optional data under Windows' Diagnostics & feedback setting) while the
   own player runs; no API turns that off (Microsoft's WebView2 privacy
-  page). Its song changes make the player ask `/me/player` at
-  once (`PlayerController.RefreshSoon`). Tokens go only to the page,
+  page). While it is the device that plays (Spotify's last answer names
+  its device ID), play, pause, skip, seek and volume go straight to the
+  SDK on the page (`IDirectPlayer`, `WebPlayerCommands.Control`), not
+  through Spotify's servers, and what it plays comes straight back:
+  each change of song, play state, shuffle or repeat, or a jump, is sent
+  with the song's details and shown as if Spotify had answered
+  (`OwnPlayerReport`, `PlayerController.ApplyOwnPlayerState`; the owner
+  asked for less delay, 9 October 2026). A report of nothing playing
+  here makes the player ask `/me/player` at once
+  (`PlayerController.RefreshSoon`), and the polls go on. Tokens go only to the page,
   never to a log. CI's `--web-player-check` opens it in the installed copy
   and needs protected audio to work and the SDK to answer a made-up token
   with `authentication_error`. Measure: playback while hidden, after a

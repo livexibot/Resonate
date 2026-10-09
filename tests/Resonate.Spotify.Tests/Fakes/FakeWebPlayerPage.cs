@@ -61,6 +61,7 @@ internal sealed class FakeWebPlayerPage : IWebPlayerPage
         {
             "start" => $"start {root.GetProperty("name").GetString()}",
             "token" => $"token {root.GetProperty("token").GetString()}",
+            "control" => $"control {root.GetProperty("action").GetString()} {root.GetProperty("value").GetDouble().ToString(System.Globalization.CultureInfo.InvariantCulture)}",
             _ => type!,
         };
         lock (_gate)

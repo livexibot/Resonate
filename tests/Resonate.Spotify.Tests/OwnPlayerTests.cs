@@ -72,6 +72,40 @@ public sealed class OwnPlayerTests : IDisposable
     }
 
     [Fact]
+    public async Task Takes_commands_directly_once_ready_and_reports_what_it_plays()
+    {
+        await _player.StartAsync();
+        Assert.False(_player.TryControl("pause"));
+
+        Page.Say("""{"type":"ready","deviceId":"dev-1"}""");
+        PlaybackState? reported = null;
+        _player.StateReported += (_, state) => reported = state;
+
+        Assert.True(_player.TryControl("seek", 30000));
+        Assert.Contains("control seek 30000", Page.Sent);
+
+        Page.Say("""{"type":"state","now":{"paused":false,"position":5,"track":{"uri":"spotify:track:t","name":"Song","duration":1000}}}""");
+        Assert.Equal("dev-1", reported?.Device?.Id);
+        Assert.Equal("Song", reported?.Item?.Name);
+    }
+
+    [Fact]
+    public async Task Says_its_playback_changed_when_it_reports_nothing_playing_here()
+    {
+        await _player.StartAsync();
+        Page.Say("""{"type":"ready","deviceId":"dev-1"}""");
+        var changed = 0;
+        var reported = 0;
+        _player.PlaybackChanged += (_, _) => changed++;
+        _player.StateReported += (_, _) => reported++;
+
+        Page.Say("""{"type":"state","now":null}""");
+
+        Assert.Equal(1, changed);
+        Assert.Equal(0, reported);
+    }
+
+    [Fact]
     public async Task Answers_Spotifys_player_with_the_sign_ins_token()
     {
         await _player.StartAsync();

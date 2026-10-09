@@ -61,22 +61,84 @@ async function start(name, volume) {
   // The page was not allowed to start sound; only noted in the playback log.
   player.addListener('autoplay_failed', () => post({ type: 'autoplayFailed' }));
 
-  // A new song, paused, resumed or moved: Resonate asks Spotify what plays at
-  // once. Spotify's player reports more often than that; the rest is dropped.
+  // A new song, paused, resumed or moved: Resonate shows what plays at once,
+  // from what Spotify's player says here (OwnPlayerReport), without asking
+  // Spotify. Spotify's player reports more often than that; the rest is dropped.
   let last = { key: '', position: 0, at: 0, paused: true };
   player.addListener('player_state_changed', (state) => {
-    const key = state ? `${state.paused}|${state.track_window?.current_track?.uri ?? ''}` : 'none';
+    const key = state ? `${state.paused}|${state.track_window?.current_track?.uri ?? ''}|${state.shuffle}|${state.repeat_mode}` : 'none';
     const now = performance.now();
     const expected = last.paused ? last.position : last.position + (now - last.at);
     const moved = Boolean(state) && Math.abs(state.position - expected) > 2000;
     if (key !== last.key || moved) {
-      post({ type: 'state' });
+      post({ type: 'state', now: describe(state) });
     }
 
     last = { key, position: state?.position ?? 0, at: now, paused: state?.paused ?? true };
   });
 
   player.connect();
+}
+
+// What plays, in the shape Resonate reads (OwnPlayerReport); null for nothing.
+function describe(state) {
+  const track = state?.track_window?.current_track;
+  if (!state || !track) {
+    return null;
+  }
+
+  return {
+    paused: state.paused,
+    position: state.position,
+    shuffle: state.shuffle,
+    repeat: state.repeat_mode,
+    context: state.context?.uri ?? null,
+    disallows: Object.keys(state.disallows ?? {}).filter((key) => state.disallows[key]),
+    track: {
+      uri: track.uri,
+      id: track.id,
+      name: track.name,
+      duration: track.duration_ms,
+      artists: (track.artists ?? []).map((artist) => ({ name: artist.name, uri: artist.uri })),
+      album: {
+        name: track.album?.name,
+        uri: track.album?.uri,
+        images: (track.album?.images ?? []).map((image) => ({ url: image.url, width: image.width, height: image.height })),
+      },
+    },
+  };
+}
+
+// A command straight from Resonate while this player plays: no trip to Spotify's servers.
+async function control(action, value) {
+  if (!player) {
+    return;
+  }
+
+  try {
+    switch (action) {
+      case 'resume':
+        await player.resume();
+        break;
+      case 'pause':
+        await player.pause();
+        break;
+      case 'next':
+        await player.nextTrack();
+        break;
+      case 'previous':
+        await player.previousTrack();
+        break;
+      case 'seek':
+        await player.seek(Math.max(0, Math.round(value)));
+        break;
+      case 'volume':
+        await player.setVolume(Math.min(1, Math.max(0, value)));
+        break;
+    }
+  } catch {
+    post({ type: 'controlFailed', kind: action });
+  }
 }
 
 async function stop() {
@@ -181,6 +243,9 @@ chrome.webview.addEventListener('message', (event) => {
       break;
     case 'check':
       check();
+      break;
+    case 'control':
+      control(message.action, Number(message.value) || 0);
       break;
   }
 });

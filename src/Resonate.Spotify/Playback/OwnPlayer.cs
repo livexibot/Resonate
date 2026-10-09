@@ -1,4 +1,5 @@
 using Resonate.Spotify.Auth;
+using Resonate.Spotify.WebApi;
 
 namespace Resonate.Spotify.Playback;
 
@@ -44,6 +45,24 @@ public interface IOwnDevice
 }
 
 /// <summary>
+/// A player on this computer that Resonate can command directly, without a
+/// trip to Spotify's servers, while it is the device that plays: Resonate's
+/// own player (see <see cref="OwnPlayer.TryControl"/>).
+/// </summary>
+public interface IDirectPlayer
+{
+    /// <summary>Its Spotify Connect device ID while it is ready, else null.</summary>
+    string? DeviceId { get; }
+
+    /// <summary>
+    /// "resume", "pause", "next", "previous", "seek" (<paramref name="value"/>
+    /// in milliseconds) or "volume" (0 to 1); false when it can not take
+    /// commands now.
+    /// </summary>
+    bool TryControl(string action, double value = 0);
+}
+
+/// <summary>
 /// Resonate's own player for "Spotify Web API only" (the owner's request,
 /// 8 October 2026): Spotify's Web Playback SDK in a hidden page
 /// (<see cref="IWebPlayerPage"/>), which Spotify lists as a Connect device.
@@ -53,7 +72,7 @@ public interface IOwnDevice
 /// after another; the page's messages arrive on any thread. After a failure
 /// it tries again by itself, waiting longer each time.
 /// </summary>
-public sealed class OwnPlayer : IOwnDevice, IDisposable
+public sealed class OwnPlayer : IOwnDevice, IDirectPlayer, IDisposable
 {
     public const string DefaultName = "Resonate";
 
@@ -112,6 +131,14 @@ public sealed class OwnPlayer : IOwnDevice, IDisposable
     /// once rather than at the next poll.
     /// </summary>
     public event EventHandler? PlaybackChanged;
+
+    /// <summary>
+    /// Raised on any thread with what Spotify's player says it plays, read as
+    /// the Web API's answer (<see cref="OwnPlayerReport"/>), so the interface
+    /// shows it at once; <see cref="PlaybackChanged"/> is raised instead when
+    /// it says nothing plays here.
+    /// </summary>
+    public event EventHandler<PlaybackState>? StateReported;
 
     public string Name { get; }
 
@@ -473,14 +500,48 @@ public sealed class OwnPlayer : IOwnDevice, IDisposable
             case "error":
                 OnError(page, message.Kind);
                 break;
+            case "controlFailed" when IsCurrent(page):
+                // Spotify's player turned a direct command down: Spotify says what plays instead.
+                PlaybackChanged?.Invoke(this, EventArgs.Empty);
+                break;
             case "state":
                 if (IsCurrent(page))
                 {
-                    PlaybackChanged?.Invoke(this, EventArgs.Empty);
+                    var device = DeviceId;
+                    if (device is not null && OwnPlayerReport.Parse(json, device, Name) is { } state)
+                    {
+                        StateReported?.Invoke(this, state);
+                    }
+                    else
+                    {
+                        PlaybackChanged?.Invoke(this, EventArgs.Empty);
+                    }
                 }
 
                 break;
         }
+    }
+
+    /// <summary>
+    /// Sends a command straight to Spotify's player on the page (see
+    /// <see cref="WebPlayerCommands.Control"/>) while it is ready; false when
+    /// it is not, and the command goes through Spotify's servers instead.
+    /// </summary>
+    public bool TryControl(string action, double value = 0)
+    {
+        IWebPlayerPage? page;
+        lock (_gate)
+        {
+            page = _status == OwnPlayerStatus.Ready ? _page : null;
+        }
+
+        if (page is null)
+        {
+            return false;
+        }
+
+        page.Post(WebPlayerCommands.Control(action, value));
+        return true;
     }
 
     private void OnReady(IWebPlayerPage page, string deviceId)
