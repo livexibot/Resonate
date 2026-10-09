@@ -68,7 +68,12 @@ public sealed class ThemeLibrary
 
         if (ActiveIsPreset || ActiveId == CustomId)
         {
-            Custom = changed with { Id = CustomId, Name = ActiveIsPreset ? $"{current.Name} (custom)" : current.Name };
+            Custom = changed with
+            {
+                Id = CustomId,
+                Name = ActiveIsPreset ? $"{current.Name} (custom)" : current.Name,
+                BasedOn = ActiveIsPreset ? current.Id : current.BasedOn,
+            };
             ActiveId = CustomId;
             return Custom;
         }

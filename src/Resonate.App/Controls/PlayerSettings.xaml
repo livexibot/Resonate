@@ -60,50 +60,58 @@
                     IsExpanded="False">
                     <StackPanel Spacing="6">
                         <controls:SettingRow Header="Width">
-                            <NumberBox
-                                x:Name="PlayerWidthBox"
-                                MinWidth="120"
-                                AutomationProperties.Name="Player width"
-                                Maximum="4000"
-                                Minimum="200"
-                                PlaceholderText="Auto"
-                                SpinButtonPlacementMode="Compact"
-                                ValueChanged="OnPlayerAdvancedChanged" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <NumberBox
+                                    x:Name="PlayerWidthBox"
+                                    MinWidth="120"
+                                    AutomationProperties.Name="Player width"
+                                    Maximum="4000"
+                                    Minimum="200"
+                                    PlaceholderText="Auto"
+                                    SpinButtonPlacementMode="Compact"
+                                    ValueChanged="OnPlayerAdvancedChanged" />
+                            </StackPanel>
                         </controls:SettingRow>
                         <controls:SettingRow Header="Height">
-                            <NumberBox
-                                x:Name="PlayerHeightBox"
-                                MinWidth="120"
-                                AutomationProperties.Name="Player height"
-                                Maximum="400"
-                                Minimum="48"
-                                PlaceholderText="Auto"
-                                SpinButtonPlacementMode="Compact"
-                                ValueChanged="OnPlayerAdvancedChanged" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <NumberBox
+                                    x:Name="PlayerHeightBox"
+                                    MinWidth="120"
+                                    AutomationProperties.Name="Player height"
+                                    Maximum="400"
+                                    Minimum="48"
+                                    PlaceholderText="Auto"
+                                    SpinButtonPlacementMode="Compact"
+                                    ValueChanged="OnPlayerAdvancedChanged" />
+                            </StackPanel>
                         </controls:SettingRow>
                         <controls:SettingRow Header="X">
-                            <NumberBox
-                                x:Name="PlayerXBox"
-                                MinWidth="120"
-                                AutomationProperties.Name="Player X"
-                                Maximum="4000"
-                                Minimum="-4000"
-                                PlaceholderText="0"
-                                SmallChange="10"
-                                SpinButtonPlacementMode="Compact"
-                                ValueChanged="OnPlayerAdvancedChanged" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <NumberBox
+                                    x:Name="PlayerXBox"
+                                    MinWidth="120"
+                                    AutomationProperties.Name="Player X"
+                                    Maximum="4000"
+                                    Minimum="-4000"
+                                    PlaceholderText="0"
+                                    SmallChange="10"
+                                    SpinButtonPlacementMode="Compact"
+                                    ValueChanged="OnPlayerAdvancedChanged" />
+                            </StackPanel>
                         </controls:SettingRow>
                         <controls:SettingRow Header="Y">
-                            <NumberBox
-                                x:Name="PlayerYBox"
-                                MinWidth="120"
-                                AutomationProperties.Name="Player Y"
-                                Maximum="4000"
-                                Minimum="-4000"
-                                PlaceholderText="0"
-                                SmallChange="10"
-                                SpinButtonPlacementMode="Compact"
-                                ValueChanged="OnPlayerAdvancedChanged" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <NumberBox
+                                    x:Name="PlayerYBox"
+                                    MinWidth="120"
+                                    AutomationProperties.Name="Player Y"
+                                    Maximum="4000"
+                                    Minimum="-4000"
+                                    PlaceholderText="0"
+                                    SmallChange="10"
+                                    SpinButtonPlacementMode="Compact"
+                                    ValueChanged="OnPlayerAdvancedChanged" />
+                            </StackPanel>
                         </controls:SettingRow>
                         <Button
                             Click="OnPlayerAdvancedResetClick"

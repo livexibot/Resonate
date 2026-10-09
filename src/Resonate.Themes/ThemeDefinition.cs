@@ -110,7 +110,7 @@ public enum VisualizerStyle
     /// <summary>Bars growing both ways from a middle line.</summary>
     Mirror,
 
-    /// <summary>A dot on each band, rising and falling.</summary>
+    /// <summary>Retired on 9 October 2026 (the owner found it dated): read as <see cref="Pills"/>.</summary>
     Dots,
 
     /// <summary>Hairline bars.</summary>
@@ -122,20 +122,29 @@ public enum VisualizerStyle
     /// <summary>A hi-fi meter: columns of lit segments, with peaks that fall back slowly.</summary>
     Retro,
 
-    /// <summary>A wave of dots travelling across, as tall as the music is loud.</summary>
+    /// <summary>Retired on 9 October 2026: read as <see cref="Silk"/>.</summary>
     Wave,
 
-    /// <summary>Two strands of dots twisting around each other.</summary>
+    /// <summary>Retired on 9 October 2026: read as <see cref="Silk"/>.</summary>
     Helix,
 
-    /// <summary>Bars around the cover, the lows at the bottom (Home only).</summary>
+    /// <summary>Retired on 9 October 2026: read as <see cref="Pulse"/>.</summary>
     Radial,
 
     /// <summary>Rings around the cover that swell with the lows, mids and highs, over a glow (Home only).</summary>
     Pulse,
 
-    /// <summary>Sparks drifting upwards, brighter and larger as their band gets louder.</summary>
+    /// <summary>Retired on 9 October 2026: read as <see cref="Aurora"/>.</summary>
     Embers,
+
+    /// <summary>Rounded capsules growing both ways from a middle line, like a modern voice waveform.</summary>
+    Pills,
+
+    /// <summary>A soft ribbon of light, mirrored about a middle line, smooth from band to band.</summary>
+    Silk,
+
+    /// <summary>Large soft glows along the bottom that swell and drift with the lows, mids and highs.</summary>
+    Aurora,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<ProgressStyle>))]
@@ -216,6 +225,9 @@ public sealed record ThemeDefinition
     public string Id { get; init; } = "custom";
 
     public string Name { get; init; } = "Custom";
+
+    /// <summary>The preset a custom or saved look was made from (null for a preset, or a look shared from elsewhere): what Settings' reset buttons put back.</summary>
+    public string? BasedOn { get; init; }
 
     // Colours
 
@@ -337,8 +349,8 @@ public sealed record ThemeDefinition
         Shadow = Enum.IsDefined(Shadow) ? Shadow : ShadowStyle.Soft,
         PlayerLayout = Enum.IsDefined(PlayerLayout) ? PlayerLayout : PlayerLayout.Docked,
         PlayerGlow = double.IsFinite(PlayerGlow) ? Math.Clamp(PlayerGlow, 0, 1) : 0,
-        StageVisualizer = Enum.IsDefined(StageVisualizer) && StageVisualizer != VisualizerStyle.Off ? StageVisualizer : VisualizerStyle.Bars,
-        PlayerVisualizer = Enum.IsDefined(PlayerVisualizer) && VisualizerShapes.FitsPlayerBar(PlayerVisualizer) ? PlayerVisualizer : VisualizerStyle.Off,
+        StageVisualizer = Enum.IsDefined(StageVisualizer) && StageVisualizer != VisualizerStyle.Off ? VisualizerShapes.Current(StageVisualizer) : VisualizerStyle.Bars,
+        PlayerVisualizer = Enum.IsDefined(PlayerVisualizer) && VisualizerShapes.FitsPlayerBar(VisualizerShapes.Current(PlayerVisualizer)) ? VisualizerShapes.Current(PlayerVisualizer) : VisualizerStyle.Off,
         Progress = Enum.IsDefined(Progress) ? Progress : ProgressStyle.Line,
         PlayButton = Enum.IsDefined(PlayButton) ? PlayButton : PlayButtonStyle.Filled,
         Cover = Enum.IsDefined(Cover) ? Cover : CoverStyle.Rounded,

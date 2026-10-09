@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
+using Resonate.App.Services;
 using Resonate.App.Themes;
 using Resonate.Themes;
 using Windows.ApplicationModel.DataTransfer;
@@ -73,6 +74,7 @@ public sealed partial class ThemeStudio : UserControl
     private readonly ThemeService _theme = App.Services.Theme;
     private readonly Dictionary<ComboBox, Func<ThemeDefinition, string, ThemeDefinition>> _choices;
     private readonly Dictionary<Slider, Func<ThemeDefinition, double, ThemeDefinition>> _sliders;
+    private readonly List<Action> _resets = [];
     private readonly List<Swatch> _swatches = [];
     private readonly ColorPicker _picker;
     private readonly Flyout _pickerFlyout;
@@ -104,6 +106,16 @@ public sealed partial class ThemeStudio : UserControl
             [BorderSlider] = (look, value) => look with { BorderWidth = value },
             [GapSlider] = (look, value) => look with { PanelGap = value },
         };
+
+        // Reset buttons: a look's sliders go back to the preset it came from, the cover blur to its first value.
+        ThemeDefinition Origin() => ThemePresets.Origin(_theme.Current);
+        _resets.Add(ResetButton.Attach(CoverBlurSlider, () => new AppSettings().CoverBlur, "Cover blur"));
+        _resets.Add(ResetButton.Attach(GradientAngleSlider, () => Origin().GradientAngle, "Gradient angle"));
+        _resets.Add(ResetButton.Attach(TintSlider, () => Math.Round(Origin().BackdropTint * 100), "Tint"));
+        _resets.Add(ResetButton.Attach(PanelOpacitySlider, () => Math.Round(Origin().PanelOpacity * 100), "Panel opacity"));
+        _resets.Add(ResetButton.Attach(CornerSlider, () => Origin().CornerRadius, "Corners"));
+        _resets.Add(ResetButton.Attach(BorderSlider, () => Origin().BorderWidth, "Outlines"));
+        _resets.Add(ResetButton.Attach(GapSlider, () => Origin().PanelGap, "Spacing"));
 
         foreach (var font in Fonts)
         {
@@ -206,6 +218,10 @@ public sealed partial class ThemeStudio : UserControl
             AdaptiveAccentSwitch.IsOn = look.AdaptiveAccent;
             ShowSliderValues();
             ShowCoverArt();
+            foreach (var reset in _resets)
+            {
+                reset();
+            }
 
             foreach (var swatch in _swatches)
             {

@@ -522,6 +522,30 @@ public sealed partial class CardItem
     public CoverTile Cover => _cover ??= new CoverTile(ImageUrl, 160, Artwork.PlaceholderBrush(Title));
 }
 
+/// <summary>Something opened or played from Search, shown again under "Recently viewed".</summary>
+public sealed partial class RecentPickItem(RecentSearchPick pick)
+{
+    private CoverTile? _cover;
+
+    public RecentSearchPick Pick { get; } = pick;
+
+    public string Title => Pick.Title;
+
+    /// <summary>What it is, and by whom.</summary>
+    public string Subtitle => Pick.Kind switch
+    {
+        RecentSearchKind.Song => "Song · " + Pick.Subtitle,
+        RecentSearchKind.Artist => "Artist",
+        RecentSearchKind.Album => "Album · " + Pick.Subtitle,
+        _ => "Playlist · " + Pick.Subtitle,
+    };
+
+    /// <summary>An artist's picture is round, like everywhere else.</summary>
+    public CornerRadius CoverCorner => Pick.Kind == RecentSearchKind.Artist ? new CornerRadius(24) : new CornerRadius(6);
+
+    public CoverTile Cover => _cover ??= new CoverTile(Pick.ImageUrl, 48, Artwork.PlaceholderBrush(Pick.Title));
+}
+
 /// <summary>A navigation entry at the top of the sidebar.</summary>
 public sealed partial class NavItem : ObservableObject
 {

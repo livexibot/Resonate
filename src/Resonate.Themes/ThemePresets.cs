@@ -166,7 +166,7 @@ public static class ThemePresets
         PlayButton = PlayButtonStyle.Outline,
         Cover = CoverStyle.Vinyl,
         PlayerGlow = 0.6,
-        StageVisualizer = VisualizerStyle.Radial,
+        StageVisualizer = VisualizerStyle.Pills,
         PlayerVisualizer = VisualizerStyle.Lines,
     };
 
@@ -194,7 +194,7 @@ public static class ThemePresets
         PlayerLayout = PlayerLayout.Docked,
         Progress = ProgressStyle.Wave,
         Cover = CoverStyle.Square,
-        StageVisualizer = VisualizerStyle.Dots,
+        StageVisualizer = VisualizerStyle.Pills,
     };
 
     /// <summary>Windows 11's own colours: calm greys, gentle corners and its blue accent.</summary>
@@ -275,7 +275,7 @@ public static class ThemePresets
         Cover = CoverStyle.Vinyl,
         PlayerGlow = 0.2,
         StageVisualizer = VisualizerStyle.Pulse,
-        PlayerVisualizer = VisualizerStyle.Dots,
+        PlayerVisualizer = VisualizerStyle.Pills,
     };
 
     /// <summary>A phosphor screen on true black: glowing green type and outlines, amber highlights, monospace and the player along the bottom.</summary>
@@ -337,7 +337,7 @@ public static class ThemePresets
         PlayButton = PlayButtonStyle.Filled,
         Cover = CoverStyle.Vinyl,
         PlayerGlow = 0.35,
-        StageVisualizer = VisualizerStyle.Embers,
+        StageVisualizer = VisualizerStyle.Aurora,
         PlayerVisualizer = VisualizerStyle.Lines,
     };
     /// <summary>Calm green-grey paper tones with a deep green accent.</summary>
@@ -361,7 +361,7 @@ public static class ThemePresets
         TextFont = "Figtree",
         PlayerLayout = PlayerLayout.Docked,
         Progress = ProgressStyle.Bold,
-        StageVisualizer = VisualizerStyle.Wave,
+        StageVisualizer = VisualizerStyle.Silk,
     };
 
     /// <summary>True black with northern-lights accents: teal and violet glows and a hovering pill.</summary>
@@ -388,8 +388,8 @@ public static class ThemePresets
         Progress = ProgressStyle.Gradient,
         Cover = CoverStyle.Vinyl,
         PlayerGlow = 0.5,
-        StageVisualizer = VisualizerStyle.Helix,
-        PlayerVisualizer = VisualizerStyle.Wave,
+        StageVisualizer = VisualizerStyle.Aurora,
+        PlayerVisualizer = VisualizerStyle.Silk,
     };
 
     /// <summary>Dark looks, the default first.</summary>
@@ -405,6 +405,9 @@ public static class ThemePresets
     public static ThemeDefinition Default => Midnight;
 
     public static ThemeDefinition? Find(string? id) => All.FirstOrDefault(p => p.Id == id);
+
+    /// <summary>The preset <paramref name="look"/> is or was made from (the default one when that is not known): what a reset puts back.</summary>
+    public static ThemeDefinition Origin(ThemeDefinition look) => Find(look.Id) ?? Find(look.BasedOn) ?? Default;
 
     public static bool IsPreset(string? id) => Find(id) is not null;
 }

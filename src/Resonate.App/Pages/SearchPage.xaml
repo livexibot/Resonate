@@ -23,8 +23,12 @@
                 <TextBlock
                     FontWeight="SemiBold"
                     Style="{StaticResource ResonateBodyTextStyle}"
-                    Text="{x:Bind Title}" />
-                <TextBlock Style="{StaticResource ResonateSecondaryTextStyle}" Text="{x:Bind Subtitle}" />
+                    Text="{x:Bind Title}"
+                    TextTrimming="CharacterEllipsis" />
+                <TextBlock
+                    Style="{StaticResource ResonateSecondaryTextStyle}"
+                    Text="{x:Bind Subtitle}"
+                    TextTrimming="CharacterEllipsis" />
             </StackPanel>
         </DataTemplate>
         <DataTemplate x:Key="ArtistCardTemplate" x:DataType="vm:CardItem">
@@ -43,107 +47,274 @@
                     FontWeight="SemiBold"
                     Style="{StaticResource ResonateBodyTextStyle}"
                     Text="{x:Bind Title}"
-                    TextAlignment="Center" />
+                    TextAlignment="Center"
+                    TextTrimming="CharacterEllipsis" />
                 <TextBlock
                     Style="{StaticResource ResonateSecondaryTextStyle}"
                     Text="{x:Bind Subtitle}"
                     TextAlignment="Center" />
             </StackPanel>
         </DataTemplate>
+        <DataTemplate x:Key="RecentTemplate" x:DataType="vm:RecentPickItem">
+            <Grid
+                Width="300"
+                Padding="8"
+                Background="{StaticResource ResonateTransparentBrush}"
+                ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="48" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid
+                    Width="48"
+                    Height="48"
+                    Background="{x:Bind Cover.Background, Mode=OneWay}"
+                    CornerRadius="{x:Bind CoverCorner}">
+                    <Image Source="{x:Bind Cover.Image}" Stretch="UniformToFill" />
+                </Grid>
+                <StackPanel
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Spacing="2">
+                    <TextBlock
+                        FontWeight="SemiBold"
+                        Style="{StaticResource ResonateBodyTextStyle}"
+                        Text="{x:Bind Title}"
+                        TextTrimming="CharacterEllipsis" />
+                    <TextBlock
+                        Style="{StaticResource ResonateSecondaryTextStyle}"
+                        Text="{x:Bind Subtitle}"
+                        TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
     </Page.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <!-- The box stays put; the results scroll under it, with the scroll bar at the panel's edge. -->
-        <Grid Margin="32,32,32,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MaxWidth="560" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
+        <Grid MaxWidth="640" Margin="32,28,32,0" HorizontalAlignment="Left">
             <TextBox
                 x:Name="QueryBox"
-                MinHeight="40"
-                Padding="18,9,18,9"
+                MinWidth="320"
+                MinHeight="48"
+                Padding="48,12,18,12"
                 AutomationProperties.Name="Search"
-                CornerRadius="{ThemeResource ResonateCornerInput}"
+                CornerRadius="24"
                 FontSize="{ThemeResource ResonateFontSize15}"
+                KeyDown="OnQueryKeyDown"
                 PlaceholderText="What do you want to listen to?"
                 TextChanged="OnQueryChanged" />
+            <FontIcon
+                Margin="18,0,0,0"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                FontSize="16"
+                Foreground="{StaticResource ResonateTextSecondaryBrush}"
+                Glyph="&#xE721;"
+                IsHitTestVisible="False" />
         </Grid>
 
-        <ScrollViewer Grid.Row="1">
+        <!-- What the results show: all of them, or one kind -->
+        <StackPanel
+            x:Name="FilterBar"
+            Grid.Row="1"
+            Margin="32,16,32,0"
+            Orientation="Horizontal"
+            Spacing="8"
+            Visibility="Collapsed">
+            <Button
+                x:Name="AllFilter"
+                Click="OnFilterClick"
+                Content="All"
+                CornerRadius="16"
+                Padding="16,6"
+                Style="{StaticResource ResonateSubtleButtonStyle}"
+                Tag="All" />
+            <Button
+                x:Name="SongsFilter"
+                Click="OnFilterClick"
+                Content="Songs"
+                CornerRadius="16"
+                Padding="16,6"
+                Style="{StaticResource ResonateSubtleButtonStyle}"
+                Tag="Songs" />
+            <Button
+                x:Name="ArtistsFilter"
+                Click="OnFilterClick"
+                Content="Artists"
+                CornerRadius="16"
+                Padding="16,6"
+                Style="{StaticResource ResonateSubtleButtonStyle}"
+                Tag="Artists" />
+            <Button
+                x:Name="AlbumsFilter"
+                Click="OnFilterClick"
+                Content="Albums"
+                CornerRadius="16"
+                Padding="16,6"
+                Style="{StaticResource ResonateSubtleButtonStyle}"
+                Tag="Albums" />
+            <Button
+                x:Name="PlaylistsFilter"
+                Click="OnFilterClick"
+                Content="Playlists"
+                CornerRadius="16"
+                Padding="16,6"
+                Style="{StaticResource ResonateSubtleButtonStyle}"
+                Tag="Playlists" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="2">
             <StackPanel Padding="{StaticResource ResonatePagePadding}" Spacing="{StaticResource ResonateSectionSpacing}">
+                <!-- Before anything is typed: the last searches and what was opened from them -->
+                <StackPanel
+                    x:Name="RecentSection"
+                    Spacing="{StaticResource ResonateSectionHeaderSpacing}"
+                    Visibility="Collapsed">
+                    <Grid>
+                        <TextBlock Style="{StaticResource ResonateSectionTextStyle}" Text="Recent searches" />
+                        <Button
+                            HorizontalAlignment="Right"
+                            Click="OnClearRecentClick"
+                            Content="Clear"
+                            Style="{StaticResource ResonateSubtleButtonStyle}" />
+                    </Grid>
+                    <ContentControl x:Name="RecentQueriesHost" HorizontalContentAlignment="Stretch" />
+                    <GridView
+                        x:Name="RecentPicksList"
+                        Margin="0,8,0,0"
+                        AutomationProperties.Name="Recently viewed"
+                        IsItemClickEnabled="True"
+                        ItemClick="OnRecentPickClick"
+                        ItemTemplate="{StaticResource RecentTemplate}"
+                        ItemsSource="{x:Bind RecentPicks}"
+                        SelectionMode="None" />
+                </StackPanel>
+
                 <TextBlock
                     x:Name="HintText"
                     Style="{StaticResource ResonateSecondaryTextStyle}"
                     Text="Nothing found"
                     Visibility="Collapsed" />
 
-                <StackPanel
-                    x:Name="SongsSection"
-                    Spacing="{StaticResource ResonateSectionHeaderSpacing}"
+                <!-- The best match beside the first songs (stacked on a narrow page) -->
+                <Grid
+                    x:Name="TopRow"
+                    ColumnSpacing="24"
+                    RowSpacing="{StaticResource ResonateSectionSpacing}"
                     Visibility="Collapsed">
-                    <TextBlock Style="{StaticResource ResonateSectionTextStyle}" Text="Songs" />
-                    <ListView
-                        x:Name="SongList"
-                        ContextRequested="OnSongContextRequested"
-                        DoubleTapped="OnSongDoubleTapped"
-                        ItemsSource="{x:Bind Songs}"
-                        KeyDown="OnSongListKeyDown"
-                        SelectionMode="Single">
-                        <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="vm:TrackRow">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*" />
+                        <ColumnDefinition Width="3*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel x:Name="TopSection" Spacing="{StaticResource ResonateSectionHeaderSpacing}">
+                        <TextBlock Style="{StaticResource ResonateSectionTextStyle}" Text="Top result" />
+                        <Button
+                            x:Name="TopCard"
+                            Padding="20"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            Click="OnTopClick"
+                            CornerRadius="{ThemeResource ResonateCornerLarge}"
+                            Style="{StaticResource ResonateSubtleButtonStyle}">
+                            <StackPanel HorizontalAlignment="Left" Spacing="14">
                                 <Grid
-                                    MinHeight="56"
-                                    Background="{StaticResource ResonateTransparentBrush}"
-                                    ColumnSpacing="16">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="40" />
-                                        <ColumnDefinition Width="5*" />
-                                        <ColumnDefinition Width="3*" />
-                                        <ColumnDefinition Width="56" />
-                                    </Grid.ColumnDefinitions>
-                                    <Grid
-                                        Width="40"
-                                        Height="40"
-                                        Background="{x:Bind Cover.Background, Mode=OneWay}"
-                                        CornerRadius="{ThemeResource ResonateCornerSmall}">
-                                        <Image Source="{x:Bind Cover.Image}" Stretch="UniformToFill" />
-                                    </Grid>
-                                    <StackPanel
-                                        Grid.Column="1"
-                                        VerticalAlignment="Center"
-                                        Spacing="2">
-                                        <TextBlock
-                                            Foreground="{x:Bind TitleBrush, Mode=OneWay}"
-                                            Style="{StaticResource ResonateBodyTextStyle}"
-                                            Text="{x:Bind Title}" />
-                                        <TextBlock
-                                            helpers:SongLinks.To="Artists"
-                                            Style="{StaticResource ResonateSecondaryTextStyle}"
-                                            Text="{x:Bind Artists}" />
-                                    </StackPanel>
-                                    <TextBlock
-                                        Grid.Column="2"
-                                        VerticalAlignment="Center"
-                                        helpers:SongLinks.To="Album"
-                                        Style="{StaticResource ResonateSecondaryTextStyle}"
-                                        Text="{x:Bind Album}" />
-                                    <TextBlock
-                                        Grid.Column="3"
-                                        HorizontalAlignment="Right"
-                                        VerticalAlignment="Center"
-                                        Style="{StaticResource ResonateSecondaryTextStyle}"
-                                        Text="{x:Bind Duration}" />
+                                    x:Name="TopCoverBox"
+                                    Width="104"
+                                    Height="104"
+                                    HorizontalAlignment="Left"
+                                    CornerRadius="{ThemeResource ResonateCornerMedium}">
+                                    <Image x:Name="TopImage" Stretch="UniformToFill" />
                                 </Grid>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
-                </StackPanel>
+                                <TextBlock
+                                    x:Name="TopTitle"
+                                    MaxLines="2"
+                                    Style="{StaticResource ResonateSectionTextStyle}"
+                                    TextTrimming="CharacterEllipsis"
+                                    TextWrapping="WrapWholeWords" />
+                                <TextBlock
+                                    x:Name="TopKind"
+                                    Style="{StaticResource ResonateSecondaryTextStyle}"
+                                    TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <StackPanel
+                        x:Name="SongsSection"
+                        Grid.Column="1"
+                        Spacing="{StaticResource ResonateSectionHeaderSpacing}"
+                        Visibility="Collapsed">
+                        <TextBlock Style="{StaticResource ResonateSectionTextStyle}" Text="Songs" />
+                        <ListView
+                            x:Name="SongList"
+                            ContextRequested="OnSongContextRequested"
+                            DoubleTapped="OnSongDoubleTapped"
+                            ItemsSource="{x:Bind Songs}"
+                            KeyDown="OnSongListKeyDown"
+                            SelectionMode="Single">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:TrackRow">
+                                    <Grid
+                                        MinHeight="56"
+                                        Background="{StaticResource ResonateTransparentBrush}"
+                                        ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="40" />
+                                            <ColumnDefinition Width="5*" />
+                                            <ColumnDefinition Width="3*" />
+                                            <ColumnDefinition Width="56" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid
+                                            Width="40"
+                                            Height="40"
+                                            Background="{x:Bind Cover.Background, Mode=OneWay}"
+                                            CornerRadius="{ThemeResource ResonateCornerSmall}">
+                                            <Image Source="{x:Bind Cover.Image}" Stretch="UniformToFill" />
+                                        </Grid>
+                                        <StackPanel
+                                            Grid.Column="1"
+                                            VerticalAlignment="Center"
+                                            Spacing="2">
+                                            <TextBlock
+                                                Foreground="{x:Bind TitleBrush, Mode=OneWay}"
+                                                Style="{StaticResource ResonateBodyTextStyle}"
+                                                Text="{x:Bind Title}"
+                                                TextTrimming="CharacterEllipsis" />
+                                            <TextBlock
+                                                helpers:SongLinks.To="Artists"
+                                                Style="{StaticResource ResonateSecondaryTextStyle}"
+                                                Text="{x:Bind Artists}" />
+                                        </StackPanel>
+                                        <TextBlock
+                                            Grid.Column="2"
+                                            VerticalAlignment="Center"
+                                            helpers:SongLinks.To="Album"
+                                            Style="{StaticResource ResonateSecondaryTextStyle}"
+                                            Text="{x:Bind Album}" />
+                                        <TextBlock
+                                            Grid.Column="3"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Center"
+                                            Style="{StaticResource ResonateSecondaryTextStyle}"
+                                            Text="{x:Bind Duration}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </StackPanel>
+                </Grid>
 
                 <StackPanel
                     x:Name="ArtistsSection"
@@ -155,19 +326,6 @@
                         ItemClick="OnArtistClick"
                         ItemTemplate="{StaticResource ArtistCardTemplate}"
                         ItemsSource="{x:Bind ArtistCards}"
-                        SelectionMode="None" />
-                </StackPanel>
-
-                <StackPanel
-                    x:Name="PlaylistsSection"
-                    Spacing="{StaticResource ResonateSectionHeaderSpacing}"
-                    Visibility="Collapsed">
-                    <TextBlock Style="{StaticResource ResonateSectionTextStyle}" Text="Playlists" />
-                    <GridView
-                        IsItemClickEnabled="True"
-                        ItemClick="OnPlaylistClick"
-                        ItemTemplate="{StaticResource CardTemplate}"
-                        ItemsSource="{x:Bind PlaylistCards}"
                         SelectionMode="None" />
                 </StackPanel>
 
@@ -184,6 +342,19 @@
                         SelectionMode="None" />
                 </StackPanel>
 
+                <StackPanel
+                    x:Name="PlaylistsSection"
+                    Spacing="{StaticResource ResonateSectionHeaderSpacing}"
+                    Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource ResonateSectionTextStyle}" Text="Playlists" />
+                    <GridView
+                        IsItemClickEnabled="True"
+                        ItemClick="OnPlaylistClick"
+                        ItemTemplate="{StaticResource CardTemplate}"
+                        ItemsSource="{x:Bind PlaylistCards}"
+                        SelectionMode="None" />
+                </StackPanel>
+
                 <!-- Room for a player hovering over the page (see IPlayerInset). -->
                 <Border x:Name="PlayerSpace" Height="0" />
             </StackPanel>
@@ -191,7 +362,7 @@
 
         <ProgressRing
             x:Name="SearchingRing"
-            Grid.Row="1"
+            Grid.Row="2"
             Width="32"
             Height="32"
             Margin="0,40,0,0"

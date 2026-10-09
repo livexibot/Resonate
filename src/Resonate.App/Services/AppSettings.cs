@@ -67,6 +67,12 @@ public sealed class AppSettings
     /// <summary>Links the user hid from the sidebar (Settings, Layout), by page key. Home always shows; Local Files has <see cref="ShowLocalFiles"/>.</summary>
     public List<string> HiddenSidebarLinks { get; set; } = [];
 
+    /// <summary>The last searches, newest first, which Search shows before anything is typed.</summary>
+    public List<string> RecentSearches { get; set; } = [];
+
+    /// <summary>What was last opened or played from Search, newest first ("Recently viewed").</summary>
+    public List<Resonate.Spotify.Library.RecentSearchPick> RecentSearchPicks { get; set; } = [];
+
     /// <summary>The mini player button in the title bar (Ctrl+M opens the mini player either way).</summary>
     public bool ShowMiniPlayerButton { get; set; } = true;
 
@@ -291,6 +297,15 @@ public sealed class AppSettings
     public int PlayerVisualizerSize { get; set; } = 56;
 
     public int PlayerVisualizerX { get; set; }
+
+    /// <summary>How much of the player bar's width its visualizer spans, centred, 20 to 100 %.</summary>
+    public int PlayerVisualizerWidth { get; set; } = 100;
+
+    /// <summary>How tall the player bar's visualizer may grow, as a share of the bar's height, 10 to 100 %.</summary>
+    public int PlayerVisualizerHeight { get; set; } = 45;
+
+    /// <summary>The most the player bar's visualizer may grow, in pixels, 8 to 200.</summary>
+    public int PlayerVisualizerMaxHeight { get; set; } = 200;
 
     public int PlayerVisualizerY { get; set; }
 

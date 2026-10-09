@@ -27,8 +27,11 @@ internal sealed class VisualizerCanvas(Compositor compositor, ContainerVisual ro
     /// <summary>The cover's corner radius, which the Pulse's rings follow.</summary>
     public double Corner { get; set; } = 8;
 
-    /// <summary>Drawn in the player bar: smaller dots and sparks.</summary>
+    /// <summary>Drawn in the player bar: smaller parts.</summary>
     public bool InBar { get; set; }
+
+    /// <summary>The user's Amount (16 to 96), for drawings whose levels depend on it.</summary>
+    public int Amount { get; set; } = 64;
 }
 
 /// <summary>

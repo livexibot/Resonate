@@ -46,9 +46,6 @@ internal sealed partial class StageVisualizer : Grid
     private const double MinRoom = 32;
     private const double MinBarRoom = 10;
 
-    // In the player bar the drawing takes this share of its height.
-    private const double BarShare = 0.45;
-
     private readonly VisualiserFeed _feed;
     private readonly Compositor _compositor;
     private readonly ContainerVisual _root;
@@ -174,6 +171,7 @@ internal sealed partial class StageVisualizer : Grid
         get => _style;
         set
         {
+            value = VisualizerShapes.Current(value);
             if (value == VisualizerStyle.Off || value == _style || !Enum.IsDefined(value))
             {
                 return;
@@ -321,15 +319,16 @@ internal sealed partial class StageVisualizer : Grid
         return props;
     }
 
-    private static VisualizerDrawing Create(VisualizerStyle style, VisualizerCanvas canvas) => style switch
+    private static VisualizerDrawing Create(VisualizerStyle style, VisualizerCanvas canvas) => VisualizerShapes.Current(style) switch
     {
         VisualizerStyle.Retro => new RetroDrawing(canvas),
-        VisualizerStyle.Wave => new WaveDrawing(canvas, helix: false),
-        VisualizerStyle.Helix => new WaveDrawing(canvas, helix: true),
-        VisualizerStyle.Radial => new RadialDrawing(canvas),
+        VisualizerStyle.Pills => new PillsDrawing(canvas),
+        VisualizerStyle.Silk => new SilkDrawing(canvas),
+        VisualizerStyle.Aurora => new AuroraDrawing(canvas),
         VisualizerStyle.Pulse => new PulseDrawing(canvas),
-        VisualizerStyle.Embers => new EmbersDrawing(canvas),
-        _ => new BarsDrawing(canvas, style),
+        VisualizerStyle.Mirror => new BarsDrawing(canvas, VisualizerStyle.Mirror),
+        VisualizerStyle.Lines => new BarsDrawing(canvas, VisualizerStyle.Lines),
+        _ => new BarsDrawing(canvas, VisualizerStyle.Bars),
     };
 
     /// <summary>Starts or stops what the drawing needs: its motion, the analyser and the per-frame reading of its pictures.</summary>
@@ -407,6 +406,7 @@ internal sealed partial class StageVisualizer : Grid
         }
 
         _canvas.Fill = Fill;
+        _canvas.Amount = Amount;
         var count = _drawing.CountFor(DrawSize(), Amount);
         if (count == _drawing.Built && !force)
         {
@@ -446,7 +446,9 @@ internal sealed partial class StageVisualizer : Grid
         }
         else if (InBar)
         {
-            height = _room * BarShare;
+            // The user's height and its cap for the player bar's visualizer.
+            var settings = App.Services.Settings;
+            height = Math.Min(_room * Math.Clamp(settings.PlayerVisualizerHeight, 10, 100) / 100.0, Math.Clamp(settings.PlayerVisualizerMaxHeight, 8, 200));
             hasRoom = height >= MinBarRoom;
         }
         else
@@ -511,15 +513,16 @@ internal sealed partial class StageVisualizer : Grid
     /// <summary>The user's Size for this visualizer, as a fill of 0.2 to 0.9.</summary>
     private double Fill => Math.Clamp(InBar ? App.Services.Settings.PlayerVisualizerSize : App.Services.Settings.HomeStageBarWidth, 20, 90) / 100.0;
 
-    /// <summary>The room the drawing spans: Home's along the bottom takes the user's share of the width, centred.</summary>
+    /// <summary>The room the drawing spans: the user's share of the width, centred (all of a cover's box).</summary>
     private Vector2 DrawSize()
     {
-        if (InBar || _drawing.AroundCover)
+        if (_drawing.AroundCover)
         {
             return _size;
         }
 
-        var share = Math.Clamp(App.Services.Settings.HomeStageWidth, 20, 100) / 100f;
+        var settings = App.Services.Settings;
+        var share = Math.Clamp(InBar ? settings.PlayerVisualizerWidth : settings.HomeStageWidth, 20, 100) / 100f;
         return new Vector2(_size.X * share, _size.Y);
     }
 

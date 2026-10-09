@@ -1,17 +1,60 @@
 namespace Resonate.Themes.Tests;
 
 /// <summary>
-/// The visualizer styles beyond plain bars: where they put things, how they
-/// move on their own, and which can show in the player bar.
+/// The visualizer styles beyond plain bars: which are offered, how the
+/// retired ones read, where things go, how they move on their own, and how
+/// Amount and Size read for each.
 /// </summary>
 public sealed class VisualizerShapesTests
 {
+    [Fact]
+    public void The_menus_offer_the_kept_and_new_styles_only()
+    {
+        Assert.Equal(
+            [VisualizerStyle.Bars, VisualizerStyle.Mirror, VisualizerStyle.Lines, VisualizerStyle.Pills, VisualizerStyle.Silk, VisualizerStyle.Aurora, VisualizerStyle.Retro, VisualizerStyle.Pulse],
+            VisualizerShapes.Offered);
+    }
+
+    [Theory]
+    [InlineData(VisualizerStyle.Dots, VisualizerStyle.Pills)]
+    [InlineData(VisualizerStyle.Wave, VisualizerStyle.Silk)]
+    [InlineData(VisualizerStyle.Helix, VisualizerStyle.Silk)]
+    [InlineData(VisualizerStyle.Embers, VisualizerStyle.Aurora)]
+    [InlineData(VisualizerStyle.Radial, VisualizerStyle.Pulse)]
+    [InlineData(VisualizerStyle.Retro, VisualizerStyle.Retro)]
+    public void Retired_styles_read_as_their_replacements(VisualizerStyle saved, VisualizerStyle drawn)
+    {
+        Assert.Equal(drawn, VisualizerShapes.Current(saved));
+        Assert.Contains(drawn, VisualizerShapes.Offered);
+    }
+
+    [Fact]
+    public void A_saved_look_with_a_retired_style_reads_as_its_replacement()
+    {
+        var look = ThemePresets.Midnight with { StageVisualizer = VisualizerStyle.Embers, PlayerVisualizer = VisualizerStyle.Dots };
+
+        var clean = look.Normalize();
+
+        Assert.Equal(VisualizerStyle.Aurora, clean.StageVisualizer);
+        Assert.Equal(VisualizerStyle.Pills, clean.PlayerVisualizer);
+    }
+
+    [Fact]
+    public void No_preset_uses_a_retired_style()
+    {
+        foreach (var preset in ThemePresets.All)
+        {
+            Assert.Contains(preset.StageVisualizer, VisualizerShapes.Offered);
+            Assert.True(preset.PlayerVisualizer == VisualizerStyle.Off || VisualizerShapes.Offered.Contains(preset.PlayerVisualizer), preset.Name);
+        }
+    }
+
     [Fact]
     public void Only_the_styles_around_the_cover_stay_out_of_the_player_bar()
     {
         foreach (var style in Enum.GetValues<VisualizerStyle>())
         {
-            var around = style is VisualizerStyle.Radial or VisualizerStyle.Pulse;
+            var around = VisualizerShapes.Current(style) == VisualizerStyle.Pulse;
             Assert.Equal(around, VisualizerShapes.AroundCover(style));
             Assert.Equal(!around, VisualizerShapes.FitsPlayerBar(style));
         }
@@ -20,7 +63,7 @@ public sealed class VisualizerShapesTests
     [Fact]
     public void A_look_with_a_cover_style_in_the_player_bar_reads_as_off()
     {
-        var look = ThemePresets.Midnight with { PlayerVisualizer = VisualizerStyle.Radial, StageVisualizer = VisualizerStyle.Off };
+        var look = ThemePresets.Midnight with { PlayerVisualizer = VisualizerStyle.Pulse, StageVisualizer = VisualizerStyle.Off };
 
         var clean = look.Normalize();
 
@@ -59,77 +102,58 @@ public sealed class VisualizerShapesTests
     }
 
     [Fact]
-    public void Embers_rise_and_sway_a_whole_number_of_times_per_loop()
-    {
-        for (var i = 0; i < 64; i++)
-        {
-            var ember = VisualizerShapes.Ember(i);
-            var rises = ember.Rise * StageBars.LoopSeconds;
-            Assert.Equal(Math.Round(rises), rises, 6);
-            var sways = ember.DriftSpeed * StageBars.LoopSeconds / Math.Tau;
-            Assert.Equal(Math.Round(sways), sways, 6);
-            Assert.InRange(ember.X, 0, 1);
-            Assert.InRange(ember.Channel, 0, VisualizerShapes.EmberChannels - 1);
-            Assert.InRange(ember.Size, 0.7, 1.3);
-            Assert.Equal(ember, VisualizerShapes.Ember(i));
-        }
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void The_wave_travels_a_whole_number_of_turns_per_loop(bool helix)
-    {
-        var turns = VisualizerShapes.WaveSpeed(helix) * StageBars.LoopSeconds / Math.Tau;
-        Assert.Equal(Math.Round(turns), turns, 6);
-        Assert.InRange(VisualizerShapes.WaveDots(1600, helix, 64), 12, StageBars.MaxCount);
-        Assert.Equal(12, VisualizerShapes.WaveDots(30, helix, 96));
-    }
-
-    [Fact]
     public void Amount_and_size_mean_more_and_larger_in_every_style()
     {
-        Assert.True(VisualizerShapes.WaveDots(4000, helix: false, 96) > VisualizerShapes.WaveDots(4000, helix: false, 16));
-        Assert.True(VisualizerShapes.WaveDots(4000, helix: true, 96) > VisualizerShapes.WaveDots(4000, helix: true, 16));
-        Assert.True(VisualizerShapes.EmberCount(4000, 96) > VisualizerShapes.EmberCount(4000, 16));
+        Assert.True(VisualizerShapes.PillCount(4000, 96) > VisualizerShapes.PillCount(4000, 16));
+        Assert.True(VisualizerShapes.SilkColumns(4000, 96).Levels > VisualizerShapes.SilkColumns(4000, 16).Levels);
+        Assert.True(VisualizerShapes.AuroraGlows(96) > VisualizerShapes.AuroraGlows(16));
         Assert.True(VisualizerShapes.RetroColumns(4000, 96) > VisualizerShapes.RetroColumns(4000, 16));
-        Assert.True(VisualizerShapes.RadialCount(400, 96) > VisualizerShapes.RadialCount(400, 16));
         Assert.Equal(2, VisualizerShapes.PulseRingCount(16));
         Assert.Equal(5, VisualizerShapes.PulseRingCount(96));
         Assert.Equal(2, VisualizerShapes.SizeBetween(2, 9, 0.2), 6);
         Assert.Equal(9, VisualizerShapes.SizeBetween(2, 9, 0.9), 6);
 
-        // Never more than fit.
-        Assert.True(VisualizerShapes.EmberCount(120, 96) <= 10);
+        // Never more pills than fit with room to be round.
+        Assert.True(VisualizerShapes.PillCount(200, 96) <= 25);
     }
 
     [Fact]
-    public void Radial_bars_hug_the_cover_lows_at_the_bottom_mirrored()
+    public void Silk_columns_run_smoothly_between_levels_and_taper_at_the_ends()
     {
-        const double side = 400;
-        const double gap = 6;
-        const int count = 64;
-
-        // Bar 0 points straight down from under the middle of the cover's bottom edge.
-        var (x, y, degrees) = VisualizerShapes.RadialPlace(0, count, side, gap);
-        Assert.Equal(side / 2, x, 6);
-        Assert.Equal(side + gap, y, 6);
-        Assert.Equal(180, degrees, 6);
-
-        // The bar across points straight up from above the top edge.
-        (x, y, degrees) = VisualizerShapes.RadialPlace(count / 2, count, side, gap);
-        Assert.Equal(side / 2, x, 6);
-        Assert.Equal(-gap, y, 6);
-        Assert.Equal(0, degrees, 6);
-
-        // Every foot is outside the cover, on its square edge pushed out by the gap.
-        for (var i = 0; i < count; i++)
+        var (columns, levels) = VisualizerShapes.SilkColumns(1200, 64);
+        Assert.True(columns >= levels);
+        var lastAt = -1.0;
+        for (var c = 0; c < columns; c++)
         {
-            (x, y, _) = VisualizerShapes.RadialPlace(i, count, side, gap);
-            var outside = Math.Max(Math.Abs(x - (side / 2)), Math.Abs(y - (side / 2)));
-            Assert.InRange(outside, (side / 2) + (gap * 0.7), (side / 2) + gap + 0.001);
-            Assert.Equal(VisualizerShapes.RadialChannel(i, count), VisualizerShapes.RadialChannel(count - i, count));
-            Assert.InRange(VisualizerShapes.RadialChannel(i, count), 0, VisualizerShapes.RadialChannels(count) - 1);
+            var (level, toward) = VisualizerShapes.SilkBlend(c, columns, levels);
+            Assert.InRange(level, 0, levels - 2);
+            Assert.InRange(toward, 0, 1);
+            var at = level + toward;
+            Assert.True(at >= lastAt);
+            lastAt = at;
+        }
+
+        Assert.Equal(levels - 1, lastAt, 6);
+        Assert.Equal(0, VisualizerShapes.SilkTaper(0, columns), 6);
+        Assert.Equal(1, VisualizerShapes.SilkTaper(columns / 2, columns), 6);
+    }
+
+    [Fact]
+    public void Aurora_glows_spread_across_and_drift_a_whole_number_of_times_per_loop()
+    {
+        for (var count = 4; count <= 10; count++)
+        {
+            var lastX = 0.0;
+            for (var i = 0; i < count; i++)
+            {
+                var glow = VisualizerShapes.AuroraGlow(i, count);
+                Assert.InRange(glow.X, 0, 1);
+                Assert.True(glow.X > lastX);
+                lastX = glow.X;
+                var turns = glow.DriftSpeed * StageBars.LoopSeconds / Math.Tau;
+                Assert.Equal(Math.Round(turns), turns, 6);
+                Assert.Equal(glow, VisualizerShapes.AuroraGlow(i, count));
+            }
         }
     }
 

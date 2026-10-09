@@ -25,12 +25,13 @@ internal static class StageSettings
     public static IEnumerable<FrameworkElement> HomeVisualizer(AppServices services)
     {
         var settings = services.Settings;
+        var fresh = new AppSettings();
         return
         [
-            Slider("Sensitivity", 50, 200, () => settings.HomeStageSensitivity, v => settings.HomeStageSensitivity = v, "%", services),
-            Slider("Smoothing", 0, 100, () => settings.HomeStageSmoothing, v => settings.HomeStageSmoothing = v, "%", services),
-            Slider("Amount", 16, 96, () => settings.HomeStageBars, v => settings.HomeStageBars = v, string.Empty, services),
-            Slider("Size", 20, 90, () => settings.HomeStageBarWidth, v => settings.HomeStageBarWidth = v, "%", services),
+            Slider("Sensitivity", 50, 200, () => settings.HomeStageSensitivity, v => settings.HomeStageSensitivity = v, fresh.HomeStageSensitivity, "%", services),
+            Slider("Smoothing", 0, 100, () => settings.HomeStageSmoothing, v => settings.HomeStageSmoothing = v, fresh.HomeStageSmoothing, "%", services),
+            Slider("Amount", 16, 96, () => settings.HomeStageBars, v => settings.HomeStageBars = v, fresh.HomeStageBars, string.Empty, services),
+            Slider("Size", 20, 90, () => settings.HomeStageBarWidth, v => settings.HomeStageBarWidth = v, fresh.HomeStageBarWidth, "%", services),
             Switch(
                 "Listen to Spotify",
                 string.Empty,
@@ -42,11 +43,11 @@ internal static class StageSettings
                 },
                 services),
             Advanced(
-                Slider("Width", 20, 100, () => settings.HomeStageWidth, v => settings.HomeStageWidth = v, "%", services),
-                Slider("Height", 10, 60, () => settings.HomeStageHeight, v => settings.HomeStageHeight = v, "%", services),
-                Slider("Max height", 40, 600, () => settings.HomeStageMaxHeight, v => settings.HomeStageMaxHeight = v, "px", services),
-                Slider("X", -800, 800, () => settings.HomeStageX, v => settings.HomeStageX = v, "px", services),
-                Slider("Y", -400, 400, () => settings.HomeStageY, v => settings.HomeStageY = v, "px", services)),
+                Slider("Width", 20, 100, () => settings.HomeStageWidth, v => settings.HomeStageWidth = v, fresh.HomeStageWidth, "%", services),
+                Slider("Height", 10, 60, () => settings.HomeStageHeight, v => settings.HomeStageHeight = v, fresh.HomeStageHeight, "%", services),
+                Slider("Max height", 40, 600, () => settings.HomeStageMaxHeight, v => settings.HomeStageMaxHeight = v, fresh.HomeStageMaxHeight, "px", services),
+                Slider("X", -800, 800, () => settings.HomeStageX, v => settings.HomeStageX = v, fresh.HomeStageX, "px", services),
+                Slider("Y", -400, 400, () => settings.HomeStageY, v => settings.HomeStageY = v, fresh.HomeStageY, "px", services)),
         ];
     }
 
@@ -54,15 +55,19 @@ internal static class StageSettings
     public static IEnumerable<FrameworkElement> PlayerVisualizer(AppServices services)
     {
         var settings = services.Settings;
+        var fresh = new AppSettings();
         return
         [
-            Slider("Sensitivity", 50, 200, () => settings.PlayerVisualizerSensitivity, v => settings.PlayerVisualizerSensitivity = v, "%", services),
-            Slider("Smoothing", 0, 100, () => settings.PlayerVisualizerSmoothing, v => settings.PlayerVisualizerSmoothing = v, "%", services),
-            Slider("Amount", 16, 96, () => settings.PlayerVisualizerAmount, v => settings.PlayerVisualizerAmount = v, string.Empty, services),
-            Slider("Size", 20, 90, () => settings.PlayerVisualizerSize, v => settings.PlayerVisualizerSize = v, "%", services),
+            Slider("Sensitivity", 50, 200, () => settings.PlayerVisualizerSensitivity, v => settings.PlayerVisualizerSensitivity = v, fresh.PlayerVisualizerSensitivity, "%", services),
+            Slider("Smoothing", 0, 100, () => settings.PlayerVisualizerSmoothing, v => settings.PlayerVisualizerSmoothing = v, fresh.PlayerVisualizerSmoothing, "%", services),
+            Slider("Amount", 16, 96, () => settings.PlayerVisualizerAmount, v => settings.PlayerVisualizerAmount = v, fresh.PlayerVisualizerAmount, string.Empty, services),
+            Slider("Size", 20, 90, () => settings.PlayerVisualizerSize, v => settings.PlayerVisualizerSize = v, fresh.PlayerVisualizerSize, "%", services),
             Advanced(
-                Slider("X", -800, 800, () => settings.PlayerVisualizerX, v => settings.PlayerVisualizerX = v, "px", services),
-                Slider("Y", -100, 100, () => settings.PlayerVisualizerY, v => settings.PlayerVisualizerY = v, "px", services)),
+                Slider("Width", 20, 100, () => settings.PlayerVisualizerWidth, v => settings.PlayerVisualizerWidth = v, fresh.PlayerVisualizerWidth, "%", services),
+                Slider("Height", 10, 100, () => settings.PlayerVisualizerHeight, v => settings.PlayerVisualizerHeight = v, fresh.PlayerVisualizerHeight, "%", services),
+                Slider("Max height", 8, 200, () => settings.PlayerVisualizerMaxHeight, v => settings.PlayerVisualizerMaxHeight = v, fresh.PlayerVisualizerMaxHeight, "px", services),
+                Slider("X", -800, 800, () => settings.PlayerVisualizerX, v => settings.PlayerVisualizerX = v, fresh.PlayerVisualizerX, "px", services),
+                Slider("Y", -100, 100, () => settings.PlayerVisualizerY, v => settings.PlayerVisualizerY = v, fresh.PlayerVisualizerY, "px", services)),
         ];
     }
 
@@ -137,8 +142,8 @@ internal static class StageSettings
         return new SettingRow { Header = header, Description = description, Content = toggle };
     }
 
-    /// <summary>A stage option as a slider of whole numbers: saved, and shown on every stage, as it moves.</summary>
-    private static SettingRow Slider(string header, int minimum, int maximum, Func<int> read, Action<int> write, string unit, AppServices services)
+    /// <summary>A stage option as a slider of whole numbers: saved, and shown on every stage, as it moves; reset to <paramref name="fallback"/>.</summary>
+    private static SettingRow Slider(string header, int minimum, int maximum, Func<int> read, Action<int> write, int fallback, string unit, AppServices services)
     {
         var slider = new Slider
         {
@@ -169,6 +174,7 @@ internal static class StageSettings
             }
         };
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { slider, value } };
+        ResetButton.Attach(slider, () => fallback, header);
         return new SettingRow { Header = header, Content = row };
     }
 

@@ -5,9 +5,9 @@ namespace Resonate.Themes;
 /// <summary>
 /// Where the visualizer styles beyond plain bars put things and how they
 /// move (<see cref="VisualizerStyle"/>): the Retro meter's segments, the
-/// Wave's and Helix's travelling wave, the Embers' rising sparks, and the
-/// Radial bars and Pulse rings around the cover. Everything that moves on
-/// its own turns a whole number of times per
+/// Pills, the Silk ribbon's columns, the Aurora's glows and the Pulse rings
+/// around the cover, and how the user's Amount and Size read for each.
+/// Everything that moves on its own turns a whole number of times per
 /// <see cref="StageBars.LoopSeconds"/>, so the clock can start again with
 /// no jump.
 /// </summary>
@@ -29,23 +29,49 @@ public static class VisualizerShapes
     /// <summary>How fast a Retro peak falls back, in levels a second (the whole column in a little over two seconds).</summary>
     public const float PeakFall = 0.45f;
 
-    /// <summary>How many sound levels the Embers follow (each spark one of them).</summary>
-    public const int EmberChannels = 12;
+    /// <summary>The styles the menus offer (the retired ones read as their replacements, <see cref="Current"/>).</summary>
+    public static IReadOnlyList<VisualizerStyle> Offered { get; } =
+    [
+        VisualizerStyle.Bars,
+        VisualizerStyle.Mirror,
+        VisualizerStyle.Lines,
+        VisualizerStyle.Pills,
+        VisualizerStyle.Silk,
+        VisualizerStyle.Aurora,
+        VisualizerStyle.Retro,
+        VisualizerStyle.Pulse,
+    ];
 
-    /// <summary>The space the Radial bars leave between the cover and their feet.</summary>
-    public const double RadialGap = 6;
-
-    // The Wave crosses the row this many times, and the Helix's strands twist this often.
-    private const double WaveCycles = 2.5;
-    private const double HelixCycles = 2;
+    /// <summary>
+    /// A style as it is drawn now: the ones retired on 9 October 2026 (the
+    /// owner found them dated) read as the style that replaced them.
+    /// </summary>
+    public static VisualizerStyle Current(VisualizerStyle style) => style switch
+    {
+        VisualizerStyle.Dots => VisualizerStyle.Pills,
+        VisualizerStyle.Wave or VisualizerStyle.Helix => VisualizerStyle.Silk,
+        VisualizerStyle.Embers => VisualizerStyle.Aurora,
+        VisualizerStyle.Radial => VisualizerStyle.Pulse,
+        _ => style,
+    };
 
     /// <summary>Styles drawn around the cover, which Home shows inside the cover's box.</summary>
-    public static bool AroundCover(VisualizerStyle style) => style is VisualizerStyle.Radial or VisualizerStyle.Pulse;
+    public static bool AroundCover(VisualizerStyle style) => Current(style) is VisualizerStyle.Pulse;
 
     /// <summary>Styles the player bar can show: Off, and anything that does not need Home's cover.</summary>
     public static bool FitsPlayerBar(VisualizerStyle style) => !AroundCover(style);
 
-    /// <summary>Retro's columns: half the user's bar count, chunky like a hi-fi's, as many as fit.</summary>
+    /// <summary>The user's Amount (<see cref="StageBars.MinCount"/> to <see cref="StageBars.MaxCount"/>) as a share, 0 to 1.</summary>
+    public static double AmountShare(int amount) =>
+        Math.Clamp((amount - StageBars.MinCount) / (double)(StageBars.MaxCount - StageBars.MinCount), 0, 1);
+
+    /// <summary>The user's Size (a fill of 0.2 to 0.9) as a share, 0 to 1.</summary>
+    public static double SizeShare(double fill) => Math.Clamp((fill - 0.2) / 0.7, 0, 1);
+
+    /// <summary>A part's size between <paramref name="smallest"/> and <paramref name="largest"/> for the user's Size.</summary>
+    public static double SizeBetween(double smallest, double largest, double fill) => smallest + ((largest - smallest) * SizeShare(fill));
+
+    /// <summary>Retro's columns: half the user's Amount, chunky like a hi-fi's, as many as fit.</summary>
     public static int RetroColumns(double width, int wanted)
     {
         var fits = width > 0 ? Math.Max(8, (int)(width / 16)) : 8;
@@ -63,82 +89,57 @@ public static class VisualizerShapes
     /// <summary>A peak that falls back <see cref="PeakFall"/> a second, but never below the level.</summary>
     public static float Peak(float peak, float level, float seconds) => Math.Max(level, peak - (PeakFall * Math.Max(0, seconds)));
 
-    /// <summary>The user's Amount (<see cref="StageBars.MinCount"/> to <see cref="StageBars.MaxCount"/>) as a share, 0 to 1.</summary>
-    public static double AmountShare(int amount) =>
-        Math.Clamp((amount - StageBars.MinCount) / (double)(StageBars.MaxCount - StageBars.MinCount), 0, 1);
-
-    /// <summary>The user's Size (a fill of 0.2 to 0.9) as a share, 0 to 1.</summary>
-    public static double SizeShare(double fill) => Math.Clamp((fill - 0.2) / 0.7, 0, 1);
-
-    /// <summary>A dot's or line's size between <paramref name="smallest"/> and <paramref name="largest"/> for the user's Size.</summary>
-    public static double SizeBetween(double smallest, double largest, double fill) => smallest + ((largest - smallest) * SizeShare(fill));
-
-    /// <summary>How many dots a Wave (or each Helix strand) has: the user's Amount, as many as fit across <paramref name="width"/>.</summary>
-    public static int WaveDots(double width, bool helix, int amount)
+    /// <summary>How many pills: the user's Amount, as many as fit across <paramref name="width"/> with room to be round.</summary>
+    public static int PillCount(double width, int amount)
     {
-        var share = AmountShare(amount);
-        var wanted = (int)Math.Round(helix ? 16 + (56 * share) : 24 + (72 * share));
-        var fits = width > 0 ? (int)(width / (helix ? 8 : 5)) : wanted;
-        return Math.Clamp(Math.Min(wanted, fits), 12, StageBars.MaxCount);
-    }
-
-    /// <summary>Where dot <paramref name="index"/> of <paramref name="count"/> is in the wave, in radians.</summary>
-    public static double WavePhase(int index, int count, bool helix) =>
-        count > 0 ? Math.Tau * (helix ? HelixCycles : WaveCycles) * index / count : 0;
-
-    /// <summary>How fast the wave travels, in radians a second (whole turns per loop).</summary>
-    public static double WaveSpeed(bool helix) => StageBars.Turns(helix ? 1.6 : 2.4);
-
-    /// <summary>How many sparks rise: the user's Amount, as many as fit across <paramref name="width"/>.</summary>
-    public static int EmberCount(double width, int amount)
-    {
-        var wanted = (int)Math.Round(10 + (62 * AmountShare(amount)));
-        var fits = width > 0 ? (int)(width / 12) : wanted;
-        return Math.Clamp(Math.Min(wanted, fits), 6, StageBars.MaxCount);
+        var fits = width > 0 ? Math.Max(StageBars.MinCount, (int)(width / 8)) : StageBars.MinCount;
+        return Math.Clamp(Math.Min(amount, fits), StageBars.MinCount, StageBars.MaxCount);
     }
 
     /// <summary>
-    /// Spark <paramref name="index"/>: where it rises across the row (0 to
-    /// 1), how many times a second it rises and where in its rise it starts
-    /// (whole rises per loop), its sideways drift in pixels with its speed
-    /// and angle, the level it follows and its size against the others.
-    /// The same every time.
+    /// The Silk ribbon's columns and the levels they follow: twice as many
+    /// columns as levels (more for a higher Amount), each between two
+    /// levels, so the ribbon's edge is smooth. The columns touch.
     /// </summary>
-    public static (double X, double Rise, double Start, double Drift, double DriftSpeed, double DriftPhase, int Channel, double Size) Ember(int index)
+    public static (int Columns, int Levels) SilkColumns(double width, int amount)
     {
-        var rises = Math.Round(90 + (90 * StageBars.Hash(index, 12)));
+        var levels = (int)Math.Round(12 + (36 * AmountShare(amount)));
+        var columns = Math.Max(levels, Math.Min(levels * 4, width > 0 ? (int)(width / 3) : levels * 2));
+        return (columns, levels);
+    }
+
+    /// <summary>Where Silk column <paramref name="column"/> of <paramref name="columns"/> sits between levels: the lower level and how far towards the next.</summary>
+    public static (int Level, double Toward) SilkBlend(int column, int columns, int levels)
+    {
+        var at = columns > 1 ? column * (levels - 1) / (double)(columns - 1) : 0;
+        var low = Math.Min((int)Math.Floor(at), Math.Max(0, levels - 2));
+        return (low, Math.Clamp(at - low, 0, 1));
+    }
+
+    /// <summary>How tall the Silk ribbon is at its edges against its middle, 0 to 1, so it tapers off at both ends.</summary>
+    public static double SilkTaper(int column, int columns)
+    {
+        var across = columns > 1 ? column / (double)(columns - 1) : 0.5;
+        var edge = Math.Min(across, 1 - across);
+        return Math.Clamp(edge / 0.12, 0, 1);
+    }
+
+    /// <summary>How many glows the Aurora has for the user's Amount: 4 to 10.</summary>
+    public static int AuroraGlows(int amount) => 4 + (int)Math.Round(AmountShare(amount) * 6);
+
+    /// <summary>
+    /// Aurora glow <paramref name="index"/> of <paramref name="count"/>:
+    /// where it sits across (0 to 1), its sideways drift as a share of the
+    /// width with its speed (whole turns per loop) and angle. The same every time.
+    /// </summary>
+    public static (double X, double Drift, double DriftSpeed, double DriftPhase) AuroraGlow(int index, int count)
+    {
+        var x = count > 1 ? (index + 0.5) / count : 0.5;
         return (
-            StageBars.Hash(index, 11),
-            rises / StageBars.LoopSeconds,
-            StageBars.Hash(index, 13),
-            6 + (14 * StageBars.Hash(index, 14)),
-            StageBars.Turns(0.5 + (0.9 * StageBars.Hash(index, 15))),
-            Math.Tau * StageBars.Hash(index, 16),
-            Math.Min(EmberChannels - 1, (int)(StageBars.Hash(index, 17) * EmberChannels)),
-            0.7 + (0.6 * StageBars.Hash(index, 18)));
-    }
-
-    /// <summary>How many Radial bars go around a cover <paramref name="side"/> wide: the user's count, as many as fit.</summary>
-    public static int RadialCount(double side, int wanted) => StageBars.Count(side * 4, wanted);
-
-    /// <summary>The levels the Radial bars follow: one per pair, mirrored left and right.</summary>
-    public static int RadialChannels(int count) => (count / 2) + 1;
-
-    /// <summary>The level Radial bar <paramref name="index"/> follows: the lows at the bottom, the highs at the top.</summary>
-    public static int RadialChannel(int index, int count) => Math.Min(index, count - index);
-
-    /// <summary>
-    /// Radial bar <paramref name="index"/>'s foot (just outside a square
-    /// cover <paramref name="side"/> wide, from its top left) and its angle
-    /// in degrees, clockwise from pointing up; bar 0 points down.
-    /// </summary>
-    public static (double X, double Y, double Degrees) RadialPlace(int index, int count, double side, double gap)
-    {
-        var degrees = 180 + (index * 360.0 / Math.Max(1, count));
-        var radians = degrees * Math.PI / 180;
-        var (sin, cos) = Math.SinCos(radians);
-        var reach = (side / 2 / Math.Max(Math.Abs(sin), Math.Abs(cos))) + gap;
-        return ((side / 2) + (reach * sin), (side / 2) - (reach * cos), degrees % 360);
+            x,
+            0.02 + (0.03 * StageBars.Hash(index, 21)),
+            StageBars.Turns(0.12 + (0.18 * StageBars.Hash(index, 22))),
+            Math.Tau * StageBars.Hash(index, 23));
     }
 
     /// <summary>How many rings the Pulse has for the user's Amount: 2 to 5.</summary>

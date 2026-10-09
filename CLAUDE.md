@@ -849,34 +849,61 @@ Ripple, and a more interesting Home):
   test reports each switch's first motion and end. Measure: the cost of the
   rounded-rectangle clip at 5K and 165 Hz. Pictures lack the soft shadows,
   so the old look's shadows vanish on the first frame of a switch.
-- Visualizer styles (`VisualizerStyle`, saved by name; Off only for the
-  player bar): Bars, Mirror, Lines, Dots, and since 9 October 2026 Retro
-  (hi-fi segments lit from the bottom, faint unlit ones, peaks that fall
-  back at `VisualizerShapes.PeakFall`), Wave (a travelling wave of dots as
-  tall as each band), Helix (two strands, the near one larger), Embers
-  (sparks rising, each on one of 12 levels), and, on Home only, Radial
-  (bars around the cover, lows at the bottom, mirrored) and Pulse (three
-  rings in the cover's shape over a glow, following averaged lows, mids
-  and highs). `StageVisualizer` owns the sound, clock and when anything
-  moves; each style is a `VisualizerDrawing` in `Controls/Visualizers`
-  whose expressions read the host's levels and its own geometry property
-  set, so a resize changes numbers, not expressions. Radial and Pulse are
-  drawn in the stage's cover box (behind the cover, reaching 40 px out, 20
-  on a narrow stage), so they shrink with it as Home scrolls. Geometry and
-  self-motion live in `Resonate.Themes/VisualizerShapes.cs` (tested;
-  everything that moves alone turns a whole number of times per loop). A
-  rotated sprite ignored a `Scale.Y` animation, so Radial animates the
-  whole `Scale`. In the player bar a drawing takes 45 % of the bar's
-  height and Retro hides its unlit segments. Presets: Synthwave Radial,
-  Bubblegum Pulse, Terminal Retro (and in its bar), Velvet Embers, Sage
-  Wave, Aurora Helix (Wave in its bar). CI's tour starts every style
-  (`StageVisualizer.CheckMotion`).
   A switch on screen always plays to its end (the owner's request,
   8 October 2026): `ThemeService.Switch` queues the newest switch asked
   for meanwhile and skips any between; a quick edit keeps the animation of
   a look clicked before it; while a switch waits, `ThemeService.Current`
   is the look on screen, so nothing mixes two looks; a switch still on
   screen after 10 s is ended.
+- Visualizer styles (`VisualizerStyle`, saved by name: append, never
+  rename; Off only for the player bar). Offered (`VisualizerShapes.Offered`,
+  9 October 2026, after the owner kept Bars, Mirror, Lines, Retro and Pulse
+  and found the rest "not modern enough"): Bars, Mirror, Lines, Pills
+  (rounded capsules growing both ways from a middle line: rounded
+  rectangles in one shape visual whose Size and Offset are expressions, so
+  the ends stay round), Silk (a soft mirrored ribbon of touching columns,
+  each between two levels, brightest along the middle, tapering at both
+  ends, with a fine thread while quiet), Aurora (large half-glows rising
+  from the bottom on averaged bands, drifting slowly), Retro (hi-fi
+  segments lit from the bottom, faint unlit ones, peaks that fall back at
+  `VisualizerShapes.PeakFall`) and Pulse (2 to 5 rings in the cover's
+  shape over a glow; Home only). Dots, Wave, Helix, Embers and Radial are
+  retired: saved looks read them as Pills, Silk, Silk, Aurora and Pulse
+  (`VisualizerShapes.Current`, in `Normalize`). `StageVisualizer` owns the
+  sound, clock and when anything moves; each style is a
+  `VisualizerDrawing` in `Controls/Visualizers` whose expressions read the
+  host's levels and its own geometry property set, so a resize changes
+  numbers, not expressions. Pulse is drawn in the stage's cover box
+  (behind the cover, reaching 40 px out, 20 on a narrow stage), so it
+  shrinks with it as Home scrolls. Geometry and self-motion live in
+  `Resonate.Themes/VisualizerShapes.cs` (tested; everything that moves
+  alone turns a whole number of times per loop). A rotated sprite ignored
+  a `Scale.Y` animation (found with the retired Radial): animate the whole
+  `Scale` when a sprite turns. The player bar's visualizer has its own
+  Width, Height (45 % of the bar at first) and Max height, and Retro
+  hides its unlit segments there. Presets: Synthwave and Paper Pills,
+  Bubblegum Pulse (Pills in its bar), Terminal Retro (and in its bar),
+  Velvet and Aurora Aurora (Silk in Aurora's bar), Sage Silk. CI's tour
+  starts every style (`StageVisualizer.CheckMotion`).
+- Reset buttons (the owner's request, 9 October 2026): every slider and
+  number box in Settings shows a small reset button while its value is
+  not the default (`Controls/ResetButton`); drop-downs and switches have
+  none. A look's sliders reset to the preset it was made from
+  (`ThemeDefinition.BasedOn`, set when a preset is first edited;
+  `ThemePresets.Origin`), the user's own settings to a new
+  `AppSettings`'s values, and the player's size and place boxes to
+  automatic.
+- Search (rebuilt 9 October 2026, the owner asked for it "more modern",
+  with the last searches): a pill-shaped box with a search icon, filter
+  chips (All, and only the kinds found), the top result
+  (`RecentSearches.TopKind`: an artist named as typed, else the first
+  song) beside the first four songs (stacked under 860 wide), then
+  artists, albums and playlists. With nothing typed it shows "Recent
+  searches": the last 8 queries as chips (a click searches again, x
+  forgets one; kept on Enter or when a result is opened) and the last 12
+  results opened or played ("recently viewed", `RecentSearchPick`, played
+  or opened again without asking Spotify), with Clear. Both are kept in
+  the settings file (`RecentSearches`, `RecentSearchPicks`).
 - Player layouts (saved by name: append, never rename): a look's player is
   Docked or Floating under the panels, Top or FloatingTop above them
   (under the title bar), Hovering, or Corner. Hovering

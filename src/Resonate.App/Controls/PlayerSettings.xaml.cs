@@ -16,24 +16,10 @@ namespace Resonate.App.Controls;
 /// </summary>
 public sealed partial class PlayerSettings : UserControl
 {
-    /// <summary>The styles in the order the menus list them.</summary>
-    private static readonly VisualizerStyle[] VisualizerStyles =
-    [
-        VisualizerStyle.Bars,
-        VisualizerStyle.Mirror,
-        VisualizerStyle.Lines,
-        VisualizerStyle.Dots,
-        VisualizerStyle.Retro,
-        VisualizerStyle.Wave,
-        VisualizerStyle.Helix,
-        VisualizerStyle.Embers,
-        VisualizerStyle.Radial,
-        VisualizerStyle.Pulse,
-    ];
-
     private readonly AppServices _services = App.Services;
     private readonly ThemeService _theme = App.Services.Theme;
     private readonly Dictionary<ComboBox, Func<ThemeDefinition, string, ThemeDefinition>> _choices;
+    private readonly List<Action> _resets = [];
 
     // True while controls are being set (and while the panel is built), so that is not taken as a change.
     private bool _loading = true;
@@ -53,7 +39,7 @@ public sealed partial class PlayerSettings : UserControl
         // Home lists every style (Off hides it); the player bar those that need no cover beside them.
         StageVisualizerChoice.Items.Add(new ComboBoxItem { Content = "Off", Tag = nameof(VisualizerStyle.Off) });
         PlayerVisualizerChoice.Items.Add(new ComboBoxItem { Content = "Off", Tag = nameof(VisualizerStyle.Off) });
-        foreach (var style in VisualizerStyles)
+        foreach (var style in VisualizerShapes.Offered)
         {
             StageVisualizerChoice.Items.Add(new ComboBoxItem { Content = style.ToString(), Tag = style.ToString() });
             if (VisualizerShapes.FitsPlayerBar(style))
@@ -71,6 +57,13 @@ public sealed partial class PlayerSettings : UserControl
         {
             PlayerVisualizerRows.Children.Add(row);
         }
+
+        // Reset buttons: the glow goes back to the preset's, the size and place to automatic.
+        _resets.Add(ResetButton.Attach(PlayerGlowSlider, () => Math.Round(ThemePresets.Origin(_theme.Current).PlayerGlow * 100), "Glow"));
+        _resets.Add(ResetButton.Attach(PlayerWidthBox, "Width"));
+        _resets.Add(ResetButton.Attach(PlayerHeightBox, "Height"));
+        _resets.Add(ResetButton.Attach(PlayerXBox, "X"));
+        _resets.Add(ResetButton.Attach(PlayerYBox, "Y"));
 
         // Only while shown, so the theme never keeps a closed Settings page alive.
         Loaded += (_, _) =>
@@ -110,6 +103,10 @@ public sealed partial class PlayerSettings : UserControl
 
             Select(StageVisualizerChoice, _services.Settings.HomeStageVisualizer ? look.StageVisualizer.ToString() : nameof(VisualizerStyle.Off));
             Select(PlayerVisualizerChoice, look.PlayerVisualizer.ToString());
+            foreach (var reset in _resets)
+            {
+                reset();
+            }
         }
         finally
         {
