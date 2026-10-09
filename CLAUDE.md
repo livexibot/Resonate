@@ -467,7 +467,10 @@ Windows:
   `SetElementChildVisual` (the soft shadows) or Mica and acrylic. It does
   draw an element's own composition properties (clips, translation, scale),
   including running animations. Anything scaled past the edges makes the
-  whole picture larger, which is why `BackdropLayer` clips itself. The hard
+  whole picture larger, which is why `BackdropLayer` clips itself and
+  `ThemeHost` clips the special looks' scenery, decorations and weather
+  (`ClipToSize`; Snow's sky overflowed and switching squeezed the old
+  look into part of the window, 9 October 2026). The hard
   shadow is plain XAML so it shows. Judge the transitions and the soft
   shadows on a real PC.
 
