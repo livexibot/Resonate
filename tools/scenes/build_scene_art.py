@@ -16,6 +16,10 @@ OUT = 'src/Resonate.App/Controls/SceneArt.xaml'
 
 from sceneart import *  # noqa: F401,F403
 from sceneart import _STEP, _area, _op, _q, _stops, _t  # noqa: F401
+from synthwave import synthwave
+from chrome import chrome
+from cyberpunk import cyberpunk
+from afterhours import afterhours
 
 
 # ---------------------------------------------------------------- Mountains
@@ -1039,23 +1043,37 @@ def snow():
     return snow_sky() + snow_moon() + snow_land()
 
 
+SCENES = (
+    # Grid name, prefix of its moving elements' names, the scene, and the comment that describes it.
+    ('JapanArt', 'Jp', japan, 'Japan: a moon behind drifting clouds, Mount Fuji, misty hills, a pagoda,\n  blossoming cherry trees, stone lanterns and a torii in a lake.'),
+    ('SnowArt', 'Sn', snow, 'Snow: an aurora and stars, a crescent moon, snowy ranges, a frozen lake,\n  spruces, a cabin with lit windows and drifts.'),
+    ('SynthwaveArt', 'Sw', synthwave, 'Synthwave: twinkling and shooting stars, a striped sun behind a skyline,\n  wireframe mountains, palms and a neon grid racing towards you.'),
+    ('LiquidChromeArt', 'Lc', chrome, 'Liquid Chrome: studio lights, a chrome ribbon and mirrored blobs drifting\n  over a sea of liquid metal rolling in swells.'),
+    ('CyberpunkArt', 'Cy', cyberpunk, 'Cyberpunk: smog lit in neon, towers with lit floors, flickering signs, a\n  glitching hologram, searchlights, beacons, flying cars and an airship.'),
+    ('AfterhoursArt', 'Ah', afterhours, 'Afterhours: low clouds lit by the city, a skyline with a lit crown, an\n  elevated highway with traffic, a river of reflections and lights out of focus.'),
+)
+
+
 def main():
-    Scene.count = 0
-    j = japan()
-    jc = Scene.count
-    Scene.count = 0
-    s = snow()
-    sc = Scene.count
+    grids, notes, counts = [], [], []
+    for name, prefix, build, note in SCENES:
+        Scene.count = 0
+        Scene.prefix = prefix
+        Scene.moving = 0
+        art = build()
+        grids.append(f'        <Grid x:Name="{name}" x:Load="False" Tag="{prefix} {Scene.moving}">{art}</Grid>')
+        notes.append('  ' + note)
+        counts.append(f'{name[:-3]} {Scene.count} elements ({Scene.moving} moving)')
+    body = '\n'.join(grids)
+    described = '\n'.join(notes)
     xaml = f'''<?xml version="1.0" encoding="utf-8"?>
 <!--
   The special looks' scenery, behind the panels (see SceneArt.xaml.cs),
   written by tools/scenes/build_scene_art.py; do not edit by hand.
-  Japan: a moon behind drifting clouds, Mount Fuji, misty hills, a pagoda,
-  blossoming cherry trees, stone lanterns and a torii in a lake.
-  Snow: an aurora and stars, a crescent moon, snowy ranges, a frozen lake,
-  spruces, a cabin with lit windows and drifts.
+{described}
   Flat shapes and gradients only, so it is crisp at any size and costs
-  nothing once drawn. Only the scene in use is in the tree.
+  nothing once drawn; a few parts move (their Tag, see SceneMotion). Only
+  the scene in use is in the tree.
 -->
 <UserControl
     x:Class="Resonate.App.Controls.SceneArt"
@@ -1063,14 +1081,13 @@ def main():
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     IsHitTestVisible="False">
     <Grid>
-        <!-- Made only while its scene shows (x:Load), so the other looks pay nothing. -->
-        <Grid x:Name="JapanArt" x:Load="False">{j}</Grid>
-        <Grid x:Name="SnowArt" x:Load="False">{s}</Grid>
+        <!-- Made only while its scene shows (x:Load), so the other looks pay nothing. The Tag: the prefix of its moving parts' names and how many there are. -->
+{body}
     </Grid>
 </UserControl>
 '''
     open(OUT, 'w', encoding='utf-8', newline='\n').write(xaml)
-    print(f'{len(xaml)} bytes; Japan {jc} elements, Snow {sc} elements')
+    print(f'{len(xaml)} bytes; ' + ', '.join(counts))
 
 
 main()

@@ -6,7 +6,8 @@ namespace Resonate.Themes;
 /// How the moving parts of a special look's scenery move (the app's
 /// <c>SceneArt</c>): a striped sun that breathes, a grid that races towards
 /// you, neon signs that flicker, searchlights that sweep, cars that cross a
-/// bridge. Each moving element of the scenery carries its motion as its
+/// bridge. Only moving, turning and fading: a shape the compositor grew
+/// would lose its sharpness, so only soft glows grow. Each moving element of the scenery carries its motion as its
 /// <c>Tag</c>, written by <c>tools/scenes</c>: one or more parts separated
 /// by <c>;</c>, each a kind and its values (<c>twinkle p=8 ph=0.3 lo=0.2</c>),
 /// plus <c>o=</c>, the element's opacity, which the app sets itself. Every
@@ -50,7 +51,7 @@ public static class SceneMotion
         // Along (dx, dy) in the first w of each period, brightening and fading: a shooting star.
         ["shoot"] = new(["p", "ph", "dx", "dy", "w"], Rest: 0),
 
-        // A line on the ground coming towards you, from the horizon at top to bottom, thicker as it nears; y0 is where it is drawn, far how much farther the horizon's end is than the bottom's.
+        // A line on the ground coming towards you, from near the horizon (top) to the bottom, fading in over its first fade units; y0 is where it is drawn, far how much farther its start is than the bottom.
         ["approach"] = new(["p", "ph", "top", "bottom", "y0", "far", "fade"], Rest: 1),
 
         // Turns round (cx, cy), dir 1 or -1.
@@ -240,7 +241,6 @@ public static class SceneMotion
                 // Lines equally far apart on the ground: the bottom's distance 1, the horizon's end far; y follows 1 / distance.
                 var line = $"({N(top)} + {N(bottom - top)} / (1 + {N(far - 1)} * (1 - {u})))";
                 y.Add($"{line} - {N(y0)}");
-                scaleY.Add($"({line} - {N(top)}) / {N(y0 - top)}");
                 fades.Add($"Clamp(({line} - {N(top)}) / {N(Math.Max(1, Get("fade", 40)))}, 0, 1)");
                 break;
             case "spin":
