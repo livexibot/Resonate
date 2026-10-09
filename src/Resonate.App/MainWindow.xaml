@@ -419,6 +419,16 @@
                     Visibility="Collapsed" />
 
                 <!--
+                  A special look's farther petals and snow, over the panels and
+                  under the player, so they pass behind it (see SceneWeatherLayer).
+                -->
+                <Canvas
+                    x:Name="WeatherBehindPlayer"
+                    Grid.RowSpan="3"
+                    Grid.ColumnSpan="99"
+                    IsHitTestVisible="False" />
+
+                <!--
                   The player, or the classic player in its place (added in code,
                   see MainWindow.ClassicPlayer.cs). It stays in this slot whatever
                   the layout; only where the slot sits changes (see

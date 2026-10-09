@@ -12,6 +12,11 @@ namespace Resonate.App.Controls;
 /// <summary>
 /// The weather of a special look, drifting over the whole window: sakura
 /// petals for Japan, snow and a few crystals for Snow (<see cref="SceneWeather"/>).
+/// The farther, smaller part hangs under the player instead
+/// (<see cref="MainWindow.WeatherHost"/>), over the panels, so it passes behind
+/// the player; it falls from the top of the panels, drawn at the window's
+/// scale whatever the App size, and over the whole window if that place is
+/// not to be had.
 /// Sprites the compositor moves with expressions from the scene's clock
 /// (<see cref="SceneClock"/>, which ticks at a capped rate), so nothing else
 /// runs on the interface thread. It moves only while the window shows and
@@ -27,13 +32,17 @@ internal sealed partial class SceneWeatherLayer : Grid
     private readonly SceneClock _clock;
     private readonly Compositor _compositor;
     private readonly ContainerVisual _root;
+    private readonly ContainerVisual _front;
+    private readonly ContainerVisual _behind;
     private readonly CompositionPropertySet _room;
+    private readonly CompositionPropertySet _behindRoom;
     private readonly List<(SpriteVisual Sprite, CompositionBrush? Owned, CompositionColorGradientStop[] Stops, SceneWeather.Particle Particle)> _particles = [];
     private MainWindow? _window;
     private ThemeScene _scene;
     private bool _moving;
     private XamlRoot? _xamlRoot;
     private double _rasterization = 1;
+    private FrameworkElement? _behindHost;
 
     public SceneWeatherLayer(ThemeService theme, SceneClock clock)
     {
@@ -42,14 +51,24 @@ internal sealed partial class SceneWeatherLayer : Grid
         IsHitTestVisible = false;
         _compositor = ElementCompositionPreview.GetElementVisual(this).Compositor;
         _root = _compositor.CreateContainerVisual();
+        _front = _compositor.CreateContainerVisual();
+        _behind = _compositor.CreateContainerVisual();
         _room = _compositor.CreatePropertySet();
         _room.InsertScalar("W", 0);
         _room.InsertScalar("H", 0);
+        _behindRoom = _compositor.CreatePropertySet();
+        _behindRoom.InsertScalar("W", 0);
+        _behindRoom.InsertScalar("H", 0);
+
+        // Until it has its place under the player, the farther weather falls here too, under the rest.
+        _root.Children.InsertAtTop(_behind);
+        _root.Children.InsertAtTop(_front);
         ElementCompositionPreview.SetElementChildVisual(this, _root);
         SizeChanged += (_, e) =>
         {
             _room.InsertScalar("W", (float)e.NewSize.Width);
             _room.InsertScalar("H", (float)e.NewSize.Height);
+            FitBehind();
         };
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
@@ -103,6 +122,8 @@ internal sealed partial class SceneWeatherLayer : Grid
         _theme.Changed += OnThemeChanged;
         _theme.AnimationsChanged -= OnAnimationsChanged;
         _theme.AnimationsChanged += OnAnimationsChanged;
+        _theme.SizeChanged -= OnAppSizeChanged;
+        _theme.SizeChanged += OnAppSizeChanged;
         if (_xamlRoot is not null)
         {
             _xamlRoot.Changed -= OnRootChanged;
@@ -121,6 +142,7 @@ internal sealed partial class SceneWeatherLayer : Grid
             _window.ShownChanged += OnShownChanged;
         }
 
+        HangBehind(_window?.WeatherHost);
         Show();
     }
 
@@ -128,6 +150,7 @@ internal sealed partial class SceneWeatherLayer : Grid
     {
         _theme.Changed -= OnThemeChanged;
         _theme.AnimationsChanged -= OnAnimationsChanged;
+        _theme.SizeChanged -= OnAppSizeChanged;
         if (_xamlRoot is not null)
         {
             _xamlRoot.Changed -= OnRootChanged;
@@ -141,6 +164,7 @@ internal sealed partial class SceneWeatherLayer : Grid
         }
 
         Stop();
+        HangBehind(null);
     }
 
     private void OnThemeChanged(object? sender, EventArgs e) => Show();
@@ -148,6 +172,85 @@ internal sealed partial class SceneWeatherLayer : Grid
     private void OnShownChanged(object? sender, EventArgs e) => Refresh();
 
     private void OnAnimationsChanged(object? sender, EventArgs e) => Refresh();
+
+    private void OnAppSizeChanged(object? sender, EventArgs e) => FitBehind();
+
+    private void OnBehindHostSizeChanged(object sender, SizeChangedEventArgs e) => FitBehind();
+
+    /// <summary>
+    /// Hangs the farther weather in <paramref name="host"/>, under the player,
+    /// or back under the rest of the weather when there is none (or it can not
+    /// be had).
+    /// </summary>
+    private void HangBehind(FrameworkElement? host)
+    {
+        if (ReferenceEquals(host, _behindHost))
+        {
+            return;
+        }
+
+        if (_behindHost is { } old)
+        {
+            old.SizeChanged -= OnBehindHostSizeChanged;
+            try
+            {
+                ElementCompositionPreview.SetElementChildVisual(old, null);
+            }
+            catch (Exception)
+            {
+                // Already gone with its window.
+            }
+
+            _behindHost = null;
+        }
+        else
+        {
+            _root.Children.Remove(_behind);
+        }
+
+        if (host is not null)
+        {
+            try
+            {
+                ElementCompositionPreview.SetElementChildVisual(host, _behind);
+                host.SizeChanged += OnBehindHostSizeChanged;
+                _behindHost = host;
+            }
+            catch (Exception)
+            {
+                // Over everything rather than nowhere.
+            }
+        }
+
+        if (_behindHost is null)
+        {
+            _root.Children.InsertAtBottom(_behind);
+        }
+
+        FitBehind();
+    }
+
+    /// <summary>
+    /// The farther weather's room: the host's, in the window's units, drawn at
+    /// the window's scale (App size enlarges the host's content); the layer's
+    /// own while it has no host.
+    /// </summary>
+    private void FitBehind()
+    {
+        if (_behindHost is { } host)
+        {
+            var scale = Math.Max(0.1, _theme.Scale);
+            _behind.Scale = new Vector3((float)(1 / scale), (float)(1 / scale), 1);
+            _behindRoom.InsertScalar("W", (float)(host.ActualWidth * scale));
+            _behindRoom.InsertScalar("H", (float)(host.ActualHeight * scale));
+        }
+        else
+        {
+            _behind.Scale = Vector3.One;
+            _behindRoom.InsertScalar("W", (float)ActualWidth);
+            _behindRoom.InsertScalar("H", (float)ActualHeight);
+        }
+    }
 
     /// <summary>On a display with another scale, petals and crystals take pictures at its sharpness.</summary>
     private void OnRootChanged(XamlRoot sender, XamlRootChangedEventArgs args)
@@ -235,7 +338,7 @@ internal sealed partial class SceneWeatherLayer : Grid
                 _particles.Add((sprite, brush, stops, particle));
             }
 
-            _root.Children.InsertAtTop(sprite);
+            (particle.Behind ? _behind : _front).Children.InsertAtTop(sprite);
         }
     }
 
@@ -284,7 +387,7 @@ internal sealed partial class SceneWeatherLayer : Grid
             {
                 var animation = _compositor.CreateExpressionAnimation(expression);
                 animation.SetReferenceParameter(Clock, _clock.Props);
-                animation.SetReferenceParameter(Room, _room);
+                animation.SetReferenceParameter(Room, particle.Behind ? _behindRoom : _room);
                 sprite.StartAnimation(property, animation);
             }
         }
@@ -310,7 +413,8 @@ internal sealed partial class SceneWeatherLayer : Grid
 
     private void Clear()
     {
-        _root.Children.RemoveAll();
+        _front.Children.RemoveAll();
+        _behind.Children.RemoveAll();
         foreach (var (sprite, owned, stops, _) in _particles)
         {
             // Shared picture brushes stay; a flake's own gradient goes with it.

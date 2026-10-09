@@ -5,7 +5,9 @@ namespace Resonate.Themes;
 /// (<see cref="ThemeScene"/>): sakura petals that fall slowly with the wind
 /// (from the right, where the branch is), turning and fluttering, for Japan;
 /// snowflakes of every size, a few crystals that turn slowly and a few soft
-/// out-of-focus flakes, for Snow. Every motion turns a whole number of
+/// out-of-focus flakes, for Snow. The smaller petals, flakes and crystals
+/// are farther away: they pass behind the player (<see cref="Particle.Behind"/>),
+/// the rest in front of everything. Every motion turns a whole number of
 /// times per <see cref="LoopSeconds"/>, so the clock can start again with no
 /// jump. The same every time.
 /// </summary>
@@ -26,6 +28,11 @@ public static class SceneWeather
     private const int SoftFlakes = 8;
     private const int Crystals = 10;
 
+    // The share of the smallest petals, flakes and crystals (by the hash their size comes from) that pass behind the player.
+    private const double BehindPetals = 0.4;
+    private const double BehindFlakes = 0.5;
+    private const double BehindCrystals = 0.4;
+
     /// <summary>How many petals or flakes a scene drifts.</summary>
     public static int Count(ThemeScene scene) => scene switch
     {
@@ -42,8 +49,9 @@ public static class SceneWeather
     /// sideways sway in pixels
     /// with its speed and angle, its size in pixels and its opacity, and for
     /// a petal or a crystal its spin in degrees a second and how fast it
-    /// flutters or tilts, and the picture it is drawn with (none for a plain
-    /// flake, a soft dot).
+    /// flutters or tilts, the picture it is drawn with (none for a plain
+    /// flake, a soft dot), and whether it is far enough away to pass behind
+    /// the player (the soft flakes, out of focus, are the nearest of all).
     /// </summary>
     public static Particle Get(ThemeScene scene, int index)
     {
@@ -69,7 +77,8 @@ public static class SceneWeather
                     < 0.64 => SceneSprite.PetalPale,
                     < 0.84 => SceneSprite.PetalWhite,
                     _ => SceneSprite.PetalDeep,
-                });
+                },
+                Behind: H(10) < BehindPetals);
         }
 
         var soft = index >= Count(ThemeScene.Snow) - SoftFlakes;
@@ -89,7 +98,8 @@ public static class SceneWeather
                 Opacity: 0.55 + (0.35 * H(11)),
                 Spin: 360 * turns / LoopSeconds,
                 Flutter: StageBars.Turns(0.12 + (0.14 * H(13))),
-                Sprite: H(12) < 0.6 ? SceneSprite.Crystal : SceneSprite.CrystalPlate);
+                Sprite: H(12) < 0.6 ? SceneSprite.Crystal : SceneSprite.CrystalPlate,
+                Behind: H(10) < BehindCrystals);
         }
 
         var size = soft ? 2.6 + (1.6 * H(10)) : 0.35 + (0.85 * H(10));
@@ -105,7 +115,8 @@ public static class SceneWeather
             Opacity: soft ? 0.12 + (0.08 * H(11)) : 0.45 + (0.5 * H(11)),
             Spin: 0,
             Flutter: 0,
-            Sprite: null);
+            Sprite: null,
+            Behind: !soft && H(10) < BehindFlakes);
     }
 
     /// <summary>One petal or flake (see <see cref="Get"/>).</summary>
@@ -121,5 +132,6 @@ public static class SceneWeather
         double Opacity,
         double Spin,
         double Flutter,
-        SceneSprite? Sprite);
+        SceneSprite? Sprite,
+        bool Behind);
 }

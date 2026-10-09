@@ -16,7 +16,8 @@ namespace Resonate.App.Controls;
 /// (<see cref="Decor"/>), outside the picture a switch takes, since much of
 /// them is drawn by the compositor where pictures do not reach: they stay
 /// as they are through a switch that keeps the scene, and grow in with the
-/// new look when it changes.
+/// new look when it changes. The farther part of the weather hangs under
+/// the player instead, inside the scene (see SceneWeatherLayer).
 /// </summary>
 internal sealed partial class ThemeHost : Grid
 {

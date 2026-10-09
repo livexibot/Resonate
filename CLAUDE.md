@@ -950,7 +950,15 @@ Ripple, and a more interesting Home):
   (`Controls/SceneWeatherLayer.cs`): 26 sakura petals (pictures) that
   turn, flutter and blow left from the branch, or 62 snowflakes, 10
   crystals that turn and tilt slowly and 8 soft out-of-focus flakes
-  (`Resonate.Themes/SceneWeather.cs`, tested). Both layers move by
+  (`Resonate.Themes/SceneWeather.cs`, tested). The smaller, farther part
+  (9 petals; 31 flakes and 3 crystals, never a soft flake;
+  `SceneWeather.Particle.Behind`) passes behind the player (the owner's
+  request, 9 October 2026, for depth): it hangs under the player in
+  `MainWindow.WeatherHost` (a Canvas in `ShellGrid` just before
+  `PlayerSlot`, so over the panels), counter-scaled by App size and
+  falling from the panels' top. Being in the live scene, it is revealed
+  with a new look, and beside the ripple of a switch that keeps the scene
+  it is hidden for a moment. Both layers move by
   compositor expressions on one clock (`Helpers/SceneClock.cs`: `Time`
   repeats every 20 minutes, `Gather` counts the gathering), which ticks
   on a 15 ms `DispatcherQueueTimer` (about 64 times a second; not

@@ -57,5 +57,38 @@ public sealed class SceneWeatherTests
         Assert.Contains(crystals, p => p.Sprite == SceneSprite.CrystalPlate);
     }
 
+    [Theory]
+    [InlineData(ThemeScene.Japan)]
+    [InlineData(ThemeScene.Snow)]
+    public void The_smaller_part_of_the_weather_passes_behind_the_player(ThemeScene scene)
+    {
+        var all = Enumerable.Range(0, SceneWeather.Count(scene)).Select(i => SceneWeather.Get(scene, i)).ToList();
+        var behind = all.Where(p => p.Behind).ToList();
+        var front = all.Where(p => !p.Behind).ToList();
+
+        // Enough of both that some always cross the player each way.
+        Assert.InRange(behind.Count, all.Count * 0.25, all.Count * 0.55);
+        Assert.InRange(front.Count, all.Count * 0.45, all.Count * 0.75);
+
+        // Farther away is smaller: of each kind, everything behind is smaller than everything in front.
+        foreach (var kind in all.GroupBy(p => p.Sprite is SceneSprite.Crystal or SceneSprite.CrystalPlate ? "crystal" : p.Sprite is null ? "flake" : "petal"))
+        {
+            var near = kind.Where(p => !p.Behind && !(p.Sprite is null && p.Size > SceneWeather.FlakeSize * 2)).ToList();
+            var far = kind.Where(p => p.Behind).ToList();
+            if (near.Count > 0 && far.Count > 0)
+            {
+                Assert.True(far.Max(p => p.Size) <= near.Min(p => p.Size), kind.Key);
+            }
+        }
+
+        // The soft, out-of-focus flakes are the nearest of all.
+        Assert.DoesNotContain(behind, p => p.Sprite is null && p.Size > SceneWeather.FlakeSize * 2);
+        if (scene == ThemeScene.Snow)
+        {
+            Assert.Contains(behind, p => p.Sprite is not null);
+            Assert.Contains(front, p => p.Sprite is not null);
+        }
+    }
+
     private static void AssertWhole(double turns) => Assert.Equal(Math.Round(turns), turns, 6);
 }
