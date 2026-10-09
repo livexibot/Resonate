@@ -37,8 +37,9 @@ public sealed class LocalFilesService : IDisposable
         Covers = covers;
         Controls = controls;
         DemoTracks = demoTracks;
+        // No folder until the user adds one (the owner's choice, 9 October 2026); the demo shows two.
         _defaultFolders = new Lazy<IReadOnlyList<string>>(() => demoTracks is null
-            ? LocalLibrary.DefaultFolders(WindowsFolders.Downloads())
+            ? []
             : [@"C:\Users\Demo\Music", @"C:\Users\Demo\Downloads"]);
     }
 
@@ -72,8 +73,6 @@ public sealed class LocalFilesService : IDisposable
         }
     }
 
-    /// <summary>True while the user has not chosen folders, so Music and Downloads are used.</summary>
-    public bool UsesDefaultFolders => _settings.LocalFolders is null;
 
     /// <summary>The folders looked in.</summary>
     public IReadOnlyList<string> Folders => _settings.LocalFolders ?? _defaultFolders.Value;
@@ -145,13 +144,6 @@ public sealed class LocalFilesService : IDisposable
     public void RemoveFolder(string folder) =>
         SetFolders(Folders.Where(f => !string.Equals(f, folder, StringComparison.OrdinalIgnoreCase)).ToList());
 
-    /// <summary>Goes back to Music and Downloads.</summary>
-    public void UseDefaultFolders()
-    {
-        _settings.LocalFolders = null;
-        _saveSettings();
-        ApplyFolders();
-    }
 
     /// <summary>Looks through the folders again now.</summary>
     public void Rescan()

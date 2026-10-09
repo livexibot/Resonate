@@ -16,9 +16,11 @@ public sealed class LocalFilesSource : TrackListSource
 
     public override string Key => ListKey;
 
-    public override string EmptyText => IsLooking
-        ? $"Looking for music in {_localFiles.FolderNames}…"
-        : $"No music files in {_localFiles.FolderNames}. To add a folder, open Settings and choose “Add folder” under Local Files.";
+    public override string EmptyText => _localFiles.Folders.Count == 0
+        ? "Add a folder in Settings, Misc, Local Files."
+        : IsLooking
+            ? $"Looking for music in {_localFiles.FolderNames}…"
+            : $"No music files in {_localFiles.FolderNames}.";
 
     public override string OwnOrderName => "Recently added";
 

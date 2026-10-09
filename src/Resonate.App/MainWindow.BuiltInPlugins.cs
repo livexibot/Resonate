@@ -21,6 +21,8 @@ public sealed partial class MainWindow
         SetUpWindowShapes();
         SetUpSummonBar();
         SetUpSignalPath();
+        SetUpPauseOnLock();
+        SetUpPauseOnUnplug();
     }
 
     partial void SetUpLyrics();
@@ -42,4 +44,8 @@ public sealed partial class MainWindow
     partial void SetUpSummonBar();
 
     partial void SetUpSignalPath();
+
+    partial void SetUpPauseOnLock();
+
+    partial void SetUpPauseOnUnplug();
 }
