@@ -878,6 +878,19 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   300 % and Text size 75 to 200 % in finer steps. Keyboard shortcut hints
   ("Ctrl+F" on hover) are hidden on the root
   (`KeyboardAcceleratorPlacementMode`).
+- Cover size everywhere (9 October 2026, evening; the owner found it
+  reached only playlists, with no room between rows and soft covers):
+  every song's cover follows it, in song lists, the queue, Search's songs
+  and recently viewed, Home's top songs and recently played cards, and
+  the Home stage's Up next. Rows grow with the cover and keep their room
+  above and below (`AppScale.CoverRow`, `TrackColumns.RowHeight`), and
+  open lists follow at once (`TrackRow.RefreshCover`). The picture is
+  the smallest of Spotify's 64, 300 and 640 px ones that covers the
+  screen pixels (`ImagePicker.ForSize`, `CoverImages.UrlFor`); the
+  player bar's cover and cards of albums, mixes and playlists keep their
+  sizes. Behind the Home stage's cover (and its Up next covers) lies the
+  accent, not the album's colour tile, since that is what shows through
+  as the stage fades on scrolling (it was blue under an orange accent).
 - Keyboard shortcuts (9 October 2026, the owner asked to change them in
   Help, with Space playing and pausing): Settings, About, Help lists all
   24 commands (`Resonate.Themes/AppKeys.cs`, tested: names, default keys,

@@ -27,8 +27,9 @@ public sealed record RecentSearchPick(RecentSearchKind Kind, string Uri, string?
 
     public bool IsExplicit { get; init; }
 
+    // The 300 px picture, so the cover stays sharp at a larger Cover size (it is decoded at the size shown).
     public static RecentSearchPick Song(TrackInfo track) =>
-        new(RecentSearchKind.Song, track.Uri ?? string.Empty, track.Id, track.Title, track.Artists, track.SmallImageUrl)
+        new(RecentSearchKind.Song, track.Uri ?? string.Empty, track.Id, track.Title, track.Artists, track.LargeImageUrl ?? track.SmallImageUrl)
         {
             Artists = track.Artists,
             Album = track.Album,

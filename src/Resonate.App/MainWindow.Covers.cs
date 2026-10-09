@@ -1,6 +1,7 @@
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Input;
 using Resonate.App.Helpers;
+using Resonate.App.Services;
 using Resonate.App.ViewModels;
 using Resonate.Spotify.Library;
 
@@ -67,11 +68,12 @@ public sealed partial class MainWindow
 
         // In the order the page will show them (the sort chosen for this playlist).
         var sort = TrackSort.Parse(_services.Settings.TrackSorts.GetValueOrDefault(item.Id));
+        var width = TrackRow.CoverWidth;
         _ = Task.Run(() =>
         {
             var songs = library.PeekStoredPlaylistTracks(item.Id) ?? [];
             var shown = sort.IsDefault ? songs.Take(PrefetchSongs) : TrackSorter.Apply(songs, sort).Take(PrefetchSongs);
-            covers.Prefetch(shown.Select(t => t.SmallImageUrl).Prepend(header));
+            covers.Prefetch(shown.Select(t => CoverImages.UrlFor(t, width)).Prepend(header));
         });
     }
 }

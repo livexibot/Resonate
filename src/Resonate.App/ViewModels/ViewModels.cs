@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using Resonate.App.Controls;
 using Resonate.App.Helpers;
+using Resonate.App.Services;
 using Resonate.Spotify.History;
 using Resonate.Spotify.Library;
 using Resonate.Spotify.Playback;
@@ -70,6 +71,9 @@ public sealed partial class CoverTile : ObservableObject
 
     public static CoverTile ForLocalFile(TrackInfo track, int displayWidth, Brush placeholder) => new(track, displayWidth, placeholder);
 
+    /// <summary>The width it is shown and decoded at.</summary>
+    public int DisplayWidth => _width;
+
     /// <summary>The colour tile while there is no cover to show; nothing while one loads or shows.</summary>
     public Brush? Background => _missing ? _placeholder : null;
 
@@ -122,6 +126,9 @@ public sealed partial class TrackColumns : ObservableObject
     /// <summary>Below this list width the year column goes.</summary>
     public const double YearMinWidth = 680;
 
+    // A row's height around the usual 40 px cover.
+    private const double UsualRowHeight = 56;
+
     private bool _number;
     private bool _like;
     private bool _duration;
@@ -172,6 +179,9 @@ public sealed partial class TrackColumns : ObservableObject
         ReadOptions();
         OnPropertyChanged(nameof(CoverWidth));
         OnPropertyChanged(nameof(CoverPixels));
+        OnPropertyChanged(nameof(CoverColumn));
+        OnPropertyChanged(nameof(RowHeight));
+        OnPropertyChanged(nameof(CoverRowHeight));
         OnPropertyChanged(nameof(CoverSpacing));
         OnPropertyChanged(nameof(CoverVisibility));
         OnPropertyChanged(nameof(NumberVisibility));
@@ -205,6 +215,15 @@ public sealed partial class TrackColumns : ObservableObject
     public double CoverPixels => RowCoverPixels;
 
     public static int RowCoverPixels => AppScale.Cover(40, App.Services.Settings.CoverSize);
+
+    /// <summary>The cover's column in lists that always show covers (Search's songs, the queue).</summary>
+    public GridLength CoverColumn => new(RowCoverPixels);
+
+    /// <summary>A row's height: 56, or more around a larger cover, so covers never touch from row to row.</summary>
+    public double RowHeight => ShowsCovers ? CoverRowHeight : UsualRowHeight;
+
+    /// <summary>A row's height in lists that always show covers.</summary>
+    public double CoverRowHeight => AppScale.CoverRow(UsualRowHeight, 40, RowCoverPixels);
 
     public double CoverSpacing => ShowsCovers ? 12 : 0;
 
@@ -306,7 +325,15 @@ public sealed partial class TrackRow : ObservableObject
     /// <summary>The width of a row's cover, at the user's Cover size.</summary>
     public static int CoverWidth => TrackColumns.RowCoverPixels;
 
-    private static TrackColumns Default { get; } = new(album: true, dateAdded: false);
+    // Rows of lists without columns of their own (Search, the queue); it follows Settings like the lists' own.
+    private static TrackColumns Default { get; } = CreateDefault();
+
+    private static TrackColumns CreateDefault()
+    {
+        var columns = new TrackColumns(album: true, dateAdded: false);
+        TrackColumns.OptionsChanged += (_, _) => columns.Reload();
+        return columns;
+    }
 
     public TrackInfo Track { get; private set; }
 
@@ -389,6 +416,16 @@ public sealed partial class TrackRow : ObservableObject
     /// <summary>Created on first use, on the interface thread (local files read their own cover).</summary>
     public CoverTile Cover => _cover ??= CoverFor(Track, CoverWidth);
 
+    /// <summary>Cover size changed: the cover is made again at its new size, from a picture large enough for it.</summary>
+    public void RefreshCover()
+    {
+        if (_cover is { } cover && cover.DisplayWidth != CoverWidth)
+        {
+            _cover = null;
+            OnPropertyChanged(nameof(Cover));
+        }
+    }
+
     /// <summary>Only Spotify songs can be liked (not local files or podcast episodes).</summary>
     public Visibility HeartVisibility => CanLike(Track) ? Visibility.Visible : Visibility.Collapsed;
 
@@ -436,7 +473,7 @@ public sealed partial class TrackRow : ObservableObject
         var placeholder = Artwork.PlaceholderBrush(track.Album.Length > 0 ? track.Album : track.Title);
         return track.FilePath is not null
             ? CoverTile.ForLocalFile(track, displayWidth, placeholder)
-            : new CoverTile(track.SmallImageUrl, displayWidth, placeholder);
+            : new CoverTile(CoverImages.UrlFor(track, displayWidth), displayWidth, placeholder);
     }
 
     public static bool CanLike(TrackInfo track) =>
@@ -604,10 +641,18 @@ public sealed partial class RecentPickItem(RecentSearchPick pick)
         _ => "Playlist · " + Pick.Subtitle,
     };
 
-    /// <summary>An artist's picture is round, like everywhere else.</summary>
-    public CornerRadius CoverCorner => Pick.Kind == RecentSearchKind.Artist ? new CornerRadius(24) : new CornerRadius(6);
+    /// <summary>The cover at the user's Cover size (48 at 100 %).</summary>
+    public double CoverSize { get; } = AppScale.Cover(48, App.Services.Settings.CoverSize);
 
-    public CoverTile Cover => _cover ??= new CoverTile(Pick.ImageUrl, 48, Artwork.PlaceholderBrush(Pick.Title));
+    public GridLength CoverColumn => new(CoverSize);
+
+    /// <summary>The tile, 300 wide at the usual Cover size, keeps the words' room beside a larger cover.</summary>
+    public double TileWidth => 252 + CoverSize;
+
+    /// <summary>An artist's picture is round, like everywhere else.</summary>
+    public CornerRadius CoverCorner => Pick.Kind == RecentSearchKind.Artist ? new CornerRadius(CoverSize / 2) : new CornerRadius(6);
+
+    public CoverTile Cover => _cover ??= new CoverTile(Pick.ImageUrl, (int)CoverSize, Artwork.PlaceholderBrush(Pick.Title));
 }
 
 /// <summary>A navigation entry at the top of the sidebar.</summary>
@@ -880,7 +925,16 @@ public sealed partial class RecentCard
 
     public string Tooltip { get; }
 
-    public CoverTile Cover => _cover ??= new CoverTile(Track.LargeImageUrl, 140, Artwork.PlaceholderBrush(Track.Album.Length > 0 ? Track.Album : Track.Title));
+    /// <summary>The card's cover at the user's Cover size (140 at 100 %).</summary>
+    public static int CoverSize => AppScale.Cover(140, App.Services.Settings.CoverSize);
+
+    /// <summary>The card's width, read once when the card is made.</summary>
+    public double CardSize { get; } = CoverSize;
+
+    /// <summary>The play button sits on the cover's bottom right corner.</summary>
+    public Thickness PlayMargin => new(0, CardSize - 48, 8, 0);
+
+    public CoverTile Cover => _cover ??= new CoverTile(CoverImages.UrlFor(Track, (int)CardSize), (int)CardSize, Artwork.PlaceholderBrush(Track.Album.Length > 0 ? Track.Album : Track.Title));
 
     /// <summary>What screen readers say for the card.</summary>
     public override string ToString() => $"{Title}, {Artists}, {Ago}";
@@ -951,7 +1005,15 @@ public sealed partial class TopSongRow
 
     public Visibility OtherVisibility { get; }
 
-    public CoverTile Cover => _cover ??= new CoverTile(Track.SmallImageUrl ?? Track.LargeImageUrl, 48, Artwork.PlaceholderBrush(Track.Album.Length > 0 ? Track.Album : Track.Title));
+    /// <summary>The cover at the user's Cover size (48 at 100 %).</summary>
+    public double CoverSize { get; } = AppScale.Cover(48, App.Services.Settings.CoverSize);
+
+    public GridLength CoverColumn => new(CoverSize);
+
+    /// <summary>64 tall, or more around a larger cover.</summary>
+    public double RowHeight => AppScale.CoverRow(64, 48, CoverSize);
+
+    public CoverTile Cover => _cover ??= new CoverTile(CoverImages.UrlFor(Track, (int)CoverSize), (int)CoverSize, Artwork.PlaceholderBrush(Track.Album.Length > 0 ? Track.Album : Track.Title));
 
     /// <summary>What screen readers say for the row.</summary>
     public override string ToString() => $"{Rank}. {Title}, {Artists}";
