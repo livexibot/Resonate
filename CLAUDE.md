@@ -15,12 +15,17 @@ visitors; keep it short and in step with this file.
   2026; see "First milestone"). Releases are published with one
   installer, for ordinary (x64) Windows PCs (`Resonate-win-x64-Setup.exe`;
   the owner dropped arm64 and the portable zip on 8 October 2026 to save
-  build time); the latest is v0.18.0 (10 October 2026, afternoon:
-  Resonate's own DJ, opening where you left off, the player beside the
+  build time); the latest is v0.19.0 (10 October 2026, evening: Settings
+  regrouped with a General tab, one Resonate at a time, no tray icon
+  (closing quits), far fewer Spotify requests with a count in Settings,
+  media controls that work while Spotify refuses the Web API, the App
+  size cut fixed, no rings on Home, no player bar visualizer in presets;
+  pull request #70, release #72, with the shorter README and its pictures
+  in #71; the beta's `live` branch was started again from `main` after
+  it); v0.18.0 (10 October 2026, afternoon: Resonate's own DJ, opening where you left off, the player beside the
   page as one resizable panel down to a rail, the sidebar player, a wide
   floating player over the whole window, the progress glow along the line,
-  and the design review fixes; pull request #68, release #69; the beta's
-  `live` branch was started again from `main` after it); v0.17.0
+  and the design review fixes; pull request #68, release #69); v0.17.0
   (9 October 2026, late night: four
   new special looks, Synthwave, Liquid Chrome, Cyberpunk and Afterhours,
   with moving scenery, weather and decorations, the Ocean dark preset in
