@@ -1479,6 +1479,9 @@ public sealed partial class MainWindow : Window
         {
             IsShown = shown;
             TellPlayersShown();
+
+            // Hidden or minimised, nobody watches the player: Spotify is asked half as often.
+            _services.Player.Spotify.InBackground = !shown;
             ShownChanged?.Invoke(this, EventArgs.Empty);
         }
     }

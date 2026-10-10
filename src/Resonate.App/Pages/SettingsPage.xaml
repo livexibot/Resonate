@@ -372,6 +372,8 @@
                     <!-- Help: the keyboard shortcuts (filled in code) and the guides -->
                     <controls:SettingsGroup Header="Help">
                         <StackPanel Spacing="12">
+                            <!-- How many requests Resonate sent to Spotify (filled in code, SpotifyRequestsPanel) -->
+                            <Border x:Name="RequestsHost" />
                             <Expander
                                 HorizontalAlignment="Stretch"
                                 HorizontalContentAlignment="Stretch"

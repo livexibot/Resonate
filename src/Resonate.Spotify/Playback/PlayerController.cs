@@ -28,8 +28,19 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     internal static readonly TimeSpan VolumeHold = TimeSpan.FromSeconds(2);
     internal static readonly TimeSpan PositionTolerance = TimeSpan.FromSeconds(1.5);
     internal static readonly TimeSpan WebPollInterval = TimeSpan.FromSeconds(5);
-    internal static readonly TimeSpan WebOnlyPollWhilePlaying = TimeSpan.FromSeconds(2);
-    internal static readonly TimeSpan WebOnlyPollWhilePaused = TimeSpan.FromSeconds(6);
+    // How often Spotify is asked what plays when nothing else says it
+    // (another device plays, or nothing does). Every request counts against
+    // the developer app's allowance, which ran out after a day of 2 s polls
+    // (10 October 2026), so these are as slow as stays usable: a song changed
+    // on a phone shows within 5 s, and the clock runs by itself in between.
+    internal static readonly TimeSpan WebOnlyPollWhilePlaying = TimeSpan.FromSeconds(5);
+    internal static readonly TimeSpan WebOnlyPollWhilePaused = TimeSpan.FromSeconds(15);
+
+    /// <summary>How often Spotify is asked while nothing plays anywhere (or the Spotify app's session is empty).</summary>
+    internal static readonly TimeSpan PollWhileNothingPlays = TimeSpan.FromSeconds(30);
+
+    /// <summary>While Resonate's window is hidden or minimised, polls come half as often, never less than once a minute.</summary>
+    internal static readonly TimeSpan BackgroundPollLongest = TimeSpan.FromSeconds(60);
 
     /// <summary>
     /// While Resonate's own player is the device that plays, it reports every
@@ -419,6 +430,58 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     /// <summary>Whether Spotify has asked Resonate to wait before using the Web API again (its allowance used up, or too many requests).</summary>
     private bool WebRefused => _time.GetUtcNow() < _webPausedUntil;
 
+    /// <summary>
+    /// Whether Resonate's window is hidden or minimised: nobody watches the
+    /// player, so Spotify is asked half as often (the app says so; showing
+    /// the window again asks at once).
+    /// </summary>
+    public bool InBackground
+    {
+        get => Volatile.Read(ref _inBackground);
+        set
+        {
+            if (Volatile.Read(ref _inBackground) == value)
+            {
+                return;
+            }
+
+            Volatile.Write(ref _inBackground, value);
+            if (!value && _started)
+            {
+                // Back in view: what changed meanwhile shows at once.
+                RefreshSoon();
+            }
+        }
+    }
+
+    private bool _inBackground;
+
+    /// <summary>
+    /// Spotify's queue for what plays now, read once per song (and again
+    /// after Resonate adds to it) for everything that shows what comes next:
+    /// the queue, Home's stage, the column beside the page and Winamp's
+    /// playlist used to ask one each.
+    /// </summary>
+    public Task<PlayerQueue> GetQueueAsync()
+    {
+        var state = State;
+        var key = string.Join('|', state.TrackUri ?? state.Title, state.ContextUri, state.Shuffle, state.Repeat, Volatile.Read(ref _queueVersion));
+        lock (_gate)
+        {
+            if (_queue is { } known && known.Key == key && !known.Loading.IsFaulted && !known.Loading.IsCanceled)
+            {
+                return known.Loading;
+            }
+
+            var loading = Task.Run(() => _api.GetQueueAsync(_stopping.Token));
+            _queue = (key, loading);
+            return loading;
+        }
+    }
+
+    private (string Key, Task<PlayerQueue> Loading)? _queue;
+    private int _queueVersion;
+
     /// <summary>Whether Resonate's own player is the device that plays, and so reports what it plays itself.</summary>
     private bool OwnPlayerReports
     {
@@ -656,7 +719,15 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         }
 
         var uri = track.Uri!;
-        return RunTransportAsync(ct => WithDeviceAsync((id, c) => _api.AddToQueueAsync(uri, id, c), ct), revert: null);
+        return RunTransportAsync(
+            async ct =>
+            {
+                await WithDeviceAsync((id, c) => _api.AddToQueueAsync(uri, id, c), ct).ConfigureAwait(false);
+
+                // The queue changed: the next read asks Spotify again.
+                Interlocked.Increment(ref _queueVersion);
+            },
+            revert: null);
     }
 
     /// <summary>
@@ -2107,7 +2178,8 @@ public sealed partial class PlayerController : IPlayer, IDisposable
 
     private void ConfirmSoonWithoutLocalReports()
     {
-        if (!UseLocal)
+        // Resonate's own player reports the change itself: nothing to ask.
+        if (!UseLocal && !OwnPlayerReports)
         {
             // No local reports in this mode: ask Spotify how things stand.
             _ = RefreshSoonAsync(WebOnlyConfirmDelay);
@@ -2265,10 +2337,37 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     /// often while music plays (the clock in between runs by itself), unless
     /// Resonate's own player plays and reports every change itself.
     /// </summary>
-    private TimeSpan NextPollDelay() =>
-        UseLocal ? WebPollInterval
-        : OwnPlayerReports ? (State.IsPlaying ? OwnPlayerPollWhilePlaying : OwnPlayerPollWhilePaused)
-        : State.IsPlaying ? WebOnlyPollWhilePlaying : WebOnlyPollWhilePaused;
+    private TimeSpan NextPollDelay()
+    {
+        TimeSpan delay;
+        if (UseLocal)
+        {
+            bool known;
+            lock (_gate)
+            {
+                known = HasSong(_lastLocal) && _lastLocal.HasTimeline && !_needsWebDetails;
+            }
+
+            // The session says what plays, so the round only reads the mixer's volume; with nothing in it, Spotify is asked now and then.
+            delay = known ? WebPollInterval : State.IsPlaying ? WebOnlyPollWhilePlaying : PollWhileNothingPlays;
+        }
+        else if (OwnPlayerReports)
+        {
+            delay = State.IsPlaying ? OwnPlayerPollWhilePlaying : OwnPlayerPollWhilePaused;
+        }
+        else
+        {
+            bool connected;
+            lock (_gate)
+            {
+                connected = _webConnected;
+            }
+
+            delay = !connected ? PollWhileNothingPlays : State.IsPlaying ? WebOnlyPollWhilePlaying : WebOnlyPollWhilePaused;
+        }
+
+        return InBackground ? TimeSpan.FromTicks(Math.Min(delay.Ticks * 2, Math.Max(delay.Ticks, BackgroundPollLongest.Ticks))) : delay;
+    }
 
     private void CountUserCommand() => Interlocked.Increment(ref _userCommands);
 

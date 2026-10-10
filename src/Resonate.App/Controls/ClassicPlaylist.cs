@@ -289,7 +289,7 @@ internal sealed partial class ClassicPlaylist : Grid
         try
         {
             var token = loading.Token;
-            var queue = await Task.Run(() => _services.Api.GetQueueAsync(token), token);
+            var queue = await _services.Player.Spotify.GetQueueAsync().WaitAsync(token);
             if (version == _version)
             {
                 var now = TrackInfo.From(queue.CurrentlyPlaying);

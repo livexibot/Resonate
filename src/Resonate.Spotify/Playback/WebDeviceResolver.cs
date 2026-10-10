@@ -38,6 +38,13 @@ public sealed class WebDeviceResolver
         var own = _ownDevice is null
             ? null
             : await _ownDevice.WaitForDeviceAsync(OwnDeviceWait, cancellationToken).ConfigureAwait(false);
+
+        // Nothing plays and Resonate's own player is ready: it is the pick, so Spotify's list is not asked for (one request fewer), unless the user picked another device last.
+        if (own is not null && (PreferredName is null || string.Equals(PreferredName, _ownDevice!.Name, StringComparison.OrdinalIgnoreCase)))
+        {
+            return new Device { Id = own, Name = _ownDevice!.Name, Type = "Computer" };
+        }
+
         var devices = await _api.GetDevicesAsync(cancellationToken).ConfigureAwait(false);
         return Pick(devices, PreferredName, _machineName, own, _ownDevice?.Name);
     }

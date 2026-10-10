@@ -22,8 +22,12 @@ public sealed class ListeningHistory : IDisposable
     /// <summary>Plays older than this are dropped.</summary>
     public static readonly TimeSpan KeepFor = TimeSpan.FromDays(90);
 
-    /// <summary>A sync within this long of the last one is skipped, so opening Home often costs nothing.</summary>
-    public static readonly TimeSpan MinSyncInterval = TimeSpan.FromMinutes(1);
+    /// <summary>
+    /// A sync within this long of the last one is skipped, so opening Home
+    /// often costs nothing. Spotify keeps the last 50 plays, far more than
+    /// five minutes can hold.
+    /// </summary>
+    public static readonly TimeSpan MinSyncInterval = TimeSpan.FromMinutes(5);
 
     /// <summary>A safety limit on the file's size (about 200 songs a day for 90 days).</summary>
     public const int MaxPlays = 20_000;

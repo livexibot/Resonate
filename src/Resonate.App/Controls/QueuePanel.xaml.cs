@@ -271,7 +271,7 @@ public sealed partial class QueuePanel : UserControl
         try
         {
             var token = loading.Token;
-            var queue = await Task.Run(() => App.Services.Api.GetQueueAsync(token), token);
+            var queue = await App.Services.Player.Spotify.GetQueueAsync().WaitAsync(token);
             if (version != _version)
             {
                 return;

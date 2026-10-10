@@ -40,13 +40,15 @@ public sealed class SpotifyWebApi : ISpotifyWebApi
     private readonly IAccessTokenSource _tokens;
     private readonly Uri _baseUri;
     private readonly TimeProvider _time;
+    private readonly RequestCounter? _counter;
 
-    public SpotifyWebApi(HttpClient http, IAccessTokenSource tokens, Uri? baseUri = null, TimeProvider? time = null)
+    public SpotifyWebApi(HttpClient http, IAccessTokenSource tokens, Uri? baseUri = null, TimeProvider? time = null, RequestCounter? counter = null)
     {
         _http = http;
         _tokens = tokens;
         _baseUri = baseUri ?? new Uri("https://api.spotify.com/v1/");
         _time = time ?? TimeProvider.System;
+        _counter = counter;
     }
 
     public Task<SpotifyUser> GetCurrentUserAsync(CancellationToken cancellationToken) =>
@@ -412,6 +414,8 @@ public sealed class SpotifyWebApi : ISpotifyWebApi
                 request.Content = new ByteArrayContent([]);
             }
 
+            // Every attempt counts against the developer app's allowance (Settings, About, Help shows them).
+            _counter?.Count(method, path);
             var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {

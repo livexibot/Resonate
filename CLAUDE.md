@@ -170,8 +170,30 @@ visitors; keep it short and in step with this file.
   30 s paused instead of 2 and 6 (`OwnPlayerPollWhilePlaying`); and the
   message says when Spotify allows more ("in about 2 h 42 min", from
   `Retry-After`). Starting a song still needs the Web API (Windows' media
-  controls cannot choose one). Measure: whether Spotify plays on a local
-  Play with an empty session after it starts hidden.
+  controls cannot choose one). Spotify ignored a local Play with an empty
+  session after it started hidden (the owner's PC, 17:36), and opening a
+  `spotify:track:` link, with `:play` or without, only opens the song's
+  page: the Web API is the only way to choose a song.
+- Fewest requests (the owner's request the same afternoon: "make web api
+  use least requests possible while still being usable", and count them
+  in Help): every request is counted (`WebApi/RequestCounter`, tested:
+  by kind, per local day and in total, `requests.json` in the cache
+  folder, 30 days kept, every attempt counted) and Settings, About, Help
+  shows today's by kind and the total (`Controls/SpotifyRequestsPanel`,
+  once a second while shown). Polls (`PlayerController.NextPollDelay`):
+  the own player reporting itself 15 s playing, 30 s paused; another
+  device 5 s playing, 15 s paused; nothing playing anywhere, or the
+  Spotify app's session empty, 30 s; a session that says what plays asks
+  nothing; all twice as slow (at most 60 s) while the window is hidden
+  (`InBackground`, which asks at once when it shows again). No
+  confirmation request after a command the own player reports itself.
+  Spotify's queue is read once per song for the queue pane, Home's
+  stage, the column beside the page and Winamp's playlist together
+  (`PlayerController.GetQueueAsync`, read again after Add to queue), and
+  Home's stage uses Resonate's own Up next first. Playing with nothing
+  active skips the device list when the own player is the pick. The
+  listening history syncs at most every 5 minutes, and Search waits for
+  400 ms of typing pause.
 - Crashes (9 October 2026, the owner: "make sure the app never crashes,
   ever"): since pull request #36 the title bar's button margin was
   compared exactly with a computed value, and XAML keeps a margin as a

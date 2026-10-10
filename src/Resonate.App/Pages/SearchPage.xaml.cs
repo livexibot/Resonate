@@ -27,7 +27,8 @@ namespace Resonate.App.Pages;
 /// </summary>
 public sealed partial class SearchPage : Page
 {
-    private static readonly TimeSpan TypingPause = TimeSpan.FromMilliseconds(250);
+    // Long enough that a word typed at a normal pace is one request to Spotify, not one per few letters.
+    private static readonly TimeSpan TypingPause = TimeSpan.FromMilliseconds(400);
 
     // In "All", the songs beside the top result.
     private const int SongsBesideTop = 4;

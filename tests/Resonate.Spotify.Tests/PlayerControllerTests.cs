@@ -123,6 +123,22 @@ public sealed class PlayerControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task The_queue_is_read_once_per_song_for_everything_that_shows_it()
+    {
+        await StartPlayingSongA();
+
+        await _player.GetQueueAsync();
+        await _player.GetQueueAsync();
+        await _player.GetQueueAsync();
+        Assert.Equal(1, _web.QueueReads);
+
+        // Adding a song changes the queue: the next read asks again.
+        await _player.AddToQueueAsync(SongB);
+        await _player.GetQueueAsync();
+        Assert.Equal(2, _web.QueueReads);
+    }
+
+    [Fact]
     public async Task Falls_back_to_the_Web_API_on_this_computer()
     {
         await StartPlayingSongA();
@@ -616,7 +632,9 @@ public sealed class PlayerControllerTests : IDisposable
 
         _web.PlaybackFailure = null;
         _web.Playback = OnTheWeb(isPlaying: true);
-        _time.Advance(PlayerController.WebPollInterval);
+
+        // Nothing is known to play, so the next check comes after the slow interval.
+        _time.Advance(PlayerController.PollWhileNothingPlays);
 
         await WaitUntil(() => _player.State.Title == "Web Song");
     }

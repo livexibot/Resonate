@@ -935,6 +935,14 @@ internal sealed partial class NowPlayingStage : Grid
             return;
         }
 
+        // A list Resonate plays knows what comes next: nothing to ask Spotify.
+        if (player.UpNext is { } list)
+        {
+            _upNextStale = false;
+            ShowUpNextRows(list.Upcoming);
+            return;
+        }
+
         if (!Seen)
         {
             // Read when the stage is seen again; nothing is asked of Spotify meanwhile.
@@ -951,7 +959,7 @@ internal sealed partial class NowPlayingStage : Grid
     {
         try
         {
-            var queue = await Task.Run(() => _services.Api.GetQueueAsync(token), token);
+            var queue = await _services.Player.Spotify.GetQueueAsync().WaitAsync(token);
             if (key == _upNextKey && !token.IsCancellationRequested)
             {
                 ShowUpNextRows(QueuePreview.Upcoming(queue));

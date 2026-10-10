@@ -39,9 +39,11 @@ public sealed class AppServices : IDisposable
         LocalFilesService localFiles,
         PluginManager plugins,
         OwnPlayer? ownPlayer = null,
-        IAppSoundCapture? soundCapture = null)
+        IAppSoundCapture? soundCapture = null,
+        RequestCounter? requests = null)
     {
         IsDemo = isDemo;
+        Requests = requests ?? new RequestCounter(null);
         SettingsStore = settingsStore;
         Settings = settings;
         Account = account;
@@ -125,6 +127,9 @@ public sealed class AppServices : IDisposable
     public AccountService Account { get; }
 
     public ISpotifyWebApi Api { get; }
+
+    /// <summary>Every request sent to Spotify's Web API, counted by kind, per day and in total (Settings, About, Help).</summary>
+    public RequestCounter Requests { get; }
 
     public LibraryService Library { get; }
 
@@ -224,7 +229,8 @@ public sealed class AppServices : IDisposable
         http.DefaultRequestHeaders.UserAgent.ParseAdd("Resonate/" + AppInfo.Version);
 
         var account = new AccountService(http, new CredentialTokenStore(AppPaths.CredentialTarget), settings.ClientId);
-        var api = new SpotifyWebApi(http, account);
+        var requests = new RequestCounter(Path.Combine(AppPaths.CacheFolder, "requests.json"));
+        var api = new SpotifyWebApi(http, account, counter: requests);
         var library = new LibraryService(
             api,
             new LibraryCache(Path.Combine(AppPaths.CacheFolder, "library.json")),
@@ -274,7 +280,7 @@ public sealed class AppServices : IDisposable
 
         var covers = new CoverStore(http, Path.Combine(AppPaths.CacheFolder, "covers"));
         var soundCapture = new AppSoundCapture();
-        var services = new AppServices(false, settingsStore, settings, account, api, library, home, player, launcher, background, http, covers, localFiles, plugins, ownPlayer, soundCapture);
+        var services = new AppServices(false, settingsStore, settings, account, api, library, home, player, launcher, background, http, covers, localFiles, plugins, ownPlayer, soundCapture, requests);
         services._owned.AddRange([pluginPlayer, player, spotify, local, localFiles, home, library, smtc, launcher, background, account, http, soundCapture]);
 
         // At once, so a Spotify already on the taskbar (started with Windows) disappears from it.
@@ -511,6 +517,7 @@ public sealed class AppServices : IDisposable
         }
 
         SettingsStore.Flush();
+        Requests.Save();
     }
 }
 
