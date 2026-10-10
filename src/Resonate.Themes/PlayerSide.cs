@@ -10,11 +10,12 @@ public readonly record struct PlayerSideFit(bool Slider, bool SignalWord, double
 /// <summary>
 /// The right part of the player bar (the signal pill, the plugin, device,
 /// lyrics and queue buttons, the speaker and the volume slider) is as wide as
-/// what it holds, so nothing in it is cut off. A bar short of room leaves out
-/// the volume slider first, then the signal pill's word (its mark stays).
-/// With the buttons above the volume the slider has a row of its own, so it
-/// stays and only the word goes. The numbers are the player bar's own (see
-/// PlayerBar.ShowWidthClass and ArrangeSide in the app).
+/// what it holds, so nothing in it is cut off. A full bar short of room puts
+/// the buttons above the volume first (the owner's choice of 9 October 2026,
+/// instead of leaving the slider out), then leaves out the signal pill's word
+/// (its mark stays), and leaves out the slider only when even that does not
+/// fit. The numbers are the player bar's own (see PlayerBar.ShowWidthClass
+/// and ArrangeSide in the app).
 /// </summary>
 public static class PlayerSide
 {
@@ -75,6 +76,30 @@ public static class PlayerSide
     /// <param name="outline">The bar's outline on the left and the right together.</param>
     public static double Room(PlayerWidthClass widthClass, double barWidth, double outline) =>
         barWidth - outline - (2 * Padding(widthClass)) - (2 * ColumnSpacing(widthClass)) - SongMinWidth(widthClass) - ControlsMinWidth(widthClass);
+
+    /// <summary>
+    /// Whether the buttons go above the volume, and what the right part then
+    /// shows: above it when <paramref name="stacked"/> asks for that (a
+    /// compact bar, or the user's switch), else in one row while everything
+    /// fits there, else above the volume while the slider and the pill's mark
+    /// fit that way, and in one row without the slider only as a last resort.
+    /// </summary>
+    public static (bool Stacked, PlayerSideFit Fit) Choose(PlayerWidthClass widthClass, bool stacked, int buttons, double signalMark, double signalWord, double barWidth, double outline)
+    {
+        if (stacked)
+        {
+            return (true, Fit(widthClass, true, buttons, signalMark, signalWord, barWidth, outline));
+        }
+
+        var row = Fit(widthClass, false, buttons, signalMark, signalWord, barWidth, outline);
+        if (row.Slider && (row.SignalWord || signalWord <= 0))
+        {
+            return (false, row);
+        }
+
+        var above = Fit(widthClass, true, buttons, signalMark, signalWord, barWidth, outline);
+        return above.Width <= Room(widthClass, barWidth, outline) + 0.5 ? (true, above) : (false, row);
+    }
 
     /// <summary>What the right part of a bar <paramref name="barWidth"/> wide shows.</summary>
     /// <param name="stacked">The buttons sit in a row above the speaker and the slider.</param>

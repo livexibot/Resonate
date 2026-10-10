@@ -711,7 +711,7 @@ public sealed partial class MainWindow : Window
         try
         {
             NavList.SelectedItem = NavItems.FirstOrDefault(n => n.Key == key);
-            PlaylistList.SelectedItem = Playlists.FirstOrDefault(p => p.Id == key);
+            PlaylistList.SelectedItem = ShownPlaylist(key);
         }
         finally
         {
@@ -778,7 +778,7 @@ public sealed partial class MainWindow : Window
                 Playlists.Add(item);
             }
 
-            PlaylistList.SelectedItem = Playlists.FirstOrDefault(p => p.Id == selected);
+            PlaylistList.SelectedItem = ShownPlaylist(selected);
         }
         finally
         {
@@ -837,7 +837,7 @@ public sealed partial class MainWindow : Window
         _syncingSelection = true;
         try
         {
-            PlaylistList.SelectedItem = Playlists.FirstOrDefault(p => p.Id == _currentKey);
+            PlaylistList.SelectedItem = ShownPlaylist(_currentKey);
         }
         finally
         {

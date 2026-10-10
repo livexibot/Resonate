@@ -25,6 +25,10 @@ public sealed partial class MainWindow
     private bool _playlistFilterQueued;
     private long _playlistsHeaderToken;
 
+    /// <summary>The sidebar row for <paramref name="key"/> among the rows shown, or none while the filter hides it.</summary>
+    private PlaylistNavItem? ShownPlaylist(string? key) =>
+        (_playlistsFiltered ? _filteredPlaylists : Playlists).FirstOrDefault(p => p.Id == key);
+
     private void OnPlaylistFilterClick(object sender, RoutedEventArgs e) => ShowPlaylistFilter(true);
 
     private void OnPlaylistFilterCloseClick(object sender, RoutedEventArgs e) => ShowPlaylistFilter(false);

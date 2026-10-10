@@ -318,13 +318,14 @@ public sealed partial class PlayerBar : UserControl
     /// The buttons and the volume on the right: in one row, or the buttons
     /// (smaller) in a row over the speaker and the slider, both lined up on
     /// the right, which leaves the middle more room: on a full bar while the
-    /// user wants it, and always on a narrower one (the owner's choice,
-    /// 9 October 2026, instead of leaving the slider out). The mini bar keeps
-    /// only the queue.
+    /// user wants it or one row does not fit, and always on a narrower one
+    /// (the owner's choice, 9 October 2026, instead of leaving the slider
+    /// out; decided in PlayerBar.SideRoom.cs). The mini bar keeps only the
+    /// queue.
     /// </summary>
     private void ArrangeSide()
     {
-        var stacked = _widthClass == PlayerWidthClass.Compact || (App.Services.Theme.ButtonsAboveVolume && _widthClass == PlayerWidthClass.Full);
+        var stacked = _sideStacked;
         Grid.SetRow(SideButtons, 0);
         Grid.SetColumn(SideButtons, 0);
         Grid.SetRow(VolumeControls, stacked ? 1 : 0);

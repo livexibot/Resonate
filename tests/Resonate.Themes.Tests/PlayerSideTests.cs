@@ -33,6 +33,66 @@ public sealed class PlayerSideTests
     }
 
     [Fact]
+    public void A_hovering_bar_short_of_room_puts_the_buttons_above_the_volume_and_keeps_the_slider()
+    {
+        // The owner's choice of 9 October 2026: the buttons go above the volume instead of leaving the slider out.
+        var (stacked, fit) = PlayerSide.Choose(PlayerWidthClass.Full, stacked: false, buttons: 3, Mark, Word, barWidth: 912, Hairline);
+
+        Assert.True(stacked);
+        Assert.True(fit.Slider);
+        Assert.True(fit.SignalWord);
+        Assert.Equal(Mark + Word + (3 * 32) + (3 * 6), fit.Width);
+    }
+
+    [Fact]
+    public void A_bar_with_room_keeps_one_row()
+    {
+        var (stacked, fit) = PlayerSide.Choose(PlayerWidthClass.Full, stacked: false, buttons: 3, Mark, Word, barWidth: 1008, outline: 0);
+
+        Assert.False(stacked);
+        Assert.True(fit.Slider);
+        Assert.True(fit.SignalWord);
+
+        var quiet = PlayerSide.Choose(PlayerWidthClass.Full, stacked: false, buttons: 3, signalMark: 0, signalWord: 0, barWidth: PlayerPlacement.FullWidth, Hairline);
+        Assert.False(quiet.Stacked);
+        Assert.True(quiet.Fit.Slider);
+    }
+
+    [Fact]
+    public void The_switch_and_the_compact_bar_always_stack()
+    {
+        Assert.True(PlayerSide.Choose(PlayerWidthClass.Full, stacked: true, buttons: 1, signalMark: 0, signalWord: 0, barWidth: 2400, outline: 0).Stacked);
+        Assert.True(PlayerSide.Choose(PlayerWidthClass.Compact, stacked: true, buttons: 3, Mark, signalWord: 0, barWidth: 700, Hairline).Stacked);
+    }
+
+    [Fact]
+    public void Above_the_volume_the_word_goes_before_the_slider()
+    {
+        // Four buttons and a long word: above the volume the word does not fit, the slider still does.
+        var (stacked, fit) = PlayerSide.Choose(PlayerWidthClass.Full, stacked: false, buttons: 4, Mark, signalWord: 140, barWidth: 912, Hairline);
+
+        Assert.True(stacked);
+        Assert.True(fit.Slider);
+        Assert.False(fit.SignalWord);
+    }
+
+    [Theory]
+    [InlineData(1, 0.0, 0.0)]
+    [InlineData(3, Mark, Word)]
+    [InlineData(4, Mark, 120.0)]
+    public void The_chosen_layout_always_fits_a_full_bar(int buttons, double mark, double word)
+    {
+        for (var width = PlayerPlacement.FullWidth; width <= 2400; width += 7)
+        {
+            var (_, fit) = PlayerSide.Choose(PlayerWidthClass.Full, stacked: false, buttons, mark, word, width, Hairline);
+            var needed = fit.Width + fit.SongMinWidth + PlayerSide.ControlsMinWidth(PlayerWidthClass.Full)
+                + (2 * PlayerSide.Padding(PlayerWidthClass.Full)) + (2 * PlayerSide.ColumnSpacing(PlayerWidthClass.Full)) + Hairline;
+            Assert.True(needed <= width + 0.5, $"{width}: {fit} needs {needed}");
+            Assert.True(fit.Slider, $"the slider went at {width}");
+        }
+    }
+
+    [Fact]
     public void A_wider_bar_keeps_the_slider_beside_the_pill()
     {
         var fit = PlayerSide.Fit(PlayerWidthClass.Full, stacked: false, buttons: 3, Mark, Word, barWidth: 1008, outline: 0);

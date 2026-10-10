@@ -59,6 +59,9 @@ public sealed partial class TracksPage : Page
     private string? _highlightedTrack;
     private bool _highlightedPlaying;
     private bool _revealPlaying;
+
+    /// <summary>The playing song was shown in the first songs, and the whole list, in another order, will replace them.</summary>
+    private bool _revealOnRebuild;
     private Run _detailsRun = new();
     private int _highlightQueued;
     private int _sourceChangeQueued;
@@ -96,6 +99,7 @@ public sealed partial class TracksPage : Page
         _source = e.Parameter as TrackListSource
             ?? TrackListSource.For(e.Parameter as string ?? LikedSongsSource.ListKey, _services);
         _revealPlaying = OpenAtPlayingSong;
+        _revealOnRebuild = false;
         OpenAtPlayingSong = false;
         _columns = new TrackColumns(album: !_source.IsAlbum, dateAdded: _source.HasDateAdded);
         FitToWidth(TrackList.ActualWidth > 0 ? TrackList.ActualWidth : double.PositiveInfinity);
@@ -438,6 +442,13 @@ public sealed partial class TracksPage : Page
 
         _rows = new ObservableCollection<TrackRow>(rows);
         TrackList.ItemsSource = _rows;
+        if (_revealOnRebuild)
+        {
+            // The new rows start at the top again: show the playing song there too.
+            _revealOnRebuild = false;
+            _revealPlaying = true;
+        }
+
         _rowActions.Select(TrackList.SelectedItem as TrackRow);
         UpdateEditing();
         UpdateEmpty();
@@ -1203,9 +1214,12 @@ public sealed partial class TracksPage : Page
             return;
         }
 
-        // The first songs (a preview) may be replaced by the whole list in
-        // another order, which starts at the top again: show it there too.
-        _revealPlaying = !_complete;
+        // Once only, so the list never jumps back while the rest of it loads
+        // or the music pauses; but the first songs (a preview) may be
+        // replaced by the whole list in another order, which starts at the
+        // top again: ApplyView shows it there too.
+        _revealPlaying = false;
+        _revealOnRebuild = !_complete;
         TrackList.SelectedItem = _rows[index];
         if (index > 2)
         {

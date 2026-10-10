@@ -277,7 +277,7 @@
                     </Grid>
                     <TextBlock
                         Margin="0,0,0,2"
-                        Foreground="{StaticResource ResonateAccentBrush}"
+                        Foreground="{StaticResource ResonateAccentTextBrush}"
                         Style="{StaticResource ResonateEyebrowTextStyle}"
                         Text="{x:Bind Label}" />
                     <TextBlock
