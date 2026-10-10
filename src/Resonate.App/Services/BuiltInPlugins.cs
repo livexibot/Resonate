@@ -58,7 +58,8 @@ public sealed class BuiltInPlugins
     /// <summary>
     /// Every built-in plugin, with a plain name and one sentence about it (the
     /// owner asked for obvious names, 9 October 2026; the IDs stay, so what
-    /// was on stays on). Settings lists them by name.
+    /// was on stays on). Settings lists them by name under what they are
+    /// for (PluginsPanel.Category).
     /// </summary>
     public static IReadOnlyList<BuiltInPlugin> All { get; } =
     [
@@ -95,7 +96,7 @@ public sealed class BuiltInPlugins
     /// Part of Resonate itself now, always on and not listed: Lyrics and the
     /// Home stage (the owner's choice, 8 October 2026), the tray icon, editing
     /// the queue and the taskbar buttons (9 October 2026). Start with Windows
-    /// became a switch in Settings, About (<see cref="AppSettings.StartWithWindows"/>).
+    /// became a switch in Settings, General (<see cref="AppSettings.StartWithWindows"/>).
     /// </summary>
     public static bool IsAlwaysOn(string id) => id is Lyrics or HomeStage or TrayIcon or UpNext or TaskbarControls;
 

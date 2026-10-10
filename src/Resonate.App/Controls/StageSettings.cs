@@ -6,14 +6,14 @@ using Resonate.App.Services;
 namespace Resonate.App.Controls;
 
 /// <summary>
-/// The settings of the Home stage and its visualizer,
-/// built in code: the visualizer's under Settings, Player, the stage's
-/// background under Layout.
+/// The settings of the Home stage and the visualizers, built in code:
+/// Home's visualizer and background under Settings, Layout, the player
+/// bar's visualizer under Settings, Player.
 /// </summary>
 internal static class StageSettings
 {
     /// <summary>
-    /// Home's visualizer (Settings, Player, Home visualizer): how it follows
+    /// Home's visualizer (Settings, Layout, Home visualizer): how it follows
     /// the music, how many of its parts there are and how large (Amount and
     /// Size mean bars, dots, sparks, columns or rings, whatever the style),
     /// whether the visualizers hear Spotify, and its width, height and place
@@ -29,16 +29,7 @@ internal static class StageSettings
             Slider("Smoothing", 0, 100, () => settings.HomeStageSmoothing, v => settings.HomeStageSmoothing = v, fresh.HomeStageSmoothing, "%", services),
             Slider("Amount", 16, 96, () => settings.HomeStageBars, v => settings.HomeStageBars = v, fresh.HomeStageBars, string.Empty, services),
             Slider("Size", 20, 90, () => settings.HomeStageBarWidth, v => settings.HomeStageBarWidth = v, fresh.HomeStageBarWidth, "%", services),
-            Switch(
-                "Listen to Spotify",
-                string.Empty,
-                () => settings.HomeStageListens,
-                on =>
-                {
-                    settings.HomeStageListens = on;
-                    services.Visualiser.ListensToSpotify = on;
-                },
-                services),
+            Listens(services),
             Advanced(
                 Slider("Width", 20, 100, () => settings.HomeStageWidth, v => settings.HomeStageWidth = v, fresh.HomeStageWidth, "%", services),
                 Slider("Height", 10, 60, () => settings.HomeStageHeight, v => settings.HomeStageHeight = v, fresh.HomeStageHeight, "%", services),
@@ -48,7 +39,7 @@ internal static class StageSettings
         ];
     }
 
-    /// <summary>The player bar's visualizer (Settings, Player, Player visualizer): its own Sensitivity, Smoothing, Amount and Size, and X and Y under Advanced.</summary>
+    /// <summary>The player bar's visualizer (Settings, Player, Visualizer): its own Sensitivity, Smoothing, Amount and Size, whether the visualizers hear Spotify, and its size and place under Advanced.</summary>
     public static IEnumerable<FrameworkElement> PlayerVisualizer(AppServices services)
     {
         var settings = services.Settings;
@@ -59,6 +50,7 @@ internal static class StageSettings
             Slider("Smoothing", 0, 100, () => settings.PlayerVisualizerSmoothing, v => settings.PlayerVisualizerSmoothing = v, fresh.PlayerVisualizerSmoothing, "%", services),
             Slider("Amount", 16, 96, () => settings.PlayerVisualizerAmount, v => settings.PlayerVisualizerAmount = v, fresh.PlayerVisualizerAmount, string.Empty, services),
             Slider("Size", 20, 90, () => settings.PlayerVisualizerSize, v => settings.PlayerVisualizerSize = v, fresh.PlayerVisualizerSize, "%", services),
+            Listens(services),
             Advanced(
                 Slider("Width", 20, 100, () => settings.PlayerVisualizerWidth, v => settings.PlayerVisualizerWidth = v, fresh.PlayerVisualizerWidth, "%", services),
                 Slider("Height", 10, 100, () => settings.PlayerVisualizerHeight, v => settings.PlayerVisualizerHeight = v, fresh.PlayerVisualizerHeight, "%", services),
@@ -67,6 +59,21 @@ internal static class StageSettings
                 Slider("Y", -100, 100, () => settings.PlayerVisualizerY, v => settings.PlayerVisualizerY = v, fresh.PlayerVisualizerY, "px", services)),
         ];
     }
+
+    /// <summary>
+    /// Whether the visualizers hear Spotify: one setting for both, so it
+    /// shows under Home's visualizer (Layout) and the player's (Player).
+    /// </summary>
+    private static SettingRow Listens(AppServices services) => Switch(
+        "Listen to Spotify",
+        string.Empty,
+        () => services.Settings.HomeStageListens,
+        on =>
+        {
+            services.Settings.HomeStageListens = on;
+            services.Visualiser.ListensToSpotify = on;
+        },
+        services);
 
     /// <summary>A folded "Advanced" section holding <paramref name="rows"/>.</summary>
     private static Expander Advanced(params FrameworkElement[] rows)
@@ -109,6 +116,16 @@ internal static class StageSettings
                 NowPlayingStage.NotifyOptionsChanged();
             }
         };
+
+        // The same switch in another tab follows, only while shown.
+        void Follow(object? sender, EventArgs e) => toggle.IsOn = read();
+        toggle.Loaded += (_, _) =>
+        {
+            NowPlayingStage.OptionsChanged -= Follow;
+            NowPlayingStage.OptionsChanged += Follow;
+            toggle.IsOn = read();
+        };
+        toggle.Unloaded += (_, _) => NowPlayingStage.OptionsChanged -= Follow;
         return new SettingRow { Header = header, Description = description, Content = toggle };
     }
 

@@ -142,7 +142,7 @@ internal sealed class ScreenshotTour
                 await Task.Delay(800);
                 await CaptureAsync("4c2-player.png");
 
-                settings.ShowTab(SettingsTab.About);
+                settings.ShowTab(SettingsTab.General);
                 await Task.Delay(600);
                 await CaptureAsync("4d-about.png");
 

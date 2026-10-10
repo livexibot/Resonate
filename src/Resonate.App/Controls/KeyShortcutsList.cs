@@ -11,7 +11,7 @@ using VirtualKey = Windows.System.VirtualKey;
 namespace Resonate.App.Controls;
 
 /// <summary>
-/// The keyboard shortcuts under Settings, About, Help, each one changeable
+/// The keyboard shortcuts under Settings, General, Keyboard shortcuts, each one changeable
 /// (the owner's request, 9 October 2026): click a command's keys, press the
 /// new ones, and the window uses them at once. Keys another command had are
 /// taken from it; Esc stops recording, Backspace leaves the command without

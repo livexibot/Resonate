@@ -414,7 +414,7 @@ public sealed class SpotifyWebApi : ISpotifyWebApi
                 request.Content = new ByteArrayContent([]);
             }
 
-            // Every attempt counts against the developer app's allowance (Settings, About, Help shows them).
+            // Every attempt counts against the developer app's allowance (Settings, General, Spotify account shows them).
             _counter?.Count(method, path);
             var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
             if (response.IsSuccessStatusCode)

@@ -77,7 +77,7 @@ visitors; keep it short and in step with this file.
   by Placement (top, bottom, left, right) and Type (docked, inset,
   floating) with an Advanced size and offset, folded by default; Home's
   stage and lyrics are part of the app (always on; their settings now
-  under Player, Visualizer and Layout, Pages); the sidebar snaps to covers only when dragged narrow.
+  under Layout, Pages and Home visualizer); the sidebar snaps to covers only when dragged narrow.
 - The owner's choices of 9 October 2026: artist and album names open
   their pages only when the name itself is clicked (`SongLinks` keeps the
   TextBlock as wide as its words and opens only an underlined link);
@@ -87,7 +87,7 @@ visitors; keep it short and in step with this file.
   `miniPlayerScale` 2); the spinning cover is the look's Vinyl cover
   style, not a separate switch; the Home visualizer glides (fast rise,
   slow fall, frame-rate independent, `StageBars.Smooth`) with Sensitivity,
-  Smoothing, Bars and Bar width (now under Player, Visualizer); Page
+  Smoothing, Bars and Bar width (now under Layout, Home visualizer); Page
   animation and Song change are the user's own (now under Layout, Pages
   and Player, Style); Player glow is part of a look (now Player, Style),
   set on the presets it fits; Liquid Glass is the owner's own
@@ -98,8 +98,9 @@ visitors; keep it short and in step with this file.
   gathering; demo stats are made up from the song's ID).
 - Later on 9 October 2026 (the owner's requests): looks carry a Home
   visualizer style and a player bar visualizer (`VisualizerStyle`: Bars,
-  Mirror, Dots, Lines; the player's Off at first), set on each preset to
-  fit it, and Settings, Player can change them; the player bar's is a faint
+  Mirror, Dots, Lines; the player's Off at first), Home's set on each
+  preset to fit it (the player bar's Off on every preset since 10 October
+  2026), and Settings can change them; the player bar's is a faint
   `StageVisualizer` along its bottom in the look's accents, running only
   while music plays and the window shows. Visualizers take a new height at
   most every 15 ms. With no sound heard, Sensitivity makes the swaying
@@ -143,8 +144,9 @@ visitors; keep it short and in step with this file.
   width Home's visualizer reaches both edges of the stage, clipped to its
   rounded corners (`StageVisualizer.ClipCorner`). The player bar's
   visualizer has its own Sensitivity, Smoothing, Amount and Size
-  (`PlayerVisualizer*` settings), so Settings, Player has a Home
-  visualizer group and a Player visualizer group; Listen to Spotify,
+  (`PlayerVisualizer*` settings), so Settings has a Home visualizer group
+  (Layout since 10 October 2026) and a Visualizer group (Player); Listen
+  to Spotify,
   shared by both, sits under Home's. Both have X and Y under Advanced
   (`HomeStageX`/`Y`, `PlayerVisualizerX`/`Y`, pixels), which move the
   drawing while the clip stays on the stage.
@@ -178,7 +180,8 @@ visitors; keep it short and in step with this file.
   use least requests possible while still being usable", and count them
   in Help): every request is counted (`WebApi/RequestCounter`, tested:
   by kind, per local day and in total, `requests.json` in the cache
-  folder, 30 days kept, every attempt counted) and Settings, About, Help
+  folder, 30 days kept, every attempt counted) and Settings, General,
+  Spotify account
   shows today's by kind and the total (`Controls/SpotifyRequestsPanel`,
   once a second while shown). Polls (`PlayerController.NextPollDelay`):
   the own player reporting itself 15 s playing, 30 s paused; another
@@ -254,6 +257,15 @@ visitors; keep it short and in step with this file.
   a pane squeezes the page (`CheckPageBesidePane`). Left for later: the
   player bar's narrow and visualizer findings, explanatory sentences
   (`caption-rule`), the Winamp row, unnamed controls.
+- Settings made easier (10 October 2026, the owner's request "make sure
+  everything is in its proper category/tab", local build until the owner
+  says): see the tabs under "Decisions". Also: the Local Files section
+  lost its caption, and one arrow step on the sidebar's grip from covers
+  only opens the names (a small step snapped straight back). The owner
+  saw the window's content drawn in only its top left four fifths (no
+  player) after widening the sidebar in the installed 0.18.0, at 125 %
+  App size; demo and real-data tries at their size did not show it, and
+  Resonate wrote no crash. Ask whether it froze if it happens again.
 - Narrow sidebar (9 October 2026): WinUI's list rows are at least 88 wide
   (`ListViewItemMinWidth`) and padded 16 and 12, wider than the 84 px
   sidebar, which put the icons and covers 13 px right of centre. The
@@ -760,7 +772,8 @@ Built-in plugins (built 8 October 2026; the owner asked for ideas 1, 2, 5,
 moment", and for synced lyrics like Spotify's, from spotifast's source):
 - They need the app's pages, windows and the Web API, which the JavaScript
   helper cannot reach, so they are compiled in and listed in Settings,
-  Plugins above the downloaded ones (`Services/BuiltInPlugins.cs`: IDs,
+  Plugins with the downloaded ones, grouped by what they are for
+  (`Services/BuiltInPlugins.cs`: IDs,
   names, `IsOn`, `Set`, `Changed`; ids saved in `BuiltInPlugins` in
   settings). All are off at first; while off nothing of them runs or
   shows, and switching takes effect at once. Each keeps its settings under
@@ -992,7 +1005,7 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   accent, not the album's colour tile, since that is what shows through
   as the stage fades on scrolling (it was blue under an orange accent).
 - Keyboard shortcuts (9 October 2026, the owner asked to change them in
-  Help, with Space playing and pausing): Settings, About, Help lists all
+  Help, with Space playing and pausing): Settings, General, Keyboard shortcuts lists all
   24 commands (`Resonate.Themes/AppKeys.cs`, tested: names, default keys,
   taking keys from another command, keys a text field keeps, keys that
   cannot be used) with a button per command that records new keys
@@ -1021,7 +1034,7 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   the queue (Up next) and the taskbar buttons are part of the app
   (`BuiltInPlugins.IsAlwaysOn`, not listed), so closing the window always
   hides Resonate in the tray; Start with Windows is a switch in Settings,
-  About (`StartWithWindows`, on at first; the installed copy writes the
+  General (`StartWithWindows`, on at first; the installed copy writes the
   Run key at every start, a local build never). Every plugin has settings
   behind its gear (`BuiltInPluginSettings.Create`, saved in `AppSettings`
   under "Each plugin's own settings"; a change calls
@@ -1280,11 +1293,11 @@ Ripple, and a more interesting Home):
   a `Scale.Y` animation (found with the retired Radial): animate the whole
   `Scale` when a sprite turns. The player bar's visualizer has its own
   Width, Height (45 % of the bar at first) and Max height, and Retro
-  hides its unlit segments there. Presets: Paper Pills, Bubblegum Pulse
-  (Pills in its bar), Terminal Retro (and in its bar), Velvet and Aurora
-  Aurora (Silk in Aurora's bar), Sage and Ocean Silk; Synthwave Mirror
-  (Lines in its bar), Liquid Chrome Silk, Cyberpunk Bars (Mirror in its
-  bar), Afterhours Aurora. CI's tour
+  hides its unlit segments there. Presets: Paper Pills, Bubblegum Pulse,
+  Terminal Retro, Velvet and Aurora Aurora, Sage and Ocean Silk;
+  Synthwave Mirror, Liquid Chrome Silk, Cyberpunk Bars, Afterhours
+  Aurora. No preset has a player bar visualizer (the owner's choice,
+  10 October 2026); the user turns it on under Player, Visualizer. CI's tour
   starts every style (`StageVisualizer.CheckMotion`).
 - Special looks (the owner's request, 9 October 2026: "themes around a
   certain aesthetic ... extremely good and custom made", tried in the demo
@@ -1581,7 +1594,7 @@ GitHub automation:
 - The in-app updater reads GitHub releases without a token, which only
   works once the repository is public. The owner chose to make it public
   for this (7 October 2026). Never embed a token in the app instead.
-- "Update automatically" (Settings, About, `AutoUpdate`, on at first; the
+- "Update automatically" (Settings, General, `AutoUpdate`, on at first; the
   owner's request, 8 October 2026): an installed copy looks for a new
   version 8 s after start and every 4 hours, downloads it, and has
   Velopack install it quietly once Resonate closes
@@ -2193,24 +2206,32 @@ when the work first needs them, then tick them off here.
   Setting descriptions stay short: the owner found them too wordy, for
   example the plugins' permission line, which is gone. A downloading
   update shows a progress bar with the size, speed and time left, in the
-  corner and in Settings, About (`UpdateProgress.cs`).
+  corner and in Settings, General (`UpdateProgress.cs`).
 - Decided (8 October 2026, the owner's request): the Settings button (a
   gear) sits in the title bar at the top right, left of the mini player
   button, instead of at the foot of the sidebar. Settings has six tabs
   along its top (`SettingsTab`, the last one used is kept while Resonate
   runs; regrouped on 9 October 2026, when the owner found settings "all
-  over the place"): Themes (presets, your looks, and Customize: colours,
-  background with Cover blur, shape, fonts), Player (`PlayerSettings`:
-  Position with Placement, Type and Advanced; Style with progress bar,
-  play button, cover, glow and song change; Visualizer with Home's and the
-  player's styles, Home's Off being the user's switch, and sensitivity,
-  smoothing, Amount, Size, Listen to Spotify and Advanced for Home's, and
-  the player bar's own; then Winamp), Layout
-  (Pages: page animation and the blurred cover on Home; sidebar and
-  buttons, with the sidebar running full height; song lists; App size and
-  Text size), Plugins, Playback (was Misc: playback and the Spotify app,
-  equalizer, Local Files) and About (updates, Spotify account, help with
-  the keyboard shortcuts, credits). Only the chosen
+  over the place", and again on 10 October 2026, when they asked for it
+  "easier to use" with everything in its proper tab): Themes (presets,
+  your looks, and Customize: colours, background with Cover blur, shape,
+  fonts), Player (`PlayerSettings`: Position with Placement, Type and
+  Advanced; Progress bar with its style and glow; Style with play button,
+  cover, player glow, song change and buttons above volume; Visualizer,
+  the player bar's, its sliders shown only while it is on; then Winamp,
+  with the title bar's mini player button), Layout (`LayoutSettings`:
+  Size first; Sidebar; Pages with page animation and the blurred cover on
+  Home; Home visualizer, its style (Off being the user's switch) and
+  sliders, shown only while on; Song lists; Song stats, the stat columns
+  shown only while on), Plugins (grouped by what they are for:
+  `PluginsPanel.Category`; a new plugin lands under "More plugins" until
+  it is given a group), Playback (Playback with the mode; Spotify app,
+  only with Windows media controls; equalizer; Local Files) and General
+  (was About, `SettingsTab.General`: Spotify account with the request
+  count, Windows with Start with Windows, Updates, Keyboard shortcuts
+  folded at first, Help, About). Listen to Spotify shows under both
+  visualizers and is one setting. Group headings must differ across
+  tabs, since a folded heading is kept by name. Only the chosen
   tab is laid out. Rows show a description only when it says something
   the name does not, in a few words. Hidden sidebar links are kept in
   `HiddenSidebarLinks` (Home always shows; Local Files keeps

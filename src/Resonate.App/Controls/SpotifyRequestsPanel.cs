@@ -7,7 +7,7 @@ using Resonate.Spotify.WebApi;
 namespace Resonate.App.Controls;
 
 /// <summary>
-/// Settings, About, Help: how many requests Resonate sent to Spotify's Web
+/// Settings, General, Spotify account: how many requests Resonate sent to Spotify's Web
 /// API today, by what they were for, and in total (the owner's request,
 /// 10 October 2026, after the developer app's allowance ran out). Follows
 /// the count while shown, at most once a second.

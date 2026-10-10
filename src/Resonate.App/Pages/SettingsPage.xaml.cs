@@ -25,7 +25,7 @@ public enum SettingsTab
     Layout,
     Plugins,
     Playback,
-    About,
+    General,
 }
 
 public sealed partial class SettingsPage : Page
@@ -86,8 +86,8 @@ public sealed partial class SettingsPage : Page
     /// <summary>Opens the Plugins tab.</summary>
     internal void ShowPlugins() => ShowTab(SettingsTab.Plugins);
 
-    /// <summary>Opens the About tab, where the updates are.</summary>
-    internal void ShowUpdates() => ShowTab(SettingsTab.About);
+    /// <summary>Opens the General tab, where the updates are.</summary>
+    internal void ShowUpdates() => ShowTab(SettingsTab.General);
 
     /// <summary>Opens a section's tab and scrolls to the section, near the top (once the page is laid out, if it is still opening).</summary>
     internal void ShowSection(SettingsSection section, bool animate = false)
@@ -128,7 +128,7 @@ public sealed partial class SettingsPage : Page
         LayoutPanel.Visibility = tab == SettingsTab.Layout ? Visibility.Visible : Visibility.Collapsed;
         PluginsHost.Visibility = tab == SettingsTab.Plugins ? Visibility.Visible : Visibility.Collapsed;
         PlaybackPanel.Visibility = tab == SettingsTab.Playback ? Visibility.Visible : Visibility.Collapsed;
-        AboutPanel.Visibility = tab == SettingsTab.About ? Visibility.Visible : Visibility.Collapsed;
+        GeneralPanel.Visibility = tab == SettingsTab.General ? Visibility.Visible : Visibility.Collapsed;
 
         _choosingTab = true;
         try
@@ -138,7 +138,7 @@ public sealed partial class SettingsPage : Page
             LayoutTab.IsChecked = tab == SettingsTab.Layout;
             PluginsTab.IsChecked = tab == SettingsTab.Plugins;
             PlaybackTab.IsChecked = tab == SettingsTab.Playback;
-            AboutTab.IsChecked = tab == SettingsTab.About;
+            GeneralTab.IsChecked = tab == SettingsTab.General;
         }
         finally
         {
@@ -163,7 +163,7 @@ public sealed partial class SettingsPage : Page
             : ReferenceEquals(sender, LayoutTab) ? SettingsTab.Layout
             : ReferenceEquals(sender, PluginsTab) ? SettingsTab.Plugins
             : ReferenceEquals(sender, PlaybackTab) ? SettingsTab.Playback
-            : ReferenceEquals(sender, AboutTab) ? SettingsTab.About
+            : ReferenceEquals(sender, GeneralTab) ? SettingsTab.General
             : null;
         if (tab is { } chosen)
         {

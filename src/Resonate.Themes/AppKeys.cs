@@ -85,7 +85,7 @@ public readonly record struct KeyCombo(bool Control, bool Alt, bool Shift, strin
 }
 
 /// <summary>
-/// The window's keyboard shortcuts (Settings, About, Help): what each one
+/// The window's keyboard shortcuts (Settings, General, Keyboard shortcuts): what each one
 /// does, the keys it starts with, the user's own keys on top of those
 /// (saved by command name; an empty text means none), and which keys are
 /// left alone while typing. Space plays and pauses unless the user picks

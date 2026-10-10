@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The Player tab of Settings: where the player sits, how it looks, and the
-  visualizers. Where it sits and how it looks are part of the look (a
-  preset is copied first, as under Customize); the rest belongs to the
-  user. See PlayerSettings.xaml.cs.
+  The Player tab of Settings: where the player sits, its progress bar, how
+  it looks and its visualizer (Winamp follows in SettingsPage). Where it
+  sits and how it looks are part of the look (a preset is copied first, as
+  under Customize); the rest belongs to the user. See
+  PlayerSettings.xaml.cs.
 -->
 <UserControl
     x:Class="Resonate.App.Controls.PlayerSettings"
@@ -123,10 +124,10 @@
             </StackPanel>
         </controls:SettingsGroup>
 
-        <!-- How the player looks -->
-        <controls:SettingsGroup Header="Style">
+        <!-- The progress bar: its style, with a preview, and its glow -->
+        <controls:SettingsGroup Header="Progress bar">
             <StackPanel Spacing="6">
-                <controls:SettingRow Header="Progress bar">
+                <controls:SettingRow Header="Style">
                     <StackPanel Spacing="10">
                         <ComboBox
                             x:Name="ProgressChoice"
@@ -154,7 +155,7 @@
                             Value="240" />
                     </StackPanel>
                 </controls:SettingRow>
-                <controls:SettingRow Header="Progress glow">
+                <controls:SettingRow Header="Glow">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Slider
                             x:Name="ProgressGlowSlider"
@@ -169,6 +170,12 @@
                         <TextBlock x:Name="ProgressGlowText" Style="{StaticResource PlayerValueTextStyle}" />
                     </StackPanel>
                 </controls:SettingRow>
+            </StackPanel>
+        </controls:SettingsGroup>
+
+        <!-- How the rest of the player looks -->
+        <controls:SettingsGroup Header="Style">
+            <StackPanel Spacing="6">
                 <controls:SettingRow Header="Play button">
                     <ComboBox
                         x:Name="PlayButtonChoice"
@@ -191,7 +198,7 @@
                         <ComboBoxItem Content="Vinyl" Tag="Vinyl" />
                     </ComboBox>
                 </controls:SettingRow>
-                <controls:SettingRow Header="Glow">
+                <controls:SettingRow Header="Player glow">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Slider
                             x:Name="PlayerGlowSlider"
@@ -230,20 +237,8 @@
             </StackPanel>
         </controls:SettingsGroup>
 
-        <!-- Each visualizer with its own settings; the rows after the style are built in code (StageSettings) -->
-        <controls:SettingsGroup Header="Home visualizer">
-            <StackPanel x:Name="HomeVisualizerRows" Spacing="6">
-                <controls:SettingRow Header="Style">
-                    <ComboBox
-                        x:Name="StageVisualizerChoice"
-                        AutomationProperties.Name="Home visualizer"
-                        SelectionChanged="OnStageVisualizerChanged"
-                        Style="{StaticResource PlayerComboStyle}" />
-                </controls:SettingRow>
-            </StackPanel>
-        </controls:SettingsGroup>
-
-        <controls:SettingsGroup Header="Player visualizer">
+        <!-- The player bar's visualizer; the rows after the style are built in code (StageSettings) -->
+        <controls:SettingsGroup Header="Visualizer">
             <StackPanel x:Name="PlayerVisualizerRows" Spacing="6">
                 <controls:SettingRow Header="Style">
                     <ComboBox

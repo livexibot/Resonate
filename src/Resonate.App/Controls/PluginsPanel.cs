@@ -32,16 +32,16 @@ internal sealed partial class PluginsPanel : StackPanel
     {
         _plugins = plugins;
         _builtIns = services.BuiltIns;
-        Spacing = 12;
 
-        // Every plugin in one list by name; each says whether it is built in or downloaded.
-        var items = new List<(string Name, FrameworkElement Element)>();
+        // Every plugin under what it is for (see Category), by name within it, built in or downloaded alike.
+        Spacing = 20;
+        var items = new List<(string Category, string Name, FrameworkElement Element)>();
         foreach (var plugin in BuiltInPlugins.All)
         {
             var id = plugin.Id;
             var card = new BuiltInCard(plugin, BuiltInPluginSettings.Has(id) ? () => BuiltInPluginSettings.Create(id, services) : null);
             _builtInCards[plugin.Id] = card;
-            items.Add((plugin.Name, Build(card)));
+            items.Add((Category(id), plugin.Name, Build(card)));
             RefreshBuiltIn(card);
         }
 
@@ -49,13 +49,22 @@ internal sealed partial class PluginsPanel : StackPanel
         {
             var card = new Card(manifest);
             _cards[manifest.Id] = card;
-            items.Add((manifest.Name, Build(card)));
+            items.Add((Category(manifest.Id), manifest.Name, Build(card)));
             Refresh(card);
         }
 
-        foreach (var (_, element) in items.OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase))
+        foreach (var category in Categories)
         {
-            Children.Add(element);
+            var rows = new StackPanel { Spacing = 12 };
+            foreach (var (_, _, element) in items.Where(item => item.Category == category).OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase))
+            {
+                rows.Children.Add(element);
+            }
+
+            if (rows.Children.Count > 0)
+            {
+                Children.Add(new SettingsGroup { Header = category, Content = rows });
+            }
         }
 
         Loaded += (_, _) =>
@@ -85,6 +94,34 @@ internal sealed partial class PluginsPanel : StackPanel
             }
         };
     }
+
+    /// <summary>The plugins' groups, in the order they show. Their names differ from every other Settings heading, since a folded heading is kept by name.</summary>
+    private static readonly string[] Categories =
+    [
+        "Lyrics",
+        "Look and window",
+        "Discover",
+        "Volume and pausing",
+        "Timers",
+        "Skipping",
+        "Shortcuts",
+        "Desktop and files",
+        "More plugins",
+    ];
+
+    /// <summary>The group a plugin shows under, by its ID; a new plugin lands under "More plugins" until it is given one.</summary>
+    private static string Category(string id) => id switch
+    {
+        BuiltInPlugins.PlayerLyrics or BuiltInPlugins.DesktopLyrics => "Lyrics",
+        BuiltInPlugins.AwayScreen or BuiltInPlugins.WindowShapes or BuiltInPlugins.BeatGlow or BuiltInPlugins.SignalPath => "Look and window",
+        BuiltInPlugins.Rediscover or BuiltInPlugins.ArtistOrbit or BuiltInPlugins.SmartPlaylists => "Discover",
+        BuiltInPlugins.QuietHours or BuiltInPlugins.DeviceVolume or BuiltInPlugins.PauseOnLock or BuiltInPlugins.PauseOnUnplug or BuiltInPlugins.PauseForSounds => "Volume and pausing",
+        "sleep-timer" or BuiltInPlugins.Alarm or BuiltInPlugins.FocusTimer => "Timers",
+        "skip-rules" or BuiltInPlugins.SkipIntros => "Skipping",
+        BuiltInPlugins.SummonBar or BuiltInPlugins.MediaShortcuts => "Shortcuts",
+        BuiltInPlugins.SongNotifications or BuiltInPlugins.KeepAwake or BuiltInPlugins.NowPlayingFile or BuiltInPlugins.HistoryExport => "Desktop and files",
+        _ => "More plugins",
+    };
 
     private StackPanel Build(BuiltInCard card)
     {

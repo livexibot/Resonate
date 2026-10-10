@@ -9,10 +9,11 @@ namespace Resonate.App.Controls;
 
 /// <summary>
 /// The Player tab of Settings. Where the player sits, its progress bar,
-/// play button, cover, glow and the visualizer styles are part of the look
-/// (a preset is copied first, as under Customize); the song change
-/// animation, whether Home shows a visualizer and how the visualizers
-/// follow the music belong to the user, whatever look is in use.
+/// play button, cover, glow and visualizer style are part of the look (a
+/// preset is copied first, as under Customize); the song change animation,
+/// the buttons above the volume and how the visualizer follows the music
+/// belong to the user, whatever look is in use. Home's visualizer is under
+/// Layout.
 /// </summary>
 public sealed partial class PlayerSettings : UserControl
 {
@@ -36,21 +37,11 @@ public sealed partial class PlayerSettings : UserControl
             [PlayerVisualizerChoice] = (look, tag) => look with { PlayerVisualizer = Enum.Parse<VisualizerStyle>(tag) },
         };
 
-        // Home lists every style (Off hides it); the player bar those that need no cover beside them.
-        StageVisualizerChoice.Items.Add(new ComboBoxItem { Content = "Off", Tag = nameof(VisualizerStyle.Off) });
+        // The player bar lists the styles that need no cover beside them.
         PlayerVisualizerChoice.Items.Add(new ComboBoxItem { Content = "Off", Tag = nameof(VisualizerStyle.Off) });
-        foreach (var style in VisualizerShapes.Offered)
+        foreach (var style in VisualizerShapes.Offered.Where(VisualizerShapes.FitsPlayerBar))
         {
-            StageVisualizerChoice.Items.Add(new ComboBoxItem { Content = style.ToString(), Tag = style.ToString() });
-            if (VisualizerShapes.FitsPlayerBar(style))
-            {
-                PlayerVisualizerChoice.Items.Add(new ComboBoxItem { Content = style.ToString(), Tag = style.ToString() });
-            }
-        }
-
-        foreach (var row in StageSettings.HomeVisualizer(_services))
-        {
-            HomeVisualizerRows.Children.Add(row);
+            PlayerVisualizerChoice.Items.Add(new ComboBoxItem { Content = style.ToString(), Tag = style.ToString() });
         }
 
         foreach (var row in StageSettings.PlayerVisualizer(_services))
@@ -59,7 +50,7 @@ public sealed partial class PlayerSettings : UserControl
         }
 
         // Reset buttons: the glow goes back to the preset's, the size and place to automatic.
-        _resets.Add(ResetButton.Attach(PlayerGlowSlider, () => Math.Round(ThemePresets.Origin(_theme.Current).PlayerGlow * 100), "Glow"));
+        _resets.Add(ResetButton.Attach(PlayerGlowSlider, () => Math.Round(ThemePresets.Origin(_theme.Current).PlayerGlow * 100), "Player glow"));
         _resets.Add(ResetButton.Attach(ProgressGlowSlider, () => Math.Round(ThemePresets.Origin(_theme.Current).ProgressGlow * 100), "Progress glow"));
         _resets.Add(ResetButton.Attach(PlayerWidthBox, "Width"));
         _resets.Add(ResetButton.Attach(PlayerHeightBox, "Height"));
@@ -109,8 +100,8 @@ public sealed partial class PlayerSettings : UserControl
             Select(SongChangeChoice, _services.Settings.SongChangeAnimation);
             ButtonsAboveVolumeSwitch.IsOn = _theme.ButtonsAboveVolume;
 
-            Select(StageVisualizerChoice, _services.Settings.HomeStageVisualizer ? look.StageVisualizer.ToString() : nameof(VisualizerStyle.Off));
             Select(PlayerVisualizerChoice, look.PlayerVisualizer.ToString());
+            ShowRowsAfterFirst(PlayerVisualizerRows, look.PlayerVisualizer != VisualizerStyle.Off);
             foreach (var reset in _resets)
             {
                 reset();
@@ -122,34 +113,20 @@ public sealed partial class PlayerSettings : UserControl
         }
     }
 
+    /// <summary>The rows after the first (a visualizer's style, the song stats switch), shown only while it is on.</summary>
+    internal static void ShowRowsAfterFirst(Panel rows, bool on)
+    {
+        foreach (var row in rows.Children.Skip(1))
+        {
+            row.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+
     private void OnChoiceChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_loading && sender is ComboBox combo && combo.SelectedItem is ComboBoxItem { Tag: string tag } && _choices.TryGetValue(combo, out var change))
         {
             _theme.Edit(look => change(look, tag), smooth: true);
-        }
-    }
-
-    /// <summary>Off hides Home's visualizer (the user's choice); a style shows it, drawn as the look says.</summary>
-    private void OnStageVisualizerChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_loading || StageVisualizerChoice.SelectedItem is not ComboBoxItem { Tag: string tag })
-        {
-            return;
-        }
-
-        var style = Enum.Parse<VisualizerStyle>(tag);
-        var on = style != VisualizerStyle.Off;
-        if (on != _services.Settings.HomeStageVisualizer)
-        {
-            _services.Settings.HomeStageVisualizer = on;
-            _services.SaveSettings();
-            NowPlayingStage.NotifyOptionsChanged();
-        }
-
-        if (on && style != _theme.Current.StageVisualizer)
-        {
-            _theme.Edit(look => look with { StageVisualizer = style }, smooth: true);
         }
     }
 

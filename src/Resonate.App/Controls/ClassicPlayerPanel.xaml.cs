@@ -1,13 +1,15 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Resonate.App.Services;
+using Resonate.Themes;
 using Resonate.Themes.Skins;
 
 namespace Resonate.App.Controls;
 
 /// <summary>
 /// Settings, Winamp (the classic player): use it or the player bar, pick,
-/// add and remove skins, double size, the mini player and the visualiser.
+/// add and remove skins, double size, the mini player and its button in
+/// the title bar, and the visualiser.
 /// Opening Settings does no skin work: only the skins folder is listed, in
 /// the background.
 /// </summary>
@@ -64,6 +66,11 @@ public sealed partial class ClassicPlayerPanel : UserControl
             DoubleSizeSwitch.IsOn = _skins.DoubleSize;
             MiniSizeChoice.SelectedIndex = _skins.MiniSize - 1;
             MiniOnTopSwitch.IsOn = _skins.MiniOnTop;
+            MiniPlayerButtonSwitch.IsOn = App.Services.Settings.ShowMiniPlayerButton;
+
+            // The keys as the user has them (Settings, General, Keyboard shortcuts).
+            var keys = AppKeys.For(AppCommand.MiniPlayer, App.Services.Settings.KeyShortcuts);
+            MiniPlayerRow.Description = keys.Count > 0 ? AppKeys.Display(keys) : string.Empty;
             VisualiserChoice.SelectedIndex = _skins.Visualiser switch
             {
                 VisualiserMode.Oscilloscope => 1,
@@ -141,6 +148,16 @@ public sealed partial class ClassicPlayerPanel : UserControl
         if (!_loading && MiniSizeChoice.SelectedIndex >= 0)
         {
             _skins.MiniSize = MiniSizeChoice.SelectedIndex + 1;
+        }
+    }
+
+    private void OnMiniPlayerButtonToggled(object sender, RoutedEventArgs e)
+    {
+        if (!_loading)
+        {
+            App.Services.Settings.ShowMiniPlayerButton = MiniPlayerButtonSwitch.IsOn;
+            App.Services.SaveSettings();
+            App.MainWindow?.ShowTitleBarButtons();
         }
     }
 

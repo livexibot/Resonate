@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The Layout tab of Settings: how pages open, which links and buttons
-  show, what song lists show, and how large everything is drawn. See
-  LayoutSettings.xaml.cs.
+  The Layout tab of Settings: how large everything is drawn, the
+  sidebar, how pages open, Home's visualizer, and what song lists show.
+  See LayoutSettings.xaml.cs.
 -->
 <UserControl
     x:Class="Resonate.App.Controls.LayoutSettings"
@@ -11,28 +11,35 @@
     xmlns:controls="using:Resonate.App.Controls">
 
     <StackPanel x:Name="Sections" Spacing="20">
-        <!-- How pages open, and Home's background -->
-        <controls:SettingsGroup Header="Pages">
-            <StackPanel x:Name="PagesRows" Spacing="6">
-                <controls:SettingRow Header="Page animation">
+        <!-- Size: the user's own, kept whatever look is in use (not part of a look); steps from AppScale -->
+        <controls:SettingsGroup Header="Size">
+            <StackPanel Spacing="6">
+                <controls:SettingRow x:Name="AppSizeRow" Header="App size">
                     <ComboBox
-                        x:Name="PageAnimationChoice"
-                        MinWidth="170"
-                        AutomationProperties.Name="Page animation"
-                        SelectionChanged="OnPageAnimationChanged">
-                        <ComboBoxItem Content="Default" Tag="Default" />
-                        <ComboBoxItem Content="Rise" Tag="Rise" />
-                        <ComboBoxItem Content="Drill in" Tag="DrillIn" />
-                        <ComboBoxItem Content="Slide" Tag="Slide" />
-                        <ComboBoxItem Content="Fade" Tag="Fade" />
-                        <ComboBoxItem Content="None" Tag="None" />
-                    </ComboBox>
+                        x:Name="AppSizeChoice"
+                        MinWidth="100"
+                        AutomationProperties.Name="App size"
+                        SelectionChanged="OnAppSizeChanged" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="Text size">
+                    <ComboBox
+                        x:Name="TextSizeChoice"
+                        MinWidth="100"
+                        AutomationProperties.Name="Text size"
+                        SelectionChanged="OnTextSizeChanged" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="Cover size">
+                    <ComboBox
+                        x:Name="CoverSizeChoice"
+                        MinWidth="100"
+                        AutomationProperties.Name="Cover size"
+                        SelectionChanged="OnCoverSizeChanged" />
                 </controls:SettingRow>
             </StackPanel>
         </controls:SettingsGroup>
 
-        <!-- Links in the sidebar and buttons in the title bar (Home and Settings always show) -->
-        <controls:SettingsGroup Header="Sidebar and buttons">
+        <!-- The sidebar: how far it runs, its links (Home always shows) and the playlists' covers -->
+        <controls:SettingsGroup Header="Sidebar">
             <StackPanel Spacing="6">
                 <controls:SettingRow Header="Sidebar runs full height">
                     <ToggleSwitch
@@ -88,14 +95,38 @@
                         OnContent=""
                         Toggled="OnSongListToggled" />
                 </controls:SettingRow>
-                <controls:SettingRow x:Name="MiniPlayerButtonRow" Header="Mini player button">
-                    <ToggleSwitch
-                        x:Name="MiniPlayerButtonSwitch"
-                        MinWidth="0"
-                        AutomationProperties.Name="Mini player button"
-                        OffContent=""
-                        OnContent=""
-                        Toggled="OnMiniPlayerButtonToggled" />
+            </StackPanel>
+        </controls:SettingsGroup>
+
+        <!-- How pages open, and the blurred cover behind Home's stage (added in code) -->
+        <controls:SettingsGroup Header="Pages">
+            <StackPanel x:Name="PagesRows" Spacing="6">
+                <controls:SettingRow Header="Page animation">
+                    <ComboBox
+                        x:Name="PageAnimationChoice"
+                        MinWidth="170"
+                        AutomationProperties.Name="Page animation"
+                        SelectionChanged="OnPageAnimationChanged">
+                        <ComboBoxItem Content="Default" Tag="Default" />
+                        <ComboBoxItem Content="Rise" Tag="Rise" />
+                        <ComboBoxItem Content="Drill in" Tag="DrillIn" />
+                        <ComboBoxItem Content="Slide" Tag="Slide" />
+                        <ComboBoxItem Content="Fade" Tag="Fade" />
+                        <ComboBoxItem Content="None" Tag="None" />
+                    </ComboBox>
+                </controls:SettingRow>
+            </StackPanel>
+        </controls:SettingsGroup>
+
+        <!-- Home's visualizer: the style is the look's (Off is the user's), the rows after it are built in code (StageSettings) -->
+        <controls:SettingsGroup Header="Home visualizer">
+            <StackPanel x:Name="HomeVisualizerRows" Spacing="6">
+                <controls:SettingRow Header="Style">
+                    <ComboBox
+                        x:Name="StageVisualizerChoice"
+                        MinWidth="170"
+                        AutomationProperties.Name="Home visualizer"
+                        SelectionChanged="OnStageVisualizerChanged" />
                 </controls:SettingRow>
             </StackPanel>
         </controls:SettingsGroup>
@@ -175,7 +206,13 @@
                         OnContent=""
                         Toggled="OnSongListToggled" />
                 </controls:SettingRow>
-                <controls:SettingRow Description="Sends your songs' Spotify IDs to ReccoBeats." Header="Song stats">
+            </StackPanel>
+        </controls:SettingsGroup>
+
+        <!-- Song stats from ReccoBeats, only while on, and their columns -->
+        <controls:SettingsGroup Header="Song stats">
+            <StackPanel x:Name="SongStatsRows" Spacing="6">
+                <controls:SettingRow Description="Sends your songs' Spotify IDs to ReccoBeats." Header="Get song stats">
                     <ToggleSwitch
                         x:Name="SongStatsSwitch"
                         MinWidth="0"
@@ -219,33 +256,6 @@
                         OffContent=""
                         OnContent=""
                         Toggled="OnSongListToggled" />
-                </controls:SettingRow>
-            </StackPanel>
-        </controls:SettingsGroup>
-
-        <!-- Size: the user's own, kept whatever look is in use (not part of a look); steps from AppScale -->
-        <controls:SettingsGroup Header="Size">
-            <StackPanel Spacing="6">
-                <controls:SettingRow x:Name="AppSizeRow" Header="App size">
-                    <ComboBox
-                        x:Name="AppSizeChoice"
-                        MinWidth="100"
-                        AutomationProperties.Name="App size"
-                        SelectionChanged="OnAppSizeChanged" />
-                </controls:SettingRow>
-                <controls:SettingRow Header="Text size">
-                    <ComboBox
-                        x:Name="TextSizeChoice"
-                        MinWidth="100"
-                        AutomationProperties.Name="Text size"
-                        SelectionChanged="OnTextSizeChanged" />
-                </controls:SettingRow>
-                <controls:SettingRow Header="Cover size">
-                    <ComboBox
-                        x:Name="CoverSizeChoice"
-                        MinWidth="100"
-                        AutomationProperties.Name="Cover size"
-                        SelectionChanged="OnCoverSizeChanged" />
                 </controls:SettingRow>
             </StackPanel>
         </controls:SettingsGroup>

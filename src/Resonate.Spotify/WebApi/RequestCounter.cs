@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace Resonate.Spotify.WebApi;
 
-/// <summary>What a Web API request was for, as Settings, About, Help lists them.</summary>
+/// <summary>What a Web API request was for, as Settings, General, Spotify account lists them.</summary>
 public enum RequestKind
 {
     WhatPlays,

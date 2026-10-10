@@ -128,7 +128,7 @@ public sealed class AppServices : IDisposable
 
     public ISpotifyWebApi Api { get; }
 
-    /// <summary>Every request sent to Spotify's Web API, counted by kind, per day and in total (Settings, About, Help).</summary>
+    /// <summary>Every request sent to Spotify's Web API, counted by kind, per day and in total (Settings, General, Spotify account).</summary>
     public RequestCounter Requests { get; }
 
     public LibraryService Library { get; }
