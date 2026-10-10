@@ -22,6 +22,10 @@ internal sealed partial class ScreensaverWindow : Window
     private const uint SwpNoMove = 0x2;
     private const uint SwpNoSize = 0x1;
     private const uint SwpNoActivate = 0x10;
+    private const uint DwmCornerPreference = 33;
+    private const uint DwmBorderColor = 34;
+    private const uint DwmDoNotRound = 1;
+    private const uint DwmColorNone = 0xFFFFFFFE;
 
     private bool _cursorHidden;
 
@@ -29,13 +33,6 @@ internal sealed partial class ScreensaverWindow : Window
     {
         AppWindow.Title = "Resonate screensaver";
         AppWindow.IsShownInSwitchers = false;
-        var presenter = OverlappedPresenter.Create();
-        presenter.IsResizable = false;
-        presenter.IsMaximizable = false;
-        presenter.IsMinimizable = false;
-        presenter.IsAlwaysOnTop = true;
-        presenter.SetBorderAndTitleBar(false, false);
-        AppWindow.SetPresenter(presenter);
         // Its Brightness: the screen over black.
         screen.Opacity = Math.Clamp(App.Services.Settings.ScreensaverBrightness, 20, 100) / 100.0;
         Content = new Grid
@@ -45,8 +42,16 @@ internal sealed partial class ScreensaverWindow : Window
             Children = { screen },
         };
 
-        // The whole display, the taskbar included.
+        // The whole display, the taskbar included: placed on it, then full screen there.
+        // A frameless overlapped window kept a light edge of its frame all round (the
+        // owner saw it, 10 October 2026); a full-screen window has none.
         AppWindow.MoveAndResize(area);
+        AppWindow.SetPresenter(AppWindowPresenterKind.FullScreen);
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        var none = DwmColorNone;
+        DwmSetWindowAttribute(hwnd, DwmBorderColor, ref none, sizeof(uint));
+        var square = DwmDoNotRound;
+        DwmSetWindowAttribute(hwnd, DwmCornerPreference, ref square, sizeof(uint));
         Closed += (_, _) => ShowPointer();
     }
 
@@ -83,4 +88,7 @@ internal sealed partial class ScreensaverWindow : Window
 
     [LibraryImport("user32.dll")]
     private static partial int ShowCursor([MarshalAs(UnmanagedType.Bool)] bool show);
+
+    [LibraryImport("dwmapi.dll")]
+    private static partial int DwmSetWindowAttribute(nint hwnd, uint attribute, ref uint value, int size);
 }

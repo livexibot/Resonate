@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Resonate.App.Services;
+using Resonate.App.Themes;
 using Resonate.Themes;
 using Resonate.Windows;
 using Windows.Foundation;
@@ -14,7 +15,12 @@ namespace Resonate.App.Controls;
 
 /// <summary>
 /// The screensaver, a built-in plugin, in its own window above every app
-/// (<see cref="ScreensaverWindow"/>): the song that plays (<see cref="NowPlayingStage"/>), a large clock and the next song.
+/// (<see cref="ScreensaverWindow"/>): a large clock at the top left and the
+/// song that plays as a card above the visualizer (<see cref="NowPlayingStage"/>),
+/// all sized from the screen's height (redone on 10 October 2026, the
+/// owner: "make it way more modern"). In OLED mode the screen is black but
+/// for a dim glow of the look's accent, and the card, the clock and the
+/// glow wander slowly and smoothly (<see cref="ScreensaverDrift"/>).
 /// The first touch of the mouse or keyboard asks for it to go
 /// (<see cref="WakeRequested"/>), and is not passed on: a click lands here,
 /// not on the button underneath, and no shortcut runs; media keys pass.
@@ -26,10 +32,10 @@ namespace Resonate.App.Controls;
 internal sealed partial class AwayScreen : UserControl
 {
     private const double ShiftRange = 6;
-
-    // OLED mode: the words and the clock wander much further each minute.
-    private const double OledShiftRange = 64;
     private const double DimmedOpacity = 0.15;
+
+    // OLED mode: the glow's peak, kept low so the screen stays mostly black.
+    private const double GlowStrength = 0.22;
 
     private static readonly TimeSpan FadeIn = TimeSpan.FromMilliseconds(400);
     private static readonly TimeSpan FadeOut = TimeSpan.FromMilliseconds(150);
@@ -41,7 +47,9 @@ internal sealed partial class AwayScreen : UserControl
     private readonly TextBlock _clock;
     private readonly TextBlock _date;
     private readonly DispatcherQueueTimer _poll;
-    private readonly double _shiftRange;
+    private readonly bool _oled;
+    private readonly Microsoft.UI.Xaml.Shapes.Ellipse? _glow;
+    private readonly Helpers.SlowClock? _drift;
     private uint? _shownTick;
     private long _minute = -1;
     private DateTimeOffset? _pausedSince;
@@ -62,36 +70,75 @@ internal sealed partial class AwayScreen : UserControl
         _clock = new TextBlock
         {
             Style = (Style)resources["ResonateDisplayTextStyle"],
-            FontSize = AppScale.Font(88, text),
             FontWeight = FontWeights.Light,
-            HorizontalAlignment = HorizontalAlignment.Right,
+            CharacterSpacing = -20,
         };
         _date = new TextBlock
         {
             Style = (Style)resources["ResonateEyebrowTextStyle"],
-            FontSize = AppScale.Font(14, text),
-            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(6, 0, 0, 0),
         };
         _clockPanel = new StackPanel
         {
-            HorizontalAlignment = HorizontalAlignment.Right,
+            HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(0, 40, 72, 0),
             IsHitTestVisible = false,
             Children = { _clock, _date },
         };
 
-        _shiftRange = services.Settings.ScreensaverOled ? OledShiftRange : ShiftRange;
+        _oled = services.Settings.ScreensaverOled;
         _clockPanel.Visibility = services.Settings.ScreensaverClock ? Visibility.Visible : Visibility.Collapsed;
 
+        // OLED: words a step down from white, which ages the screen less.
+        if (_oled)
+        {
+            _clockPanel.Opacity = 0.8;
+            _stage.Body.Opacity = 0.85;
+        }
+
         // A see-through background, so every touch lands here (the stage itself takes none).
-        Content = new Grid { Background = services.Theme.GetBrush("ResonateTransparentBrush"), Children = { _stage, _clockPanel } };
+        var root = new Grid { Background = services.Theme.GetBrush("ResonateTransparentBrush") };
+        if (_oled)
+        {
+            // A soft, dim glow of the accent wandering behind everything; the rest stays black.
+            var accent = services.Theme.Palette.Accent.Opaque.ToColor();
+            _glow = new Microsoft.UI.Xaml.Shapes.Ellipse
+            {
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+                IsHitTestVisible = false,
+                Fill = new Microsoft.UI.Xaml.Media.RadialGradientBrush
+                {
+                    GradientStops =
+                    {
+                        new Microsoft.UI.Xaml.Media.GradientStop { Color = Microsoft.UI.ColorHelper.FromArgb((byte)(255 * GlowStrength), accent.R, accent.G, accent.B), Offset = 0 },
+                        new Microsoft.UI.Xaml.Media.GradientStop { Color = Microsoft.UI.ColorHelper.FromArgb((byte)(255 * GlowStrength * 0.35), accent.R, accent.G, accent.B), Offset = 0.45 },
+                        new Microsoft.UI.Xaml.Media.GradientStop { Color = Microsoft.UI.ColorHelper.FromArgb(0, accent.R, accent.G, accent.B), Offset = 1 },
+                    },
+                },
+            };
+            root.Children.Add(_glow);
+            _drift = new Helpers.SlowClock(DispatcherQueue.GetForCurrentThread(), ShowDrift);
+        }
+
+        root.Children.Add(_stage);
+        root.Children.Add(_clockPanel);
+        Content = root;
+        SizeChanged += (_, e) => FitToScreen(e.NewSize);
 
         _poll = DispatcherQueue.GetForCurrentThread().CreateTimer();
         _poll.Interval = TimeSpan.FromSeconds(1);
         _poll.IsRepeating = true;
 
         PointerMoved += OnPointerMoved;
+        Loaded += (_, _) =>
+        {
+            // With Windows' animations off they move once a minute instead (see ShowTime).
+            if (_services.Theme.AnimationsEnabled)
+            {
+                _drift?.Start();
+            }
+        };
         PointerPressed += OnPointerInput;
         PointerReleased += OnPointerHandled;
         PointerWheelChanged += OnPointerInput;
@@ -105,7 +152,11 @@ internal sealed partial class AwayScreen : UserControl
             e.Handled = true;
             Wake();
         };
-        Unloaded += (_, _) => StopPolling();
+        Unloaded += (_, _) =>
+        {
+            StopPolling();
+            _drift?.Pause();
+        };
     }
 
     /// <summary>Raised once, on the first touch of the mouse or keyboard.</summary>
@@ -234,7 +285,48 @@ internal sealed partial class AwayScreen : UserControl
         }
     }
 
-    /// <summary>The time, once a minute, and a small step of the words and the clock away from where they were.</summary>
+    /// <summary>
+    /// Sizes from the screen's height, so the clock and the card look the
+    /// same on a laptop and on a 5K screen: a large, thin clock with the
+    /// date under it at the top left, and the glow about a screen tall.
+    /// </summary>
+    private void FitToScreen(Size size)
+    {
+        var height = Math.Max(size.Height, 1);
+        var text = _services.Theme.TextSize;
+        var pad = Math.Clamp(height * 0.065, 40, 180);
+        _clock.FontSize = AppScale.Font(Math.Clamp(height * (_oled ? 0.12 : 0.15), 72, 340), text);
+        _date.FontSize = AppScale.Font(Math.Clamp(height * 0.018, 13, 40), text);
+        _clockPanel.Margin = new Thickness(pad, pad * 0.6, pad, pad);
+        if (_glow is not null)
+        {
+            _glow.Width = _glow.Height = height * 1.1;
+        }
+
+        ShowDrift(_drift?.Seconds ?? 0);
+    }
+
+    /// <summary>OLED: the card, the clock and the glow, where their slow paths have reached.</summary>
+    private void ShowDrift(double seconds)
+    {
+        if (!_oled || ActualWidth <= 0)
+        {
+            return;
+        }
+
+        var (width, height) = (ActualWidth, ActualHeight);
+        var (cardX, cardY) = ScreensaverDrift.Card(seconds, width, height);
+        _stage.Body.Translation = new Vector3((float)cardX, (float)cardY, 0);
+        var (clockX, clockY) = ScreensaverDrift.Clock(seconds, width, height);
+        _clockPanel.Translation = new Vector3((float)clockX, (float)clockY, 0);
+        if (_glow is not null)
+        {
+            var (glowX, glowY) = ScreensaverDrift.Glow(seconds);
+            _glow.Translation = new Vector3((float)((glowX * width) - (_glow.Width / 2)), (float)((glowY * height) - (_glow.Height / 2)), 0);
+        }
+    }
+
+    /// <summary>The time, once a minute; out of OLED mode, a small step of the words and the clock away from where they were.</summary>
     private void ShowTime(bool force)
     {
         var now = DateTime.Now;
@@ -247,7 +339,17 @@ internal sealed partial class AwayScreen : UserControl
         _minute = minute;
         _clock.Text = now.ToString("t", CultureInfo.CurrentCulture);
         _date.Text = now.ToString("dddd d MMMM", CultureInfo.CurrentCulture).ToUpper(CultureInfo.CurrentCulture);
-        var (x, y) = StageColours.BurnInShift(minute, _shiftRange);
+        if (_oled)
+        {
+            if (_drift is not { IsRunning: true })
+            {
+                ShowDrift(minute * 60.0);
+            }
+
+            return;
+        }
+
+        var (x, y) = StageColours.BurnInShift(minute, ShiftRange);
         var shift = new Vector3((float)x, (float)y, 0);
         _stage.Body.Translation = shift;
         _clockPanel.Translation = -shift;
