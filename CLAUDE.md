@@ -1970,6 +1970,25 @@ Track features and bugs as GitHub issues with labels such as `feature`,
 `bug`, `design` and `performance`. When the owner asks for something that
 cannot be done right away, open an issue for it so nothing is forgotten.
 
+### Outside issues and pull requests (since 10 October 2026)
+
+The repository is public and takes issues and pull requests from anyone
+(the owner's request: "users can post issues, and new stuff to the app
+but you have to go through it and i have to approve it"). Issues come in
+through two forms (`.github/ISSUE_TEMPLATE`: "Something is wrong", "An
+idea"; blank issues are off) and pull requests through
+`.github/pull_request_template.md`; `CONTRIBUTING.md` says what fits.
+Claude reads every new issue and pull request and tells the owner in
+plain words what it is and what Claude recommends. Claude reviews outside
+pull requests with comments only: never "Approve" on GitHub (the GitHub
+tools act as the owner's account, so an approval would count as the
+owner's) and never merges one before the owner has approved it on GitHub
+or said so in the project. A fork's CI waits for approval; Claude may let
+it run only after reading the whole diff for anything harmful (CI runs
+there with a read-only token and no secrets, and the screenshot push is
+skipped for forks). Claude's own pull requests follow the template too,
+after the attribution block.
+
 ### Releases (automatic)
 
 - Versions follow semantic versioning, starting at `0.1.0`. While the
@@ -2066,6 +2085,11 @@ Keep it obvious what is what:
   portable zip, the owner's choice of 8 October 2026).
 - `release-please-config.json`, `.release-please-manifest.json`,
   `version.txt`: release settings and the current version.
+- `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md` and
+  `THIRD-PARTY-NOTICES.md` (spotifast's MIT licence for the ported lyrics
+  code) for contributors; `.github/ISSUE_TEMPLATE`,
+  `.github/pull_request_template.md` and `.github/CODEOWNERS` (the owner
+  owns everything).
 - `README.md` for visitors, `CLAUDE.md` (this brief), `CHANGELOG.md`
   (generated), `LICENSE`.
 
@@ -2076,7 +2100,8 @@ when the work first needs them, then tick them off here.
 
 - [x] Delete the leftover branches and tag from the reset.
 - [ ] Settings, General, Pull Requests: allow squash merging only, and turn
-  on "Automatically delete head branches".
+  on "Automatically delete head branches" (on by 10 October 2026; merge
+  commits and rebase merging were still allowed).
 - [ ] Settings, General, Features: tick "Issues". It was off on 8 October
   2026, so follow-ups are noted in this file until it is on.
 - [x] Settings, Actions, General, Workflow permissions: "Read and write
@@ -2085,14 +2110,28 @@ when the work first needs them, then tick them off here.
 - [ ] GitHub account Settings, Emails: tick "Keep my email addresses
   private", so commits made on the website use the no-reply address.
 - [ ] Settings, Rules: protect `main` so changes arrive only through pull
-  requests with passing CI, and block force pushes. Do this once CI exists.
+  requests with passing CI, and block force pushes. Since outside
+  contributions are welcome (10 October 2026): a ruleset on `main` that
+  needs a pull request with one approval from a code owner and CI's checks
+  passing, blocks force pushes and deletion, and lets the repository admin
+  (the owner's account, which Claude's own pull requests use) bypass it,
+  or Claude could not merge its own work. Nothing in place on 10 October
+  2026.
+- [ ] Settings, Actions, General, "Fork pull request workflows from
+  outside collaborators": require approval for all outside collaborators
+  (it was first-time contributors only on 10 October 2026).
+- [ ] Settings, Security: private vulnerability reporting (SECURITY.md
+  points to it), Dependabot alerts and secret scanning (all off on
+  10 October 2026).
 - [ ] Create a Spotify developer app at developer.spotify.com (with the
   Premium account), add the redirect URI `http://127.0.0.1:43821/callback`,
   tick "Web API", and paste its client ID into Resonate's first screen.
 - [ ] In the Spotify app: switch audio quality to Lossless, stay signed
   in, and let it start with Windows, minimised.
 - [ ] Choose a license before making the repository public (MIT is a
-  common, simple choice).
+  common, simple choice). Still none on 10 October 2026, with the
+  repository public and contributions invited: without one nobody may
+  reuse the code and contributions have no clear terms. Asked the owner.
 - [x] Make the repository public (decided 7 October 2026, so installed
   copies can see new releases). Public by 8 October 2026.
 - [ ] Optional, later: Windows code signing, so the installer does not show

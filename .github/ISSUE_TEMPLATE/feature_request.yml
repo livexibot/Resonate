@@ -1,0 +1,25 @@
+name: An idea
+description: Something Resonate could do, or do better.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What would you like Resonate to do? Pictures or examples from other apps are welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: What would it help you with?
+  - type: dropdown
+    id: help
+    attributes:
+      label: Would you like to build it yourself?
+      options:
+        - No, just the idea
+        - Yes, I would open a pull request
+    validations:
+      required: true

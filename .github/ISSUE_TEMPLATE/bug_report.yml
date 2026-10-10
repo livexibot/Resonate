@@ -1,0 +1,53 @@
+name: Something is wrong
+description: Resonate crashed, froze, looks wrong or does not do what it should.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead. A screenshot helps a lot.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen
+      placeholder: |
+        1. Open a playlist
+        2. Drag the sidebar wider
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Resonate version
+      description: Settings, General, Updates shows it.
+      placeholder: "0.19.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: playback
+    attributes:
+      label: Playback
+      description: Settings, Playback.
+      options:
+        - Windows media controls
+        - Spotify Web API only
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: setup
+    attributes:
+      label: Windows, look and sizes
+      description: Windows 10 or 11, the look you use, App size and Text size, and your display scaling if you know it.
+      placeholder: "Windows 11, Velvet, App size 125 %, Text size 100 %, display 125 %"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (if it crashed or stopped playing)
+      description: >
+        Drop crash.log and playback.log here, from %LocalAppData%\Resonate\data.
+        They never hold your sign-in, but have a look before you share them.
