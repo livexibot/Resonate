@@ -7,7 +7,6 @@ using Microsoft.UI.Xaml.Media;
 using Resonate.App.Helpers;
 using Resonate.App.Services;
 using Resonate.App.Themes;
-using Resonate.Plugins;
 using Resonate.Spotify.Playback;
 using Resonate.Spotify.WebApi;
 using Resonate.Themes;
@@ -55,7 +54,7 @@ public sealed partial class PlayerBar : UserControl
     private int _updateQueued;
     private double _volumeBeforeMute = 0.5;
     private object? _artworkKey;
-    private PluginManager? _plugins;
+    private BuiltInPlugins? _plugins;
     private int _pluginsQueued;
     private string? _positionLabel;
     private string? _durationLabel;
@@ -204,10 +203,10 @@ public sealed partial class PlayerBar : UserControl
     }
 
     /// <summary>Shows the plugin button while a plugin that is on offers commands.</summary>
-    public void AttachPlugins(PluginManager plugins)
+    public void AttachPlugins(BuiltInPlugins plugins)
     {
         _plugins = plugins;
-        plugins.Changed += (_, _) =>
+        void Queue()
         {
             if (Interlocked.Exchange(ref _pluginsQueued, 1) == 0)
             {
@@ -217,7 +216,10 @@ public sealed partial class PlayerBar : UserControl
                     ShowPlugins();
                 });
             }
-        };
+        }
+
+        plugins.Changed += (_, _) => Queue();
+        plugins.MenusChanged += (_, _) => Queue();
         ShowPlugins();
     }
 

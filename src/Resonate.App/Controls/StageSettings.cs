@@ -6,9 +6,8 @@ using Resonate.App.Services;
 namespace Resonate.App.Controls;
 
 /// <summary>
-/// The settings of the Home stage and the visualizers, built in code:
-/// Home's visualizer and background under Settings, Layout, the player
-/// bar's visualizer under Settings, Player.
+/// The settings of the visualizers, built in code: Home's under Settings,
+/// Layout, the player bar's under Settings, Player.
 /// </summary>
 internal static class StageSettings
 {
@@ -93,14 +92,6 @@ internal static class StageSettings
             Content = panel,
         };
     }
-
-    /// <summary>The Home stage's background: the blurred cover behind the clouds (Settings, Layout, Pages).</summary>
-    public static FrameworkElement HomeStage(AppServices services) => Switch(
-        "Blurred cover on Home",
-        string.Empty,
-        () => services.Settings.HomeStageBlurredCover,
-        on => services.Settings.HomeStageBlurredCover = on,
-        services);
 
     /// <summary>A stage option as a switch: saved and shown on every stage at once.</summary>
     private static SettingRow Switch(string header, string description, Func<bool> read, Action<bool> write, AppServices services)

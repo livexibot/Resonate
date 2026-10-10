@@ -1,6 +1,8 @@
 using Resonate.Spotify.History;
 using Resonate.Spotify.Library;
 using Resonate.Spotify.Playback;
+using Resonate.Spotify.Tests.Fakes;
+using Resonate.Spotify.WebApi;
 
 namespace Resonate.Spotify.Tests;
 
@@ -123,4 +125,71 @@ public sealed class DjMixTests
         Assert.Equal("evening", DjMix.Period(20));
         Assert.Equal("late-night", DjMix.Period(2));
     }
+
+    private static DjFind Find(int n, string artist, string source, bool genre) =>
+        new(Song(1000 + n, artist, 0) with { AddedAt = null }, source, genre);
+
+    [Fact]
+    public void New_music_comes_round_and_is_named_after_where_it_came_from()
+    {
+        var (liked, plays) = Library();
+        List<DjFind> finds = [.. Enumerable.Range(0, 12).Select(i => Find(i, $"Stranger {i}", "shoegaze", genre: true))];
+        var sets = DjMix.Build(liked, plays, Now, new Random(6), sets: 10, finds: finds);
+
+        var fresh = sets.Where(s => s.Kind == DjSetKind.NewToYou).ToList();
+        Assert.Equal(2, fresh.Count);
+        Assert.All(fresh, s => Assert.Equal("New in shoegaze", s.Title));
+        Assert.All(fresh.SelectMany(s => s.Tracks), t => Assert.Contains(finds, f => f.Track.Uri == t.Uri));
+        var all = DjMix.Flatten(sets);
+        Assert.Equal(all.Count, all.Select(t => t.Uri).Distinct().Count());
+    }
+
+    [Fact]
+    public void Without_finds_the_run_is_made_from_the_library_alone()
+    {
+        var (liked, plays) = Library();
+        var sets = DjMix.Build(liked, plays, Now, new Random(7), sets: 10);
+        Assert.DoesNotContain(sets, s => s.Kind == DjSetKind.NewToYou);
+        Assert.Equal(10, sets.Count);
+    }
+
+    [Fact]
+    public async Task Discovery_looks_in_the_top_artists_genres_and_albums_for_songs_not_saved()
+    {
+        var (liked, _) = Library();
+        var api = new FakeWebApi();
+        api.TopArtists.Add(new Artist { Id = "a1", Name = "Old Band", Genres = ["dream pop"] });
+        api.SearchTracks["genre:\"dream pop\""] =
+        [
+            Item("s1", "Stranger"),
+            Item("s2", "Old Band"),
+            Item("4", "Artist 4"),
+        ];
+        api.ArtistAlbums.Add(new SimplifiedAlbum { Id = "al1", Name = "Record", Uri = "spotify:album:al1" });
+        api.Albums["al1"] = new Album
+        {
+            Id = "al1",
+            Name = "Record",
+            Uri = "spotify:album:al1",
+            Tracks = new Page<PlayableItem> { Items = [Item("t1", "Old Band"), Item("0", "Old Band")] },
+        };
+
+        var finds = await DjDiscovery.FindAsync(api, liked, [], new Random(8), CancellationToken.None);
+
+        // From the genre, only a new artist; from the album, the song not saved yet.
+        Assert.Contains(finds, f => f.Track.Uri == "spotify:track:s1" && f.FromGenre && f.Source == "dream pop");
+        Assert.DoesNotContain(finds, f => f.Track.Uri == "spotify:track:s2");
+        Assert.Contains(finds, f => f.Track.Uri == "spotify:track:t1" && !f.FromGenre && f.Source == "Old Band");
+        Assert.DoesNotContain(finds, f => f.Track.Uri == "spotify:track:0");
+        Assert.True(api.SearchQueries.Count + 3 <= DjDiscovery.MostRequests);
+    }
+
+    private static PlayableItem Item(string id, string artist) => new()
+    {
+        Id = id,
+        Name = "Song " + id,
+        Uri = "spotify:track:" + id,
+        DurationMs = 180_000,
+        Artists = [new SimplifiedArtist { Name = artist }],
+    };
 }

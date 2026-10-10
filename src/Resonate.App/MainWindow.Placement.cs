@@ -41,7 +41,7 @@ public sealed partial class MainWindow
     private void SetMinimumSize()
     {
         // A presenter of its own, rather than a cast of the current one, which
-        // Native AOT may not recognise (see CLAUDE.md); it is the same kind.
+        // Native AOT may not recognise (C#/WinRT cannot find the type after trimming); it is the same kind.
         _presenter = OverlappedPresenter.Create();
         UpdateMinimumSize(grow: false);
         AppWindow.SetPresenter(_presenter);

@@ -90,13 +90,13 @@
                 TextWrapping="Wrap"
                 Visibility="Collapsed" />
 
-            <!-- The sets after the one playing now -->
+            <!-- Every song still to come, by set (built in code) -->
             <StackPanel
                 x:Name="SetsPanel"
                 Spacing="12"
                 Visibility="Collapsed">
                 <TextBlock Style="{StaticResource ResonateSectionTextStyle}" Text="Up next" />
-                <StackPanel x:Name="SetsList" Spacing="8" />
+                <StackPanel x:Name="SetsList" Spacing="2" />
             </StackPanel>
 
             <!-- Room for a player hovering over the page (see IPlayerInset). -->

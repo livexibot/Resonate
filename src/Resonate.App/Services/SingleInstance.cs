@@ -35,7 +35,6 @@ internal static partial class SingleInstance
         && options.ScreenshotFolder is null
         && options.PerformanceFolder is null
         && options.UpdateCheckFeed is null
-        && options.PluginCheckFeed is null
         && options.WebPlayerCheckResultFile is null;
 
     /// <summary>

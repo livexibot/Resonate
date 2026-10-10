@@ -79,8 +79,18 @@ internal sealed class FakeWebApi : ISpotifyWebApi
         return Task.FromResult(PlaylistEntries.TryGetValue(playlistId, out var entries) ? Paged(entries.ToList<PlaylistEntry?>(), offset, limit) : new Page<PlaylistEntry>());
     }
 
-    public Task<SearchResults> SearchAsync(string query, SearchTypes types, int offset, int limit, CancellationToken cancellationToken) =>
-        Task.FromResult(new SearchResults());
+    /// <summary>Songs a search finds, by the query asked; every query asked, in order.</summary>
+    public Dictionary<string, List<PlayableItem>> SearchTracks { get; } = [];
+
+    public List<string> SearchQueries { get; } = [];
+
+    public Task<SearchResults> SearchAsync(string query, SearchTypes types, int offset, int limit, CancellationToken cancellationToken)
+    {
+        SearchQueries.Add(query);
+        return Task.FromResult(SearchTracks.TryGetValue(query, out var tracks)
+            ? new SearchResults { Tracks = new Page<PlayableItem> { Items = [.. tracks.Take(limit)] } }
+            : new SearchResults());
+    }
 
     public Task<IReadOnlyList<Device>> GetDevicesAsync(CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<Device>>(Devices);

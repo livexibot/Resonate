@@ -134,7 +134,7 @@ public sealed partial class MainWindow
         }
 
         // A menu, flyout or dialog is open (a tooltip under a resting pointer does not count). Asked of the
-        // automation peer: under Native AOT "is ToolTip" is false for tooltips XAML made (see CLAUDE.md).
+        // automation peer: under Native AOT "is ToolTip" is false for tooltips XAML made (C#/WinRT cannot find the type after trimming).
         foreach (var popup in VisualTreeHelper.GetOpenPopupsForXamlRoot(root))
         {
             if (popup.Child is not { } child

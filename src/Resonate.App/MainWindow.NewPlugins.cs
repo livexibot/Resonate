@@ -466,5 +466,10 @@ public sealed partial class MainWindow
         RefreshBeatGlow();
         FollowSkips();
         FollowAlarm();
+
+        // The sleep timer's own length, and rules that may now skip the song playing.
+        _skipCheckedSong = null;
+        FollowSkipSongs();
+        _services.BuiltIns.NotifyMenus();
     }
 }

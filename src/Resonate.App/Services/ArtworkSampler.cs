@@ -24,13 +24,15 @@ public sealed class ArtworkSampler : IDisposable
     // Tiny on purpose: decoding and the wash take well under a millisecond.
     private const int Size = 40;
 
-    // The backdrop's cover: sharp across a 5K window with little blur (160 looked
-    // coarse there, the owner's report of 9 October 2026), blurred in a few
-    // milliseconds when the song or the blur changes, never per frame.
-    private const int BackdropSize = 512;
+    // The backdrop's cover: drawn up from Spotify's 640 px cover with Cubic, so
+    // the GPU stretches it only about twice across a 5K window (160 looked
+    // coarse there, 9 October 2026, and 512 still blocky at a low blur,
+    // 10 October 2026); blurred in some tens of milliseconds off the
+    // interface thread when the song or the blur changes, never per frame.
+    private const int BackdropSize = 1024;
 
     // The strongest blur (at 100 %), in the backdrop cover's pixels; three box passes make it soft.
-    private const int MaxBlurRadius = 64;
+    private const int MaxBlurRadius = 128;
 
     private readonly PlayerRouter _player;
     private readonly ThemeService _theme;
