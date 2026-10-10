@@ -117,12 +117,14 @@ public sealed partial class MainWindow
     }
 
     /// <summary>
-    /// Nothing full screen has the display, and when Resonate is in front,
-    /// nothing in it is open or being typed in.
+    /// Resonate is open (its window, minimised or not, or the mini player;
+    /// never while it waits only in the tray, the owner's choice of
+    /// 10 October 2026), nothing full screen has the display, and when
+    /// Resonate is in front, nothing in it is open or being typed in.
     /// </summary>
     private bool MayShowAway()
     {
-        if (UserPresence.IsScreenTaken())
+        if ((!AppWindow.IsVisible && _miniPlayer is null) || UserPresence.IsScreenTaken())
         {
             return false;
         }
