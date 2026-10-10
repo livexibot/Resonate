@@ -71,6 +71,9 @@ public sealed partial class MainWindow : Window
     private readonly CancellationTokenSource _lifetime = new();
     private readonly DispatcherQueueTimer _messageTimer;
     private readonly List<string> _history = [];
+
+    /// <summary>Pages left with Back, newest last, for Forward; a page opened anew forgets them, as in a browser.</summary>
+    private readonly List<string> _forward = [];
     private readonly ColumnDefinition _paneColumn = new() { Width = new GridLength(Controls.QueuePanel.PaneWidth) };
     private string? _currentKey;
     private bool _syncingSelection;
@@ -111,6 +114,7 @@ public sealed partial class MainWindow : Window
         ApplyCaptionButtonColors();
         SetUpAppSize();
         ApplyShortcuts();
+        SetUpLastPlayed();
 
         _messageTimer = DispatcherQueue.CreateTimer();
         _messageTimer.Interval = TimeSpan.FromSeconds(7);
@@ -196,6 +200,7 @@ public sealed partial class MainWindow : Window
 
         ShowPlaylists(_services.Library.Snapshot);
         _history.Clear();
+        _forward.Clear();
         _currentKey = null;
         Open(HomeKey);
 
@@ -240,13 +245,8 @@ public sealed partial class MainWindow : Window
     {
         SettingsPane.CloseRequested += (_, _) => ShowSettings(false);
 
-        // The update bar stays inside a page narrowed by Settings or the queue
-        // (16 px from each edge, inside the page's outline).
-        ContentPanel.SizeChanged += (_, e) =>
-        {
-            var outline = ContentPanel.BorderThickness.Left + ContentPanel.BorderThickness.Right;
-            UpdateBar.Width = Math.Clamp(e.NewSize.Width - outline - 32, 0, UpdateBarWidth);
-        };
+        // The update bar stays inside a page narrowed by Settings or the queue (see FitUpdateBar).
+        ContentPanel.SizeChanged += (_, _) => FitUpdateBar();
     }
 
     private void ShowQueue(bool open)
@@ -456,6 +456,12 @@ public sealed partial class MainWindow : Window
         ApplySidebarCompact(sidebarWidth <= SidebarCompactWidth);
         SetWidth(_paneColumn, paneWidth);
 
+        // Still too little room for the page: the pane lies over it (see MainWindow.PaneOverlay.cs).
+        ShowPaneOverPage(paneOpen && room - Math.Min(sidebarWidth, SidebarColumn.MaxWidth) - (2 * gap) - paneWidth < PageMinWidth - 0.5);
+
+        // The player's column beside the page shares the page's column, so it keeps the page its least too.
+        LayOutSide();
+
         // A window too small for everything gives each panel its least, so the page keeps what it can.
         static double Fit(double wanted, double min, double max, double room) =>
             Math.Round(Math.Clamp(wanted, min, Math.Clamp(room, min, max)));
@@ -502,6 +508,9 @@ public sealed partial class MainWindow : Window
         }
 
         PlaylistsHeader.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+
+        // A player at the sidebar's foot has no room in the narrow sidebar; it floats under the panels meanwhile.
+        ApplyPlayerPlacement();
     }
     /// <summary>A drag or an arrow key ended: the panels keep these widths, next time too.</summary>
     private void KeepPaneWidths()
@@ -539,6 +548,7 @@ public sealed partial class MainWindow : Window
 
         // Back leads nowhere from the sign-in page; signing in starts again at Home.
         _history.Clear();
+        _forward.Clear();
         BackButton.Visibility = Visibility.Collapsed;
         UpdateTitleBarPassthrough();
     }
@@ -566,6 +576,12 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        // A page opened anew: Forward has nowhere left to go.
+        if (key != _currentKey)
+        {
+            _forward.Clear();
+        }
+
         SelectNav(key);
         Navigate(key, remember: true);
     }
@@ -590,8 +606,28 @@ public sealed partial class MainWindow : Window
 
         var key = _history[^1];
         _history.RemoveAt(_history.Count - 1);
+        if (_currentKey is { } current && current != key)
+        {
+            _forward.Add(current);
+        }
+
         SelectNav(key);
         Navigate(key, remember: false);
+    }
+
+    /// <summary>Goes forward again to a page left with Back, like a browser's Forward button.</summary>
+    public void GoForward()
+    {
+        if (_forward.Count == 0 || ShellGrid.Visibility != Visibility.Visible)
+        {
+            return;
+        }
+
+        var key = _forward[^1];
+        _forward.RemoveAt(_forward.Count - 1);
+        LeaveMiniPlayer();
+        SelectNav(key);
+        Navigate(key, remember: true);
     }
 
     /// <summary>The page on show, such as a <see cref="HomePage"/>.</summary>
@@ -713,7 +749,7 @@ public sealed partial class MainWindow : Window
         try
         {
             NavList.SelectedItem = NavItems.FirstOrDefault(n => n.Key == key);
-            PlaylistList.SelectedItem = Playlists.FirstOrDefault(p => p.Id == key);
+            PlaylistList.SelectedItem = ShownPlaylist(key);
         }
         finally
         {
@@ -780,7 +816,7 @@ public sealed partial class MainWindow : Window
                 Playlists.Add(item);
             }
 
-            PlaylistList.SelectedItem = Playlists.FirstOrDefault(p => p.Id == selected);
+            PlaylistList.SelectedItem = ShownPlaylist(selected);
         }
         finally
         {
@@ -839,7 +875,7 @@ public sealed partial class MainWindow : Window
         _syncingSelection = true;
         try
         {
-            PlaylistList.SelectedItem = Playlists.FirstOrDefault(p => p.Id == _currentKey);
+            PlaylistList.SelectedItem = ShownPlaylist(_currentKey);
         }
         finally
         {
@@ -1108,13 +1144,19 @@ public sealed partial class MainWindow : Window
         _ => RepeatMode.Off,
     };
 
-    /// <summary>The mouse's back button goes back.</summary>
+    /// <summary>The mouse's back button goes back, and its forward button forward again.</summary>
     private void OnRootPointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (e.GetCurrentPoint(RootGrid).Properties.IsXButton1Pressed)
+        var buttons = e.GetCurrentPoint(RootGrid).Properties;
+        if (buttons.IsXButton1Pressed)
         {
             e.Handled = true;
             GoBack();
+        }
+        else if (buttons.IsXButton2Pressed)
+        {
+            e.Handled = true;
+            GoForward();
         }
     }
 

@@ -89,6 +89,9 @@ public sealed partial class PlayerSettings : UserControl
             var (edge, type) = Split(look.PlayerLayout);
             Select(PlayerEdgeChoice, edge);
             Select(PlayerTypeChoice, type);
+
+            // The sidebar's player has one kind only.
+            PlayerTypeChoice.IsEnabled = edge != "Sidebar";
             PlayerWidthBox.Value = look.PlayerWidth ?? double.NaN;
             PlayerHeightBox.Value = look.PlayerHeight ?? double.NaN;
             PlayerXBox.Value = look.PlayerOffsetX ?? double.NaN;
@@ -220,7 +223,7 @@ public sealed partial class PlayerSettings : UserControl
     private void OnPlayerAdvancedResetClick(object sender, RoutedEventArgs e) =>
         _theme.Edit(look => look with { PlayerWidth = null, PlayerHeight = null, PlayerOffsetX = null, PlayerOffsetY = null });
 
-    /// <summary>Where the player sits (Top, Bottom, Left, Right) and what kind it is (Docked, Inset, Floating).</summary>
+    /// <summary>Where the player sits (Top, Bottom, Left, Right, Sidebar) and what kind it is (Docked, Inset, Floating).</summary>
     private static (string Edge, string Type) Split(PlayerLayout layout) => layout switch
     {
         PlayerLayout.Top => ("Top", "Docked"),
@@ -234,6 +237,7 @@ public sealed partial class PlayerSettings : UserControl
         PlayerLayout.Right => ("Right", "Docked"),
         PlayerLayout.InsetRight => ("Right", "Inset"),
         PlayerLayout.Corner => ("Right", "Floating"),
+        PlayerLayout.Sidebar => ("Sidebar", "Inset"),
         _ => ("Bottom", "Docked"),
     };
 
@@ -250,6 +254,7 @@ public sealed partial class PlayerSettings : UserControl
         ("Right", "Docked") => PlayerLayout.Right,
         ("Right", "Inset") => PlayerLayout.InsetRight,
         ("Right", "Floating") => PlayerLayout.Corner,
+        ("Sidebar", _) => PlayerLayout.Sidebar,
         _ => PlayerLayout.Docked,
     };
 

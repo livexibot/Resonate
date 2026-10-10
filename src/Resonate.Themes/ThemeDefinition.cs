@@ -98,6 +98,13 @@ public enum PlayerLayout
 
     /// <summary>A small pill hovering in the page's bottom-left corner, like <see cref="Corner"/>.</summary>
     CornerLeft,
+
+    /// <summary>
+    /// A minimal player at the foot of the sidebar, under the playlists: the
+    /// song, then previous, play, next and the progress. Like
+    /// <see cref="Floating"/> while the sidebar shows only covers.
+    /// </summary>
+    Sidebar,
 }
 
 /// <summary>How a visualizer draws the sound (saved by name: append, never rename).</summary>

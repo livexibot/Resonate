@@ -570,8 +570,11 @@ public sealed partial class SeekBar : RangeBase
     }
 
     /// <summary>
-    /// The glow: a blurred band of the accent under the played part (as tall
-    /// as the bar, or as the line's swing), drawn by the compositor.
+    /// The glow, drawn by the compositor: a blurred band of the accent under
+    /// the played part, as tall as the bar; for the styles that draw a line
+    /// (Wave, Heartbeat, Dots) the line's own shape, blurred, so the glow
+    /// follows its curves and rolls with it (the owner found it a straight
+    /// band under the wave, 10 October 2026).
     /// </summary>
     private void ShowGlow()
     {
@@ -589,14 +592,20 @@ public sealed partial class SeekBar : RangeBase
         }
 
         _glow ??= new GlowVisual(_glowHost);
-        var band = BarStyle is ProgressStyle.Wave or ProgressStyle.Heartbeat ? 8.0 : _trackArea.Height;
+        var colour = App.Services.Theme.Palette.Accent.ToColor();
+        var blur = (float)(6 + (12 * strength));
+        var opacity = (float)(0.3 + (0.6 * strength));
+        if (DrawsLine && _waveHost is { ActualHeight: > 0 } host)
+        {
+            var at = host.TransformToVisual(_glowHost).TransformPoint(default);
+            // A thin line has little to cast: a tighter, stronger blur keeps the glow on its curves.
+            _glow.ShowLine(ElementCompositionPreview.GetElementVisual(host), new Vector2((float)played, (float)host.ActualHeight), new Vector3(0, (float)at.Y, 0), colour, (float)(3 + (7 * strength)), (float)(0.55 + (0.45 * strength)));
+            return;
+        }
+
+        var band = _trackArea.Height;
         var top = Math.Max(0, (_glowHost.ActualHeight - band) / 2);
-        _glow.Show(
-            new Vector2((float)played, (float)band),
-            new Vector3(0, (float)top, 0),
-            App.Services.Theme.Palette.Accent.ToColor(),
-            (float)(6 + (12 * strength)),
-            (float)(0.3 + (0.6 * strength)));
+        _glow.Show(new Vector2((float)played, (float)band), new Vector3(0, (float)top, 0), colour, blur, opacity);
     }
 
     /// <summary>Sizes and colours for the bar style, and whether the handle shows.</summary>
@@ -1041,7 +1050,8 @@ public sealed partial class SeekBar : RangeBase
     /// <summary>
     /// The glow under the played part: a rounded band, never drawn itself,
     /// whose blurred shadow in the accent is all that shows (as the player's
-    /// glow is drawn, see Elevation).
+    /// glow is drawn, see Elevation); or the drawn line itself, read live
+    /// from its visual, so the shadow takes the line's shape as it rolls.
     /// </summary>
     private sealed class GlowVisual
     {
@@ -1068,11 +1078,32 @@ public sealed partial class SeekBar : RangeBase
             ElementCompositionPreview.SetElementChildVisual(host, _sprite);
         }
 
+        /// <summary>The line's glow: <paramref name="line"/>'s first <paramref name="size"/> (the played part) as the shadow's shape.</summary>
+        public void ShowLine(Visual line, Vector2 size, Vector3 offset, global::Windows.UI.Color color, float blur, float opacity)
+        {
+            if (!ReferenceEquals(_surface.SourceVisual, line))
+            {
+                _surface.SourceVisual = line;
+            }
+
+            Place(size, offset, color, blur, Math.Min(opacity, 1));
+        }
+
         public void Show(Vector2 size, Vector3 offset, global::Windows.UI.Color color, float blur, float opacity)
         {
+            if (!ReferenceEquals(_surface.SourceVisual, _shapeVisual))
+            {
+                _surface.SourceVisual = _shapeVisual;
+            }
+
             _shape.Size = size;
             _shape.CornerRadius = new Vector2(size.Y / 2);
             _shapeVisual.Size = size;
+            Place(size, offset, color, blur, opacity);
+        }
+
+        private void Place(Vector2 size, Vector3 offset, global::Windows.UI.Color color, float blur, float opacity)
+        {
             _surface.SourceSize = size;
             _sprite.Size = size;
             _sprite.Offset = offset;

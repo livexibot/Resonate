@@ -20,9 +20,10 @@ namespace Resonate.App.Pages;
 /// </summary>
 public sealed partial class HomePage
 {
-    // Room left under the stage, so the top of the greeting shows there is more below.
-    private const double StagePeek = 112;
     private const double StageMinHeight = 380;
+
+    // The date line's height before the greeting's card is laid out (at the usual Text size).
+    private const double DateLineHeight = 16;
 
     // How far the cover shrinks as the stage scrolls away (written into an expression, so as text).
     private const string StageCoverShrink = "0.35";
@@ -109,6 +110,9 @@ public sealed partial class HomePage
         Scroller.ViewChanged += (_, _) => NoteStageOnScreen();
         PlayerSpace.RegisterPropertyChangedCallback(HeightProperty, (_, _) => FitStage());
         PlayerSpace.RegisterPropertyChangedCallback(VisibilityProperty, (_, _) => FitStage());
+
+        // A new Text size makes the date line taller: the peek keeps it whole.
+        DateText.SizeChanged += (_, _) => FitStage();
     }
 
     /// <summary>As tall as the page shows, less the peek and the hovering player's room.</summary>
@@ -120,11 +124,30 @@ public sealed partial class HomePage
         }
 
         var inset = PlayerSpace.Visibility == Visibility.Visible && !double.IsNaN(PlayerSpace.Height) ? PlayerSpace.Height : 0;
-        var height = Math.Max(StageMinHeight, Scroller.ActualHeight - Body.Padding.Top - StagePeek - inset);
+        var height = Math.Max(StageMinHeight, Scroller.ActualHeight - Body.Padding.Top - StagePeek() - inset);
         _stage.Height = _lastStageHeight = Math.Floor(height);
         _stageScroll?.InsertScalar("Height", (float)_stage.Height);
         NoteStageOnScreen();
     }
+
+    /// <summary>
+    /// Room left under the stage, so the greeting's card shows there is more
+    /// below: its top edge and the date line, ending halfway between the date
+    /// and the greeting, so the window's edge never cuts the greeting's words.
+    /// </summary>
+    private double StagePeek()
+    {
+        var date = Math.Max(DateText.ActualHeight, DayGlyph.ActualHeight);
+        if (date <= 0)
+        {
+            date = DateLineHeight * _services.Theme.TextScale;
+        }
+
+        return Body.Spacing + Hero.BorderThickness.Top + HeroContent.Padding.Top + date + (HeroGreeting.Spacing / 2);
+    }
+
+    /// <summary>For the screenshot tour: why the stage's buttons are cut, or null.</summary>
+    internal string? StageProblem() => _stage?.CutProblem();
 
     private void NoteStageOnScreen() =>
         _stage?.SetOnScreen(Scroller.VerticalOffset < Body.Padding.Top + _stage.Height);

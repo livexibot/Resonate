@@ -76,6 +76,9 @@ public sealed class AppSettings
     /// <summary>The library sidebar runs the window's full height, beside the player (off unless the user switches it on).</summary>
     public bool SidebarFullHeight { get; set; }
 
+    /// <summary>The Spotify song that played last and its place, shown when Resonate opens (see MainWindow.LastPlayed.cs).</summary>
+    public Resonate.Spotify.Playback.LastPlayed? LastPlayed { get; set; }
+
     /// <summary>Resonate opens when the user signs in to Windows, quietly in the tray (Settings, About; on at first, the owner's choice of 9 October 2026).</summary>
     public bool StartWithWindows { get; set; } = true;
 
@@ -233,6 +236,9 @@ public sealed class AppSettings
 
     /// <summary>The queue pane's width as the user dragged it; null for the usual width.</summary>
     public double? QueueWidth { get; set; }
+
+    /// <summary>The player's column beside the page (Placement Left or Right) as the user dragged it; null for the look's width.</summary>
+    public double? SidePlayerWidth { get; set; }
 
     /// <summary>Where the window was left; null to open it centred.</summary>
     public WindowPlacement? Window { get; set; }
@@ -513,9 +519,6 @@ public sealed class AppSettings
 
     public int BeatGlowColour { get; set; }
 
-    /// <summary>Resume on start: from the start of the song instead of where it stopped.</summary>
-    public bool ResumeFromStart { get; set; }
-
     /// <summary>Export history: all of it (0), or the last 7, 30 or 365 days.</summary>
     public int HistoryExportDays { get; set; }
 
@@ -560,6 +563,11 @@ public sealed class AppSettings
     public int DeviceVolumeNew { get; set; }
 
     public bool DeviceVolumeMessage { get; set; } = true;
+
+    /// <summary>Resonate's DJ: its voice introduces each set, and how many songs a set has.</summary>
+    public bool DjVoice { get; set; } = true;
+
+    public int DjSetSize { get; set; } = 6;
 
     // ---- End of built-in plugins ----
 

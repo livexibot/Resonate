@@ -127,46 +127,52 @@
             Margin="32,16,32,0"
             Orientation="Horizontal"
             Spacing="8"
-            Visibility="Collapsed">
-            <Button
+            Visibility="Collapsed"
+            XYFocusKeyboardNavigation="Enabled">
+            <RadioButton
                 x:Name="AllFilter"
-                Click="OnFilterClick"
+                Checked="OnFilterChecked"
                 Content="All"
                 CornerRadius="16"
+                GroupName="SearchFilter"
                 Padding="16,6"
-                Style="{StaticResource ResonateSubtleButtonStyle}"
+                Style="{StaticResource ResonateChipStyle}"
                 Tag="All" />
-            <Button
+            <RadioButton
                 x:Name="SongsFilter"
-                Click="OnFilterClick"
+                Checked="OnFilterChecked"
                 Content="Songs"
                 CornerRadius="16"
+                GroupName="SearchFilter"
                 Padding="16,6"
-                Style="{StaticResource ResonateSubtleButtonStyle}"
+                Style="{StaticResource ResonateChipStyle}"
                 Tag="Songs" />
-            <Button
+            <RadioButton
                 x:Name="ArtistsFilter"
-                Click="OnFilterClick"
+                Checked="OnFilterChecked"
                 Content="Artists"
                 CornerRadius="16"
+                GroupName="SearchFilter"
                 Padding="16,6"
-                Style="{StaticResource ResonateSubtleButtonStyle}"
+                Style="{StaticResource ResonateChipStyle}"
                 Tag="Artists" />
-            <Button
+            <RadioButton
                 x:Name="AlbumsFilter"
-                Click="OnFilterClick"
+                Checked="OnFilterChecked"
                 Content="Albums"
                 CornerRadius="16"
+                GroupName="SearchFilter"
                 Padding="16,6"
-                Style="{StaticResource ResonateSubtleButtonStyle}"
+                Style="{StaticResource ResonateChipStyle}"
                 Tag="Albums" />
-            <Button
+            <RadioButton
                 x:Name="PlaylistsFilter"
-                Click="OnFilterClick"
+                Checked="OnFilterChecked"
                 Content="Playlists"
                 CornerRadius="16"
+                GroupName="SearchFilter"
                 Padding="16,6"
-                Style="{StaticResource ResonateSubtleButtonStyle}"
+                Style="{StaticResource ResonateChipStyle}"
                 Tag="Playlists" />
         </StackPanel>
 
@@ -194,6 +200,21 @@
                         ItemClick="OnRecentPickClick"
                         ItemTemplate="{StaticResource RecentTemplate}"
                         ItemsSource="{x:Bind RecentPicks}"
+                        SelectionMode="None" />
+                </StackPanel>
+
+                <!-- The user's own playlists that match, from the library on this PC: at once, without asking Spotify -->
+                <StackPanel
+                    x:Name="OwnPlaylistsSection"
+                    Spacing="{StaticResource ResonateSectionHeaderSpacing}"
+                    Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource ResonateSectionTextStyle}" Text="Your playlists" />
+                    <GridView
+                        AutomationProperties.Name="Your playlists"
+                        IsItemClickEnabled="True"
+                        ItemClick="OnPlaylistClick"
+                        ItemTemplate="{StaticResource CardTemplate}"
+                        ItemsSource="{x:Bind OwnPlaylistCards}"
                         SelectionMode="None" />
                 </StackPanel>
 
@@ -269,12 +290,16 @@
                                     <Grid
                                         MinHeight="{x:Bind Columns.CoverRowHeight, Mode=OneWay}"
                                         Background="{StaticResource ResonateTransparentBrush}"
-                                        ColumnSpacing="16">
+                                        ColumnSpacing="16"
+                                        PointerCanceled="OnSongPointerExited"
+                                        PointerEntered="OnSongPointerEntered"
+                                        PointerExited="OnSongPointerExited">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="{x:Bind Columns.CoverColumn, Mode=OneWay}" />
                                             <ColumnDefinition Width="5*" />
                                             <ColumnDefinition Width="3*" />
                                             <ColumnDefinition Width="56" />
+                                            <ColumnDefinition Width="32" />
                                         </Grid.ColumnDefinitions>
                                         <Grid
                                             Width="{x:Bind Columns.CoverPixels, Mode=OneWay}"
@@ -282,6 +307,23 @@
                                             Background="{x:Bind Cover.Background, Mode=OneWay}"
                                             CornerRadius="{ThemeResource ResonateCornerSmall}">
                                             <Image Source="{x:Bind Cover.Image, Mode=OneWay}" Stretch="UniformToFill" />
+                                            <!-- Play, on the cover under the pointer and on the selected row. -->
+                                            <Button
+                                                Width="28"
+                                                Height="28"
+                                                MinHeight="0"
+                                                Padding="0"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.Name="{x:Bind PlayLabel, Mode=OneWay}"
+                                                Click="OnSongPlayClick"
+                                                Content="{x:Bind PlayGlyph, Mode=OneWay}"
+                                                CornerRadius="14"
+                                                FontFamily="{StaticResource ResonateIconFont}"
+                                                FontSize="12"
+                                                Style="{StaticResource ResonateAccentButtonStyle}"
+                                                ToolTipService.ToolTip="{x:Bind PlayLabel, Mode=OneWay}"
+                                                Visibility="{x:Bind PlayVisibility, Mode=OneWay}" />
                                         </Grid>
                                         <StackPanel
                                             Grid.Column="1"
@@ -309,6 +351,17 @@
                                             VerticalAlignment="Center"
                                             Style="{StaticResource ResonateSecondaryTextStyle}"
                                             Text="{x:Bind Duration}" />
+                                        <!-- The same menu as a right-click. -->
+                                        <Button
+                                            Grid.Column="4"
+                                            Width="32"
+                                            Height="32"
+                                            AutomationProperties.Name="More"
+                                            Click="OnSongMoreClick"
+                                            Content="&#xE712;"
+                                            Style="{StaticResource ResonateIconButtonStyle}"
+                                            ToolTipService.ToolTip="More"
+                                            Visibility="{x:Bind MoreVisibility, Mode=OneWay}" />
                                     </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>

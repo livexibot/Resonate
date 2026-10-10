@@ -104,7 +104,8 @@ visitors; keep it short and in step with this file.
   its window is hidden or minimised (`MainWindow.MemoryTrim.cs`). Song
   cover backdrops are darkened just enough for white text on their panels
   to reach 4.5:1 (`ArtworkColors.DimForWhiteText`, 85th percentile, linear
-  light); dark covers are untouched. Ember was replaced by Velvet. New
+  light; since 10 October 2026 grey text too, see "Design review fixes");
+  dark covers are untouched. Ember was replaced by Velvet. New
   built-in plugins: Tray icon (closing hides to the tray; its menu plays,
   pauses, skips and quits; `MainWindow.Tray.cs`) and Lyrics in the player
   (it asks LRCLIB once per song while on; while a song has lines the
@@ -175,6 +176,42 @@ visitors; keep it short and in step with this file.
   music that plays on this PC; on 9 October 2026 the owner's music played
   elsewhere (Resonate's web player had played nothing, the Spotify app was
   closed), so they swayed on their own.
+- Design review fixes (10 October 2026; the owner asked to try the
+  review's fixes, https://claude.ai/artifact/131iaG55abUQ2JiAuK3riu, in
+  the demo; branch `claude/project-thread-8qvmyz`, local build until the
+  owner says). Text: small grey text (`ResonateCaptionTextStyle`) is the
+  secondary grey (4.5:1); tertiary is for icons and large ranks (3:1
+  floor); small accent text uses `ResonateAccentTextBrush`
+  (`ThemePalette.AccentText`, 4.5:1) while buttons and bars keep the
+  accent; text fields are outlined in `ResonateFieldBorderBrush` (3:1).
+  See-through looks pick their greys against `ThemePalette.LightestPage`
+  (the scenery's lightest part is `ThemePalette.SceneryLight`: a new
+  `ThemeScene` must add one, a test says so); Liquid Glass dims a bright
+  cover to at most `ArtworkColors.BrightestCover` (sRGB 53 at panel
+  opacity 0.1), so its backdrop and header glow are darker than before
+  (the owner to judge); the hovering player is 0.97 opaque. Song rows: the
+  playing song has a speaker and a SemiBold title, the pointer's row and
+  the selected row show Play (Pause) and a More button
+  (`Helpers/SongRowActions.cs`; with the '#' column off only More), and
+  the player's song title opens its list at the playing song, once
+  (`TracksPage.OpenAtPlayingSong`). Home's stage lays itself out from
+  `Resonate.Themes/StageLayout.cs` (cover beside the words when the stage
+  is wide, buttons never cut), follows Text size and ends where the
+  greeting's date line ends; Rediscover's cards are an x:DataType
+  template. The player bar's right part is as wide as what it holds
+  (`PlayerSide`, `PlayerBar.SideRoom.cs`): short of room the buttons go
+  above the volume, then the pill's word goes (a verdict icon stays), the
+  slider only last. Settings, the queue and lyrics lie over the page when
+  the window cannot hold all three (`MainWindow.PaneOverlay.cs`). The
+  PLAYLISTS heading has a filter (`MainWindow.PlaylistFilter.cs`) and
+  Search shows "Your playlists" first from the library on the PC.
+  Switches have no On/Off words, Search's filter chips are RadioButtons
+  (`ResonateChipStyle`) and the chosen Settings tab has an accent bar.
+  The screenshot tour fails when the stage cuts its buttons
+  (`StageProblem`), Rediscover draws empty cards (`RediscoverProblem`) or
+  a pane squeezes the page (`CheckPageBesidePane`). Left for later: the
+  player bar's narrow and visualizer findings, explanatory sentences
+  (`caption-rule`), the Winamp row, unnamed controls.
 - Narrow sidebar (9 October 2026): WinUI's list rows are at least 88 wide
   (`ListViewItemMinWidth`) and padded 16 and 12, wider than the 84 px
   sidebar, which put the icons and covers 13 px right of centre. The
@@ -551,8 +588,9 @@ Spotify features Resonate builds on (researched 2026-10-07; "measure" means
 only the owner's PC can tell):
 - DJ is the playlist `spotify:playlist:37i9dQZF1EYkqdzj48dyYq`. The Web API
   quietly declines to start it (and a PUT play with it stops the music), so
-  never send it as a context. Resonate opens that URI in the Spotify app and
-  then follows `/me/player`. While DJ plays, shuffle and repeat are
+  never send it as a context. Since 10 October 2026 Resonate's DJ page plays
+  its own DJ instead (see the 10 October notes); Spotify's DJ started in a
+  Spotify app is still shown and controlled like any music. While DJ plays, shuffle and repeat are
   disallowed and the item can be empty while the DJ talks. Measure: that
   opening the URI starts DJ.
 - Local files: the Web API refuses `spotify:local:` URIs (400 "Invalid track
@@ -867,7 +905,8 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   on), Desktop lyrics (`DesktopLyricsWindow`, frosted, always on top,
   dragged anywhere, sharing the player's synced lyrics), Beat glow (the
   window's edge glows in the accent with the bass, `BeatGlow`, from the
-  Home visualizer's sound), Resume on start, Media shortcuts (global keys
+  Home visualizer's sound), Resume on start (since 10 October 2026 part
+  of the app, see "Where you left off"), Media shortcuts (global keys
   for play or pause, skip, volume and like, recorded like Quick search's
   with `ShortcutBox`), Start with Windows (HKCU Run, `--background`:
   into the tray or minimised; never from a local build or the demo) and
@@ -955,6 +994,97 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   `ShowLikeColumn`, `ShowDurationColumn`). Sidebar rows and song rows now
   name themselves for screen readers (`ToString`), which also lets UI
   Automation drive a demo copy for checks.
+
+- 10 October 2026 (the owner's requests, after 0.17.0): the sidebar's
+  playlist rows grow with Cover size like song rows (`PlaylistNavItem.RowHeight`,
+  `AppScale.CoverRow`); Liked Songs, Local Files (now with the sidebar's
+  folder icon) and DJ covers are the look's accent (`Artwork.AccentCoverBrush`,
+  recoloured on `Theme.Changed`; `ListHeader.AccentCover`); the mouse's
+  forward button and Alt+Right go forward after Back (`MainWindow._forward`,
+  cleared when a page is opened anew; `AppCommand.Forward`); the
+  Screensaver never starts while Resonate is only in the tray (minimised
+  and the mini player count as open); Lyrics in the player keeps "Song ·
+  Artist" on one line while it is on and says "No lyrics", "No synced
+  lyrics" or "Instrumental" under it once the lookup ends, and a lyric
+  line wraps onto two lines (the next line then keeps to one).
+- Resonate's own DJ (10 October 2026, the owner's choice between it and
+  opening Spotify's DJ in the Spotify app, which Spotify's Web API cannot
+  start: a PUT play with its playlist stops the music; the owner's Spotify
+  app also showed "Something went wrong" when asked to open it): the DJ
+  page starts an endless run of short themed sets from Liked Songs and the
+  listening history (`Resonate.Spotify/Playback/DjMix.cs`, tested:
+  favourites of the last two months, fresh finds, throwbacks, deep cuts,
+  more from one artist, picks for this time of day, a mix; no song twice
+  in a run), played as one list (`Services/DjService.cs`, 40 sets of
+  `DjSetSize` songs). "Switch it up" starts a new run with another kind;
+  the run ends when something else plays. A voice from Windows
+  (`SpeechSynthesizer`, an English voice, through a `MediaPlayer` kept out
+  of the media controls) says each set's line while the music is turned
+  down to 35 % (`DjVoice`, on at first; never in the demo).
+- Where you left off (10 October 2026, the owner's request; it replaced
+  the Resume on start plugin and cannot be turned off): the Spotify song
+  that played last, its list and its place are kept in the settings
+  (`LastPlayed`, `Resonate.Spotify/Playback/LastPlayed.cs`; saved at each
+  song or pause, every 15 s while playing and on closing,
+  `MainWindow.LastPlayed.cs`; local files are not kept). Resonate opens
+  showing it, paused there, until Spotify says something else plays
+  (`PlayerController.ShowLastPlayed`); Play then asks Spotify for its list
+  from that song at that place, or the song alone when the list is gone
+  (`PlayOnFromAsync`, tested). Never in demo, timing, screenshot or update
+  runs. Lyrics in the player shows the first two lines before the first
+  is sung.
+- Player placement, Sidebar (10 October 2026, the owner asked for a
+  minimal player under the playlists; `PlayerLayout.Sidebar`, appended):
+  the slot lies over the sidebar's foot inside its padding
+  (`MainWindow.PlaceInSidebar`), the sidebar's bottom padding grows by the
+  player's height (`UpdateCoveredRoom`), and the bar stacks the song over
+  previous, play, next and the progress (`PlayerBar.ShowInSidebar`, the
+  mini bar's parts; no plugins, devices, queue or volume buttons). Type
+  is greyed out for it. It is the floating card under the panels while
+  the sidebar shows only covers, the Winamp player is in use or a window
+  shape hides the panels; tokens treat it like Floating.
+- A hovering player whose Advanced width is wider than the page
+  (the owner set 2000 and saw it cut off, 10 October 2026) spans every
+  column and lies over the sidebar and the pane on the right, over the
+  grips too (`PlayerSlot` has `Canvas.ZIndex` 1), however narrow the page;
+  no player grows wider than the shell (`ClampPlayerSlot`, `MaxWidth`).
+  The playlists, the queue, Settings and lyrics then leave room at their
+  end to scroll clear of it (`SetPlayerRoom`).
+- The player beside the page (Placement Left or Right; redone on
+  10 October 2026, when the owner found the cover floating in an empty
+  panel over a separate bar): one panel (`_sideCard`, the player's fill,
+  the panels' shadow or the player's glow) holding, top to bottom, the
+  cover as wide as the column with the look's item shadow, the title and
+  the artists (links) on the left (`NowPlayingColumn` with `beside`, its
+  cover shrinking so the controls always fit, `FitTo`), the player bar in
+  its column layout (`PlayerBarMode.Column`: no song area, the progress
+  with its times under its ends, shuffle, previous, play, next, repeat,
+  then the speaker and volume on the left and the buttons on the right,
+  transparent, no outline or shadow), and Up next filling the rest
+  (`Controls/SideUpNext`: Resonate's own list, the local player, or
+  Spotify's queue read once per song while the window shows). The bar's
+  outline is now set in code (`PlayerPlacement.Outline`) rather than the
+  `ResonatePlayerBorderThickness` token, and its transport is a two-row
+  grid. The Column window shape keeps the old centred column. A grip in
+  the gap resizes the column like the sidebar's (the owner's request,
+  10 October 2026; drag, arrow keys, double-click for the look's width):
+  the width is the user's own (`SidePlayerWidth`, 200 to 720, always
+  leaving the page its least, `MainWindow.LayOutSide`, also run from
+  `LayOutPanes`), and a width typed under Advanced afterwards replaces it.
+  The controls rearrange rather than go (the owner: "just move controls to
+  make it fit nicely"; `PlayerBar.FitColumn`, `ArrangeTransport`,
+  `ArrangeColumnSide`): from 300 as described; narrower, smaller buttons
+  closer together and the volume slider across the column over the other
+  buttons; dragged under 200 it snaps to a 96 wide rail (as the sidebar
+  snaps to its covers) with the cover alone, a short progress bar, every
+  button one under the other, the speaker (its wheel sets the volume) and
+  Up next as covers, the songs in tooltips (`SetRail`).
+- The progress glow (10 October 2026, the owner found it a straight band
+  under the wave): for the styles that draw a line (Wave, Heartbeat,
+  Dots) the glow's shadow is cast by the line itself, read live from the
+  wave's visual through a `CompositionVisualSurface`, so it follows the
+  curves and rolls with them (`SeekBar.GlowVisual.ShowLine`, tighter blur
+  and stronger than the band).
 
 Classic player and cover art (checked 2026-10-08):
 - Classic Winamp skins (`.wsz`, Winamp 2) are zip archives of BMP sheets
@@ -1269,7 +1399,8 @@ Ripple, and a more interesting Home):
   Docked or Floating under the panels, Top or FloatingTop above them
   (under the title bar), Hovering, or Corner. Hovering
   is a centred pill at most 912 wide over the bottom of the page, at least
-  0.9 opaque so text keeps 4.5:1 (`ThemePalette.PlayerFill`); Liquid Glass
+  0.97 opaque so the rows under it stay hidden (`ThemePalette.PlayerFill`,
+  `HoveringPlayerOpacity`; 0.9 before 10 October 2026); Liquid Glass
   uses it. Corner is the same over the page's bottom-right corner, at most
   440 wide, so it is the Mini bar. Over a page too narrow for them and their
   gaps (360 for the bar, the skin and cover for the classic player; Settings

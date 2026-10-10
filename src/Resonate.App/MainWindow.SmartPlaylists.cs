@@ -123,6 +123,7 @@ public sealed partial class MainWindow
         }
 
         _history.RemoveAll(k => k.StartsWith(keyPrefix, StringComparison.Ordinal));
+        _forward.RemoveAll(k => k.StartsWith(keyPrefix, StringComparison.Ordinal));
         BackButton.Visibility = _history.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         UpdateTitleBarPassthrough();
     }

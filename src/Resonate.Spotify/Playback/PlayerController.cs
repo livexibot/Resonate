@@ -93,6 +93,9 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     /// <summary>The list Resonate plays and knows the songs of; null when the music came from elsewhere.</summary>
     private ListSession? _session;
 
+    /// <summary>The song that played last time Resonate ran, shown until Spotify says what plays; Play carries on from it.</summary>
+    private LastPlayed? _resumeFrom;
+
     /// <summary>Spotify's own shuffle setting, as last reported or set; null until known.</summary>
     private bool? _spotifyShuffle;
 
@@ -247,6 +250,32 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     /// "Spotify Web API only": Resonate's own player calls it when its song
     /// or play state changed. Several calls close together ask once.
     /// </summary>
+    /// <summary>
+    /// Shows the song that played last time Resonate ran, paused where it was,
+    /// while nothing else is known (the owner's request, 10 October 2026).
+    /// Spotify's own answer replaces it; Play carries on from it.
+    /// </summary>
+    public void ShowLastPlayed(LastPlayed? last)
+    {
+        if (last is null)
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            if (_state.Title is not null)
+            {
+                return;
+            }
+
+            _resumeFrom = last;
+            SetState(last.ToState(_state, _time.GetUtcNow()));
+        }
+
+        RaiseStateChanged();
+    }
+
     public void RefreshSoon()
     {
         if (!_started || UseLocal || Interlocked.Exchange(ref _ownPlayerRefreshQueued, 1) == 1)
@@ -384,12 +413,22 @@ public sealed partial class PlayerController : IPlayer, IDisposable
 
         PlayerState before;
         long generation;
+        LastPlayed? resume;
         lock (_gate)
         {
             var now = _time.GetUtcNow();
             before = _state;
             generation = ++_generation;
             _playingHold = new Hold<bool>(true, now + PlayStateHold);
+
+            // The song kept from last time, still shown and with nothing playing it: Spotify is asked to play it from its place.
+            resume = _resumeFrom is { } last && last.TrackUri == _state.TrackUri && !_webConnected && !HasSong(Local) ? last : null;
+            _resumeFrom = null;
+            if (resume is not null)
+            {
+                resume.PositionMs = (long)_state.Position.TotalMilliseconds;
+            }
+
             SetState(_state with { IsPlaying = true, Position = _state.PositionAt(now), PositionTimestamp = now });
         }
 
@@ -403,12 +442,36 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                     // Up next: the edited order starts where the song was paused, in one command.
                     await WithDeviceAsync((id, c) => SendUpNextAsync(edits, id, c), ct, starts: true).ConfigureAwait(false);
                 }
+                else if (resume is not null)
+                {
+                    await PlayOnFromAsync(resume, ct).ConfigureAwait(false);
+                }
                 else if (!await TryLocalAsync(_local.PlayAsync, ct).ConfigureAwait(false) && !TryDirect("resume"))
                 {
                     await WithDeviceAsync((id, c) => _api.StartPlaybackAsync(null, id, c), ct, starts: true).ConfigureAwait(false);
                 }
             },
             () => RevertPlaying(generation, before.IsPlaying));
+    }
+
+    /// <summary>Carries on with the song kept from last time: in its list where Spotify still has it, else by itself, at its place.</summary>
+    private async Task PlayOnFromAsync(LastPlayed last, CancellationToken cancellationToken)
+    {
+        var bodies = last.Bodies();
+        if (bodies.InList is { } inList)
+        {
+            try
+            {
+                await WithDeviceAsync((id, c) => _api.StartPlaybackAsync(inList, id, c), cancellationToken, starts: true).ConfigureAwait(false);
+                return;
+            }
+            catch (SpotifyApiException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // The list is gone or no longer has the song: the song alone.
+            }
+        }
+
+        await WithDeviceAsync((id, c) => _api.StartPlaybackAsync(bodies.Alone, id, c), cancellationToken, starts: true).ConfigureAwait(false);
     }
 
     public Task PauseAsync()

@@ -9,6 +9,8 @@ public sealed class AppKeysTests
         Assert.Equal(AppCommand.PlayPause, table[KeyCombo.Parse("Space")!.Value]);
         Assert.Equal(AppCommand.Search, table[KeyCombo.Parse("Ctrl+L")!.Value]);
         Assert.Equal(AppCommand.AppSizeUp, table[KeyCombo.Parse("Ctrl+Shift+Equal")!.Value]);
+        Assert.Equal(AppCommand.Back, table[KeyCombo.Parse("Alt+Left")!.Value]);
+        Assert.Equal(AppCommand.Forward, table[KeyCombo.Parse("Alt+Right")!.Value]);
     }
 
     [Fact]

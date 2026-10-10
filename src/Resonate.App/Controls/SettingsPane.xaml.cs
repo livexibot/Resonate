@@ -48,6 +48,15 @@ public sealed partial class SettingsPane : UserControl
     /// <summary>The Settings page while the pane is open.</summary>
     public SettingsPage? Page => SettingsFrame.Content as SettingsPage;
 
+    private double _playerRoom;
+
+    /// <summary>Room under the settings for a hovering player that lies over the pane (0 for none).</summary>
+    internal void SetPlayerRoom(double height)
+    {
+        _playerRoom = height;
+        Page?.SetPlayerRoom(height);
+    }
+
     /// <summary>Makes the Settings page and slides the pane in.</summary>
     public void Open()
     {
@@ -58,6 +67,7 @@ public sealed partial class SettingsPane : UserControl
 
         IsOpen = true;
         SettingsFrame.Navigate(typeof(SettingsPage), null, new SuppressNavigationTransitionInfo());
+        Page?.SetPlayerRoom(_playerRoom);
         DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
         {
             if (IsOpen)

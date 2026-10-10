@@ -23,6 +23,9 @@ namespace Resonate.App.Controls;
 /// </summary>
 public sealed partial class LyricsPane : UserControl
 {
+    /// <summary>Room under the lyrics for a hovering player that lies over the pane (0 for none).</summary>
+    internal void SetPlayerRoom(double height) => LinesPanel.Padding = new Thickness(20, 12, 20, height);
+
     /// <summary>Where the sung line sits, as a fraction of the pane's height from the top: high, so the lines to come fill the view.</summary>
     private const double SungLineAt = 0.25;
 

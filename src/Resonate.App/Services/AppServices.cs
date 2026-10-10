@@ -113,6 +113,11 @@ public sealed class AppServices : IDisposable
 
     public bool IsDemo { get; }
 
+    private DjService? _dj;
+
+    /// <summary>Resonate's own DJ, made the first time it is asked for (on the interface thread).</summary>
+    internal DjService Dj => _dj ??= new DjService(this);
+
     public SettingsStore SettingsStore { get; }
 
     public AppSettings Settings { get; }

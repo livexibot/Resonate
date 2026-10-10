@@ -12,9 +12,8 @@ namespace Resonate.App;
 /// <summary>
 /// The smaller built-in plugins the owner asked for on 9 October 2026 (see
 /// <see cref="BuiltInPlugins"/>): Keep PC awake, Now playing file, Quiet
-/// hours, Resume on start and Export history, each running only while it is
-/// on; and Start with Windows, part of the app since then (Settings, About,
-/// on at first).
+/// hours and Export history, each running only while it is on; and Start
+/// with Windows, part of the app since then (Settings, About, on at first).
 /// </summary>
 public sealed partial class MainWindow
 {
@@ -144,52 +143,6 @@ public sealed partial class MainWindow
         {
             _ = _services.Player.SetVolumeAsync(capped);
         }
-    }
-
-    // Resume on start
-
-    partial void SetUpResumeOnStart()
-    {
-        if (!_services.BuiltIns.IsOn(BuiltInPlugins.ResumeOnStart) || _services.IsDemo || StartupOptions.Current is not { StartupBenchmarkFile: null, ScreenshotFolder: null, PerformanceFolder: null, UpdateCheckFeed: null })
-        {
-            return;
-        }
-
-        // Once, when the player first knows the song that played last (within a minute of starting).
-        var until = DateTimeOffset.UtcNow.AddMinutes(1);
-        var done = false;
-        FollowPlayer(() =>
-        {
-            var state = _services.Player.State;
-            if (done || DateTimeOffset.UtcNow > until)
-            {
-                done = true;
-                return;
-            }
-
-            if (state.IsPlaying)
-            {
-                done = true;
-                return;
-            }
-
-            if (state.Title is not null && state.IsConnected)
-            {
-                done = true;
-                _ = ResumeAsync();
-            }
-        });
-    }
-
-    /// <summary>Plays on where the song stopped, or from its start (the plugin's setting).</summary>
-    private async Task ResumeAsync()
-    {
-        if (_services.Settings.ResumeFromStart)
-        {
-            await _services.Player.SeekAsync(TimeSpan.Zero);
-        }
-
-        await _services.Player.PlayAsync();
     }
 
     // Start with Windows

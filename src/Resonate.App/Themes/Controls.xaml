@@ -115,6 +115,7 @@
                         <StackPanel VerticalAlignment="Center" Spacing="2">
                             <TextBlock Style="{StaticResource ResonateBodyTextStyle}" Text="{TemplateBinding Header}" />
                             <TextBlock
+                                Foreground="{StaticResource ResonateTextSecondaryBrush}"
                                 Style="{StaticResource ResonateCaptionTextStyle}"
                                 Text="{TemplateBinding Description}"
                                 TextWrapping="Wrap"

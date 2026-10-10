@@ -357,6 +357,20 @@ public sealed class PlayerLayoutTests
     }
 
     [Fact]
+    public void The_sidebar_player_keeps_a_floating_card_s_shape_and_never_covers_the_page()
+    {
+        Assert.True(PlayerPlacement.IsInSidebar(PlayerLayout.Sidebar));
+        Assert.False(PlayerPlacement.HoversOverPage(PlayerLayout.Sidebar));
+        Assert.False(PlayerPlacement.IsSide(PlayerLayout.Sidebar));
+        Assert.Equal(PlayerPlacement.Margin(PlayerLayout.Floating, 10), PlayerPlacement.Margin(PlayerLayout.Sidebar, 10));
+        Assert.Equal(EdgeInsets.All(1), PlayerPlacement.Outline(PlayerLayout.Sidebar, 0));
+        Assert.Equal(PlayerPlacement.Corner(PlayerLayout.Floating, ButtonShape.Round, 12, 96), PlayerPlacement.Corner(PlayerLayout.Sidebar, ButtonShape.Round, 12, 96));
+        Assert.Equal(0, PlayerPlacement.PageInset(PlayerLayout.Sidebar, 120));
+        var look = ThemePresets.Midnight with { PlayerLayout = PlayerLayout.Sidebar };
+        Assert.Equal(look, ThemeJson.Import(ThemeJson.Export(look)));
+    }
+
+    [Fact]
     public void The_new_layouts_survive_being_copied_as_text()
     {
         foreach (var layout in new[] { PlayerLayout.Top, PlayerLayout.FloatingTop, PlayerLayout.Corner })

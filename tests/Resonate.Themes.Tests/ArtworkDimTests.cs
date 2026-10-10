@@ -14,6 +14,35 @@ public sealed class ArtworkDimTests
         Assert.True(ThemeColor.ContrastRatio(ThemeColor.White, panel.Opaque) >= 4.4, $"contrast {ThemeColor.ContrastRatio(ThemeColor.White, panel.Opaque):0.00}");
     }
 
+    [Theory]
+    [InlineData(0xF0, 0xE0, 0x40)]
+    [InlineData(0xFF, 0xFF, 0xFF)]
+    [InlineData(0x90, 0xC8, 0xF0)]
+    public void A_bright_cover_is_dimmed_until_grey_text_on_liquid_glass_reads(byte r, byte g, byte b)
+    {
+        var glass = ThemePalette.From(ThemePresets.Glass);
+        var pixels = Fill(4, 4, r, g, b);
+        ArtworkColors.DimForWhiteText(pixels, 4, 4, glass.Surface.Opacity);
+
+        var panel = glass.Surface.Over(new ThemeColor(0xFF, pixels[2], pixels[1], pixels[0]));
+        Assert.True(ThemeColor.ContrastRatio(glass.TextSecondary, panel) >= 4.5, $"secondary text {ThemeColor.ContrastRatio(glass.TextSecondary, panel):0.00} over {panel}");
+        Assert.True(ThemeColor.ContrastRatio(ThemeColor.White, panel) >= 7, $"white {ThemeColor.ContrastRatio(ThemeColor.White, panel):0.00}");
+    }
+
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(0.1)]
+    [InlineData(0.15)]
+    public void The_brightest_cover_leaves_the_glass_panel_no_lighter_than_74_grey(double opacity)
+    {
+        var panel = ThemeColor.White.WithAlpha(opacity).Over(ArtworkColors.BrightestCover(opacity));
+        Assert.True(panel.R <= 0x4A, $"{panel}");
+    }
+
+    [Fact]
+    public void A_cover_is_never_dimmed_to_black_however_much_white_the_panels_add() =>
+        Assert.True(ArtworkColors.BrightestCover(0.5).Luminance >= 0.02);
+
     [Fact]
     public void A_dark_cover_is_left_as_it_is()
     {

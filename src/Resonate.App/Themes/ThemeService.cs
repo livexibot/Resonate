@@ -896,11 +896,14 @@ public sealed class ThemeService
         Solid("ResonateSurfacePressedBrush", p => p.Pressed);
         Solid("ResonateControlBrush", p => p.Control);
         Solid("ResonateBorderBrush", p => p.Border);
+        Solid("ResonateFieldBorderBrush", p => p.FieldBorder);
         Solid("ResonateShadowBrush", p => p.PanelShadow.IsVisible ? p.PanelShadow.Color.Opaque : p.TextPrimary);
         Solid("ResonateTextPrimaryBrush", p => p.TextPrimary);
         Solid("ResonateTextSecondaryBrush", p => p.TextSecondary);
         Solid("ResonateTextTertiaryBrush", p => p.TextTertiary);
         Solid("ResonateAccentBrush", p => p.Accent);
+        Solid("ResonateAccentTextBrush", p => p.AccentText);
+        Solid("ResonateChartQuietBrush", p => p.ChartQuiet);
         Solid("ResonateAccentHoverBrush", p => p.AccentHover);
         Solid("ResonateAccentPressedBrush", p => p.AccentPressed);
         Solid("ResonateOnAccentBrush", p => p.OnAccent);

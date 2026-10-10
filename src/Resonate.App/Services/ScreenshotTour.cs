@@ -254,6 +254,12 @@ internal sealed class ScreenshotTour
         await Task.Delay(2000);
         await CaptureAsync("6d-home-stage.png");
 
+        // The play button lost its bottom at this window's size (v0.15), which a picture shows only to someone looking.
+        if ((_window.CurrentPage as HomePage)?.StageProblem() is { } stageProblem)
+        {
+            Record("The Home stage cut its buttons: " + stageProblem);
+        }
+
         // Pictures cannot tell a cloud mask that never loaded, or bars whose motion the compositor refused.
         var mask = CloudField.CheckMaskAsync();
         if (await Task.WhenAny(mask, Task.Delay(10_000)) != mask)
@@ -295,6 +301,19 @@ internal sealed class ScreenshotTour
             home.ScrollTo(HomeSection.Mixes);
             await Task.Delay(800);
             await CaptureAsync("6d-home-rediscover.png");
+
+            // A picture cannot tell an empty card from no card: the cards once came out empty in the published app (v0.15).
+            var rediscoverProblem = home.RediscoverProblem();
+            for (var wait = 0; rediscoverProblem is not null && wait < 20; wait++)
+            {
+                await Task.Delay(250);
+                rediscoverProblem = home.RediscoverProblem();
+            }
+
+            if (rediscoverProblem is not null)
+            {
+                Record("Rediscover's cards did not draw: " + rediscoverProblem);
+            }
         }
 
         _window.Open(TrackActions.ArtistKey(DemoCatalog.ArtistId("Mira Sol")));
@@ -481,6 +500,11 @@ internal sealed class ScreenshotTour
         if (_window.PlayerHovers)
         {
             Record("The player still hovered over a page too narrow for it (Settings open in an 840-wide window).");
+        }
+
+        if (_window.CheckPageBesidePane() is { } squeezed)
+        {
+            Record(squeezed);
         }
 
         _window.CloseSettings();

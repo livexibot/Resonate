@@ -1,11 +1,8 @@
 using System.Collections.ObjectModel;
-using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Resonate.App.Controls;
-using Resonate.App.Helpers;
 using Resonate.App.Pages.Lists;
 using Resonate.App.Services;
 using Resonate.App.ViewModels;
@@ -18,9 +15,10 @@ namespace Resonate.App.Pages;
 /// Rediscover, a built-in plugin: one row on Home of music the user chose
 /// long ago. Songs liked on this day years ago and albums released on it,
 /// songs liked long ago and not played for months, and favourite albums with
-/// songs not liked yet. Built in code into <c>RediscoverSection</c>, with the
-/// look of the other rows (as many cards as fit, "Show all" for the rest).
-/// Nothing of it shows or runs while the plugin is off.
+/// songs not liked yet. Its cards are <c>RediscoverCardTemplate</c> in
+/// <c>RediscoverSection</c>, like the other rows' (as many as fit, "Show all"
+/// for the rest); cards built in code came out empty in the published app
+/// (v0.15). Nothing of it shows or runs while the plugin is off.
 /// </summary>
 public sealed partial class HomePage
 {
@@ -28,13 +26,13 @@ public sealed partial class HomePage
     private const double RediscoverPitch = RediscoverCardWidth + 8;
 
     private readonly List<RediscoverTile> _allRediscover = [];
-    private readonly ObservableCollection<RediscoverTile> _rediscover = [];
-    private GridView? _rediscoverGrid;
-    private Button? _rediscoverMore;
     private RediscoverPicks? _shownRediscover;
     private bool _rediscoverOn;
     private bool _rediscoverExpanded;
     private int _rediscoverQueued;
+
+    /// <summary>Rediscover's cards that fit in the row (all of them once "Show all" is pressed).</summary>
+    public ObservableCollection<RediscoverTile> Rediscovered { get; } = [];
 
     partial void OnRediscoverNavigatedTo()
     {
@@ -50,6 +48,59 @@ public sealed partial class HomePage
     {
         _services.BuiltIns.Changed -= OnRediscoverPluginChanged;
         StopRediscover();
+    }
+
+    /// <summary>
+    /// For the screenshot tour: why Rediscover's first card did not draw, or
+    /// null once it did. A picture cannot tell an empty card from no card,
+    /// and the cards once came out empty in the published app (v0.15).
+    /// </summary>
+    internal string? RediscoverProblem()
+    {
+        if (!_rediscoverOn)
+        {
+            return "Rediscover is not on.";
+        }
+
+        if (Rediscovered.Count == 0 || RediscoverSection.Visibility != Visibility.Visible)
+        {
+            return "it showed no cards for the demo's songs.";
+        }
+
+        if (RediscoverGrid.ContainerFromIndex(0) is not { } container)
+        {
+            return "its first card was not made.";
+        }
+
+        if (FindRediscoverCard(container, 0) is not { } card)
+        {
+            return "its first card is empty.";
+        }
+
+        return card.ActualHeight < RediscoverCardWidth
+            ? $"its first card is {card.ActualHeight:0.#} px tall, less than its cover."
+            : null;
+    }
+
+    // The card's own type (the app's), found among its container's children, so the check holds in the published app too.
+    private static HoverLift? FindRediscoverCard(DependencyObject parent, int depth)
+    {
+        var count = VisualTreeHelper.GetChildrenCount(parent);
+        for (var i = 0; i < count; i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is HoverLift card)
+            {
+                return card;
+            }
+
+            if (depth < 4 && FindRediscoverCard(child, depth + 1) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     private void OnRediscoverPluginChanged(object? sender, string id)
@@ -68,7 +119,7 @@ public sealed partial class HomePage
             StopRediscover();
             _shownRediscover = null;
             _allRediscover.Clear();
-            _rediscover.Clear();
+            Rediscovered.Clear();
             RediscoverSection.Visibility = Visibility.Collapsed;
         }
     }
@@ -83,7 +134,6 @@ public sealed partial class HomePage
         _rediscoverOn = true;
         var feed = BuiltInFeeds.Rediscover(_services);
         feed.Changed += OnRediscoverChanged;
-        _services.Theme.Changed += OnRediscoverThemeChanged;
         RediscoverSection.SizeChanged += OnRediscoverSizeChanged;
         ShowRediscover(feed.Picks);
         _ = RefreshRediscoverAsync(feed);
@@ -98,7 +148,6 @@ public sealed partial class HomePage
 
         _rediscoverOn = false;
         BuiltInFeeds.Rediscover(_services).Changed -= OnRediscoverChanged;
-        _services.Theme.Changed -= OnRediscoverThemeChanged;
         RediscoverSection.SizeChanged -= OnRediscoverSizeChanged;
     }
 
@@ -133,15 +182,6 @@ public sealed partial class HomePage
         }
     }
 
-    private void OnRediscoverThemeChanged(object? sender, EventArgs e)
-    {
-        // The cards' corners follow the look: made again.
-        var picks = _shownRediscover;
-        _shownRediscover = null;
-        _rediscover.Clear();
-        ShowRediscover(picks);
-    }
-
     private void OnRediscoverSizeChanged(object sender, SizeChangedEventArgs e)
     {
         if (e.NewSize.Width != e.PreviousSize.Width)
@@ -173,145 +213,27 @@ public sealed partial class HomePage
         }
 
         _shownRediscover = picks;
-        BuildRediscoverSection();
         _allRediscover.Clear();
-        _rediscover.Clear();
+        Rediscovered.Clear();
         _allRediscover.AddRange(cards.Select(c => new RediscoverTile(c)));
         RediscoverSection.Visibility = Visibility.Visible;
         FitRediscover();
     }
 
-    /// <summary>The section's title and its row, made once per visit.</summary>
-    private void BuildRediscoverSection()
-    {
-        if (_rediscoverGrid is not null)
-        {
-            return;
-        }
-
-        var resources = Application.Current.Resources;
-        var header = new Grid { ColumnSpacing = 16 };
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var titles = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 2 };
-        titles.Children.Add(new TextBlock { Text = "Rediscover", Style = (Style)resources["ResonateSectionTextStyle"] });
-        header.Children.Add(titles);
-
-        _rediscoverMore = new Button
-        {
-            VerticalAlignment = VerticalAlignment.Center,
-            Content = "Show all",
-            Style = (Style)resources["ResonateSubtleButtonStyle"],
-            Visibility = Visibility.Collapsed,
-        };
-        Grid.SetColumn(_rediscoverMore, 1);
-        _rediscoverMore.Click += (_, _) =>
-        {
-            _rediscoverExpanded = !_rediscoverExpanded;
-            FitRediscover();
-        };
-        header.Children.Add(_rediscoverMore);
-
-        // Plain items; each card is built in code as its container is filled.
-        _rediscoverGrid = new GridView
-        {
-            Margin = new Thickness(-4, 0, 0, 0),
-            Padding = new Thickness(4, 6, 0, 0),
-            IsItemClickEnabled = true,
-            SelectionMode = ListViewSelectionMode.None,
-            ItemsSource = _rediscover,
-        };
-        _rediscoverGrid.ContainerContentChanging += OnRediscoverContainerContentChanging;
-        _rediscoverGrid.ItemClick += OnRediscoverClick;
-
-        RediscoverSection.Children.Clear();
-        RediscoverSection.Children.Add(header);
-        RediscoverSection.Children.Add(_rediscoverGrid);
-    }
-
     /// <summary>As many cards as fit in a row, or all of them once "Show all" is pressed.</summary>
     private void FitRediscover()
     {
-        if (_rediscoverMore is null)
-        {
-            return;
-        }
-
         var width = RediscoverSection.ActualWidth > 0 ? RediscoverSection.ActualWidth : _width;
         var fit = Math.Max(1, (int)(width / RediscoverPitch));
-        ShowFirst(_rediscover, _allRediscover, _rediscoverExpanded ? _allRediscover.Count : fit);
-        _rediscoverMore.Visibility = _allRediscover.Count > fit ? Visibility.Visible : Visibility.Collapsed;
-        _rediscoverMore.Content = _rediscoverExpanded ? "Show less" : "Show all";
+        ShowFirst(Rediscovered, _allRediscover, _rediscoverExpanded ? _allRediscover.Count : fit);
+        RediscoverMoreButton.Visibility = _allRediscover.Count > fit ? Visibility.Visible : Visibility.Collapsed;
+        RediscoverMoreButton.Content = _rediscoverExpanded ? "Show less" : "Show all";
     }
 
-    private void OnRediscoverContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
+    private void OnRediscoverMoreClick(object sender, RoutedEventArgs e)
     {
-        // A new card each time (they are few), so no card ever sits in two containers.
-        args.ItemContainer.Content = !args.InRecycleQueue && args.Item is RediscoverTile tile ? BuildRediscoverCard(tile.Card) : null;
-        args.Handled = true;
-    }
-
-    /// <summary>
-    /// A card like the other rows': the cover, a label saying why it is here,
-    /// the title, the artists and a note. Songs show a play button under the
-    /// pointer; albums open.
-    /// </summary>
-    private HoverLift BuildRediscoverCard(RediscoverCard item)
-    {
-        var resources = Application.Current.Resources;
-        var card = new HoverLift { Width = RediscoverCardWidth, Padding = new Thickness(0, 0, 0, 10) };
-        var stack = new StackPanel { Spacing = 2 };
-        var cover = new Grid
-        {
-            Width = RediscoverCardWidth,
-            Height = RediscoverCardWidth,
-            Margin = new Thickness(0, 0, 0, 8),
-            Background = Artwork.PlaceholderBrush(item.Title),
-            CornerRadius = new CornerRadius(_services.Theme.Palette.CornerLarge),
-        };
-        cover.Children.Add(new Image { Source = Artwork.FromUrl(item.ImageUrl, (int)RediscoverCardWidth), Stretch = Stretch.UniformToFill });
-        stack.Children.Add(cover);
-
-        var label = new TextBlock { Text = item.Label, Style = (Style)resources["ResonateEyebrowTextStyle"], Margin = new Thickness(0, 0, 0, 2) };
-        label.Foreground = _services.Theme.GetBrush("ResonateAccentBrush");
-        stack.Children.Add(label);
-        stack.Children.Add(Line(item.Title, "ResonateBodyTextStyle", semiBold: true));
-        stack.Children.Add(Line(item.Subtitle, "ResonateSecondaryTextStyle", semiBold: false));
-        stack.Children.Add(Line(item.Note, "ResonateCaptionTextStyle", semiBold: false));
-        card.Children.Add(stack);
-
-        if (item.Track is not null)
-        {
-            var play = new HoverReveal
-            {
-                Width = 40,
-                Height = 40,
-                Margin = new Thickness(0, 128, 8, 0),
-                HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Top,
-                Background = _services.Theme.GetBrush("ResonateAccentBrush"),
-                CornerRadius = new CornerRadius(20),
-                IsHitTestVisible = false,
-            };
-            play.Children.Add(new FontIcon { Glyph = "", FontSize = 15, Foreground = _services.Theme.GetBrush("ResonateOnAccentBrush") });
-            card.Children.Add(play);
-        }
-
-        var what = $"{item.Title} · {item.Subtitle}";
-        ToolTipService.SetToolTip(card, what + "\n" + item.Note);
-        AutomationProperties.SetName(card, $"{item.Label}: {what}, {item.Note}");
-        return card;
-
-        TextBlock Line(string text, string style, bool semiBold)
-        {
-            var line = new TextBlock { Text = text, Style = (Style)resources[style], MaxLines = 1, TextWrapping = TextWrapping.NoWrap };
-            if (semiBold)
-            {
-                line.FontWeight = FontWeights.SemiBold;
-            }
-
-            return line;
-        }
+        _rediscoverExpanded = !_rediscoverExpanded;
+        FitRediscover();
     }
 
     private void OnRediscoverClick(object sender, ItemClickEventArgs e)

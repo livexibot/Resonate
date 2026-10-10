@@ -56,17 +56,20 @@ internal sealed partial class AwayScreen : UserControl
         var resources = Application.Current.Resources;
 
         _stage = new NowPlayingStage(services, StageKind.Away);
+
+        // At the user's Text size, read as the screen appears (Settings cannot change it meanwhile).
+        var text = services.Theme.TextSize;
         _clock = new TextBlock
         {
             Style = (Style)resources["ResonateDisplayTextStyle"],
-            FontSize = 88,
+            FontSize = AppScale.Font(88, text),
             FontWeight = FontWeights.Light,
             HorizontalAlignment = HorizontalAlignment.Right,
         };
         _date = new TextBlock
         {
             Style = (Style)resources["ResonateEyebrowTextStyle"],
-            FontSize = 14,
+            FontSize = AppScale.Font(14, text),
             HorizontalAlignment = HorizontalAlignment.Right,
         };
         _clockPanel = new StackPanel

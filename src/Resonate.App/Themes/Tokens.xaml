@@ -101,6 +101,8 @@
     <SolidColorBrush x:Key="ResonateSurfacePressedBrush" Color="#1FF2F3F5" />
     <SolidColorBrush x:Key="ResonateControlBrush" Color="#0FF2F3F5" />
     <SolidColorBrush x:Key="ResonateBorderBrush" Color="#1AF2F3F5" />
+    <!-- The outline of text fields, stronger than panels' (3:1 on the page, ThemePalette.FieldBorder). -->
+    <SolidColorBrush x:Key="ResonateFieldBorderBrush" Color="#66F2F3F5" />
     <SolidColorBrush x:Key="ResonateShadowBrush" Color="#F2F3F5" />
     <SolidColorBrush x:Key="ResonateTransparentBrush" Color="#00000000" />
 
@@ -111,6 +113,10 @@
 
     <!-- Colour tokens: accent -->
     <SolidColorBrush x:Key="ResonateAccentBrush" Color="#8B7CFF" />
+    <!-- Small text in the accent: a shade of it that reads at 4.5:1 on rows and the player (ThemePalette.AccentText). -->
+    <SolidColorBrush x:Key="ResonateAccentTextBrush" Color="#9689FF" />
+    <!-- The bars of Home's charts other than the one for now (ThemePalette.ChartQuiet, 3:1 on the card). -->
+    <SolidColorBrush x:Key="ResonateChartQuietBrush" Color="#BF8B7CFF" />
     <SolidColorBrush x:Key="ResonateAccentHoverBrush" Color="#9B8EFF" />
     <SolidColorBrush x:Key="ResonateAccentPressedBrush" Color="#7A6DE0" />
     <SolidColorBrush x:Key="ResonateOnAccentBrush" Color="#0B0B10" />
@@ -177,12 +183,12 @@
     <StaticResource x:Key="HyperlinkButtonForeground" ResourceKey="ResonateAccentBrush" />
     <StaticResource x:Key="HyperlinkButtonForegroundPointerOver" ResourceKey="ResonateAccentHoverBrush" />
     <StaticResource x:Key="HyperlinkButtonForegroundPressed" ResourceKey="ResonateAccentPressedBrush" />
-    <!-- Text fields: the look's quiet fill and outline, its text colours, and an accent outline while typing. -->
+    <!-- Text fields: the look's quiet fill, an outline that shows on the page, its text colours, and an accent outline while typing. -->
     <StaticResource x:Key="TextControlBackground" ResourceKey="ResonateControlBrush" />
     <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="ResonateSurfaceHoverBrush" />
     <StaticResource x:Key="TextControlBackgroundFocused" ResourceKey="ResonateControlBrush" />
-    <StaticResource x:Key="TextControlBorderBrush" ResourceKey="ResonateBorderBrush" />
-    <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="ResonateBorderBrush" />
+    <StaticResource x:Key="TextControlBorderBrush" ResourceKey="ResonateFieldBorderBrush" />
+    <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="ResonateFieldBorderBrush" />
     <StaticResource x:Key="TextControlBorderBrushFocused" ResourceKey="ResonateAccentBrush" />
     <StaticResource x:Key="TextControlForeground" ResourceKey="ResonateTextPrimaryBrush" />
     <StaticResource x:Key="TextControlForegroundPointerOver" ResourceKey="ResonateTextPrimaryBrush" />
@@ -257,10 +263,15 @@
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
 
+    <!--
+      Small second lines (a playlist's owner, times, column names). The
+      secondary colour, so they keep 4.5:1; their size keeps them quieter.
+      The tertiary colour is for icons and large numbers only (3:1).
+    -->
     <Style x:Key="ResonateCaptionTextStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{ThemeResource ResonateTextFont}" />
         <Setter Property="FontSize" Value="{ThemeResource ResonateFontSize12}" />
-        <Setter Property="Foreground" Value="{StaticResource ResonateTextTertiaryBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource ResonateTextSecondaryBrush}" />
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
 
@@ -641,6 +652,85 @@
                                 </VisualState>
                             </VisualStateGroup>
                         </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+      A chip that picks one of a few (Search's filters): a radio button that
+      looks like a subtle button, the chosen one filled with the accent. The
+      hover fill is a layer of its own, so it never hides the chosen fill;
+      the outline takes the accent too, so nothing moves when the choice does.
+    -->
+    <Style x:Key="ResonateChipStyle" TargetType="RadioButton">
+        <Setter Property="Background" Value="{StaticResource ResonateControlBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource ResonateTextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource ResonateBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontFamily" Value="{ThemeResource ResonateTextFont}" />
+        <Setter Property="FontSize" Value="{ThemeResource ResonateFontSize14}" />
+        <Setter Property="Padding" Value="16,8" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="CornerRadius" Value="{ThemeResource ResonateCornerButton}" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Grid
+                        x:Name="Fill"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="Hover.Background" Value="{StaticResource ResonateSurfaceHoverBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters>
+                                        <Setter Target="Hover.Background" Value="{StaticResource ResonateSurfacePressedBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters>
+                                        <Setter Target="Fill.Opacity" Value="0.45" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                            <VisualStateGroup x:Name="CheckStates">
+                                <VisualState x:Name="Checked">
+                                    <VisualState.Setters>
+                                        <Setter Target="Fill.Background" Value="{StaticResource ResonateAccentBrush}" />
+                                        <Setter Target="Fill.BorderBrush" Value="{StaticResource ResonateAccentBrush}" />
+                                        <Setter Target="Presenter.Foreground" Value="{StaticResource ResonateOnAccentBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Unchecked" />
+                                <VisualState x:Name="Indeterminate" />
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <Border
+                            x:Name="Hover"
+                            Background="{StaticResource ResonateTransparentBrush}"
+                            CornerRadius="{TemplateBinding CornerRadius}" />
+                        <ContentPresenter
+                            x:Name="Presenter"
+                            Padding="{TemplateBinding Padding}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                            Content="{TemplateBinding Content}"
+                            FontFamily="{TemplateBinding FontFamily}"
+                            FontSize="{TemplateBinding FontSize}"
+                            Foreground="{TemplateBinding Foreground}" />
                     </Grid>
                 </ControlTemplate>
             </Setter.Value>

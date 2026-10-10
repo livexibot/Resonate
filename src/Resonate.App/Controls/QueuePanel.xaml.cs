@@ -24,6 +24,9 @@ namespace Resonate.App.Controls;
 /// </summary>
 public sealed partial class QueuePanel : UserControl
 {
+    /// <summary>Room under the queue for a hovering player that lies over the pane (0 for none).</summary>
+    internal void SetPlayerRoom(double height) => UpcomingList.Padding = new Thickness(8, 0, 8, Math.Max(16, height));
+
     /// <summary>The pane's width next to the pages.</summary>
     public const double PaneWidth = 340;
 

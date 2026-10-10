@@ -89,8 +89,9 @@ internal sealed partial class PluginsPanel : StackPanel
     private StackPanel Build(BuiltInCard card)
     {
         var panel = new StackPanel { Spacing = 8 };
-        card.Switch.OnContent = "On";
-        card.Switch.OffContent = "Off";
+        card.Switch.OnContent = string.Empty;
+        card.Switch.OffContent = string.Empty;
+        card.Switch.MinWidth = 0;
         AutomationProperties.SetName(card.Switch, card.Plugin.Name);
         card.Switch.Toggled += (_, _) =>
         {
@@ -190,8 +191,9 @@ internal sealed partial class PluginsPanel : StackPanel
         var resources = Application.Current.Resources;
         var panel = new StackPanel { Spacing = 8 };
 
-        card.Switch.OnContent = "On";
-        card.Switch.OffContent = "Off";
+        card.Switch.OnContent = string.Empty;
+        card.Switch.OffContent = string.Empty;
+        card.Switch.MinWidth = 0;
         AutomationProperties.SetName(card.Switch, manifest.Name);
         card.Switch.Toggled += (_, _) => OnToggled(card);
         card.Gear.Click += (_, _) => _ = ShowSettingsAsync(manifest.Name, card.Settings);
@@ -251,7 +253,7 @@ internal sealed partial class PluginsPanel : StackPanel
 
     private static ToggleSwitch ToggleControl(Card card, PluginSetting setting, Action<JsonNode?> save)
     {
-        var toggle = new ToggleSwitch { OnContent = "On", OffContent = "Off" };
+        var toggle = new ToggleSwitch { OnContent = string.Empty, OffContent = string.Empty, MinWidth = 0 };
         toggle.Toggled += (_, _) => save(JsonValue.Create(toggle.IsOn));
         card.Show[setting.Key] = value => toggle.IsOn = value?.GetValueKind() == System.Text.Json.JsonValueKind.True;
         return toggle;

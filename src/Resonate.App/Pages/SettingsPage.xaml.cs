@@ -34,6 +34,9 @@ public sealed partial class SettingsPage : Page
     private SettingsSection? _pendingSection;
     private bool _animateSection;
 
+    /// <summary>Room under the last setting for a hovering player that lies over the pane (0 for none).</summary>
+    internal void SetPlayerRoom(double height) => ScrollContent.Padding = new Thickness(24, 8, 24, Math.Max(40, height));
+
     public SettingsPage()
     {
         InitializeComponent();

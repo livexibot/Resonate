@@ -224,14 +224,69 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock
+                            x:Name="PlaylistsTitle"
                             VerticalAlignment="Center"
                             Style="{StaticResource ResonateEyebrowTextStyle}"
                             Text="PLAYLISTS" />
+                        <!-- Narrows the playlists to the ones whose names hold what is typed (MainWindow.PlaylistFilter.cs). -->
+                        <Button
+                            x:Name="PlaylistFilterButton"
+                            Grid.Column="1"
+                            Width="30"
+                            Height="30"
+                            AutomationProperties.Name="Filter playlists"
+                            Click="OnPlaylistFilterClick"
+                            Content="&#xE721;"
+                            FontSize="13"
+                            Style="{StaticResource ResonateIconButtonStyle}"
+                            ToolTipService.ToolTip="Filter playlists" />
+                        <Grid
+                            x:Name="PlaylistFilterRow"
+                            Grid.ColumnSpan="4"
+                            Margin="-8,0,0,0"
+                            ColumnSpacing="2"
+                            Visibility="Collapsed">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox
+                                x:Name="PlaylistFilterBox"
+                                MinHeight="32"
+                                Padding="32,5,10,5"
+                                VerticalAlignment="Center"
+                                AutomationProperties.Name="Filter playlists"
+                                CornerRadius="{ThemeResource ResonateCornerInput}"
+                                FontSize="{ThemeResource ResonateFontSize14}"
+                                KeyDown="OnPlaylistFilterKeyDown"
+                                PlaceholderText="Filter"
+                                TextChanged="OnPlaylistFilterChanged" />
+                            <FontIcon
+                                Margin="11,0,0,0"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center"
+                                FontFamily="{StaticResource ResonateIconFont}"
+                                FontSize="13"
+                                Foreground="{StaticResource ResonateTextSecondaryBrush}"
+                                Glyph="&#xE721;"
+                                IsHitTestVisible="False" />
+                            <Button
+                                Grid.Column="1"
+                                Width="30"
+                                Height="30"
+                                AutomationProperties.Name="Clear the filter"
+                                Click="OnPlaylistFilterCloseClick"
+                                Content="&#xE711;"
+                                FontSize="12"
+                                Style="{StaticResource ResonateIconButtonStyle}"
+                                ToolTipService.ToolTip="Clear the filter (Esc)" />
+                        </Grid>
                         <Button
                             x:Name="PlaylistSortButton"
-                            Grid.Column="1"
+                            Grid.Column="2"
                             Width="30"
                             Height="30"
                             AutomationProperties.Name="Sort playlists"
@@ -244,7 +299,8 @@
                             </Button.Flyout>
                         </Button>
                         <Button
-                            Grid.Column="2"
+                            x:Name="NewPlaylistButton"
+                            Grid.Column="3"
                             Width="30"
                             Height="30"
                             AutomationProperties.Name="New playlist"
@@ -284,7 +340,7 @@
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="vm:PlaylistNavItem">
                                 <Grid
-                                    MinHeight="64"
+                                    MinHeight="{x:Bind RowHeight, Mode=OneWay}"
                                     Margin="{x:Bind RowPadding, Mode=OneWay}"
                                     HorizontalAlignment="{x:Bind RowAlignment, Mode=OneWay}"
                                     Background="{StaticResource ResonateTransparentBrush}"
@@ -384,6 +440,23 @@
                     </Border>
                 </Grid>
 
+                <!--
+                    While the pane lies over the page (a window too small for the
+                    sidebar, the page and the pane side by side), its shadow and the
+                    window's own colour under it, so a see-through pane stays as
+                    readable as beside the page (see MainWindow.PaneOverlay.cs).
+                -->
+                <Grid
+                    x:Name="PaneBacking"
+                    Grid.Row="1"
+                    Grid.Column="2"
+                    IsHitTestVisible="False"
+                    Visibility="Collapsed">
+                    <controls:Elevation CornerRadius="{ThemeResource ResonateCornerLarge}">
+                        <Border Background="{StaticResource ResonateBackgroundBrush}" CornerRadius="{ThemeResource ResonateCornerLarge}" />
+                    </controls:Elevation>
+                </Grid>
+
                 <controls:QueuePanel
                     x:Name="QueuePane"
                     Grid.Row="1"
@@ -402,6 +475,17 @@
                     x:Name="LyricsPane"
                     Grid.Row="1"
                     Grid.Column="2"
+                    Visibility="Collapsed" />
+
+                <!-- The pane's outline while it lies over the page, so its edge shows where page and pane share a colour. -->
+                <Border
+                    x:Name="PaneEdge"
+                    Grid.Row="1"
+                    Grid.Column="2"
+                    BorderBrush="{StaticResource ResonateBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{ThemeResource ResonateCornerLarge}"
+                    IsHitTestVisible="False"
                     Visibility="Collapsed" />
 
                 <!--
