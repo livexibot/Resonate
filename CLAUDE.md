@@ -15,7 +15,13 @@ visitors; keep it short and in step with this file.
   2026; see "First milestone"). Releases are published with one
   installer, for ordinary (x64) Windows PCs (`Resonate-win-x64-Setup.exe`;
   the owner dropped arm64 and the portable zip on 8 October 2026 to save
-  build time); the latest is v0.17.0 (9 October 2026, late night: four
+  build time); the latest is v0.18.0 (10 October 2026, afternoon:
+  Resonate's own DJ, opening where you left off, the player beside the
+  page as one resizable panel down to a rail, the sidebar player, a wide
+  floating player over the whole window, the progress glow along the line,
+  and the design review fixes; pull request #68, release #69; the beta's
+  `live` branch was started again from `main` after it); v0.17.0
+  (9 October 2026, late night: four
   new special looks, Synthwave, Liquid Chrome, Cyberpunk and Afterhours,
   with moving scenery, weather and decorations, the Ocean dark preset in
   Synthwave's old place, four new bundled fonts, and covers and accents
