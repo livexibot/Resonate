@@ -3,6 +3,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
@@ -13,6 +14,7 @@ using Resonate.App.ViewModels;
 using Resonate.Spotify.Library;
 using Resonate.Spotify.Playback;
 using DataPackageOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation;
+using Point = Windows.Foundation.Point;
 using VirtualKey = Windows.System.VirtualKey;
 
 namespace Resonate.App.Pages;
@@ -44,6 +46,7 @@ public sealed partial class TracksPage : Page
 
     private readonly CoverHero _hero;
     private readonly PageCover _cover;
+    private readonly SongRowActions _rowActions;
     private TrackListSource _source = null!;
     private ListHeader _header = null!;
     private TrackColumns _columns = null!;
@@ -57,6 +60,12 @@ public sealed partial class TracksPage : Page
     private TrackSort _sort = TrackSort.Default;
     private string _filter = string.Empty;
     private string? _highlightedTrack;
+    private bool _highlightedPlaying;
+    private bool _revealPlaying;
+
+    /// <summary>The playing song was shown in the first songs, and the whole list, in another order, will replace them.</summary>
+    private bool _revealOnRebuild;
+    private Run _detailsRun = new();
     private int _highlightQueued;
     private int _sourceChangeQueued;
     private int _sourceSongsChanged;
@@ -76,7 +85,14 @@ public sealed partial class TracksPage : Page
         _filterTimer.IsRepeating = false;
         _hero = new CoverHero(Hero);
         _cover = new PageCover(CoverFrame, CoverImage, CoverShadow, CoverSize);
+        _rowActions = new SongRowActions(TrackList);
     }
+
+    /// <summary>
+    /// Set while a list is opened from the playing song's title (MainWindow.OpenNowPlaying):
+    /// the list opens at that song. Lists opened any other way open at the top.
+    /// </summary>
+    internal static bool OpenAtPlayingSong { get; set; }
 
     /// <summary>The list shown is in its own order, unfiltered (so it can play inside its Spotify context and be rearranged).</summary>
     private bool InOwnOrder => _sort.IsDefault && _filter.Length == 0;
@@ -85,6 +101,9 @@ public sealed partial class TracksPage : Page
     {
         _source = e.Parameter as TrackListSource
             ?? TrackListSource.For(e.Parameter as string ?? LikedSongsSource.ListKey, _services);
+        _revealPlaying = OpenAtPlayingSong;
+        _revealOnRebuild = false;
+        OpenAtPlayingSong = false;
         _columns = new TrackColumns(album: !_source.IsAlbum, dateAdded: _source.HasDateAdded);
         FitToWidth(TrackList.ActualWidth > 0 ? TrackList.ActualWidth : double.PositiveInfinity);
         AlbumHeading.Visibility = _source.IsAlbum ? Visibility.Collapsed : Visibility.Visible;
@@ -281,21 +300,81 @@ public sealed partial class TracksPage : Page
 
         _hero.Show(accent ? _services.Theme.Palette.Accent : Artwork.PlaceholderColors(header.PlaceholderName).From, header.ImageUrl);
 
-        ArtistLinks.Children.Clear();
-        foreach (var artist in header.Artists)
+        // One text that can wrap: the album's artists, then the details (UpdateDetails).
+        var inlines = DetailsText.Inlines;
+        inlines.Clear();
+        var primary = _services.Theme.GetBrush("ResonateTextPrimaryBrush");
+        for (var i = 0; i < header.Artists.Count; i++)
         {
-            var link = new HyperlinkButton { Content = artist.Name, Padding = new Thickness(0), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
-            if (artist.Id is { } id)
+            if (i > 0)
             {
-                link.Click += (_, _) => App.MainWindow?.Open(TrackActions.ArtistKey(id));
+                inlines.Add(new Run { Text = ", " });
             }
 
-            ArtistLinks.Children.Add(link);
+            var artist = header.Artists[i];
+            inlines.Add(artist.Id is { } id
+                ? ArtistLink(artist.Name, id, primary)
+                : new Run { Text = artist.Name, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = primary });
         }
 
-        // An empty panel would still push the details over by the row's spacing.
-        ArtistLinks.Visibility = header.Artists.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        _detailsRun = new Run();
+        inlines.Add(_detailsRun);
         UpdateDetails();
+    }
+
+    private static Hyperlink ArtistLink(string name, string id, Brush foreground)
+    {
+        var link = new Hyperlink { Foreground = foreground, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, UnderlineStyle = UnderlineStyle.None };
+        link.Inlines.Add(new Run { Text = name });
+
+        // Windows lets a link take clicks beside it, to the end of its line; only a
+        // click on the name itself (underlined under the pointer) or the keyboard opens the page.
+        link.Click += (_, _) =>
+        {
+            if (link.UnderlineStyle == UnderlineStyle.Single || link.FocusState == FocusState.Keyboard)
+            {
+                App.MainWindow?.Open(TrackActions.ArtistKey(id));
+            }
+        };
+        return link;
+    }
+
+    private void OnDetailsPointerMoved(object sender, PointerRoutedEventArgs e) =>
+        UnderlineArtist(e.GetCurrentPoint(DetailsText).Position);
+
+    private void OnDetailsPointerExited(object sender, PointerRoutedEventArgs e) => UnderlineArtist(null);
+
+    /// <summary>Underlines the artist's name under <paramref name="point"/> (none when null).</summary>
+    private void UnderlineArtist(Point? point)
+    {
+        foreach (var inline in DetailsText.Inlines)
+        {
+            if (inline is Hyperlink link)
+            {
+                var style = point is { } at && Covers(link, at) ? UnderlineStyle.Single : UnderlineStyle.None;
+                if (link.UnderlineStyle != style)
+                {
+                    link.UnderlineStyle = style;
+                }
+            }
+        }
+    }
+
+    /// <summary>The point is on the link's words, which may run on to the second line.</summary>
+    private static bool Covers(Hyperlink link, Point point)
+    {
+        var start = link.ContentStart.GetCharacterRect(LogicalDirection.Forward);
+        var end = link.ContentEnd.GetCharacterRect(LogicalDirection.Backward);
+        var right = Math.Max(end.Left, end.Right);
+        if (point.Y < start.Top || point.Y > end.Bottom)
+        {
+            return false;
+        }
+
+        // On one line: between its ends. On two: from its start on the first line, up to its end on the second.
+        return end.Top < start.Bottom
+            ? point.X >= start.Left && point.X <= right
+            : point.Y < start.Bottom ? point.X >= start.Left : point.Y < end.Top || point.X <= right;
     }
 
     private void UpdateDetails()
@@ -313,7 +392,7 @@ public sealed partial class TracksPage : Page
 
         // After the artist links, the details continue the same line.
         var details = string.Join(" · ", parts);
-        DetailsText.Text = _header.Artists.Count > 0 && details.Length > 0 ? "· " + details : details;
+        _detailsRun.Text = _header.Artists.Count > 0 && details.Length > 0 ? " · " + details : details;
     }
 
     private void ShowAll(FullTrackList list)
@@ -369,6 +448,14 @@ public sealed partial class TracksPage : Page
 
         _rows = new ObservableCollection<TrackRow>(rows);
         TrackList.ItemsSource = _rows;
+        if (_revealOnRebuild)
+        {
+            // The new rows start at the top again: show the playing song there too.
+            _revealOnRebuild = false;
+            _revealPlaying = true;
+        }
+
+        _rowActions.Select(TrackList.SelectedItem as TrackRow);
         UpdateEditing();
         UpdateEmpty();
         UpdateSortIndicators();
@@ -882,13 +969,51 @@ public sealed partial class TracksPage : Page
         }
 
         TrackList.SelectedItem = row;
+        TrackActions.ShowMenu(MenuFor(row), TrackList, args);
+    }
+
+    private MenuFlyout MenuFor(TrackRow row)
+    {
         var options = new TrackMenuOptions
         {
             Play = () => _ = PlayAsync(row),
             Remove = _source.CanEdit && _complete && !_editing ? () => _ = RemoveAsync(row) : null,
             CurrentPlaylistId = (_source as PlaylistSource)?.PlaylistId,
         };
-        TrackActions.ShowMenu(TrackActions.BuildMenu(row.Track, options), TrackList, args);
+        return TrackActions.BuildMenu(row.Track, options);
+    }
+
+    // ---- A row's own buttons: Play (Pause on the playing song) and More ----
+
+    private void OnRowPointerEntered(object sender, PointerRoutedEventArgs e) => _rowActions.Entered(sender);
+
+    private void OnRowPointerExited(object sender, PointerRoutedEventArgs e) => _rowActions.Exited(sender, e);
+
+    private void OnRowPlayClick(object sender, RoutedEventArgs e)
+    {
+        if (_rowActions.PlayClicked(sender) is not { } row)
+        {
+            return;
+        }
+
+        // The playing (or paused) song pauses or goes on; any other starts.
+        if (row.IsCurrent)
+        {
+            _ = _services.Player.TogglePlayPauseAsync();
+        }
+        else
+        {
+            _ = PlayAsync(row);
+        }
+    }
+
+    private void OnRowMoreClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: TrackRow row } button)
+        {
+            TrackList.SelectedItem = row;
+            TrackActions.ShowMenuAt(MenuFor(row), button);
+        }
     }
 
     private async Task RemoveAsync(TrackRow row)
@@ -1044,17 +1169,72 @@ public sealed partial class TracksPage : Page
     {
         var state = _services.Player.State;
         var key = state.TrackUri ?? state.Title;
-        if (!force && key == _highlightedTrack)
+        var playing = state.IsPlaying;
+        if (!force && key == _highlightedTrack && playing == _highlightedPlaying)
         {
             return;
         }
 
         _highlightedTrack = key;
-        foreach (var row in _rows)
+        _highlightedPlaying = playing;
+        var current = -1;
+        for (var i = 0; i < _rows.Count; i++)
         {
+            var row = _rows[i];
             row.IsCurrent = state.TrackUri is not null
                 ? row.Track.Uri == state.TrackUri
                 : state.Title is not null && row.Title == state.Title;
+            row.IsPlaying = row.IsCurrent && playing;
+            if (row.IsCurrent && current < 0)
+            {
+                current = i;
+            }
+        }
+
+        if (_revealPlaying)
+        {
+            Reveal(current);
+        }
+    }
+
+    /// <summary>The playing song's title was clicked while this list shows: it jumps to the song.</summary>
+    internal void RevealPlaying()
+    {
+        _revealPlaying = true;
+        if (_rows.Count > 0 || _complete)
+        {
+            HighlightPlayingTrack(force: true);
+        }
+    }
+
+    /// <summary>
+    /// Shows the playing song (row <paramref name="index"/>) with two songs
+    /// above it, at once, and selects it so the keyboard starts there.
+    /// </summary>
+    private void Reveal(int index)
+    {
+        if (index < 0)
+        {
+            // Not among the songs yet: the rest of the list may bring it (a filter can hide it).
+            _revealPlaying = !_complete;
+            return;
+        }
+
+        // Once only, so the list never jumps back while the rest of it loads
+        // or the music pauses; but the first songs (a preview) may be
+        // replaced by the whole list in another order, which starts at the
+        // top again: ApplyView shows it there too.
+        _revealPlaying = false;
+        _revealOnRebuild = !_complete;
+        TrackList.SelectedItem = _rows[index];
+        if (index > 2)
+        {
+            TrackList.ScrollIntoView(_rows[index - 2], ScrollIntoViewAlignment.Leading);
+        }
+        else
+        {
+            // Among the first songs, which show under the list's header.
+            Hero.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false, VerticalAlignmentRatio = 0 });
         }
     }
 

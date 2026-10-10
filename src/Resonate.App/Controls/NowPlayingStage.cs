@@ -53,6 +53,7 @@ internal sealed partial class NowPlayingStage : Grid
     private const int UpNextCount = 3;
     private const int UpNextCover = 44;
     private const double CoverCorner = 8;
+    private const double PlaySize = 64;
     private const string PlayGlyph = "";
     private const string PauseGlyph = "";
     private const string NextGlyph = "";
@@ -114,6 +115,7 @@ internal sealed partial class NowPlayingStage : Grid
     private bool _wide = true;
     private ThemeColor _page;
     private bool _barRoomQueued;
+    private bool _refitQueued;
     private bool _visualizerAroundCover;
 
     public NowPlayingStage(AppServices services, StageKind kind)
@@ -131,8 +133,8 @@ internal sealed partial class NowPlayingStage : Grid
             MaxLines = 2,
             Margin = new Thickness(0, 4, 0, 2),
         };
-        _artists = new TextBlock { Style = (Style)resources["ResonateTitleTextStyle"], FontSize = away ? 26 : 22, FontWeight = Microsoft.UI.Text.FontWeights.Normal };
-        _source = new TextBlock { Style = (Style)resources["ResonateSecondaryTextStyle"], FontSize = away ? 16 : 14 };
+        _artists = new TextBlock { Style = (Style)resources["ResonateTitleTextStyle"], FontWeight = Microsoft.UI.Text.FontWeights.Normal };
+        _source = new TextBlock { Style = (Style)resources["ResonateSecondaryTextStyle"] };
         SongLinks.Attach(_artists, SongLinks.Artists, PlayingTrack.Get);
         _text.Children.Add(_eyebrow);
         _text.Children.Add(_title);
@@ -145,8 +147,8 @@ internal sealed partial class NowPlayingStage : Grid
             _play = new Button
             {
                 Style = (Style)resources["ResonatePlayButtonStyle"],
-                Width = 64,
-                Height = 64,
+                Width = PlaySize,
+                Height = PlaySize,
                 FontSize = 24,
                 Content = PlayGlyph,
             };
@@ -192,7 +194,6 @@ internal sealed partial class NowPlayingStage : Grid
             _upNextLine = new TextBlock
             {
                 Style = (Style)resources["ResonateSecondaryTextStyle"],
-                FontSize = 16,
                 Margin = new Thickness(0, 24, 0, 0),
                 Visibility = Visibility.Collapsed,
             };
@@ -254,6 +255,7 @@ internal sealed partial class NowPlayingStage : Grid
             }
         }
 
+        ApplyTextSize();
         ApplyLook();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
@@ -320,6 +322,7 @@ internal sealed partial class NowPlayingStage : Grid
         _services.Player.StateChanged += OnPlayerChanged;
         _services.Player.QueueChanged += OnQueueChanged;
         _services.Theme.Changed += OnThemeChanged;
+        _services.Theme.SizeChanged += OnTextSizeChanged;
         _services.Visualiser.LiveChanged += OnLiveChanged;
         OptionsChanged += OnOptionsChanged;
         TrackColumns.OptionsChanged += OnCoverOptionsChanged;
@@ -344,6 +347,7 @@ internal sealed partial class NowPlayingStage : Grid
         _services.Player.StateChanged -= OnPlayerChanged;
         _services.Player.QueueChanged -= OnQueueChanged;
         _services.Theme.Changed -= OnThemeChanged;
+        _services.Theme.SizeChanged -= OnTextSizeChanged;
         _services.Visualiser.LiveChanged -= OnLiveChanged;
         OptionsChanged -= OnOptionsChanged;
         TrackColumns.OptionsChanged -= OnCoverOptionsChanged;
@@ -406,6 +410,49 @@ internal sealed partial class NowPlayingStage : Grid
 
         ApplyLook();
         UpdateRunning();
+
+        // A look's fonts can make the words wider or taller.
+        QueueRefit();
+    }
+
+    // Text size changed in Settings (open beside Home): the words take it, and the cover makes room for
+    // them once the labels' styles have their new sizes too.
+    private void OnTextSizeChanged(object? sender, EventArgs e)
+    {
+        ApplyTextSize();
+        QueueRefit();
+    }
+
+    /// <summary>Lays the stage out again once theme resources (fonts, text sizes) have been read again; many changes, one layout.</summary>
+    private void QueueRefit()
+    {
+        if (_refitQueued)
+        {
+            return;
+        }
+
+        _refitQueued = true;
+        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
+        {
+            _refitQueued = false;
+            if (_attached)
+            {
+                Refit();
+            }
+        });
+    }
+
+    /// <summary>The words follow the user's Text size; the labels and the songs up next do through their styles, the title in <see cref="Fit"/>.</summary>
+    private void ApplyTextSize()
+    {
+        var away = _kind == StageKind.Away;
+        var text = _services.Theme.TextSize;
+        _artists.FontSize = AppScale.Font(away ? 26 : 22, text);
+        _source.FontSize = AppScale.Font(away ? 16 : 14, text);
+        if (_upNextLine is not null)
+        {
+            _upNextLine.FontSize = AppScale.Font(16, text);
+        }
     }
 
     private void OnOptionsChanged(object? sender, EventArgs e)
@@ -474,6 +521,13 @@ internal sealed partial class NowPlayingStage : Grid
         CornerRadius = new CornerRadius(corner);
         _clouds.CornerRadiusValue = (float)corner;
         _visualizer.ClipCorner = corner;
+
+        // Round like the other play buttons in round-button looks, the look's own corners otherwise.
+        if (_play is not null)
+        {
+            _play.CornerRadius = new CornerRadius(Math.Min(palette.CornerButton, PlaySize / 2));
+        }
+
         PaintClouds(animate: false);
         ShowBlur();
     }
@@ -508,11 +562,14 @@ internal sealed partial class NowPlayingStage : Grid
                 "LAST PLAYED");
         }
 
+        // New words may need another size of cover (see Fit).
+        var refit = false;
         if (!_songShown || song != _shown)
         {
             _songShown = true;
             _shown = song;
             ShowSong(song);
+            refit = true;
         }
 
         if (_play is not null)
@@ -523,8 +580,15 @@ internal sealed partial class NowPlayingStage : Grid
 
         if (_controls is not null && _next is not null)
         {
-            _controls.Visibility = song is null ? Visibility.Collapsed : Visibility.Visible;
+            var controls = song is null ? Visibility.Collapsed : Visibility.Visible;
+            refit |= controls != _controls.Visibility;
+            _controls.Visibility = controls;
             _next.Visibility = state.HasTrack ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        if (refit)
+        {
+            Refit();
         }
 
         ShowUpNext(state);
@@ -538,8 +602,8 @@ internal sealed partial class NowPlayingStage : Grid
             _eyebrow.Text = string.Empty;
             _title.Text = "Nothing playing";
             _artists.Visibility = Visibility.Collapsed;
-            _source.Text = "Play something and it shows here.";
-            _source.Visibility = Visibility.Visible;
+            _source.Text = string.Empty;
+            _source.Visibility = Visibility.Collapsed;
             _coverSong = null;
             _coverArt = null;
             _coverFull = null;
@@ -906,6 +970,7 @@ internal sealed partial class NowPlayingStage : Grid
 
         if (_upNext is null)
         {
+            Refit();
             return;
         }
 
@@ -940,7 +1005,8 @@ internal sealed partial class NowPlayingStage : Grid
             }
         }
 
-        _upNext.Visibility = upcoming.Count > 0 && ActualHeight >= 560 ? Visibility.Visible : Visibility.Collapsed;
+        // Shown only where it fits (see Fit).
+        Refit();
     }
 
     // Holds the row only weakly: a cover that never answers must not keep Home in memory.
@@ -1061,7 +1127,13 @@ internal sealed partial class NowPlayingStage : Grid
         }
     }
 
-    /// <summary>Lays the cover and the words out for the stage's size: side by side, or the cover above on a narrow stage.</summary>
+    /// <summary>
+    /// Lays the cover and the words out for the stage's size (see
+    /// <see cref="StageLayout"/>): side by side whenever the stage is wider
+    /// than tall, or the cover above the words on a narrow, tall stage, sized
+    /// from what the words need, so the play and skip buttons are never cut.
+    /// The songs up next show only where they fit too.
+    /// </summary>
     private void Fit(global::Windows.Foundation.Size size)
     {
         var away = _kind == StageKind.Away;
@@ -1074,12 +1146,38 @@ internal sealed partial class NowPlayingStage : Grid
         _visualizer.Margin = new Thickness(0);
         var innerWidth = Math.Max(0, size.Width - (2 * pad));
         var innerHeight = Math.Max(0, size.Height - top - pad);
-        _wide = innerWidth >= 600;
+        var spacing = away ? 64 : 48;
+        var upNext = _upNext is not null && size.Height >= 560 && _upNextRows.Any(r => r.Row.Visibility == Visibility.Visible);
+        var wide = StageLayout.SideBySide(innerWidth, innerHeight);
+        double cover;
+        double title;
+        if (wide)
+        {
+            cover = StageLayout.SideCover(innerWidth, innerHeight, away ? 560 : CoverMax);
+            title = StageLayout.TitleSize(away, sideBySide: true, cover);
+            var column = Math.Max(0, innerWidth - cover - spacing);
+            upNext = upNext && WordsHeight(column, title, upNext: true) <= innerHeight;
 
-        double cover = _wide
-            ? Math.Min(away ? 560 : CoverMax, Math.Min(innerHeight, innerWidth * 0.42))
-            : Math.Min(240, Math.Min(innerHeight * 0.4, innerWidth));
-        cover = Math.Max(96, Math.Floor(cover));
+            // A large Text size on a short stage: the compact title, so the buttons stay whole.
+            if (!upNext && WordsHeight(column, title, upNext: false) > innerHeight)
+            {
+                title = StageLayout.TitleSize(away, sideBySide: false, cover);
+            }
+        }
+        else
+        {
+            // The words first: the cover above them takes only the room they leave.
+            title = StageLayout.TitleSize(away, sideBySide: false, 0);
+            double? stacked = upNext ? StageLayout.StackedCover(innerWidth, innerHeight, WordsHeight(innerWidth, title, upNext: true)) : null;
+            upNext = stacked is not null;
+            stacked ??= StageLayout.StackedCover(innerWidth, innerHeight, WordsHeight(innerWidth, title, upNext: false));
+
+            // Not even room for the smallest cover above them: it goes beside them.
+            wide = stacked is null;
+            cover = stacked ?? StageLayout.MinCover;
+        }
+
+        _wide = wide;
         _coverBox.Width = cover;
         _coverBox.Height = cover;
 
@@ -1090,20 +1188,65 @@ internal sealed partial class NowPlayingStage : Grid
         Body.ColumnDefinitions[1].Width = _wide ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
         Body.RowDefinitions[0].Height = _wide ? new GridLength(1, GridUnitType.Star) : GridLength.Auto;
         Body.RowDefinitions[1].Height = _wide ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
-        Body.ColumnSpacing = _wide ? (away ? 64 : 48) : 0;
-        Body.RowSpacing = _wide ? 0 : 28;
+        Body.ColumnSpacing = _wide ? spacing : 0;
+        Body.RowSpacing = _wide ? 0 : StageLayout.StackedGap;
         _text.VerticalAlignment = _wide ? VerticalAlignment.Center : VerticalAlignment.Top;
 
         FitReach();
-        _title.FontSize = away ? (_wide ? 64 : 44) : !_wide ? 32 : cover >= 360 ? 52 : 40;
+        _title.FontSize = AppScale.Font(title, _services.Theme.TextSize);
         if (_upNext is not null)
         {
-            _upNext.Visibility = _upNextRows.Any(r => r.Row.Visibility == Visibility.Visible) && size.Height >= 560
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+            _upNext.Visibility = upNext ? Visibility.Visible : Visibility.Collapsed;
         }
 
         QueueBarRoom();
+    }
+
+    /// <summary>
+    /// For the screenshot tour: how far the play and skip buttons reach past
+    /// the stage's bottom edge, or null while they are whole (a picture
+    /// cannot tell a flat edge from a round one).
+    /// </summary>
+    internal string? CutProblem()
+    {
+        if (_controls is not { Visibility: Visibility.Visible } controls || controls.ActualHeight <= 0 || ActualHeight <= 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            var box = controls.TransformToVisual(this).TransformBounds(new global::Windows.Foundation.Rect(0, 0, controls.ActualWidth, controls.ActualHeight));
+            return box.Bottom > ActualHeight + 0.5
+                ? $"its play button ends {box.Bottom - ActualHeight:0.#} px below the stage ({ActualWidth:0} x {ActualHeight:0})."
+                : null;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Lays the stage out again at its size, after its words changed.</summary>
+    private void Refit()
+    {
+        if (ActualWidth > 0 && ActualHeight > 0)
+        {
+            Fit(new global::Windows.Foundation.Size(ActualWidth, ActualHeight));
+        }
+    }
+
+    /// <summary>How tall the words are in a column <paramref name="width"/> wide, with a title of <paramref name="title"/> (at the usual Text size) and with or without the songs up next.</summary>
+    private double WordsHeight(double width, double title, bool upNext)
+    {
+        _title.FontSize = AppScale.Font(title, _services.Theme.TextSize);
+        if (_upNext is not null)
+        {
+            _upNext.Visibility = upNext ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        _text.Measure(new global::Windows.Foundation.Size(width, double.PositiveInfinity));
+        return _text.DesiredSize.Height;
     }
 
     /// <summary>Works out the room under the cover and the words once layout has settled (many changes, one look).</summary>

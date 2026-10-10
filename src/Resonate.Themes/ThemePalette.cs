@@ -30,6 +30,21 @@ public sealed record ThemePalette
 
     public required ThemeColor Surface { get; init; }
 
+    /// <summary>
+    /// The page as drawn over the backdrop text reads worst over: for
+    /// see-through panels the gradient's other end, the cover at the most
+    /// <see cref="ArtworkColors.DimForWhiteText"/> leaves it or the lightest
+    /// scenery (see <see cref="HardestBackdrop"/>); for opaque ones the page.
+    /// </summary>
+    public required ThemeColor LightestPage { get; init; }
+
+    /// <summary>
+    /// The page behind a header's glow at its lightest: as <see cref="LightestPage"/>
+    /// without the scenery, which lies lower in the window or is small where
+    /// headers sit (the top of the page, over the sky).
+    /// </summary>
+    private ThemeColor HeaderPage { get; init; }
+
     public required ThemeColor Player { get; init; }
 
     /// <summary>Drawn over anything to show the pointer is on it.</summary>
@@ -42,6 +57,13 @@ public sealed record ThemePalette
 
     public required ThemeColor Border { get; init; }
 
+    /// <summary>
+    /// The outline of text fields (search, filter, names): 3:1 against the
+    /// page, so a field still shows once it holds text and lost focus.
+    /// Panels and buttons keep the quiet <see cref="Border"/>.
+    /// </summary>
+    public required ThemeColor FieldBorder { get; init; }
+
     public required ThemeColor TextPrimary { get; init; }
 
     public required ThemeColor TextSecondary { get; init; }
@@ -49,6 +71,17 @@ public sealed record ThemePalette
     public required ThemeColor TextTertiary { get; init; }
 
     public required ThemeColor Accent { get; init; }
+
+    /// <summary>
+    /// The accent for small text (a playing song's title, the sung lyric
+    /// line): the accent itself where it already reads at 4.5:1, otherwise a
+    /// shade of it that does, on the page, a row under the pointer, the
+    /// selected row and the player. Buttons and bars keep <see cref="Accent"/>.
+    /// </summary>
+    public required ThemeColor AccentText { get; init; }
+
+    /// <summary>The bars of Home's charts other than the one for now: the accent, just strong enough for 3:1 on the card.</summary>
+    public required ThemeColor ChartQuiet { get; init; }
 
     public required ThemeColor AccentHover { get; init; }
 
@@ -119,7 +152,9 @@ public sealed record ThemePalette
         var isLight = effectiveSurface.IsLight;
 
         var text = EnsureContrast(theme.Text.Opaque, effectiveSurface, 4.5);
-        var accent = EnsureContrast((accentOverride ?? theme.Accent).Opaque, effectiveSurface, 2.4);
+
+        // Controls drawn in the accent (the progress bar, switches, outline play buttons) keep 3:1.
+        var accent = EnsureContrast((accentOverride ?? theme.Accent).Opaque, effectiveSurface, 3.0);
         var accent2 = theme.Accent2.Opaque;
         var onAccent = ThemeColor.ContrastRatio(accent, ThemeColor.White) >= ThemeColor.ContrastRatio(accent, Ink)
             ? ThemeColor.White
@@ -146,10 +181,18 @@ public sealed record ThemePalette
             _ => (accent, AccentHoverFor(accent, isLight), onAccent, ThemeColor.Transparent, 0.0),
         };
 
-        var secondary = text.Mix(effectiveSurface, 0.33);
-        var tertiary = text.Mix(effectiveSurface, 0.55);
-        var shownSidebar = theme.Sidebar.Opaque.WithAlpha(panelOpacity).Over(background);
-        var accentSoft = SoftAccent(accent, isLight, pressed, [text, secondary, tertiary], [effectiveSurface, shownSidebar]);
+        // The panels as drawn, and as drawn over the backdrop text reads worst
+        // over (the same colours for opaque panels): the grey text keeps 4.5:1
+        // and the icons 3:1 on all of them, and on a row under the pointer.
+        var sidebarPanel = theme.Sidebar.Opaque.WithAlpha(panelOpacity);
+        var shownSidebar = sidebarPanel.Over(background);
+        var hardest = HardestBackdrop(theme, text, scenery: true);
+        var lightestPage = surface.Over(hardest);
+        ThemeColor[] panels = [effectiveSurface, shownSidebar, lightestPage, sidebarPanel.Over(hardest)];
+        var secondary = Readable(text.Mix(effectiveSurface, 0.33), panels, 4.5);
+        var tertiary = Readable(text.Mix(effectiveSurface, 0.55), [.. panels, hover.Over(effectiveSurface)], 3.0);
+        var accentSoft = SoftAccent(accent, isLight, pressed, [text, secondary, tertiary], panels);
+        var player = PlayerFill(theme, effectiveSurface);
 
         return new ThemePalette
         {
@@ -159,15 +202,20 @@ public sealed record ThemePalette
             BackdropTint = background.WithAlpha(theme.BackdropTint),
             Sidebar = theme.Sidebar.Opaque.WithAlpha(panelOpacity),
             Surface = surface,
-            Player = PlayerFill(theme, effectiveSurface),
+            LightestPage = lightestPage,
+            HeaderPage = surface.Over(HardestBackdrop(theme, text, scenery: false)),
+            Player = player,
             Hover = hover,
             Pressed = pressed,
             Control = text.WithAlpha(isLight ? 0.04 : 0.06),
             Border = border,
+            FieldBorder = FieldBorderFor(theme.Border, text, effectiveSurface, lightestPage),
             TextPrimary = text,
             TextSecondary = secondary,
             TextTertiary = tertiary,
             Accent = accent,
+            AccentText = Readable(accent, [effectiveSurface, lightestPage, hover.Over(effectiveSurface), accentSoft.Over(effectiveSurface), player.Over(background)], 4.5),
+            ChartQuiet = ChartQuietFor(accent, hover.Over(effectiveSurface)),
             AccentHover = AccentHoverFor(accent, isLight),
             AccentPressed = isLight ? accent.Mix(ThemeColor.Black, 0.18) : accent.Mix(ThemeColor.Black, 0.12),
             OnAccent = onAccent,
@@ -191,8 +239,8 @@ public sealed record ThemePalette
         };
     }
 
-    /// <summary>The lowest opacity of a hovering player, so rows scrolling underneath never get in the way of its text.</summary>
-    internal const double HoveringPlayerOpacity = 0.9;
+    /// <summary>The lowest opacity of a hovering player, so rows scrolling underneath never show through behind its text.</summary>
+    internal const double HoveringPlayerOpacity = 0.97;
 
     /// <summary>
     /// The player's fill. Docked and floating players are panels like the
@@ -239,7 +287,9 @@ public sealed record ThemePalette
     /// nothing towards the list below). It starts strong on dark pages,
     /// softer on light, glass and true-black ones, and is lowered until every
     /// text on the page still reads over it as well as the presets promise:
-    /// main text 7:1, secondary 4.5:1, captions 2.5:1 and the accent 2.4:1.
+    /// main text 7:1, secondary text (captions too) 4.5:1, icons 2.5:1 and
+    /// the accent 2.4:1, over the page as drawn and, for see-through panels,
+    /// over the lightest backdrop behind a header (<see cref="HeaderPage"/>).
     /// Transparent when even a faint glow would make text harder to read.
     /// </summary>
     public ThemeColor HeroTint(ThemeColor source)
@@ -250,21 +300,158 @@ public sealed record ThemePalette
             : IsLight ? 0.24
             : 0.42;
 
+        bool ReadsOver(ThemeColor shown) =>
+            ThemeColor.ContrastRatio(TextPrimary, shown) >= 7
+            && ThemeColor.ContrastRatio(TextSecondary, shown) >= 4.5
+            && ThemeColor.ContrastRatio(TextTertiary, shown) >= 2.5
+            && ThemeColor.ContrastRatio(Accent, shown) >= 2.4;
+
         // Whole steps, so the same cover always gets the same glow.
         for (var step = (int)Math.Round(strength * 100); step > 0; step -= 5)
         {
             var tint = source.Opaque.WithAlpha(step / 100.0);
-            var shown = tint.Over(page);
-            if (ThemeColor.ContrastRatio(TextPrimary, shown) >= 7
-                && ThemeColor.ContrastRatio(TextSecondary, shown) >= 4.5
-                && ThemeColor.ContrastRatio(TextTertiary, shown) >= 2.5
-                && ThemeColor.ContrastRatio(Accent, shown) >= 2.4)
+            if (ReadsOver(tint.Over(page)) && ReadsOver(tint.Over(HeaderPage)))
             {
                 return tint;
             }
         }
 
         return source.Opaque.WithAlpha(0);
+    }
+
+    /// <summary>
+    /// What shows through see-through panels that text reads worst over:
+    /// the background, or for a gradient its second colour, for the song
+    /// cover the brightest cover <see cref="ArtworkColors.DimForWhiteText"/>
+    /// leaves, and for a special look the lightest part of its scenery that
+    /// lies behind text (<see cref="SceneryLight"/>; only with
+    /// <paramref name="scenery"/>). Opaque panels hide it all, so for them it
+    /// changes nothing.
+    /// </summary>
+    internal static ThemeColor HardestBackdrop(ThemeDefinition theme, ThemeColor text, bool scenery)
+    {
+        var background = theme.Background.Opaque;
+        var panel = theme.Surface.Opaque.WithAlpha(theme.PanelOpacity);
+        var hardest = background;
+        void Consider(ThemeColor candidate)
+        {
+            if (ThemeColor.ContrastRatio(text, panel.Over(candidate)) < ThemeColor.ContrastRatio(text, panel.Over(hardest)))
+            {
+                hardest = candidate;
+            }
+        }
+
+        switch (theme.Backdrop)
+        {
+            case WindowBackdrop.Gradient:
+                Consider(theme.Background2.Opaque);
+                break;
+            case WindowBackdrop.Artwork:
+                Consider(ArtworkColors.BrightestCover(theme.PanelOpacity));
+                break;
+        }
+
+        if (scenery && SceneryLight(theme.Scene) is { } light)
+        {
+            Consider(light);
+        }
+
+        return hardest;
+    }
+
+    /// <summary>
+    /// The lightest scenery behind the panels' text in each special look:
+    /// the moon over Japan, Snow's snowfields and far ranges, Synthwave's
+    /// sun, Liquid Chrome's blobs and waves, Cyberpunk's lit towers and
+    /// Afterhours' city glow. Measured under the sidebar's and the song
+    /// list's text in CI's screenshots of v0.17.0 (the 99.9th percentile
+    /// of the panel colour behind text, worked back through the panel), a
+    /// little lighter for safety. A few small bright specks (stars, lit
+    /// windows, the cabin, tail lights) are lighter still.
+    /// </summary>
+    internal static ThemeColor? SceneryLight(ThemeScene scene) => scene switch
+    {
+        ThemeScene.Japan => ThemeColor.FromRgb(0x857866),
+        ThemeScene.Snow => ThemeColor.FromRgb(0x749CC4),
+        ThemeScene.Synthwave => ThemeColor.FromRgb(0xFFB27E),
+        ThemeScene.LiquidChrome => ThemeColor.FromRgb(0x5E6066),
+        ThemeScene.Cyberpunk => ThemeColor.FromRgb(0x2C6C8C),
+        ThemeScene.Afterhours => ThemeColor.FromRgb(0x5A2A28),
+        _ => null,
+    };
+
+    /// <summary>
+    /// Nudges <paramref name="color"/> until it reaches <paramref name="ratio"/>
+    /// against every one of <paramref name="backgrounds"/>. Every nudge goes
+    /// the way the first one (the page) needs, so a backdrop of the other
+    /// lightness (a custom look's bright gradient behind dark glass) can never
+    /// push the text into the page; it is then as readable there as it can be.
+    /// </summary>
+    private static ThemeColor Readable(ThemeColor color, ThemeColor[] backgrounds, double ratio)
+    {
+        var target = backgrounds[0].Opaque.IsLight ? ThemeColor.Black : ThemeColor.White;
+        foreach (var background in backgrounds)
+        {
+            var shown = background.Opaque;
+            if (ThemeColor.ContrastRatio(color, shown) >= ratio)
+            {
+                continue;
+            }
+
+            var start = color;
+            for (var step = 1; step <= 20; step++)
+            {
+                color = start.Mix(target, step / 20.0);
+                if (ThemeColor.ContrastRatio(color, shown) >= ratio)
+                {
+                    break;
+                }
+            }
+        }
+
+        return color;
+    }
+
+    /// <summary>
+    /// A text field's outline: the look's own outline when it already reaches
+    /// 3:1 on the page, otherwise the text colour at the faintest strength
+    /// that reaches 3.5:1 (room for a header's glow behind the field).
+    /// </summary>
+    private static ThemeColor FieldBorderFor(ThemeColor? own, ThemeColor text, ThemeColor page, ThemeColor lightestPage)
+    {
+        if (own is { } outline
+            && ThemeColor.ContrastRatio(outline.Over(page), page) >= 3
+            && ThemeColor.ContrastRatio(outline.Over(lightestPage), lightestPage) >= 3)
+        {
+            return outline;
+        }
+
+        for (var step = 30; step < 100; step += 5)
+        {
+            var candidate = text.WithAlpha(step / 100.0);
+            if (ThemeColor.ContrastRatio(candidate.Over(page), page) >= 3.5
+                && ThemeColor.ContrastRatio(candidate.Over(lightestPage), lightestPage) >= 3.5)
+            {
+                return candidate;
+            }
+        }
+
+        return text;
+    }
+
+    /// <summary>The accent at the faintest whole step from 38 % up to 85 % that reads at 3:1 on the card (the strongest when none does).</summary>
+    private static ThemeColor ChartQuietFor(ThemeColor accent, ThemeColor card)
+    {
+        for (var step = 38; step <= 85; step++)
+        {
+            var candidate = accent.WithAlpha(step / 100.0);
+            if (ThemeColor.ContrastRatio(candidate.Over(card), card) >= 3)
+            {
+                return candidate;
+            }
+        }
+
+        return accent.WithAlpha(0.85);
     }
 
     /// <summary>

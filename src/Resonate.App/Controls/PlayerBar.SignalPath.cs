@@ -19,7 +19,10 @@ namespace Resonate.App.Controls;
 /// coloured dot (green lossless, amber adjusted, red not lossless, grey
 /// can't tell) and a short word; clicking it unfolds the chain from the
 /// music to the output, each step with a tip and a button that opens the
-/// right setting. Only a dot in the compact bar, none in the mini bar.
+/// right setting. Without its word (the compact bar, or a bar short of room,
+/// see PlayerBar.SideRoom.cs) a tick, warning, cross or question mark in the
+/// same colour takes the dot's place, so the state never rests on colour
+/// alone; none in the mini bar.
 /// Built in code, so Native AOT never looks up a XAML-created type.
 /// </summary>
 public sealed partial class PlayerBar
@@ -30,10 +33,19 @@ public sealed partial class PlayerBar
     private static readonly Color NotLosslessColor = Color.FromArgb(0xFF, 0xE0, 0x47, 0x4C);
     private static readonly Color UnknownColor = Color.FromArgb(0xFF, 0x8B, 0x8D, 0x91);
 
+    // The pill with its word (the dot, a space and the word), and with only its mark.
+    private static readonly Thickness WordPadding = new(10, 0, 11, 0);
+    private static readonly Thickness MarkPadding = new(9, 0, 9, 0);
+    private const double DotSize = 8;
+    private const double WordSpacing = 6;
+    private const double MarkSize = 10;
+
     private SignalPathMonitor? _signalPath;
     private Button? _signalPill;
     private Border? _signalDot;
+    private FontIcon? _signalMark;
     private TextBlock? _signalBadge;
+    private double _signalWordWidth;
     private Flyout? _signalFlyout;
     private SignalVerdict? _signalVerdict;
     private PlayerWidthClass? _signalWidthClass;
@@ -55,6 +67,7 @@ public sealed partial class PlayerBar
             SignalSlot.Visibility = Visibility.Collapsed;
             _signalPill = null;
             _signalDot = null;
+            _signalMark = null;
             _signalBadge = null;
             _signalFlyout = null;
             _signalVerdict = null;
@@ -71,9 +84,9 @@ public sealed partial class PlayerBar
     {
         _signalDot = new Border
         {
-            Width = 8,
-            Height = 8,
-            CornerRadius = new CornerRadius(4),
+            Width = DotSize,
+            Height = DotSize,
+            CornerRadius = new CornerRadius(DotSize / 2),
             VerticalAlignment = VerticalAlignment.Center,
 
             // A new verdict (another device, a new setting) fades in, on the compositor.
@@ -87,8 +100,17 @@ public sealed partial class PlayerBar
             VerticalAlignment = VerticalAlignment.Center,
             Foreground = App.Services.Theme.GetBrush("ResonateTextSecondaryBrush"),
         };
-        var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        _signalMark = new FontIcon
+        {
+            FontSize = MarkSize,
+            Width = MarkSize,
+            Height = MarkSize,
+            VerticalAlignment = VerticalAlignment.Center,
+            Visibility = Visibility.Collapsed,
+        };
+        var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = WordSpacing };
         content.Children.Add(_signalDot);
+        content.Children.Add(_signalMark);
         content.Children.Add(_signalBadge);
 
         _signalFlyout = new Flyout { Placement = FlyoutPlacementMode.TopEdgeAlignedRight };
@@ -104,6 +126,51 @@ public sealed partial class PlayerBar
             Flyout = _signalFlyout,
         };
         SignalSlot.Child = _signalPill;
+
+        // A new pill takes its colour and mark, and its word or only its mark as the room says.
+        _signalVerdict = null;
+        _sideFit = null;
+        _signalWordWidth = 0;
+    }
+
+    /// <summary>The pill's width with only its mark.</summary>
+    private double SignalMarkWidth =>
+        (_signalPill is { } pill ? pill.BorderThickness.Left + pill.BorderThickness.Right : 0) + MarkPadding.Left + MarkPadding.Right + MarkSize;
+
+    /// <summary>What the pill's word adds to it, besides the word itself.</summary>
+    private static double SignalWordExtra =>
+        WordPadding.Left + WordPadding.Right + DotSize + WordSpacing - MarkPadding.Left - MarkPadding.Right - MarkSize;
+
+    /// <summary>The dot and the word, or only the mark (see UpdateSideRoom).</summary>
+    private void ShowSignalWord(bool word)
+    {
+        if (_signalPill is null || _signalDot is null || _signalMark is null || _signalBadge is null)
+        {
+            return;
+        }
+
+        _signalBadge.Visibility = word ? Visibility.Visible : Visibility.Collapsed;
+        _signalDot.Visibility = word ? Visibility.Visible : Visibility.Collapsed;
+        _signalMark.Visibility = word ? Visibility.Collapsed : Visibility.Visible;
+        _signalPill.Padding = word ? WordPadding : MarkPadding;
+    }
+
+    /// <summary>How wide the word is, shown or not, so the bar knows whether it fits.</summary>
+    private void MeasureSignalWord()
+    {
+        if (_signalBadge is not { } badge)
+        {
+            return;
+        }
+
+        var hidden = badge.Visibility != Visibility.Visible;
+        badge.Visibility = Visibility.Visible;
+        badge.Measure(new global::Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+        _signalWordWidth = badge.DesiredSize.Width;
+        if (hidden)
+        {
+            badge.Visibility = Visibility.Collapsed;
+        }
     }
 
     private void OnSignalChanged(object? sender, EventArgs e) => ShowSignal();
@@ -122,7 +189,7 @@ public sealed partial class PlayerBar
 
     private void ShowSignal()
     {
-        if (_signalPill is null || _signalDot is null || _signalBadge is null)
+        if (_signalPill is null || _signalDot is null || _signalMark is null || _signalBadge is null)
         {
             return;
         }
@@ -137,19 +204,25 @@ public sealed partial class PlayerBar
             return;
         }
 
-        var compact = _widthClass != PlayerWidthClass.Full || !settings.LosslessBadgeText;
-        _signalBadge.Text = report.Badge;
-        _signalBadge.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-        _signalPill.Padding = compact ? new Thickness(9, 0, 9, 0) : new Thickness(10, 0, 11, 0);
+        // The word shows only while the bar has room for it (UpdateSideRoom).
+        if (_signalBadge.Text != report.Badge)
+        {
+            _signalBadge.Text = report.Badge;
+            MeasureSignalWord();
+        }
+
         if (_signalVerdict != report.Verdict)
         {
             _signalVerdict = report.Verdict;
             _signalDot.Background = new SolidColorBrush(VerdictColor(report.Verdict));
+            _signalMark.Foreground = new SolidColorBrush(VerdictColor(report.Verdict));
+            _signalMark.Glyph = VerdictGlyph(report.Verdict);
         }
 
         ToolTipService.SetToolTip(_signalPill, report.Summary);
         AutomationProperties.SetName(_signalPill, "Signal path: " + report.Title);
         SignalSlot.Visibility = Visibility.Visible;
+        UpdateSideRoom();
         if (_signalFlyout is { IsOpen: true })
         {
             FillSignalFlyout(report);
@@ -278,6 +351,15 @@ public sealed partial class PlayerBar
         SignalVerdict.Adjusted => AdjustedColor,
         SignalVerdict.NotLossless => NotLosslessColor,
         _ => UnknownColor,
+    };
+
+    // A tick, a warning, a cross and a question mark (Segoe Fluent Icons).
+    private static string VerdictGlyph(SignalVerdict verdict) => verdict switch
+    {
+        SignalVerdict.Lossless => "\uE73E",
+        SignalVerdict.Adjusted => "\uE7BA",
+        SignalVerdict.NotLossless => "\uE711",
+        _ => "\uE9CE",
     };
 
     private static Color StateColor(SignalStepState state) => state switch

@@ -53,6 +53,12 @@ public sealed partial class MainWindow
             return null;
         }
 
+        // A pane lying over the page (see MainWindow.PaneOverlay.cs) leaves only the page's left part in view.
+        if (PageCoveredWidth > 0 && ContentPanel.ActualWidth > PageCoveredWidth)
+        {
+            page = page with { Width = page.Width * VisiblePageWidth / ContentPanel.ActualWidth };
+        }
+
         FrameworkElement? pane = QueuePane.Visibility == Visibility.Visible ? QueuePane
             : SettingsPane.Visibility == Visibility.Visible ? SettingsPane
             : LyricsPane.Visibility == Visibility.Visible ? LyricsPane

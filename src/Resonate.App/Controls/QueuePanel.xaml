@@ -65,7 +65,7 @@
                             Spacing="2">
                             <TextBlock
                                 x:Name="NowTitle"
-                                Foreground="{StaticResource ResonateAccentBrush}"
+                                Foreground="{StaticResource ResonateAccentTextBrush}"
                                 Style="{StaticResource ResonateBodyTextStyle}"
                                 Text="Nothing playing"
                                 TextTrimming="CharacterEllipsis" />

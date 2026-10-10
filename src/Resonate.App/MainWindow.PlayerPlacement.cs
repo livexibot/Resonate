@@ -173,6 +173,9 @@ public sealed partial class MainWindow
             layout = layout is PlayerLayout.Top or PlayerLayout.Left or PlayerLayout.Right ? PlayerLayout.Docked : PlayerLayout.Floating;
         }
 
+        // The look's player and the window shape decide whether the pane may lie over the page (MainWindow.PaneOverlay.cs).
+        UpdatePaneOverPage();
+
         // The sidebar's player needs the sidebar with its names (not covers only) and the player bar (Winamp is wider); otherwise it floats under the panels.
         var inSidebar = PlayerPlacement.IsInSidebar(layout) && _sidebarCompact != true && _classicPlayer is null;
         if (PlayerPlacement.IsInSidebar(layout) && !inSidebar)
@@ -182,7 +185,7 @@ public sealed partial class MainWindow
 
         // A hovering player set wider than the page (Settings, Player, Advanced) reaches over the sidebar and the panes, however narrow the page.
         var overPage = PlayerPlacement.HoversOverPage(layout) && !ShapeHidesPanels;
-        var pageWidth = ContentPanel.ActualWidth;
+        var pageWidth = VisiblePageWidth;
         var wide = overPage && look.PlayerWidth is { } wanted && pageWidth > 0 && wanted > pageWidth + 0.5;
         var hovers = overPage && (wide || PlayerPlacement.HoveringFits(pageWidth, NarrowestPlayerWidth, gap));
         var fullHeight = theme.SidebarFullHeight && !ShapeHidesPanels;
@@ -520,7 +523,7 @@ public sealed partial class MainWindow
         _playerInset = inset;
 
         // The update bar in the page's corner stays above a hovering player too.
-        UpdateBarHost.Margin = new Thickness(16, 16, 16, 16 + inset);
+        UpdateBarHost.Margin = new Thickness(16, 16, 16 + PageCoveredWidth, 16 + inset);
         if (ContentFrame.Content is IPlayerInset page)
         {
             page.SetPlayerInset(inset);

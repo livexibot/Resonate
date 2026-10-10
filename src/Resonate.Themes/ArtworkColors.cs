@@ -250,12 +250,40 @@ public static class ArtworkColors
     }
 
     /// <summary>
-    /// Blurs in place. Three box-blur passes look like a Gaussian blur, and
-    /// on a tiny image this is a fraction of a millisecond.
+    /// The lightest a see-through panel over a dimmed cover is drawn (sRGB
+    /// grey 74, #4A4A4A): white text reads at 8.9:1 over it and the grey
+    /// text, which <see cref="ThemePalette"/> checks against it, at 4.5:1.
     /// </summary>
+    private const double BrightestPanelChannel = 74;
+
+    // However much white the panels add, a cover is never dimmed below this luminance (sRGB grey 39).
+    private const double DimmestCover = 0.02;
+
     /// <summary>
-    /// Darkens a picture just enough for white text on see-through panels
-    /// over it to read (4.5:1): only when its brighter parts (the 85th
+    /// The brightest cover <see cref="DimForWhiteText"/> leaves (its 85th
+    /// percentile), as a grey: the panels, white at
+    /// <paramref name="panelOpacity"/> blended over it channel by channel as
+    /// XAML draws them, come out no lighter than #4A4A4A.
+    /// </summary>
+    public static ThemeColor BrightestCover(double panelOpacity)
+    {
+        var p = Math.Clamp(panelOpacity, 0, 0.9);
+        var channel = (BrightestPanelChannel - (p * 255)) / (1 - p);
+        var grey = (byte)Math.Clamp(Math.Floor(channel), 0, 255);
+        var colour = new ThemeColor(0xFF, grey, grey, grey);
+        while (colour.Luminance < DimmestCover && grey < 255)
+        {
+            grey++;
+            colour = new ThemeColor(0xFF, grey, grey, grey);
+        }
+
+        return colour;
+    }
+
+    /// <summary>
+    /// Darkens a picture just enough for the text on see-through panels over
+    /// it to read: white at 8.9:1 and the grey text at 4.5:1 (see
+    /// <see cref="BrightestCover"/>). Only when its brighter parts (the 85th
     /// percentile of luminance, so a few bright specks do not darken it all)
     /// are too bright, and evenly in linear light, so its colours stay its
     /// own. <paramref name="panelOpacity"/> is how much white the panels add
@@ -271,9 +299,8 @@ public static class ArtworkColors
             return 1;
         }
 
-        // White text on panel = 4.5:1 needs the panel at most 0.1833; the panel adds panelOpacity of white.
-        var p = Math.Clamp(panelOpacity, 0, 0.9);
-        var allowed = Math.Max(0.02, (0.1833 - p) / (1 - p));
+        // A coloured cover of the same luminance makes a darker panel than a grey one, so the grey is the bound.
+        var allowed = BrightestCover(panelOpacity).Luminance;
 
         var luminances = new double[count];
         for (var i = 0; i < count; i++)
@@ -312,6 +339,10 @@ public static class ArtworkColors
         }
     }
 
+    /// <summary>
+    /// Blurs in place. Three box-blur passes look like a Gaussian blur, and
+    /// on a tiny image this is a fraction of a millisecond.
+    /// </summary>
     public static void Blur(Span<byte> bgra, int width, int height, int radius, int passes = 3)
     {
         CheckSize(bgra, width, height);

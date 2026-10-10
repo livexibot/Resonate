@@ -476,11 +476,12 @@ public sealed partial class HomePage : Page
     private void ShowToday(IReadOnlyList<PlayRecord> plays, DateTimeOffset now)
     {
         var today = ListeningStats.Summarize(plays, now, now - ListeningStats.StartOfDay(now, TimeZoneInfo.Local));
+
+        // With nothing played ever, no line at all (no explanatory sentences, the owner's rule).
+        TodayText.Visibility = plays.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         if (today.Songs == 0)
         {
-            TodayText.Text = plays.Count == 0
-                ? "Play something and your listening shows up here."
-                : "Nothing played yet today.";
+            TodayText.Text = plays.Count == 0 ? string.Empty : "Nothing played yet today.";
             return;
         }
 
@@ -531,6 +532,29 @@ public sealed partial class HomePage : Page
         }
 
         _nowKey = key;
+
+        // The Home stage (always on) shows the song, so the card's own corner for it stays hidden and loads no cover; its wash still paints the card.
+        if (_services.BuiltIns.IsOn(BuiltInPlugins.HomeStage))
+        {
+            string? url = null;
+            byte[]? bytes = null;
+            string? name = null;
+            if (state.HasTrack)
+            {
+                (url, bytes, name) = (state.ArtworkUrl, state.ArtworkBytes, state.Album ?? state.Title ?? string.Empty);
+            }
+            else if (play is not null)
+            {
+                (url, name) = (play.ImageUrl, play.Album.Length > 0 ? play.Album : play.Title);
+            }
+
+            NowPlaying.Visibility = Visibility.Collapsed;
+            ShowWash(url, bytes, name);
+            OnStageNowPlayingShown();
+            HeroContent.RowSpacing = 0;
+            return;
+        }
+
         if (state.HasTrack)
         {
             NowPlaying.Visibility = Visibility.Visible;
@@ -706,7 +730,7 @@ public sealed partial class HomePage : Page
             added.Add(card);
         }
 
-        if (WeekStats.Content is not StatCard shownWeek || shownWeek.Summary != week || !shownWeek.Bars.SameAs(dayBars) || shownWeek.Trend != (trend ?? string.Empty))
+        if (WeekStats.Content is not StatCard shownWeek || shownWeek.Summary != week || !shownWeek.Bars.SameAs(dayBars) || shownWeek.TrendTip != (trend?.Full ?? string.Empty))
         {
             var card = new StatCard("PAST 7 DAYS", week, dayBars, "Nothing played in the past week.", trend);
             WeekStats.Content = card;
@@ -766,13 +790,13 @@ public sealed partial class HomePage : Page
         return minutes == 1 ? "1 minute" : $"{minutes:N0} minutes";
     }
 
-    /// <summary>"▲ 23% on the week before", or null when there is nothing fair to compare with.</summary>
-    private static string? Trend(double? change) => change switch
+    /// <summary>"▲ 23%" on the card and "▲ 23% on the week before" in its tip, or null when there is nothing fair to compare with.</summary>
+    private static (string Short, string Full)? Trend(double? change) => change switch
     {
         null => null,
-        >= 0.005 => $"▲ {change.Value:P0} on the week before",
-        <= -0.005 => $"▼ {-change.Value:P0} on the week before",
-        _ => "As much as the week before",
+        >= 0.005 => ($"▲ {change.Value:P0}", $"▲ {change.Value:P0} on the week before"),
+        <= -0.005 => ($"▼ {-change.Value:P0}", $"▼ {-change.Value:P0} on the week before"),
+        _ => ($"{0:P0}", "As much as the week before"),
     };
 
     /// <summary>One card after the other, so the same artist on both is asked for once.</summary>

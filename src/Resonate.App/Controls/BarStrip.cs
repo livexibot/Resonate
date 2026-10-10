@@ -63,9 +63,6 @@ public sealed partial class BarStrip : Grid
     private const double BarHeight = 56;
     private const double ShortestBar = 3;
 
-    // The bars that are not the highlight are a lighter shade of the accent.
-    private const double QuietOpacity = 0.38;
-
     private static readonly TimeSpan RiseDuration = TimeSpan.FromMilliseconds(700);
     private static readonly TimeSpan RiseStagger = TimeSpan.FromMilliseconds(18);
 
@@ -108,6 +105,9 @@ public sealed partial class BarStrip : Grid
     {
         var theme = App.Services.Theme;
         var accent = theme.GetBrush("ResonateAccentBrush");
+
+        // The bars that are not the highlight are a lighter shade of the accent, still 3:1 on the card.
+        var quiet = theme.GetBrush("ResonateChartQuietBrush");
         var empty = theme.GetBrush("ResonateTrackBrush");
         var clear = theme.GetBrush("ResonateTransparentBrush");
         var strong = theme.GetBrush("ResonateTextPrimaryBrush");
@@ -133,8 +133,7 @@ public sealed partial class BarStrip : Grid
                 VerticalAlignment = VerticalAlignment.Bottom,
                 Height = value > 0 && most > 0 ? Math.Max(ShortestBar, Math.Round(value / most * BarHeight)) : ShortestBar,
                 CornerRadius = new CornerRadius(3, 3, 1, 1),
-                Background = value > 0 ? accent : empty,
-                Opacity = i == series.Highlight || value <= 0 ? 1 : QuietOpacity,
+                Background = value <= 0 ? empty : i == series.Highlight ? accent : quiet,
             };
             _bars.Add(bar);
 

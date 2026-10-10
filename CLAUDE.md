@@ -104,7 +104,8 @@ visitors; keep it short and in step with this file.
   its window is hidden or minimised (`MainWindow.MemoryTrim.cs`). Song
   cover backdrops are darkened just enough for white text on their panels
   to reach 4.5:1 (`ArtworkColors.DimForWhiteText`, 85th percentile, linear
-  light); dark covers are untouched. Ember was replaced by Velvet. New
+  light; since 10 October 2026 grey text too, see "Design review fixes");
+  dark covers are untouched. Ember was replaced by Velvet. New
   built-in plugins: Tray icon (closing hides to the tray; its menu plays,
   pauses, skips and quits; `MainWindow.Tray.cs`) and Lyrics in the player
   (it asks LRCLIB once per song while on; while a song has lines the
@@ -175,6 +176,42 @@ visitors; keep it short and in step with this file.
   music that plays on this PC; on 9 October 2026 the owner's music played
   elsewhere (Resonate's web player had played nothing, the Spotify app was
   closed), so they swayed on their own.
+- Design review fixes (10 October 2026; the owner asked to try the
+  review's fixes, https://claude.ai/artifact/131iaG55abUQ2JiAuK3riu, in
+  the demo; branch `claude/project-thread-8qvmyz`, local build until the
+  owner says). Text: small grey text (`ResonateCaptionTextStyle`) is the
+  secondary grey (4.5:1); tertiary is for icons and large ranks (3:1
+  floor); small accent text uses `ResonateAccentTextBrush`
+  (`ThemePalette.AccentText`, 4.5:1) while buttons and bars keep the
+  accent; text fields are outlined in `ResonateFieldBorderBrush` (3:1).
+  See-through looks pick their greys against `ThemePalette.LightestPage`
+  (the scenery's lightest part is `ThemePalette.SceneryLight`: a new
+  `ThemeScene` must add one, a test says so); Liquid Glass dims a bright
+  cover to at most `ArtworkColors.BrightestCover` (sRGB 53 at panel
+  opacity 0.1), so its backdrop and header glow are darker than before
+  (the owner to judge); the hovering player is 0.97 opaque. Song rows: the
+  playing song has a speaker and a SemiBold title, the pointer's row and
+  the selected row show Play (Pause) and a More button
+  (`Helpers/SongRowActions.cs`; with the '#' column off only More), and
+  the player's song title opens its list at the playing song, once
+  (`TracksPage.OpenAtPlayingSong`). Home's stage lays itself out from
+  `Resonate.Themes/StageLayout.cs` (cover beside the words when the stage
+  is wide, buttons never cut), follows Text size and ends where the
+  greeting's date line ends; Rediscover's cards are an x:DataType
+  template. The player bar's right part is as wide as what it holds
+  (`PlayerSide`, `PlayerBar.SideRoom.cs`): short of room the buttons go
+  above the volume, then the pill's word goes (a verdict icon stays), the
+  slider only last. Settings, the queue and lyrics lie over the page when
+  the window cannot hold all three (`MainWindow.PaneOverlay.cs`). The
+  PLAYLISTS heading has a filter (`MainWindow.PlaylistFilter.cs`) and
+  Search shows "Your playlists" first from the library on the PC.
+  Switches have no On/Off words, Search's filter chips are RadioButtons
+  (`ResonateChipStyle`) and the chosen Settings tab has an accent bar.
+  The screenshot tour fails when the stage cuts its buttons
+  (`StageProblem`), Rediscover draws empty cards (`RediscoverProblem`) or
+  a pane squeezes the page (`CheckPageBesidePane`). Left for later: the
+  player bar's narrow and visualizer findings, explanatory sentences
+  (`caption-rule`), the Winamp row, unnamed controls.
 - Narrow sidebar (9 October 2026): WinUI's list rows are at least 88 wide
   (`ListViewItemMinWidth`) and padded 16 and 12, wider than the 84 px
   sidebar, which put the icons and covers 13 px right of centre. The
@@ -1362,7 +1399,8 @@ Ripple, and a more interesting Home):
   Docked or Floating under the panels, Top or FloatingTop above them
   (under the title bar), Hovering, or Corner. Hovering
   is a centred pill at most 912 wide over the bottom of the page, at least
-  0.9 opaque so text keeps 4.5:1 (`ThemePalette.PlayerFill`); Liquid Glass
+  0.97 opaque so the rows under it stay hidden (`ThemePalette.PlayerFill`,
+  `HoveringPlayerOpacity`; 0.9 before 10 October 2026); Liquid Glass
   uses it. Corner is the same over the page's bottom-right corner, at most
   440 wide, so it is the Mini bar. Over a page too narrow for them and their
   gaps (360 for the bar, the skin and cover for the classic player; Settings

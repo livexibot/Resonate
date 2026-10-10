@@ -151,7 +151,19 @@ public sealed partial class MainWindow
     {
         if (NowPlayingKey(_services.Player.State) is { } key)
         {
-            Open(key);
+            // A list opens at the playing song; one already open jumps to it.
+            var shown = _currentKey == key ? CurrentPage as Pages.TracksPage : null;
+            Pages.TracksPage.OpenAtPlayingSong = true;
+            try
+            {
+                Open(key);
+            }
+            finally
+            {
+                Pages.TracksPage.OpenAtPlayingSong = false;
+            }
+
+            shown?.RevealPlaying();
         }
     }
 

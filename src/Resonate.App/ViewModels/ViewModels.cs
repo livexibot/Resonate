@@ -307,9 +307,14 @@ public sealed partial class TrackRow : ObservableObject
 {
     private const string HeartGlyphOutline = "\uEB51";
     private const string HeartGlyphFilled = "\uEB52";
+    private const string PlayGlyphSolid = "\uF5B0";
+    private const string PauseGlyphSolid = "\uF8AE";
 
     private string _number;
     private bool _isCurrent;
+    private bool _isPlaying;
+    private bool _isPointerOver;
+    private bool _isSelected;
     private bool _isLiked;
     private CoverTile? _cover;
 
@@ -437,8 +442,87 @@ public sealed partial class TrackRow : ObservableObject
             if (Set(ref _isCurrent, value))
             {
                 OnPropertyChanged(nameof(TitleBrush));
+                OnPropertyChanged(nameof(TitleWeight));
+                OnPropertyChanged(nameof(NumberBrush));
+                ShowPlayState();
             }
         }
+    }
+
+    /// <summary>The music plays (not paused); only the <see cref="IsCurrent"/> row shows it.</summary>
+    public bool IsPlaying
+    {
+        get => _isPlaying;
+        set
+        {
+            if (Set(ref _isPlaying, value))
+            {
+                ShowPlayState();
+            }
+        }
+    }
+
+    /// <summary>The pointer is on the row (Helpers/SongRowActions): its Play and More buttons show.</summary>
+    public bool IsPointerOver
+    {
+        get => _isPointerOver;
+        set
+        {
+            if (Set(ref _isPointerOver, value))
+            {
+                ShowPlayState();
+            }
+        }
+    }
+
+    /// <summary>The row is selected, so the keyboard has its Play and More buttons too.</summary>
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (Set(ref _isSelected, value))
+            {
+                ShowPlayState();
+            }
+        }
+    }
+
+    private bool PlaysNow => IsCurrent && IsPlaying;
+
+    // Under the pointer, and on the selected row unless it plays (that one keeps its speaker).
+    private bool ShowsPlay => IsPointerOver || (IsSelected && !PlaysNow);
+
+    /// <summary>The song's number, unless the speaker or the Play button takes its place.</summary>
+    public Visibility NumberTextVisibility => ShowsPlay || PlaysNow ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>The playing song shows a speaker in place of its number (the one the sidebar shows by the playing playlist).</summary>
+    public Visibility SpeakerVisibility => PlaysNow && !ShowsPlay ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility PlayVisibility => ShowsPlay ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility MoreVisibility => IsPointerOver || IsSelected ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>Pause on the playing song, Play on every other.</summary>
+    public string PlayGlyph => PlaysNow ? PauseGlyphSolid : PlayGlyphSolid;
+
+    public string PlayLabel => PlaysNow ? "Pause" : "Play";
+
+    /// <summary>The paused song's number is drawn in the accent colour.</summary>
+    public Brush NumberBrush => App.Services.Theme.GetBrush(IsCurrent ? "ResonateAccentTextBrush" : "ResonateTextSecondaryBrush");
+
+    /// <summary>The playing song's title is semi-bold, so it stands out by more than its colour.</summary>
+    public global::Windows.UI.Text.FontWeight TitleWeight =>
+        IsCurrent ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal;
+
+    private void ShowPlayState()
+    {
+        OnPropertyChanged(nameof(NumberTextVisibility));
+        OnPropertyChanged(nameof(SpeakerVisibility));
+        OnPropertyChanged(nameof(PlayVisibility));
+        OnPropertyChanged(nameof(MoreVisibility));
+        OnPropertyChanged(nameof(PlayGlyph));
+        OnPropertyChanged(nameof(PlayLabel));
     }
 
     public bool IsLiked
@@ -462,7 +546,7 @@ public sealed partial class TrackRow : ObservableObject
     public string HeartLabel => IsLiked ? "Remove from Liked Songs" : "Save to Liked Songs";
 
     /// <summary>The playing song's title is drawn in the accent colour.</summary>
-    public Brush TitleBrush => App.Services.Theme.GetBrush(IsCurrent ? "ResonateAccentBrush" : "ResonateTextPrimaryBrush");
+    public Brush TitleBrush => App.Services.Theme.GetBrush(IsCurrent ? "ResonateAccentTextBrush" : "ResonateTextPrimaryBrush");
 
     /// <summary>The same song with new details that are not shown (its position after a move).</summary>
     public void Replace(TrackInfo track) => Track = track;
@@ -502,15 +586,8 @@ public sealed partial class PlaylistNavItem : ObservableObject
     /// <summary>What screen readers say for the row.</summary>
     public override string ToString() => Name;
 
-    public string Details
-    {
-        get
-        {
-            // Like Spotify: what it is and whose, never how many songs.
-            var owner = Playlist.Owner?.DisplayName ?? Playlist.Owner?.Id;
-            return string.IsNullOrEmpty(owner) ? "Playlist" : $"Playlist · {owner}";
-        }
-    }
+    /// <summary>Whose it is (the sidebar's heading already says these are playlists), never how many songs.</summary>
+    public string Details => Playlist.Owner?.DisplayName ?? Playlist.Owner?.Id ?? string.Empty;
 
     /// <summary>While the sidebar is too narrow for names, only the covers show (see MainWindow.ApplySidebarCompact).</summary>
     public static bool Compact { get; set; }
@@ -592,7 +669,7 @@ public sealed partial class PlaylistNavItem : ObservableObject
         }
     }
 
-    public Brush NameBrush => App.Services.Theme.GetBrush(IsCurrent ? "ResonateAccentBrush" : "ResonateTextPrimaryBrush");
+    public Brush NameBrush => App.Services.Theme.GetBrush(IsCurrent ? "ResonateAccentTextBrush" : "ResonateTextPrimaryBrush");
 
     public Visibility SpeakerVisibility => IsCurrent && IsPlaying && !Compact ? Visibility.Visible : Visibility.Collapsed;
 }
@@ -704,8 +781,8 @@ public sealed partial class StatCard : ObservableObject
     private ImageSource? _artistImage;
     private ImageSource? _songImage;
 
-    /// <param name="trend">A line comparing with the time before ("▲ 23% on the week before"), or null.</param>
-    public StatCard(string heading, ListeningSummary summary, BarSeries bars, string emptyText, string? trend = null)
+    /// <param name="trend">The change since the time before: short ("▲ 23%") and in full ("▲ 23% on the week before"), or null.</param>
+    public StatCard(string heading, ListeningSummary summary, BarSeries bars, string emptyText, (string Short, string Full)? trend = null)
     {
         Summary = summary;
         Bars = bars;
@@ -722,7 +799,8 @@ public sealed partial class StatCard : ObservableObject
         ArtistInitialsBrush = Artwork.InitialsBrush(ArtistName);
         SongPlaceholder = Artwork.PlaceholderBrush(summary.TopSong?.Album is { Length: > 0 } album ? album : SongTitle);
         EmptyText = emptyText;
-        Trend = trend ?? string.Empty;
+        Trend = trend?.Short ?? string.Empty;
+        TrendTip = trend?.Full ?? string.Empty;
         TrendVisibility = trend is null ? Visibility.Collapsed : Visibility.Visible;
         TopVisibility = summary.Songs > 0 ? Visibility.Visible : Visibility.Collapsed;
         EmptyVisibility = summary.Songs > 0 ? Visibility.Collapsed : Visibility.Visible;
@@ -745,6 +823,9 @@ public sealed partial class StatCard : ObservableObject
     public string MinutesNote => "About: Spotify counts a song once it has played for 30 seconds, and Resonate adds up the songs' full lengths.";
 
     public string Trend { get; }
+
+    /// <summary>The trend in full, for its tip and screen readers.</summary>
+    public string TrendTip { get; }
 
     public Visibility TrendVisibility { get; }
 

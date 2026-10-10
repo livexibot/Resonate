@@ -69,16 +69,15 @@
                                     Style="{StaticResource ResonateSecondaryTextStyle}"
                                     TextWrapping="Wrap"
                                     Visibility="Collapsed" />
-                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <StackPanel
-                                        x:Name="ArtistLinks"
-                                        Orientation="Horizontal"
-                                        Spacing="4" />
-                                    <TextBlock
-                                        x:Name="DetailsText"
-                                        VerticalAlignment="Center"
-                                        Style="{StaticResource ResonateCaptionTextStyle}" />
-                                </StackPanel>
+                                <!-- The album's artists (links) and the details, wrapping onto a second line, then cut with an ellipsis. -->
+                                <TextBlock
+                                    x:Name="DetailsText"
+                                    MaxLines="2"
+                                    PointerCanceled="OnDetailsPointerExited"
+                                    PointerExited="OnDetailsPointerExited"
+                                    PointerMoved="OnDetailsPointerMoved"
+                                    Style="{StaticResource ResonateCaptionTextStyle}"
+                                    TextWrapping="Wrap" />
                             </StackPanel>
                         </Grid>
 
@@ -188,6 +187,7 @@
                                 <ColumnDefinition x:Name="AddedHeadingColumn" Width="132" />
                                 <ColumnDefinition x:Name="LikeHeadingColumn" Width="40" />
                                 <ColumnDefinition x:Name="DurationHeadingColumn" Width="64" />
+                                <ColumnDefinition Width="40" />
                             </Grid.ColumnDefinitions>
                             <TextBlock
                                 x:Name="NumberHeading"
@@ -308,7 +308,10 @@
                     <Grid
                         MinHeight="{x:Bind Columns.RowHeight, Mode=OneWay}"
                         Background="{StaticResource ResonateTransparentBrush}"
-                        Opacity="{x:Bind RowOpacity}">
+                        Opacity="{x:Bind RowOpacity}"
+                        PointerCanceled="OnRowPointerExited"
+                        PointerEntered="OnRowPointerEntered"
+                        PointerExited="OnRowPointerExited">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="5*" />
@@ -321,15 +324,43 @@
                             <ColumnDefinition Width="{x:Bind Columns.AddedWidth, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Columns.LikeWidth, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Columns.DurationWidth, Mode=OneWay}" />
+                            <ColumnDefinition Width="40" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock
+                        <!-- The number; the playing song's speaker; Play (or Pause) under the pointer and on the selected row. -->
+                        <Grid
                             Width="{ThemeResource ResonateTrackNumberWidth}"
                             Margin="0,0,12,0"
                             VerticalAlignment="Center"
-                            Style="{StaticResource ResonateSecondaryTextStyle}"
-                            Text="{x:Bind Number, Mode=OneWay}"
-                            TextAlignment="Right"
-                            Visibility="{x:Bind Columns.NumberVisibility, Mode=OneWay}" />
+                            Visibility="{x:Bind Columns.NumberVisibility, Mode=OneWay}">
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                Foreground="{x:Bind NumberBrush, Mode=OneWay}"
+                                Style="{StaticResource ResonateSecondaryTextStyle}"
+                                Text="{x:Bind Number, Mode=OneWay}"
+                                TextAlignment="Right"
+                                Visibility="{x:Bind NumberTextVisibility, Mode=OneWay}" />
+                            <FontIcon
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                AutomationProperties.Name="Playing"
+                                FontFamily="{StaticResource ResonateIconFont}"
+                                FontSize="14"
+                                Foreground="{StaticResource ResonateAccentTextBrush}"
+                                Glyph="&#xE767;"
+                                Visibility="{x:Bind SpeakerVisibility, Mode=OneWay}" />
+                            <Button
+                                Width="Auto"
+                                Height="28"
+                                HorizontalAlignment="Stretch"
+                                AutomationProperties.Name="{x:Bind PlayLabel, Mode=OneWay}"
+                                Click="OnRowPlayClick"
+                                Content="{x:Bind PlayGlyph, Mode=OneWay}"
+                                FontSize="12"
+                                Foreground="{StaticResource ResonateTextPrimaryBrush}"
+                                Style="{StaticResource ResonateIconButtonStyle}"
+                                ToolTipService.ToolTip="{x:Bind PlayLabel, Mode=OneWay}"
+                                Visibility="{x:Bind PlayVisibility, Mode=OneWay}" />
+                        </Grid>
                         <Grid
                             Grid.Column="1"
                             Margin="0,0,16,0"
@@ -351,6 +382,7 @@
                                 VerticalAlignment="Center"
                                 Spacing="2">
                                 <TextBlock
+                                    FontWeight="{x:Bind TitleWeight, Mode=OneWay}"
                                     Foreground="{x:Bind TitleBrush, Mode=OneWay}"
                                     Style="{StaticResource ResonateBodyTextStyle}"
                                     Text="{x:Bind Title}" />
@@ -423,6 +455,18 @@
                             Style="{StaticResource ResonateSecondaryTextStyle}"
                             Text="{x:Bind Duration}"
                             Visibility="{x:Bind Columns.DurationVisibility, Mode=OneWay}" />
+                        <!-- The same menu as a right-click, under the pointer and on the selected row. -->
+                        <Button
+                            Grid.Column="11"
+                            Width="32"
+                            Height="32"
+                            HorizontalAlignment="Right"
+                            AutomationProperties.Name="More"
+                            Click="OnRowMoreClick"
+                            Content="&#xE712;"
+                            Style="{StaticResource ResonateIconButtonStyle}"
+                            ToolTipService.ToolTip="More"
+                            Visibility="{x:Bind MoreVisibility, Mode=OneWay}" />
                     </Grid>
                 </DataTemplate>
             </ListView.ItemTemplate>
