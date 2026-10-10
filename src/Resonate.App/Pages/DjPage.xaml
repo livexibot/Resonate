@@ -31,9 +31,9 @@
                     Height="232"
                     CornerRadius="{ThemeResource ResonateCornerLarge}">
                     <FontIcon
+                        x:Name="CoverGlyph"
                         FontFamily="{StaticResource ResonateIconFont}"
                         FontSize="64"
-                        Foreground="#E6FFFFFF"
                         Glyph="&#xE7F6;" />
                 </Grid>
                 <!-- Lines stay short enough to read on a wide window. -->

@@ -29,7 +29,10 @@ public sealed partial class DjPage : Page
     public DjPage()
     {
         InitializeComponent();
-        CoverFrame.Background = Artwork.PlaceholderBrush("DJ");
+
+        // The look's accent, like Liked Songs and Local Files (the owner's choice, 10 October 2026).
+        CoverFrame.Background = Artwork.AccentCoverBrush;
+        CoverGlyph.Foreground = _services.Theme.GetBrush("ResonateOnAccentBrush");
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
