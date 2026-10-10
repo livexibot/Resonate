@@ -134,10 +134,10 @@ public sealed class PresetTests
         var surface = palette.Surface.Over(palette.Background);
 
         Assert.True(ThemeColor.ContrastRatio(palette.TextPrimary, surface) >= 7, "main text");
-        Assert.True(ThemeColor.ContrastRatio(palette.TextSecondary, surface) >= 4.5, "secondary text");
-        Assert.True(ThemeColor.ContrastRatio(palette.TextTertiary, surface) >= 2.5, "captions");
+        Assert.True(ThemeColor.ContrastRatio(palette.TextSecondary, surface) >= 4.5, "secondary text and captions");
+        Assert.True(ThemeColor.ContrastRatio(palette.TextTertiary, surface) >= 3, "icons");
         Assert.True(ThemeColor.ContrastRatio(palette.OnAccent, palette.Accent) >= 4.5, "text on the accent");
-        Assert.True(ThemeColor.ContrastRatio(palette.Accent, surface) >= 2.4, "accent on the page");
+        Assert.True(ThemeColor.ContrastRatio(palette.Accent, surface) >= 3, "accent on the page");
     }
 
     public static TheoryData<string> PresetIds() => new(ThemePresets.All.Select(p => p.Id));
@@ -153,7 +153,7 @@ public sealed class PaletteTests
         var surface = palette.Surface.Over(palette.Background);
 
         Assert.True(ThemeColor.ContrastRatio(palette.TextPrimary, surface) >= 4.5);
-        Assert.True(ThemeColor.ContrastRatio(palette.Accent, surface) >= 2.4);
+        Assert.True(ThemeColor.ContrastRatio(palette.Accent, surface) >= 3);
     }
 
     [Fact]

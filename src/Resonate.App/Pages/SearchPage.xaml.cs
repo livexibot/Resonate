@@ -12,13 +12,16 @@ using Resonate.App.Services;
 using Resonate.App.ViewModels;
 using Resonate.Spotify.Library;
 using Resonate.Spotify.Playback;
+using Resonate.Spotify.WebApi;
 using VirtualKey = Windows.System.VirtualKey;
 
 namespace Resonate.App.Pages;
 
 /// <summary>
-/// Search as you type: the best match beside the first songs, then artists,
-/// albums and playlists, with filters for one kind (all its results). Before
+/// Search as you type: the user's own playlists that match first, at once
+/// from the library on this PC (no request to Spotify), then the best match
+/// beside the first songs, artists, albums and playlists, with filters for
+/// one kind (all its results). Before
 /// anything is typed it shows the last searches and what was opened from
 /// them (the owner's request, 9 October 2026), kept in the settings.
 /// </summary>
@@ -32,17 +35,23 @@ public sealed partial class SearchPage : Page
     // From this width the top result and the songs sit side by side.
     private const double SideBySide = 860;
 
+    // The user's own playlists shown first.
+    private const int OwnPlaylistLimit = 6;
+
     private readonly AppServices _services = App.Services;
     private readonly List<TrackRow> _allSongs = [];
+    private readonly SongRowActions _songActions;
     private CancellationTokenSource? _search;
     private SearchMatches? _results;
     private string _filter = "All";
     private Action? _openTop;
+    private (List<SimplifiedPlaylist> Playlists, int Count, QuickSearchIndex Index)? _ownIndex;
 
     public SearchPage()
     {
         InitializeComponent();
         TopRow.SizeChanged += (_, e) => FitTopRow(e.NewSize.Width);
+        _songActions = new SongRowActions(SongList);
     }
 
     /// <summary>Typed into the box on the next visit (used by the screenshot tour).</summary>
@@ -54,6 +63,8 @@ public sealed partial class SearchPage : Page
     public ObservableCollection<TrackRow> Songs { get; } = [];
 
     public ObservableCollection<CardItem> PlaylistCards { get; } = [];
+
+    public ObservableCollection<CardItem> OwnPlaylistCards { get; } = [];
 
     public ObservableCollection<CardItem> AlbumCards { get; } = [];
 
@@ -129,6 +140,7 @@ public sealed partial class SearchPage : Page
         _search?.Cancel();
         _search = new CancellationTokenSource();
         var token = _search.Token;
+        ShowOwnPlaylists(query);
 
         if (query.Length == 0)
         {
@@ -190,7 +202,9 @@ public sealed partial class SearchPage : Page
                 ArtistCards.Add(new CardItem(artist.Name, "Artist", artist.Uri, artist.Id, ImagePicker.Pick(artist.Images, 300), isPlaylist: false));
             }
 
-            foreach (var playlist in results.Playlists)
+            // The user's own, already shown first, are not shown again.
+            var own = OwnPlaylistCards.Select(card => card.Id).ToHashSet(StringComparer.Ordinal);
+            foreach (var playlist in results.Playlists.Where(p => !own.Contains(p.Id)))
             {
                 PlaylistCards.Add(new CardItem(
                     playlist.Name,
@@ -222,11 +236,49 @@ public sealed partial class SearchPage : Page
         ShowSections();
     }
 
+    /// <summary>
+    /// The user's own playlists that match, ranked as the Summon bar ranks
+    /// them, from the library Resonate keeps on this PC: shown as the user
+    /// types, before Spotify's results, with no request to Spotify.
+    /// </summary>
+    private void ShowOwnPlaylists(string query)
+    {
+        OwnPlaylistCards.Clear();
+        if (query.Length > 0 && _services.Library.Snapshot is { Playlists: var playlists } && playlists.Count > 0)
+        {
+            if (_ownIndex is not { } own || !ReferenceEquals(own.Playlists, playlists) || own.Count != playlists.Count)
+            {
+                own = (playlists, playlists.Count, QuickSearchIndex.Build(playlists, [], []));
+                _ownIndex = own;
+            }
+
+            // Liked Songs may be among the matches; only playlists show here.
+            foreach (var item in own.Index.SearchLibrary(query, OwnPlaylistLimit + 1))
+            {
+                if (item.Kind != QuickKind.Playlist || OwnPlaylistCards.Count == OwnPlaylistLimit
+                    || playlists.Find(p => p.Id == item.Id) is not { } playlist)
+                {
+                    continue;
+                }
+
+                OwnPlaylistCards.Add(new CardItem(
+                    playlist.Name,
+                    playlist.Owner?.DisplayName ?? "Playlist",
+                    item.Uri ?? "spotify:playlist:" + playlist.Id,
+                    playlist.Id,
+                    ImagePicker.Pick(playlist.Images, 300),
+                    isPlaylist: true));
+            }
+        }
+
+        ShowSections();
+    }
+
     /// <summary>Which sections show, for the filter chosen; with nothing typed, the recent searches.</summary>
     private void ShowSections()
     {
         var results = _results;
-        var searching = results is not null;
+        var searching = results is not null || OwnPlaylistCards.Count > 0;
         FilterBar.Visibility = searching ? Visibility.Visible : Visibility.Collapsed;
         ShowRecent(!searching);
 
@@ -234,7 +286,7 @@ public sealed partial class SearchPage : Page
         SongsFilter.Visibility = _allSongs.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         ArtistsFilter.Visibility = ArtistCards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         AlbumsFilter.Visibility = AlbumCards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        PlaylistsFilter.Visibility = PlaylistCards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        PlaylistsFilter.Visibility = PlaylistCards.Count + OwnPlaylistCards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         if (searching && _filter != "All" && FilterButton(_filter).Visibility != Visibility.Visible)
         {
             _filter = "All";
@@ -257,8 +309,9 @@ public sealed partial class SearchPage : Page
         ArtistsSection.Visibility = Shown("Artists", ArtistCards.Count);
         AlbumsSection.Visibility = Shown("Albums", AlbumCards.Count);
         PlaylistsSection.Visibility = Shown("Playlists", PlaylistCards.Count);
+        OwnPlaylistsSection.Visibility = Shown("Playlists", OwnPlaylistCards.Count);
 
-        var nothing = searching && _allSongs.Count + ArtistCards.Count + PlaylistCards.Count + AlbumCards.Count == 0;
+        var nothing = results is not null && _allSongs.Count + ArtistCards.Count + PlaylistCards.Count + AlbumCards.Count + OwnPlaylistCards.Count == 0;
         HintText.Visibility = nothing ? Visibility.Visible : Visibility.Collapsed;
 
         Visibility Shown(string kind, int count) =>
@@ -315,7 +368,12 @@ public sealed partial class SearchPage : Page
                 _openTop = () => OpenAlbum(album);
                 break;
             default:
-                var playlist = PlaylistCards[0];
+                // Spotify's playlists may all be the user's own, shown above instead.
+                if ((PlaylistCards.Count > 0 ? PlaylistCards[0] : OwnPlaylistCards.FirstOrDefault()) is not { } playlist)
+                {
+                    return;
+                }
+
                 image = playlist.ImageUrl;
                 TopTitle.Text = playlist.Title;
                 TopKind.Text = "Playlist · " + playlist.Subtitle;
@@ -331,9 +389,10 @@ public sealed partial class SearchPage : Page
 
     private void OnTopClick(object sender, RoutedEventArgs e) => _openTop?.Invoke();
 
-    private void OnFilterClick(object sender, RoutedEventArgs e)
+    // Checked, not Click, so a chip chosen from the keyboard filters too; checking the chosen one again changes nothing.
+    private void OnFilterChecked(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: string filter } && filter != _filter)
+        if (sender is RadioButton { Tag: string filter } && filter != _filter)
         {
             _filter = filter;
             ShowFilter();
@@ -341,7 +400,7 @@ public sealed partial class SearchPage : Page
         }
     }
 
-    private Button FilterButton(string filter) => filter switch
+    private RadioButton FilterButton(string filter) => filter switch
     {
         "Songs" => SongsFilter,
         "Artists" => ArtistsFilter,
@@ -350,14 +409,12 @@ public sealed partial class SearchPage : Page
         _ => AllFilter,
     };
 
-    /// <summary>The chosen filter sits on the accent's soft fill.</summary>
+    /// <summary>The chosen filter is checked: filled with the accent, and selected for screen readers.</summary>
     private void ShowFilter()
     {
-        var chosen = _services.Theme.GetBrush("ResonateAccentSoftBrush");
-        var plain = _services.Theme.GetBrush("ResonateControlBrush");
-        foreach (var button in (Button[])[AllFilter, SongsFilter, ArtistsFilter, AlbumsFilter, PlaylistsFilter])
+        foreach (var button in (RadioButton[])[AllFilter, SongsFilter, ArtistsFilter, AlbumsFilter, PlaylistsFilter])
         {
-            button.Background = button.Tag as string == _filter ? chosen : plain;
+            button.IsChecked = button.Tag as string == _filter;
         }
     }
 
@@ -481,7 +538,8 @@ public sealed partial class SearchPage : Page
 
     private void OnSongDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
-        if (ListEvents.DoubleTapped<TrackRow>(SongList, e) is { } row)
+        // A double-click on a song's own buttons is theirs.
+        if (!SongRowActions.InButton(e.OriginalSource, SongList) && ListEvents.DoubleTapped<TrackRow>(SongList, e) is { } row)
         {
             Play(row);
         }
@@ -489,7 +547,7 @@ public sealed partial class SearchPage : Page
 
     private void OnSongListKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key == VirtualKey.Enter && SongList.SelectedItem is TrackRow row)
+        if (e.Key == VirtualKey.Enter && SongList.SelectedItem is TrackRow row && !SongRowActions.InButton(e.OriginalSource, SongList))
         {
             e.Handled = true;
             Play(row);
@@ -511,7 +569,31 @@ public sealed partial class SearchPage : Page
         if (ListEvents.ContextRequested<TrackRow>(SongList, args) is { } row)
         {
             SongList.SelectedItem = row;
-            TrackActions.ShowMenu(TrackActions.BuildMenu(row.Track, new TrackMenuOptions { Play = () => Play(row) }), SongList, args);
+            TrackActions.ShowMenu(MenuFor(row), SongList, args);
+        }
+    }
+
+    private MenuFlyout MenuFor(TrackRow row) => TrackActions.BuildMenu(row.Track, new TrackMenuOptions { Play = () => Play(row) });
+
+    // A song's own buttons, under the pointer and on the selected song: Play on its cover, and More.
+    private void OnSongPointerEntered(object sender, PointerRoutedEventArgs e) => _songActions.Entered(sender);
+
+    private void OnSongPointerExited(object sender, PointerRoutedEventArgs e) => _songActions.Exited(sender, e);
+
+    private void OnSongPlayClick(object sender, RoutedEventArgs e)
+    {
+        if (_songActions.PlayClicked(sender) is { } row)
+        {
+            Play(row);
+        }
+    }
+
+    private void OnSongMoreClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: TrackRow row } button)
+        {
+            SongList.SelectedItem = row;
+            TrackActions.ShowMenuAt(MenuFor(row), button);
         }
     }
 

@@ -240,13 +240,8 @@ public sealed partial class MainWindow : Window
     {
         SettingsPane.CloseRequested += (_, _) => ShowSettings(false);
 
-        // The update bar stays inside a page narrowed by Settings or the queue
-        // (16 px from each edge, inside the page's outline).
-        ContentPanel.SizeChanged += (_, e) =>
-        {
-            var outline = ContentPanel.BorderThickness.Left + ContentPanel.BorderThickness.Right;
-            UpdateBar.Width = Math.Clamp(e.NewSize.Width - outline - 32, 0, UpdateBarWidth);
-        };
+        // The update bar stays inside a page narrowed by Settings or the queue (see FitUpdateBar).
+        ContentPanel.SizeChanged += (_, _) => FitUpdateBar();
     }
 
     private void ShowQueue(bool open)
@@ -455,6 +450,9 @@ public sealed partial class MainWindow : Window
         SetWidth(SidebarColumn, sidebarWidth);
         ApplySidebarCompact(sidebarWidth <= SidebarCompactWidth);
         SetWidth(_paneColumn, paneWidth);
+
+        // Still too little room for the page: the pane lies over it (see MainWindow.PaneOverlay.cs).
+        ShowPaneOverPage(paneOpen && room - Math.Min(sidebarWidth, SidebarColumn.MaxWidth) - (2 * gap) - paneWidth < PageMinWidth - 0.5);
 
         // A window too small for everything gives each panel its least, so the page keeps what it can.
         static double Fit(double wanted, double min, double max, double room) =>

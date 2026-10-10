@@ -339,11 +339,8 @@ public sealed partial class PlayerBar : UserControl
             button.Height = size;
         }
 
-        // Room for the slider row alone, rather than for every button beside it.
-        if (_widthClass != PlayerWidthClass.Mini)
-        {
-            VolumeColumn.MinWidth = !stacked ? 272 : _widthClass == PlayerWidthClass.Full ? 180 : 156;
-        }
+        // As wide as what it holds (see PlayerBar.SideRoom.cs).
+        UpdateSideRoom();
     }
 
     /// <summary>The bar's width comes from the window, never from what it shows, so changing what it shows cannot change the width back.</summary>
@@ -352,6 +349,7 @@ public sealed partial class PlayerBar : UserControl
         if (e.NewSize.Width >= 1)
         {
             ShowWidthClass(PlayerPlacement.WidthClassFor(e.NewSize.Width));
+            UpdateSideRoom();
         }
     }
 

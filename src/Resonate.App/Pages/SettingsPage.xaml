@@ -9,8 +9,9 @@
     <Page.Resources>
         <!--
             A tab along the top: an icon over its name. The chosen one sits on
-            the accent's soft fill, like the sidebar's chosen link; the hover
-            fill is a layer of its own so it never hides the chosen fill.
+            the accent's soft fill with a short accent bar under its name, like
+            the sidebar's chosen link; the hover fill is a layer of its own so
+            it never hides the chosen fill.
         -->
         <Style x:Key="SettingsTabStyle" TargetType="RadioButton">
             <Setter Property="Foreground" Value="{StaticResource ResonateTextSecondaryBrush}" />
@@ -47,6 +48,7 @@
                                     <VisualState x:Name="Checked">
                                         <VisualState.Setters>
                                             <Setter Target="Fill.Background" Value="{StaticResource ResonateAccentSoftBrush}" />
+                                            <Setter Target="Indicator.Opacity" Value="1" />
                                             <Setter Target="Presenter.Foreground" Value="{StaticResource ResonateTextPrimaryBrush}" />
                                         </VisualState.Setters>
                                     </VisualState>
@@ -58,6 +60,17 @@
                                 x:Name="Hover"
                                 Background="{StaticResource ResonateTransparentBrush}"
                                 CornerRadius="{TemplateBinding CornerRadius}" />
+                            <!-- The chosen tab's mark, like the bar beside the sidebar's chosen link. -->
+                            <Border
+                                x:Name="Indicator"
+                                Width="20"
+                                Height="3"
+                                Margin="0,0,0,3"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom"
+                                Background="{StaticResource ResonateAccentBrush}"
+                                CornerRadius="1.5"
+                                Opacity="0" />
                             <ContentPresenter
                                 x:Name="Presenter"
                                 Padding="{TemplateBinding Padding}"

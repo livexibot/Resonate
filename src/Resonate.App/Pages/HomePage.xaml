@@ -30,9 +30,10 @@
                         <TextBlock Style="{StaticResource ResonateEyebrowTextStyle}" Text="{x:Bind Heading}" />
                         <TextBlock
                             Grid.Column="1"
-                            Foreground="{StaticResource ResonateAccentBrush}"
+                            AutomationProperties.Name="{x:Bind TrendTip}"
                             Style="{StaticResource ResonateCaptionTextStyle}"
                             Text="{x:Bind Trend}"
+                            ToolTipService.ToolTip="{x:Bind TrendTip}"
                             Visibility="{x:Bind TrendVisibility}" />
                     </Grid>
                     <StackPanel
@@ -193,17 +194,17 @@
                     <TextBlock Style="{StaticResource ResonateSecondaryTextStyle}" Text="{x:Bind Subtitle}" />
                 </StackPanel>
                 <controls:HoverReveal
-                    Margin="0,122,10,0"
+                    Margin="0,126,10,0"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top">
                     <Button
-                        Width="44"
-                        Height="44"
+                        Width="40"
+                        Height="40"
                         Padding="0"
                         AutomationProperties.Name="{x:Bind PlayName}"
                         Click="{x:Bind Play}"
                         Content="&#xF5B0;"
-                        CornerRadius="22"
+                        CornerRadius="{ThemeResource ResonatePlayButtonCorner}"
                         FontFamily="{StaticResource ResonateIconFont}"
                         FontSize="16"
                         Style="{StaticResource ResonateAccentButtonStyle}"
@@ -244,11 +245,71 @@
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
                     Background="{StaticResource ResonateAccentBrush}"
-                    CornerRadius="20"
+                    CornerRadius="{ThemeResource ResonatePlayButtonCorner}"
                     IsHitTestVisible="False">
                     <FontIcon
                         FontFamily="{StaticResource ResonateIconFont}"
-                        FontSize="15"
+                        FontSize="16"
+                        Foreground="{StaticResource ResonateOnAccentBrush}"
+                        Glyph="&#xF5B0;" />
+                </controls:HoverReveal>
+            </controls:HoverLift>
+        </DataTemplate>
+
+        <!--
+          Rediscover (a built-in plugin, HomePage.Rediscover.cs), like the other
+          rows' cards: the cover, a label saying why it is here, the title, the
+          artists and a note. Songs show a play button under the pointer; albums open.
+        -->
+        <DataTemplate x:Key="RediscoverCardTemplate" x:DataType="vm:RediscoverTile">
+            <controls:HoverLift
+                Width="176"
+                Padding="0,0,0,10"
+                ToolTipService.ToolTip="{x:Bind Tooltip}">
+                <StackPanel Spacing="2">
+                    <Grid
+                        Width="176"
+                        Height="176"
+                        Margin="0,0,0,8"
+                        Background="{x:Bind Cover.Background, Mode=OneWay}"
+                        CornerRadius="{ThemeResource ResonateCornerLarge}">
+                        <Image Source="{x:Bind Cover.Image}" Stretch="UniformToFill" />
+                    </Grid>
+                    <TextBlock
+                        Margin="0,0,0,2"
+                        Foreground="{StaticResource ResonateAccentBrush}"
+                        Style="{StaticResource ResonateEyebrowTextStyle}"
+                        Text="{x:Bind Label}" />
+                    <TextBlock
+                        FontWeight="SemiBold"
+                        MaxLines="1"
+                        Style="{StaticResource ResonateBodyTextStyle}"
+                        Text="{x:Bind Title}"
+                        TextWrapping="NoWrap" />
+                    <TextBlock
+                        MaxLines="1"
+                        Style="{StaticResource ResonateSecondaryTextStyle}"
+                        Text="{x:Bind Subtitle}"
+                        TextWrapping="NoWrap" />
+                    <TextBlock
+                        MaxLines="1"
+                        Style="{StaticResource ResonateCaptionTextStyle}"
+                        Text="{x:Bind Note}"
+                        TextWrapping="NoWrap" />
+                </StackPanel>
+                <controls:HoverReveal
+                    Width="40"
+                    Height="40"
+                    Margin="0,128,8,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Background="{StaticResource ResonateAccentBrush}"
+                    CornerRadius="{ThemeResource ResonatePlayButtonCorner}"
+                    IsHitTestVisible="False"
+                    Visibility="{x:Bind PlayVisibility}">
+                    <FontIcon
+                        FontFamily="{StaticResource ResonateIconFont}"
+                        FontSize="16"
                         Foreground="{StaticResource ResonateOnAccentBrush}"
                         Glyph="&#xF5B0;" />
                 </controls:HoverReveal>
@@ -609,11 +670,39 @@
                         SelectionMode="None" />
                 </StackPanel>
 
-                <!-- Rediscover, a built-in plugin (HomePage.Rediscover.cs): shown only while it is on. -->
+                <!-- Rediscover, a built-in plugin (HomePage.Rediscover.cs): shown only while it is on and has cards. -->
                 <StackPanel
                     x:Name="RediscoverSection"
                     Spacing="12"
-                    Visibility="Collapsed" />
+                    Visibility="Collapsed">
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            Style="{StaticResource ResonateSectionTextStyle}"
+                            Text="Rediscover" />
+                        <Button
+                            x:Name="RediscoverMoreButton"
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Click="OnRediscoverMoreClick"
+                            Content="Show all"
+                            Style="{StaticResource ResonateSubtleButtonStyle}"
+                            Visibility="Collapsed" />
+                    </Grid>
+                    <GridView
+                        x:Name="RediscoverGrid"
+                        Margin="-4,0,0,0"
+                        Padding="4,6,0,0"
+                        IsItemClickEnabled="True"
+                        ItemClick="OnRediscoverClick"
+                        ItemTemplate="{StaticResource RediscoverCardTemplate}"
+                        ItemsSource="{x:Bind Rediscovered}"
+                        SelectionMode="None" />
+                </StackPanel>
 
                 <!-- Spotify's own top artists and songs, over the time range picked on the right. -->
                 <StackPanel x:Name="TopSection" Spacing="12">

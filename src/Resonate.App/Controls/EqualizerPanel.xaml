@@ -31,8 +31,8 @@
                     MinWidth="0"
                     VerticalAlignment="Center"
                     AutomationProperties.Name="Equalizer"
-                    OffContent="Off"
-                    OnContent="On"
+                    OffContent=""
+                    OnContent=""
                     Toggled="OnEnabledToggled" />
                 <ComboBox
                     x:Name="PresetBox"

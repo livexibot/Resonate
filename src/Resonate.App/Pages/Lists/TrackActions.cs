@@ -131,6 +131,10 @@ public static class TrackActions
         args.Handled = true;
     }
 
+    /// <summary>Opens <paramref name="menu"/> under a song row's More button.</summary>
+    public static void ShowMenuAt(MenuFlyout menu, FrameworkElement button) =>
+        menu.ShowAt(button, new FlyoutShowOptions { Placement = FlyoutPlacementMode.BottomEdgeAlignedRight });
+
     /// <summary>"Add to playlist": a new playlist, then every playlist the user may change.</summary>
     public static MenuFlyoutSubItem AddToPlaylistMenu(IReadOnlyList<TrackInfo> tracks, string? exceptPlaylistId = null)
     {

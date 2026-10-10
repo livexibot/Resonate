@@ -136,7 +136,7 @@
                             x:Name="LyricLineText"
                             Grid.Row="1"
                             Grid.ColumnSpan="3"
-                            Foreground="{StaticResource ResonateAccentBrush}"
+                            Foreground="{StaticResource ResonateAccentTextBrush}"
                             Style="{StaticResource ResonateCaptionTextStyle}"
                             TextTrimming="CharacterEllipsis"
                             Visibility="Collapsed" />
@@ -144,6 +144,7 @@
                             x:Name="NextLyricText"
                             Grid.Row="2"
                             Grid.ColumnSpan="3"
+                            Foreground="{StaticResource ResonateTextTertiaryBrush}"
                             Style="{StaticResource ResonateCaptionTextStyle}"
                             TextTrimming="CharacterEllipsis"
                             Visibility="Collapsed" />
