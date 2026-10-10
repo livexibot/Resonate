@@ -1983,7 +1983,8 @@ plain words what it is and what Claude recommends. Claude reviews outside
 pull requests with comments only: never "Approve" on GitHub (the GitHub
 tools act as the owner's account, so an approval would count as the
 owner's) and never merges one before the owner has approved it on GitHub
-or said so in the project. A fork's CI waits for approval; Claude may let
+or said so in the project; the admin bypass on `main` is for Claude's own
+and release-please's pull requests, never for outside ones. A fork's CI waits for approval; Claude may let
 it run only after reading the whole diff for anything harmful (CI runs
 there with a read-only token and no secrets, and the screenshot push is
 skipped for forks). Claude's own pull requests follow the template too,
@@ -2099,30 +2100,34 @@ Claude cannot change these repository settings. Walk the owner through them
 when the work first needs them, then tick them off here.
 
 - [x] Delete the leftover branches and tag from the reset.
-- [ ] Settings, General, Pull Requests: allow squash merging only, and turn
-  on "Automatically delete head branches" (on by 10 October 2026; merge
-  commits and rebase merging were still allowed).
-- [ ] Settings, General, Features: tick "Issues". It was off on 8 October
-  2026, so follow-ups are noted in this file until it is on.
+- [x] Settings, General, Pull Requests: allow squash merging only, and turn
+  on "Automatically delete head branches". Done 10 October 2026 (the
+  owner: "Change any github settings you want"), squash title the pull
+  request's title.
+- [x] Settings, General, Features: tick "Issues". On since 10 October 2026.
 - [x] Settings, Actions, General, Workflow permissions: "Read and write
   permissions" and "Allow GitHub Actions to create and approve pull
   requests" (release-please needs both). Done 7 October 2026.
 - [ ] GitHub account Settings, Emails: tick "Keep my email addresses
   private", so commits made on the website use the no-reply address.
-- [ ] Settings, Rules: protect `main` so changes arrive only through pull
-  requests with passing CI, and block force pushes. Since outside
-  contributions are welcome (10 October 2026): a ruleset on `main` that
-  needs a pull request with one approval from a code owner and CI's checks
-  passing, blocks force pushes and deletion, and lets the repository admin
-  (the owner's account, which Claude's own pull requests use) bypass it,
-  or Claude could not merge its own work. Nothing in place on 10 October
-  2026.
-- [ ] Settings, Actions, General, "Fork pull request workflows from
-  outside collaborators": require approval for all outside collaborators
-  (it was first-time contributors only on 10 October 2026).
-- [ ] Settings, Security: private vulnerability reporting (SECURITY.md
-  points to it), Dependabot alerts and secret scanning (all off on
-  10 October 2026).
+- [x] Settings, Rules: ruleset "main" (id 24855435, 10 October 2026) on
+  the default branch: changes only through a squash-merged pull request
+  with one approval from a code owner (stale approvals dismissed on a new
+  push) and CI's six checks passing ("What changed", the Linux logic job,
+  "Logic tests on Windows" and the three "Windows app" jobs, from GitHub
+  Actions only); no force pushes or deletion. The repository admin role
+  (the owner's account, which Claude's work uses) may bypass it through a
+  pull request only, never by pushing to `main`, so Claude merges its own
+  pull requests and release-please's with `gh pr merge --squash --admin`
+  once CI is green. Renaming a CI job means updating the ruleset, or
+  outside pull requests can never merge.
+- [x] Settings, Actions, General, "Fork pull request workflows from
+  outside collaborators": approval for all outside collaborators
+  (10 October 2026).
+- [x] Settings, Security: private vulnerability reporting (SECURITY.md
+  points to it), Dependabot alerts, secret scanning and push protection
+  on (10 October 2026). Dependabot's automatic security pull requests stay
+  off.
 - [ ] Create a Spotify developer app at developer.spotify.com (with the
   Premium account), add the redirect URI `http://127.0.0.1:43821/callback`,
   tick "Web API", and paste its client ID into Resonate's first screen.
