@@ -40,7 +40,7 @@ public sealed partial class SettingsPage : Page
     public SettingsPage()
     {
         InitializeComponent();
-        PluginsHost.Children.Add(new PluginsPanel(_services.Plugins, _services));
+        PluginsHost.Children.Add(new PluginsPanel(_services));
         ShortcutsHost.Child = new KeyShortcutsList(_services);
         RequestsHost.Child = new SpotifyRequestsPanel(_services.Requests);
         ShowTab(LastTab);

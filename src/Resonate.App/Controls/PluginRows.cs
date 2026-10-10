@@ -119,6 +119,39 @@ internal static class PluginRows
         return new SettingRow { Header = header, Content = box, ContentBelow = true };
     }
 
+    /// <summary>A list with one item per line (artists, versions), saved when leaving the box.</summary>
+    public static SettingRow Lines(string header, string placeholder, List<string> list, AppServices services, Action? changed = null)
+    {
+        var box = new TextBox
+        {
+            MinWidth = 260,
+            MinHeight = 76,
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.Wrap,
+            PlaceholderText = placeholder,
+            Text = string.Join("\r", list),
+        };
+        AutomationProperties.SetName(box, header);
+        box.LostFocus += (_, _) =>
+        {
+            var lines = box.Text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var fresh = new List<string>();
+            foreach (var line in lines)
+            {
+                Resonate.Spotify.Playback.SkipFilter.AddTo(fresh, line);
+            }
+
+            if (!fresh.SequenceEqual(list))
+            {
+                list.Clear();
+                list.AddRange(fresh);
+                services.SaveSettings();
+                changed?.Invoke();
+            }
+        };
+        return new SettingRow { Header = header, Content = box, ContentBelow = true };
+    }
+
     public static SettingRow Button(string header, string label, Action click)
     {
         var button = new Button { Content = label };

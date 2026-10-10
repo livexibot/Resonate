@@ -69,7 +69,7 @@ visitors; keep it short and in step with this file.
   and "Resonate (local demo)" start it with `--data
   %LocalAppData%\Resonate-local`, which keeps its settings, caches,
   plugins and its own Credential Manager sign-in apart from the installed
-  copy. Never run CI's install, update or plugin checks there: they would
+  copy. Never run CI's install or update checks there: they would
   install over the owner's copy. For quick edits the owner watches live,
   `live.ps1` there (also kept out of the repository) builds Debug without
   Native AOT and swaps the open window (about 20 s; hot reload does not
@@ -299,18 +299,22 @@ visitors; keep it short and in step with this file.
   on the owner's PC must check what CI cannot: sign-in, that Spotify's media
   session (SMTC) reports position and allows seeking, that the per-app mixer
   volume finds Spotify, and that `--minimized` keeps Spotify hidden.
-- Plugins are optional and downloaded from the release only when turned on
-  (see "Plugins" under verified facts and decisions). CI installs and runs
-  them in the installed app; on the owner's PC, check that Windows security
-  software lets the downloaded helper run.
+- Every plugin is built into the app and off until turned on in Settings,
+  Plugins (since 10 October 2026, the owner: "just make plugins in the code
+  itself, and just install all plugins by default"). Sleep timer and Skip
+  rules were downloaded JavaScript plugins until then, run by a helper; they
+  are C# now under the same IDs (`MainWindow.SleepTimer.cs`,
+  `MainWindow.SkipSongs.cs`, rules in `Resonate.Spotify/Playback/SleepTimerRules`
+  and `SkipFilter`, tested), and `Services/OldPlugins.cs` turns on the ones
+  that were on, carries their settings over and deletes the old
+  `plugins.json` and plugins folder once. The plugin helper, its JavaScript
+  engine (Jint), the packer and the release's plugin zips are gone.
 - Eight built-in plugins (8 October 2026: Away screen, Rediscover, Up
   next, Artist orbit, Smart playlists, Window shapes, Summon bar, Signal
   path) are compiled into the app and off until turned on in Settings,
   Plugins; see "Built-in plugins" under verified facts. Lyrics and Home
   stage began as built-in plugins and are now always on
-  (`BuiltInPlugins.IsAlwaysOn`). The Sleep timer is only the downloaded
-  plugin (`plugins/sleep-timer`); a built-in copy with the same ID was
-  removed before release.
+  (`BuiltInPlugins.IsAlwaysOn`).
   CI draws each once (all but Window shapes) in its screenshot tour, but
   nobody has used them on Windows yet: the owner's PC must check what each
   section lists under "Measure".
@@ -758,41 +762,20 @@ only the owner's PC can tell):
   that takes a frame or two). Measure: that opening a playlist shows its
   covers with the songs.
 
-Plugins (checked 2026-10-07):
-- A Native AOT app cannot load .NET code at run time, so plugins are
-  JavaScript run by Jint (4.17.0, a JavaScript engine written in .NET) in a
-  separate helper, `Resonate.PluginHost`, itself published with Native AOT
-  (about 11 MB, 5 MB zipped, on Linux; CI prints the Windows size and
-  memory). Jint works under Native AOT. Its four trim warnings (IL2026, all
-  in .NET interop the helper never enables) are reported per method by the
-  native compiler even with `TrimmerSingleWarn`, so the helper sets
-  `IlcTreatWarningsAsErrors` to false; the analyzers still fail the build
-  on warnings in Resonate's own code. Checked on Linux, including regular
-  expressions with Unicode properties and that no .NET type is reachable
-  from scripts.
-- Jint's own time limit (`TimeoutInterval`) counts time on the clock, so a
-  plugin waiting for the processor on a busy PC (the helper runs at
-  below-normal priority) was stopped for doing nothing wrong; CI's Windows
-  machine hit it. `CpuTimeConstraint` counts the call's processor time
-  instead (2 s), with 30 s on the clock as a backstop.
-- Tests wait for the helper with a ping that it answers only after every
-  plugin has handled what came before, never with a quiet period, which
-  missed messages on CI's slower machines.
-- The app never references Jint: it talks to the helper over standard input
-  and output (one JSON message per line), so the installer and start-up
-  are unchanged when no plugin is on.
-- Release downloads (`/releases/download/<tag>/<file>`) need the repository
-  to be public, like the updater. It is (checked 8 October 2026); while it
-  was private, turning a plugin on in an installed copy failed with "The
-  download did not start".
+Plugins: until 10 October 2026 two plugins (Sleep timer, Skip rules) were
+JavaScript, downloaded from the release when turned on and run by Jint in a
+separate Native AOT helper (`Resonate.PluginHost`), because a Native AOT app
+cannot load .NET code at run time. The owner asked for every plugin in the
+app instead, so all are C# now (see "Built-in plugins"); git history before
+that holds the helper, its tests and `docs/plugins.md`'s old API, should
+outside plugins ever be wanted again (they would need a stronger sandbox
+and review first).
 
 Built-in plugins (built 8 October 2026; the owner asked for ideas 1, 2, 5,
 10, 14, 15, 17, 18 and 20 of the Idea Book "under optional plugins at the
 moment", and for synced lyrics like Spotify's, from spotifast's source):
-- They need the app's pages, windows and the Web API, which the JavaScript
-  helper cannot reach, so they are compiled in and listed in Settings,
-  Plugins with the downloaded ones, grouped by what they are for
-  (`Services/BuiltInPlugins.cs`: IDs,
+- They are compiled in and listed in Settings, Plugins, grouped by what
+  they are for (`Services/BuiltInPlugins.cs`: IDs,
   names, `IsOn`, `Set`, `Changed`; ids saved in `BuiltInPlugins` in
   settings). All are off at first; while off nothing of them runs or
   shows, and switching takes effect at once. Each keeps its settings under
@@ -960,8 +943,12 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   shapes), Quick search (Summon bar), Lossless badge (Signal path) and the
   rest as before. A plugin that is on and has settings shows a gear
   beside its switch, which opens them in a `ContentDialog`
-  (`BuiltInPluginSettings.Has`/`Create`, rows from `Controls/PluginRows`;
-  a downloaded plugin's settings the same way).
+  (`BuiltInPluginSettings.Has`/`Create`, rows from `Controls/PluginRows`,
+  `PluginRows.Lines` for a list with one item per line). A plugin with
+  commands (Sleep timer, Skip rules) offers them in the player's plugin
+  button through `BuiltInPlugins.AddMenu` (`Controls/PluginMenu`; the
+  button shows while one offers any and lights up while one reports
+  something, such as the countdown; call `NotifyMenus` when they change).
 - Screensaver (was the away screen inside the window; the owner asked on
   9 October 2026 for it above every app, hiding the mouse, with its own
   visualizer, background colour and an OLED mode): a borderless,
@@ -1609,8 +1596,7 @@ GitHub automation:
   run side by side: "Windows app (screenshots, install, update)" and
   "Windows app (speed and memory)", where `perf.md` is printed. The logic
   tests run on Windows in a job of their own beside the build, because
-  some of their code paths exist only on Windows (case-insensitive paths,
-  the plugin helper's `.exe`, its processor-time limit).
+  some of their code paths exist only on Windows (case-insensitive paths).
 - release-please (action v5) is configured with `bump-minor-pre-major`,
   `initial-version` 0.1.0, and the version in `version.txt` and
   `Directory.Build.props` (`x-release-please-version` marker).
@@ -1631,7 +1617,7 @@ GitHub automation:
   installer or updater shows up in a pull request, not after a release.
   Velopack installs a downloaded update the next time the app starts (it
   exits at once and restarts the new version), so any check of the
-  installed copy (`--plugin-check`) runs before the update test.
+  installed copy (`--web-player-check`) runs before the update test.
 - release-please needs the repository setting "Allow GitHub Actions to
   create and approve pull requests"; without it the Release workflow fails
   with "GitHub Actions is not permitted to create or approve pull requests".
@@ -2054,16 +2040,6 @@ Keep it obvious what is what:
   `Library/SmartPlaylist*`, `Library/QuickSearch`, `Playback/*UpNext*`,
   `Audio/SignalPath`) and `Resonate.Themes` (`StageColours`,
   `WindowShapes`), tested.
-- `src/Resonate.Plugins/` optional plugins, everything but running them:
-  the catalog built into the app, downloading and checking a plugin,
-  its settings, permissions and rate limits (`PluginManager`), and the
-  messages to the helper. Any OS, tested.
-- `src/Resonate.PluginHost/` the helper that runs plugins (Jint), one
-  JavaScript engine per plugin; `prelude.js` is the `resonate` API.
-- `plugins/` the plugins themselves (`plugin.json` and a script each).
-  `docs/plugins.md` explains them and the API.
-- `tools/Resonate.PluginPack/` packs the plugins and the helper and writes
-  the catalog the app is built with (`-p:PluginCatalog=<file>`).
 - `tools/fonts/` rebuilds the fonts in `src/Resonate.App/Assets/Fonts`
   from Google Fonts' sources (see its README).
 - `tools/scenes/` writes the special looks' scenery into
@@ -2071,19 +2047,19 @@ Keep it obvious what is what:
   module per scene, shared helpers in `sceneart.py`; run from the
   repository's root).
 - `tests/` automated tests (`dotnet test`, run on Linux and Windows).
-- `docs/` user-facing guides (`plugins.md`) and the README's pictures
+- `docs/` user-facing guides (`plugins.md`, every plugin by group) and the README's pictures
   (`images/`: a demo copy photographed on the owner's PC with
   PrintWindow, 2500x1600 shrunk to JPEG; take them again when the look
   changes a lot).
 - `.github/workflows/` `ci.yml` (every pull request that changes more
   than text: format, tests on Linux and Windows, the Windows build, then
-  in parallel start-up time, screenshots, the install test, the plugin
-  check, the web player check and the update test, and the speed and
-  memory test; see "GitHub automation"),
+  in parallel start-up time, screenshots, the install test, the web
+  player check and the update test, and the speed and memory test; see
+  "GitHub automation"),
   `release-please.yml` (release pull request, then calls `release.yml`),
-  `release.yml` (builds the x64 installer with Velopack, packs the
-  plugins and their helper, and attaches them; no arm64 build and no
-  portable zip, the owner's choice of 8 October 2026).
+  `release.yml` (builds the x64 installer with Velopack and attaches it
+  with the update packages and feed; no arm64 build, no portable zip and,
+  since 0.20.0, no plugin files, the owner's choices).
 - `release-please-config.json`, `.release-please-manifest.json`,
   `version.txt`: release settings and the current version.
 - `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md` and
@@ -2143,10 +2119,8 @@ when the work first needs them, then tick them off here.
 
 ## Later ideas
 
-- More plugins, each a small pull request adding a folder to `plugins/`.
-- Community plugins, if the owner wants them: they would need a stronger
-  sandbox for the helper (an AppContainer with no network or file access)
-  and a way to review or sign them first.
+- More plugins, each a small pull request with its own
+  `MainWindow.<Name>.cs`, settings and tested rules.
 - Keyboard shortcuts for everything (the Summon bar's Ctrl+K palette is a
   start).
 - Taskbar-thumbnail controls. (A tray icon was built and then removed at
@@ -2237,17 +2211,10 @@ when the work first needs them, then tick them off here.
   upgrades, reversible: the hovering player is a pill over the page (not a
   separate window) and Liquid Glass uses it; "Sidebar reaches the bottom"
   is a global setting, off at first.
-- Plugins (asked 7 October 2026): optional add-ons that are downloaded only
-  when turned on in Settings and deleted when turned off. Default chosen
-  while the owner's answer is open ("built-in extras only, or community
-  plugins later?"): only Resonate's own plugins, kept in `plugins/`,
-  reviewed like any change, built by the release workflow and pinned by
-  SHA-256 in the catalog built into each release. The first two: Sleep
-  timer and Skip rules. A plugin may only see what is playing, control
-  playback and change the volume, each only with its permission, and
-  Resonate rate-limits all of it. No network, file or Spotify Web API
-  access for downloaded plugins yet; adding any is a decision for the
-  owner. Built-in plugins (above) are reviewed app code, not scripts.
+- Plugins (asked 7 October 2026): optional add-ons, off until turned on in
+  Settings, Plugins. Until 10 October 2026 Sleep timer and Skip rules were
+  downloaded scripts; since then every plugin is reviewed app code built
+  into Resonate (the owner's choice), with no downloads.
 - Decided (8 October 2026): "Spotify Web API only" closes the Spotify
   app (at first it then played only on the user's other Spotify
   devices); Windows media controls is the mode with Lossless sound on

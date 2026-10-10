@@ -229,13 +229,14 @@ public sealed partial class ClassicPlayer : UserControl
         _services.Visualiser.LiveChanged += OnLiveChanged;
         _services.Likes.Changed += OnLikesChanged;
         _services.Equalizer.Changed += OnEqualizerChanged;
-        _services.Plugins.Changed += OnPluginsChanged;
+        _services.BuiltIns.Changed += OnPluginsChanged;
+        _services.BuiltIns.MenusChanged += OnPluginMenusChanged;
         if (App.MainWindow is { } window)
         {
             window.QueueOpenChanged += OnQueueOpenChanged;
         }
 
-        PluginMenu.UpdateButton(PluginsButton, _services.Plugins);
+        PluginMenu.UpdateButton(PluginsButton, _services.BuiltIns);
         _clock = DispatcherQueue.CreateTimer();
         _clock.IsRepeating = false;
         _clock.Tick += OnClockTick;
@@ -273,7 +274,8 @@ public sealed partial class ClassicPlayer : UserControl
         _services.Visualiser.LiveChanged -= OnLiveChanged;
         _services.Likes.Changed -= OnLikesChanged;
         _services.Equalizer.Changed -= OnEqualizerChanged;
-        _services.Plugins.Changed -= OnPluginsChanged;
+        _services.BuiltIns.Changed -= OnPluginsChanged;
+        _services.BuiltIns.MenusChanged -= OnPluginMenusChanged;
         if (App.MainWindow is { } window)
         {
             window.QueueOpenChanged -= OnQueueOpenChanged;
@@ -317,9 +319,11 @@ public sealed partial class ClassicPlayer : UserControl
         });
     }
 
+    private void OnPluginMenusChanged(object? sender, EventArgs e) => OnPluginsChanged(sender, string.Empty);
+
     private void OnPluginsChanged(object? sender, string id)
     {
-        // Plugins report from the helper's thread; show the newest once.
+        // A countdown reports every second; show the newest once.
         if (Interlocked.Exchange(ref _pluginsQueued, 1) == 1)
         {
             return;
@@ -330,14 +334,14 @@ public sealed partial class ClassicPlayer : UserControl
             Interlocked.Exchange(ref _pluginsQueued, 0);
             if (_loaded)
             {
-                PluginMenu.UpdateButton(PluginsButton, _services.Plugins);
+                PluginMenu.UpdateButton(PluginsButton, _services.BuiltIns);
             }
         });
     }
 
     private void OnPluginsClick(object sender, RoutedEventArgs e)
     {
-        var menu = PluginMenu.Build(_services.Plugins);
+        var menu = PluginMenu.Build(_services.BuiltIns);
         menu.Placement = FlyoutPlacementMode.TopEdgeAlignedRight;
         menu.ShowAt(PluginsButton);
     }

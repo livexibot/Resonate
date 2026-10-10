@@ -109,6 +109,15 @@ internal static class BuiltInPluginSettings
                 Slider("Skip the first", 0, 60, () => settings.SkipIntroSeconds, v => settings.SkipIntroSeconds = v, fresh.SkipIntroSeconds, "s"),
                 Slider("Skip the last", 0, 60, () => settings.SkipOutroSeconds, v => settings.SkipOutroSeconds = v, fresh.SkipOutroSeconds, "s"),
                 Slider("Songs longer than", 30, 600, () => settings.SkipShortestSeconds, v => settings.SkipShortestSeconds = v, fresh.SkipShortestSeconds, "s")),
+            BuiltInPlugins.SleepTimer => Stack(
+                Switch("Fade out before pausing", () => settings.SleepTimerFade, on => settings.SleepTimerFade = on),
+                Slider("Your own length", 5, 240, () => settings.SleepTimerMinutes, v => settings.SleepTimerMinutes = v, fresh.SleepTimerMinutes, "min")),
+            BuiltInPlugins.SkipSongs => Stack(
+                PluginRows.Lines("Always skip these artists", "One per line", settings.SkipArtists, services, Changed),
+                PluginRows.Lines("Skip these versions", "live, remix, sped up: one per line", settings.SkipVersions, services, Changed),
+                PluginRows.Lines("Always skip these songs", "Title — Artists, one per line", settings.SkipSongs, services, Changed),
+                Slider("Skip songs longer than", 0, 120, () => settings.SkipLongerThanMinutes, v => settings.SkipLongerThanMinutes = v, fresh.SkipLongerThanMinutes, "min"),
+                Slider("Skip songs shorter than", 0, 300, () => settings.SkipShorterThanSeconds, v => settings.SkipShorterThanSeconds = v, fresh.SkipShorterThanSeconds, "s")),
             BuiltInPlugins.DeviceVolume => Stack(
                 Slider("New devices start at", 0, 100, () => settings.DeviceVolumeNew, v => settings.DeviceVolumeNew = v, fresh.DeviceVolumeNew, "%"),
                 Switch("Say when the volume changes", () => settings.DeviceVolumeMessage, on => settings.DeviceVolumeMessage = on),

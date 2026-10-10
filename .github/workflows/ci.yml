@@ -1,7 +1,7 @@
-# Checks every pull request (and main): formatting, the Spotify, theme and
-# plugin logic's tests on Linux and on Windows, and the Windows app built
-# with Native AOT, timed, photographed with demo data, installed, updated,
-# running its plugins from the installed copy, and its speed and memory.
+# Checks every pull request (and main): formatting, the Spotify and theme
+# logic's tests (the built-in plugins' rules among them) on Linux and on
+# Windows, and the Windows app built with Native AOT, timed, photographed
+# with demo data, installed, updated, and its speed and memory.
 #
 # The Windows app is built once; the screenshots and install checks and the
 # speed and memory test then run side by side on two more machines, from
@@ -80,12 +80,8 @@ jobs:
           dotnet format src/Resonate.Spotify/Resonate.Spotify.csproj --verify-no-changes
           dotnet format src/Resonate.Windows/Resonate.Windows.csproj --verify-no-changes
           dotnet format src/Resonate.Themes/Resonate.Themes.csproj --verify-no-changes
-          dotnet format src/Resonate.Plugins/Resonate.Plugins.csproj --verify-no-changes
-          dotnet format src/Resonate.PluginHost/Resonate.PluginHost.csproj --verify-no-changes
-          dotnet format tools/Resonate.PluginPack/Resonate.PluginPack.csproj --verify-no-changes
           dotnet format tests/Resonate.Spotify.Tests/Resonate.Spotify.Tests.csproj --verify-no-changes
           dotnet format tests/Resonate.Themes.Tests/Resonate.Themes.Tests.csproj --verify-no-changes
-          dotnet format tests/Resonate.Plugins.Tests/Resonate.Plugins.Tests.csproj --verify-no-changes
           dotnet format whitespace src/Resonate.App --folder --verify-no-changes
 
       - name: Build the Windows integration (compile check)
@@ -95,7 +91,6 @@ jobs:
         run: |
           dotnet test tests/Resonate.Spotify.Tests/Resonate.Spotify.Tests.csproj -c Release
           dotnet test tests/Resonate.Themes.Tests/Resonate.Themes.Tests.csproj -c Release
-          dotnet test tests/Resonate.Plugins.Tests/Resonate.Plugins.Tests.csproj -c Release
 
   windows-tests:
     name: Logic tests on Windows
@@ -117,9 +112,6 @@ jobs:
       - name: Test the theme logic on Windows
         run: dotnet test tests/Resonate.Themes.Tests/Resonate.Themes.Tests.csproj -c Release
 
-      - name: Test the plugins on Windows
-        run: dotnet test tests/Resonate.Plugins.Tests/Resonate.Plugins.Tests.csproj -c Release
-
   app:
     name: Windows app (build)
     needs: changes
@@ -133,31 +125,20 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      # Plugins are not part of the app or its installer: they and their
-      # helper are packed next to it, as a release does, and the app is
-      # built with the catalog of those files.
-      - name: Publish the plugin helper (x64, Native AOT)
-        run: dotnet publish src/Resonate.PluginHost/Resonate.PluginHost.csproj -c Release -r win-x64 -o artifacts/plugin-host/win-x64
-
-      - name: Pack the plugins
-        run: dotnet run --project tools/Resonate.PluginPack -c Release -- --plugins plugins --host artifacts/plugin-host/win-x64 --runtime win-x64 --out artifacts/plugins
-
       # Warnings fail the build: a trimming or Native AOT warning means code
       # that may break only in the installed app. New security advisories
       # for packages (NU1901 to NU1904) stay warnings, so they cannot turn
       # an unrelated pull request red overnight.
       - name: Publish (x64, Native AOT)
-        run: dotnet publish src/Resonate.App/Resonate.App.csproj -c Release -r win-x64 -p:Platform=x64 "-p:PluginCatalog=${{ github.workspace }}/artifacts/plugins/plugin-catalog.json" -o artifacts/win-x64 -bl:artifacts/publish.binlog -warnaserror -warnnotaserror:NU1901,NU1902,NU1903,NU1904
+        run: dotnet publish src/Resonate.App/Resonate.App.csproj -c Release -r win-x64 -p:Platform=x64 -o artifacts/win-x64 -bl:artifacts/publish.binlog -warnaserror -warnnotaserror:NU1901,NU1902,NU1903,NU1904
 
-      # The app, the plugins and their helper, for the two jobs below.
+      # The app, for the two jobs below.
       - name: Keep the build for the checks
         uses: actions/upload-artifact@v7
         with:
           name: windows-app
           path: |
             artifacts/win-x64
-            artifacts/plugins
-            artifacts/plugin-host/win-x64
             !artifacts/**/*.pdb
           compression-level: 1
           retention-days: 1
@@ -284,28 +265,6 @@ jobs:
 
           vpk pack @pack --packVersion 0.0.2-ci
           if ($LASTEXITCODE -ne 0) { throw 'Packaging the second version failed.' }
-
-      # The installed copy downloads the helper and every plugin from the
-      # packed files (checking each against its catalog, as from a release),
-      # runs them, turns them off again, and reports the helper's memory.
-      # It runs before the update test: Velopack installs a downloaded update
-      # on the next start, which would replace the copy being checked.
-      - name: Plugin check (installed copy)
-        shell: pwsh
-        run: |
-          $installed = Join-Path $env:LOCALAPPDATA 'Resonate/current/Resonate.exe'
-          $feed = (Resolve-Path artifacts/plugins).Path
-          $result = Join-Path $env:RUNNER_TEMP 'plugin-result.txt'
-          $process = Start-Process $installed -ArgumentList '--plugin-check', $feed, $result -PassThru
-          if (-not $process.WaitForExit(180000)) { $process.Kill(); throw 'The plugin check did not finish.' }
-          if (-not (Test-Path $result)) { throw "The plugin check wrote no result (exit code $($process.ExitCode))." }
-          $outcome = (Get-Content $result -Raw).Trim()
-          $helper = [math]::Round((Get-Item artifacts/plugins/resonate-plugin-host-win-x64.zip).Length / 1MB, 1)
-          $unpacked = [math]::Round((Get-ChildItem artifacts/plugin-host/win-x64 -Recurse -File | Where-Object { $_.Extension -ne '.pdb' } | Measure-Object Length -Sum).Sum / 1MB, 1)
-          $line = "$outcome. The helper downloads as $helper MB ($unpacked MB unpacked), only when the first plugin is turned on."
-          Write-Output $line
-          "### Plugins`n`n$line" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
-          if (-not $outcome.StartsWith('OK ')) { throw "The plugin check failed: $outcome" }
 
       # Resonate's own player for "Spotify Web API only" (Spotify's Web
       # Playback SDK in a hidden WebView2) opens in the installed copy:
