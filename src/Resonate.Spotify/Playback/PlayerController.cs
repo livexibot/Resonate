@@ -30,6 +30,15 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     internal static readonly TimeSpan WebPollInterval = TimeSpan.FromSeconds(5);
     internal static readonly TimeSpan WebOnlyPollWhilePlaying = TimeSpan.FromSeconds(2);
     internal static readonly TimeSpan WebOnlyPollWhilePaused = TimeSpan.FromSeconds(6);
+
+    /// <summary>
+    /// While Resonate's own player is the device that plays, it reports every
+    /// change itself, so Spotify is asked only now and then, for changes made
+    /// elsewhere (a phone): the 2 s polls used up the developer app's request
+    /// allowance in a few hours (10 October 2026).
+    /// </summary>
+    internal static readonly TimeSpan OwnPlayerPollWhilePlaying = TimeSpan.FromSeconds(15);
+    internal static readonly TimeSpan OwnPlayerPollWhilePaused = TimeSpan.FromSeconds(30);
     internal static readonly TimeSpan WebOnlyConfirmDelay = TimeSpan.FromMilliseconds(700);
     internal static readonly TimeSpan WebDetailsDelay = TimeSpan.FromMilliseconds(800);
     internal static readonly TimeSpan OwnPlayerRefreshDelay = TimeSpan.FromMilliseconds(250);
@@ -376,15 +385,26 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     /// <summary>
     /// Sends a command through Windows' media controls, or returns false so
     /// the caller uses the Web API: also while Spotify's session has no song
-    /// in it (Spotify just started, or it went blank), when Spotify takes a
-    /// local play or skip and does nothing.
+    /// in it (Spotify just started, or it went blank), when Spotify often
+    /// takes a local play or skip and does nothing. While Spotify refuses the
+    /// Web API (the developer app's allowance used up), the session is tried
+    /// anyway, being the only way left to reach Spotify (the owner found
+    /// Windows media controls doing nothing then, 10 October 2026).
     /// </summary>
     private Task<bool> TryLocalAsync(Func<CancellationToken, Task<bool>> command, CancellationToken cancellationToken)
     {
         bool hasSong;
+        bool hasSession;
         lock (_gate)
         {
             hasSong = HasSong(_lastLocal);
+            hasSession = _lastLocal.HasSession;
+        }
+
+        if (UseLocal && !hasSong && hasSession && WebRefused)
+        {
+            PlaybackLog.Note("local: no song in Spotify's session and the Web API is refused, trying Windows' media controls");
+            return command(cancellationToken);
         }
 
         if (!UseLocal || !hasSong)
@@ -394,6 +414,26 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         }
 
         return command(cancellationToken);
+    }
+
+    /// <summary>Whether Spotify has asked Resonate to wait before using the Web API again (its allowance used up, or too many requests).</summary>
+    private bool WebRefused => _time.GetUtcNow() < _webPausedUntil;
+
+    /// <summary>Whether Resonate's own player is the device that plays, and so reports what it plays itself.</summary>
+    private bool OwnPlayerReports
+    {
+        get
+        {
+            if (UseLocal || _direct?.DeviceId is not { } own)
+            {
+                return false;
+            }
+
+            lock (_gate)
+            {
+                return _webDeviceId == own;
+            }
+        }
     }
 
     /// <summary>Spotify's session describes a song (it can be there with nothing in it).</summary>
@@ -2222,10 +2262,13 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     /// <summary>
     /// With the local channel the Web API only fills gaps. Without it, the
     /// Web API is the only way to see what is playing, so it is asked more
-    /// often while music plays (the clock in between runs by itself).
+    /// often while music plays (the clock in between runs by itself), unless
+    /// Resonate's own player plays and reports every change itself.
     /// </summary>
     private TimeSpan NextPollDelay() =>
-        UseLocal ? WebPollInterval : State.IsPlaying ? WebOnlyPollWhilePlaying : WebOnlyPollWhilePaused;
+        UseLocal ? WebPollInterval
+        : OwnPlayerReports ? (State.IsPlaying ? OwnPlayerPollWhilePlaying : OwnPlayerPollWhilePaused)
+        : State.IsPlaying ? WebOnlyPollWhilePlaying : WebOnlyPollWhilePaused;
 
     private void CountUserCommand() => Interlocked.Increment(ref _userCommands);
 

@@ -158,6 +158,20 @@ visitors; keep it short and in step with this file.
   playing, failures; never names or tokens) go to `playback.log` in the
   cache folder (256 KB, then `playback.old.log`): read it first when the
   owner reports playback trouble.
+- The developer app's request allowance (10 October 2026): after a day of
+  "Spotify Web API only" (polls every 2 s while playing, two copies of
+  Resonate running) Spotify answered 429 `QUOTA_EXCEEDED` with a wait of
+  about 3.5 hours, so in Windows media controls mode, with Spotify just
+  started and its session empty, every command went to the refused Web
+  API and nothing worked (the owner: "windows media controls doesnt
+  work"). Now: while the Web API is refused (`WebRefused`), commands try
+  Spotify's session even when it is empty; while Resonate's own player
+  plays and reports itself, `/me/player` is asked every 15 s playing and
+  30 s paused instead of 2 and 6 (`OwnPlayerPollWhilePlaying`); and the
+  message says when Spotify allows more ("in about 2 h 42 min", from
+  `Retry-After`). Starting a song still needs the Web API (Windows' media
+  controls cannot choose one). Measure: whether Spotify plays on a local
+  Play with an empty session after it starts hidden.
 - Crashes (9 October 2026, the owner: "make sure the app never crashes,
   ever"): since pull request #36 the title bar's button margin was
   compared exactly with a computed value, and XAML keeps a margin as a

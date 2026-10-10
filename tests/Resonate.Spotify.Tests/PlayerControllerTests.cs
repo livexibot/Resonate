@@ -107,6 +107,22 @@ public sealed class PlayerControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task A_blank_media_session_is_tried_while_Spotify_refuses_the_Web_API()
+    {
+        // The developer app's allowance is used up: Spotify says to wait three hours.
+        _web.PlaybackFailure = new SpotifyApiException(HttpStatusCode.TooManyRequests, "QUOTA_EXCEEDED", "Quota exceeded", TimeSpan.FromHours(3));
+        await StartPlayingSongA();
+        _local.Report(new LocalMediaSnapshot { HasSession = true, PositionUpdatedAt = _time.GetUtcNow() });
+
+        await _player.PauseAsync();
+        await _player.PlayAsync();
+
+        // Windows' media controls are the only way left to reach Spotify.
+        Assert.Equal(["pause", "play"], _local.Commands);
+        Assert.Empty(_web.Commands);
+    }
+
+    [Fact]
     public async Task Falls_back_to_the_Web_API_on_this_computer()
     {
         await StartPlayingSongA();
