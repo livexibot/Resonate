@@ -21,6 +21,9 @@ public sealed partial class MainWindow
     private DispatcherQueueTimer? _lyricTimer;
     private (string?, string?) _lyricSong;
     private SongLyrics? _playerLyrics;
+
+    // The lookup for the song shown has ended, with lyrics or without.
+    private bool _lyricsLookedUp;
     private CancellationTokenSource? _lyricLoading;
     private int _lyricQueued;
     private DesktopLyricsWindow? _desktopLyrics;
@@ -59,7 +62,7 @@ public sealed partial class MainWindow
     {
         if (!InPlayerLyricsOn)
         {
-            PlayerBar.ShowLyricLine(null);
+            PlayerBar.ShowLyrics(false);
         }
 
         if (DesktopLyricsOn)
@@ -99,7 +102,8 @@ public sealed partial class MainWindow
             _lyricLoading?.Cancel();
             _lyricSong = default;
             _playerLyrics = null;
-            PlayerBar.ShowLyricLine(null);
+            _lyricsLookedUp = false;
+            PlayerBar.ShowLyrics(false);
             return;
         }
 
@@ -127,10 +131,13 @@ public sealed partial class MainWindow
         {
             _lyricSong = song;
             _playerLyrics = null;
-            PlayerBar.ShowLyricLine(null);
-            ShowLyricLine();
             _lyricLoading?.Cancel();
-            if (LyricsQuery.For(state.Title, state.Artists, state.Album, state.Duration) is { } query)
+            var query = LyricsQuery.For(state.Title, state.Artists, state.Album, state.Duration);
+
+            // A song that cannot be looked up has none to show.
+            _lyricsLookedUp = query is null;
+            ShowLyricLine();
+            if (query is not null)
             {
                 _lyricLoading = new CancellationTokenSource();
                 _ = LoadPlayerLyricsAsync(query, song, _lyricLoading.Token);
@@ -157,6 +164,7 @@ public sealed partial class MainWindow
             if (!cancellationToken.IsCancellationRequested && song == _lyricSong)
             {
                 _playerLyrics = lyrics;
+                _lyricsLookedUp = true;
                 FollowPlayerLyrics();
                 ShowLyricLine();
             }
@@ -172,7 +180,7 @@ public sealed partial class MainWindow
         var state = _services.Player.State;
         string? line = null;
         string? next = null;
-        if (_playerLyrics is { IsSynced: true } lyrics)
+        if (_playerLyrics is { IsSynced: true, Lines.Count: > 0 } lyrics)
         {
             // The line being sung and the next one; before the first, only what comes.
             var index = lyrics.ActiveLine(state.PositionAt(DateTimeOffset.UtcNow));
@@ -181,8 +189,16 @@ public sealed partial class MainWindow
             if (InPlayerLyricsOn)
             {
                 // Before the first line, what comes; after it, the next one only if the user keeps it.
-                PlayerBar.ShowLyricLine(line, line is null || _services.Settings.PlayerLyricsNextLine ? next : null);
+                PlayerBar.ShowLyrics(true, line, line is null || _services.Settings.PlayerLyricsNextLine ? next : null);
             }
+        }
+        else if (InPlayerLyricsOn)
+        {
+            // Nothing to follow: a word under the song once the lookup has ended (nothing while it runs).
+            PlayerBar.ShowLyrics(true, note: !_lyricsLookedUp || state.Title is null ? null
+                : _playerLyrics is { IsInstrumental: true } ? "Instrumental"
+                : _playerLyrics is { Lines.Count: > 0 } ? "No synced lyrics"
+                : "No lyrics");
         }
 
         // Without synced lyrics the desktop window shows the song itself.

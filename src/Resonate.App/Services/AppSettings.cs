@@ -561,6 +561,11 @@ public sealed class AppSettings
 
     public bool DeviceVolumeMessage { get; set; } = true;
 
+    /// <summary>Resonate's DJ: its voice introduces each set, and how many songs a set has.</summary>
+    public bool DjVoice { get; set; } = true;
+
+    public int DjSetSize { get; set; } = 6;
+
     // ---- End of built-in plugins ----
 
     [JsonIgnore]

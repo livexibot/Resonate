@@ -137,15 +137,20 @@
                             Grid.Row="1"
                             Grid.ColumnSpan="3"
                             Foreground="{StaticResource ResonateAccentBrush}"
+                            MaxLines="2"
+                            SizeChanged="OnLyricLineSizeChanged"
                             Style="{StaticResource ResonateCaptionTextStyle}"
                             TextTrimming="CharacterEllipsis"
+                            TextWrapping="WrapWholeWords"
                             Visibility="Collapsed" />
                         <TextBlock
                             x:Name="NextLyricText"
                             Grid.Row="2"
                             Grid.ColumnSpan="3"
+                            MaxLines="2"
                             Style="{StaticResource ResonateCaptionTextStyle}"
                             TextTrimming="CharacterEllipsis"
+                            TextWrapping="WrapWholeWords"
                             Visibility="Collapsed" />
                     </Grid>
                 </Grid>

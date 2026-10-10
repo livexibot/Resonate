@@ -52,6 +52,7 @@ public sealed partial class PlayerBar : UserControl
     private string? _durationLabel;
     private PlayerWidthClass _widthClass = PlayerWidthClass.Full;
     private bool _lyricsShown;
+    private (bool On, string? Line, string? Next, string? Note) _lyricArgs;
     private Brush? _sungLyricBrush;
     private float _artworkSize = 56;
 
@@ -85,29 +86,39 @@ public sealed partial class PlayerBar : UserControl
     /// line, "Song · Artist" (the owner's request, 9 October 2026), and the two
     /// lines of lyrics sit under it; the mini bar keeps the song alone.
     /// </summary>
-    public void ShowLyricLine(string? line, string? next = null)
+    /// <summary>
+    /// Lyrics in the player. While it is on: "Song · Artist" on one line, and
+    /// under it the line being sung (on two lines when it needs them) and the
+    /// next one, or a word when there are none ("No lyrics"). Off: the song
+    /// above its artists. The mini bar has no room for lyrics.
+    /// </summary>
+    public void ShowLyrics(bool on, string? line = null, string? next = null, string? note = null)
     {
-        var lyrics = (!string.IsNullOrWhiteSpace(line) || !string.IsNullOrWhiteSpace(next)) && _widthClass != PlayerWidthClass.Mini;
+        _lyricArgs = (on, line, next, note);
+        on &= _widthClass != PlayerWidthClass.Mini;
 
         // Before the first sung line (or in a pause) the coming line moves up
         // right under the song, dimmed, so no empty line sits between them.
         var singing = !string.IsNullOrWhiteSpace(line);
-        LyricLineText.Text = singing ? line! : next ?? string.Empty;
+        var shown = singing ? line : !string.IsNullOrWhiteSpace(next) ? next : note;
+        LyricLineText.Text = shown ?? string.Empty;
         _sungLyricBrush ??= LyricLineText.Foreground;
         LyricLineText.Foreground = singing ? _sungLyricBrush : NextLyricText.Foreground;
 
         NextLyricText.Text = next ?? string.Empty;
-        LyricLineText.Visibility = lyrics ? Visibility.Visible : Visibility.Collapsed;
-        NextLyricText.Visibility = lyrics && singing && !string.IsNullOrWhiteSpace(next) ? Visibility.Visible : Visibility.Collapsed;
-        if (lyrics == _lyricsShown)
+        LyricLineText.Visibility = on && !string.IsNullOrEmpty(shown) ? Visibility.Visible : Visibility.Collapsed;
+        NextLyricText.Visibility = on && singing && !string.IsNullOrWhiteSpace(next) ? Visibility.Visible : Visibility.Collapsed;
+        ShowSongDot();
+        if (on == _lyricsShown)
         {
             return;
         }
 
+        var lyrics = on;
         _lyricsShown = lyrics;
         Grid.SetColumnSpan(TitleText, lyrics ? 1 : 3);
         TitleText.FontWeight = lyrics ? Microsoft.UI.Text.FontWeights.Bold : Microsoft.UI.Text.FontWeights.SemiBold;
-        SongDotText.Visibility = lyrics ? Visibility.Visible : Visibility.Collapsed;
+        ShowSongDot();
         Grid.SetRow(ArtistText, lyrics ? 0 : 1);
         Grid.SetColumn(ArtistText, lyrics ? 2 : 0);
         Grid.SetColumnSpan(ArtistText, lyrics ? 1 : 3);
@@ -123,6 +134,17 @@ public sealed partial class PlayerBar : UserControl
             }
         }
     }
+
+    /// <summary>The dot between the song and its artists, while lyrics show and there are artists to name.</summary>
+    private void ShowSongDot() =>
+        SongDotText.Visibility = _lyricsShown && ArtistText.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>
+    /// A sung line on two lines leaves the next one a single line, so the
+    /// three lines together stay inside the bar.
+    /// </summary>
+    private void OnLyricLineSizeChanged(object sender, SizeChangedEventArgs e) =>
+        NextLyricText.MaxLines = e.NewSize.Height > LyricLineText.FontSize * 1.9 ? 1 : 2;
 
     /// <summary>The window says when it is minimised or hidden, so the clock can rest.</summary>
     public void SetWindowShown(bool shown)
@@ -234,6 +256,7 @@ public sealed partial class PlayerBar : UserControl
         }
         TitleText.Text = state.Title ?? "Nothing playing";
         ArtistText.Text = state.Artists ?? (state.IsConnected ? string.Empty : "Pick a song to start");
+        ShowSongDot();
 
         PlayPauseButton.Content = state.IsPlaying ? PauseGlyph : PlayGlyph;
         AutomationPropertiesHelper.SetName(PlayPauseButton, state.IsPlaying ? "Pause" : "Play");
@@ -403,6 +426,10 @@ public sealed partial class PlayerBar : UserControl
         // Narrower, the buttons go above the volume rather than the slider going away.
         VolumeBar.Visibility = shown;
         VolumeBar.Width = full ? 112 : 96;
+
+        // The mini bar has no room for lyrics; a wider one shows them again.
+        var (lyricsOn, line, next, note) = _lyricArgs;
+        ShowLyrics(lyricsOn, line, next, note);
 
         _artworkSize = mini ? 48 : 56;
         NowPlaying.ColumnSpacing = mini ? 10 : 14;
