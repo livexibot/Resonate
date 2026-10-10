@@ -73,6 +73,9 @@ hidden inside it, at 256 kbps instead of Lossless.
 
 - [Plugins](docs/plugins.md)
 - [What changed in each version](CHANGELOG.md)
+- [Helping with Resonate](CONTRIBUTING.md)
+
+Resonate is open source under the [MIT licence](LICENSE).
 
 Resonate is an independent project for Spotify and is not affiliated with
 Spotify.

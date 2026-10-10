@@ -31,6 +31,9 @@ apps help.
    your pull request once it has been allowed to.
 4. The pull request is reviewed, and merged once the owner approves it.
 
+What you contribute is under Resonate's [MIT licence](LICENSE), like the
+rest of the code.
+
 ### What Resonate will not take
 
 - Anything that plays, records, downloads or saves Spotify's audio inside

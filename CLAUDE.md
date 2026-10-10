@@ -2128,10 +2128,8 @@ when the work first needs them, then tick them off here.
   tick "Web API", and paste its client ID into Resonate's first screen.
 - [ ] In the Spotify app: switch audio quality to Lossless, stay signed
   in, and let it start with Windows, minimised.
-- [ ] Choose a license before making the repository public (MIT is a
-  common, simple choice). Still none on 10 October 2026, with the
-  repository public and contributions invited: without one nobody may
-  reuse the code and contributions have no clear terms. Asked the owner.
+- [x] Choose a license: MIT (the owner's choice, 10 October 2026;
+  `LICENSE`, copyright livexibot).
 - [x] Make the repository public (decided 7 October 2026, so installed
   copies can see new releases). Public by 8 October 2026.
 - [ ] Optional, later: Windows code signing, so the installer does not show
