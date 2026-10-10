@@ -1962,7 +1962,10 @@ Keep it obvious what is what:
   module per scene, shared helpers in `sceneart.py`; run from the
   repository's root).
 - `tests/` automated tests (`dotnet test`, run on Linux and Windows).
-- `docs/` user-facing guides (`plugins.md`).
+- `docs/` user-facing guides (`plugins.md`) and the README's pictures
+  (`images/`: a demo copy photographed on the owner's PC with
+  PrintWindow, 2500x1600 shrunk to JPEG; take them again when the look
+  changes a lot).
 - `.github/workflows/` `ci.yml` (every pull request that changes more
   than text: format, tests on Linux and Windows, the Windows build, then
   in parallel start-up time, screenshots, the install test, the plugin
