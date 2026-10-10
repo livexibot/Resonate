@@ -868,7 +868,8 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   on), Desktop lyrics (`DesktopLyricsWindow`, frosted, always on top,
   dragged anywhere, sharing the player's synced lyrics), Beat glow (the
   window's edge glows in the accent with the bass, `BeatGlow`, from the
-  Home visualizer's sound), Resume on start, Media shortcuts (global keys
+  Home visualizer's sound), Resume on start (since 10 October 2026 part
+  of the app, see "Where you left off"), Media shortcuts (global keys
   for play or pause, skip, volume and like, recorded like Quick search's
   with `ShortcutBox`), Start with Windows (HKCU Run, `--background`:
   into the tray or minimised; never from a local build or the demo) and
@@ -983,6 +984,35 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   (`SpeechSynthesizer`, an English voice, through a `MediaPlayer` kept out
   of the media controls) says each set's line while the music is turned
   down to 35 % (`DjVoice`, on at first; never in the demo).
+- Where you left off (10 October 2026, the owner's request; it replaced
+  the Resume on start plugin and cannot be turned off): the Spotify song
+  that played last, its list and its place are kept in the settings
+  (`LastPlayed`, `Resonate.Spotify/Playback/LastPlayed.cs`; saved at each
+  song or pause, every 15 s while playing and on closing,
+  `MainWindow.LastPlayed.cs`; local files are not kept). Resonate opens
+  showing it, paused there, until Spotify says something else plays
+  (`PlayerController.ShowLastPlayed`); Play then asks Spotify for its list
+  from that song at that place, or the song alone when the list is gone
+  (`PlayOnFromAsync`, tested). Never in demo, timing, screenshot or update
+  runs. Lyrics in the player shows the first two lines before the first
+  is sung.
+- Player placement, Sidebar (10 October 2026, the owner asked for a
+  minimal player under the playlists; `PlayerLayout.Sidebar`, appended):
+  the slot lies over the sidebar's foot inside its padding
+  (`MainWindow.PlaceInSidebar`), the sidebar's bottom padding grows by the
+  player's height (`UpdateCoveredRoom`), and the bar stacks the song over
+  previous, play, next and the progress (`PlayerBar.ShowInSidebar`, the
+  mini bar's parts; no plugins, devices, queue or volume buttons). Type
+  is greyed out for it. It is the floating card under the panels while
+  the sidebar shows only covers, the Winamp player is in use or a window
+  shape hides the panels; tokens treat it like Floating.
+- A hovering player whose Advanced width is wider than the page
+  (the owner set 2000 and saw it cut off, 10 October 2026) spans every
+  column and lies over the sidebar and the pane on the right, over the
+  grips too (`PlayerSlot` has `Canvas.ZIndex` 1), however narrow the page;
+  no player grows wider than the shell (`ClampPlayerSlot`, `MaxWidth`).
+  The playlists, the queue, Settings and lyrics then leave room at their
+  end to scroll clear of it (`SetPlayerRoom`).
 
 Classic player and cover art (checked 2026-10-08):
 - Classic Winamp skins (`.wsz`, Winamp 2) are zip archives of BMP sheets
