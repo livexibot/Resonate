@@ -797,7 +797,18 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   hidden. Clouds and bars rest (every animation stopped) while paused,
   hidden, scrolled away, covered, with animations off, or when a
   full-screen app, the lock screen or a dark display is detected. CI's tour
-  checks that the mask loads and the bars' expression compiles. Away screen: after 2, 5 (default), 10 or 15 idle
+  checks that the mask loads and the bars' expression compiles. The mask's
+  dither alone was not enough: every layer the compositor draws is rounded
+  to 8 bits, the mask is stretched about four times on a 5K stage, and on a
+  dark, low-contrast stage (the owner's teal-grey, 10 October 2026) a few
+  alpha steps move the screen less than one step, so the rings came back.
+  Over the clouds and the blurred cover now lies a grain
+  (`Controls/DitherLayer`, `Resonate.Themes/DitherNoise`, tested): a 256 px
+  white tile with alpha 0, 1 or 2, drawn one texel per screen pixel
+  (display scaling and App size counted, nearest-neighbour), which lifts
+  random pixels a step or two after everything under it is drawn and
+  dissolves the rings' edges; it is static and left out on the
+  screensaver's plain or OLED background. Away screen: after 2, 5 (default), 10 or 15 idle
   minutes (`GetLastInputInfo`, checked every 5 s only while music plays),
   with Resonate in front, nothing open or typed into and nothing
   full-screen (`SHQueryUserNotificationState`), the stage covers the window

@@ -71,6 +71,9 @@ internal sealed partial class NowPlayingStage : Grid
     private readonly StageKind _kind;
     private readonly Image _blur = new() { Stretch = Stretch.UniformToFill, Visibility = Visibility.Collapsed, IsHitTestVisible = false };
     private readonly CloudField _clouds = new();
+
+    /// <summary>Grain over the clouds and the blurred cover, so their dark gradients never show rings (see DitherLayer).</summary>
+    private readonly DitherLayer _grain = new();
     private readonly StageVisualizer _visualizer;
     private readonly Grid _coverBox = new() { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left };
     private readonly Grid _cover = new() { CornerRadius = new CornerRadius(CoverCorner) };
@@ -230,6 +233,7 @@ internal sealed partial class NowPlayingStage : Grid
 
         Children.Add(_blur);
         Children.Add(_clouds);
+        Children.Add(_grain);
         Children.Add(_visualizer);
         Children.Add(Body);
 
@@ -516,10 +520,14 @@ internal sealed partial class NowPlayingStage : Grid
 
         _page = page;
         _clouds.Visibility = _kind == StageKind.Away && ScreensaverPlain is not null ? Visibility.Collapsed : Visibility.Visible;
+
+        // No grain on a plain background: black stays black for OLED.
+        _grain.Visibility = _clouds.Visibility;
         Background = new SolidColorBrush(page.ToColor());
         var corner = home ? palette.CornerLarge : 0;
         CornerRadius = new CornerRadius(corner);
         _clouds.CornerRadiusValue = (float)corner;
+        _grain.CornerRadiusValue = (float)corner;
         _visualizer.ClipCorner = corner;
 
         // Round like the other play buttons in round-button looks, the look's own corners otherwise.
