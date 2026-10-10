@@ -25,7 +25,6 @@ public sealed class BuiltInPlugins
     public const string SignalPath = "signal-path";
     public const string PauseOnLock = "pause-on-lock";
     public const string PauseOnUnplug = "pause-on-unplug";
-    public const string TrayIcon = "tray-icon";
     public const string PlayerLyrics = "player-lyrics";
     public const string SongNotifications = "song-notifications";
     public const string KeepAwake = "keep-awake";
@@ -58,7 +57,8 @@ public sealed class BuiltInPlugins
     /// <summary>
     /// Every built-in plugin, with a plain name and one sentence about it (the
     /// owner asked for obvious names, 9 October 2026; the IDs stay, so what
-    /// was on stays on). Settings lists them by name.
+    /// was on stays on). Settings lists them by name under what they are
+    /// for (PluginsPanel.Category).
     /// </summary>
     public static IReadOnlyList<BuiltInPlugin> All { get; } =
     [
@@ -93,11 +93,12 @@ public sealed class BuiltInPlugins
 
     /// <summary>
     /// Part of Resonate itself now, always on and not listed: Lyrics and the
-    /// Home stage (the owner's choice, 8 October 2026), the tray icon, editing
-    /// the queue and the taskbar buttons (9 October 2026). Start with Windows
-    /// became a switch in Settings, About (<see cref="AppSettings.StartWithWindows"/>).
+    /// Home stage (the owner's choice, 8 October 2026), editing the queue and
+    /// the taskbar buttons (9 October 2026). The tray icon was part of it too
+    /// until the owner had it removed (10 October 2026: closing quits). Start with Windows
+    /// became a switch in Settings, General (<see cref="AppSettings.StartWithWindows"/>).
     /// </summary>
-    public static bool IsAlwaysOn(string id) => id is Lyrics or HomeStage or TrayIcon or UpNext or TaskbarControls;
+    public static bool IsAlwaysOn(string id) => id is Lyrics or HomeStage or UpNext or TaskbarControls;
 
     public bool IsOn(string id) => IsAlwaysOn(id) || _settings.BuiltInPlugins.Contains(id, StringComparer.Ordinal);
 

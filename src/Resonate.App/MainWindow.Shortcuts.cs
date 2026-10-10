@@ -12,7 +12,7 @@ namespace Resonate.App;
 
 /// <summary>
 /// The window's keyboard shortcuts, which the user can change under
-/// Settings, About, Help (<see cref="AppKeys"/>; Space plays and pauses at
+/// Settings, General, Keyboard shortcuts (<see cref="AppKeys"/>; Space plays and pauses at
 /// first). Keys with Ctrl or Alt are keyboard accelerators, so they work
 /// wherever the keyboard is in the window; keys without them (Space,
 /// Shift+Right) are caught on their way down to the control that has the

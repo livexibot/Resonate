@@ -153,7 +153,7 @@ public sealed partial class MainWindow : Window
         PlayerBar.AttachPlugins(services.Plugins);
         SetUpPlayerPlacement();
         AppWindow.Changed += OnAppWindowChanged;
-        AppWindow.Closing += (_, args) => args.Cancel = HidesToTray() || !ReadyToClose();
+        AppWindow.Closing += (_, args) => args.Cancel = !ReadyToClose();
         Closed += OnClosed;
 
         if (services.Account.IsSignedIn)
@@ -340,7 +340,9 @@ public sealed partial class MainWindow : Window
         SidebarSplitter.DragCompleted += (_, _) => EndDrag();
         SidebarSplitter.Stepped += (_, step) =>
         {
-            LayOutPanes(sidebar: SidebarColumn.Width.Value + step);
+            // From covers only, one step right opens the names (a small step would snap straight back).
+            var width = SidebarColumn.Width.Value;
+            LayOutPanes(sidebar: step > 0 && width <= SidebarCompactWidth ? SidebarCompactBelow : width + step);
             KeepPaneWidths();
         };
         SidebarSplitter.ResetRequested += (_, _) =>
@@ -941,7 +943,7 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// With "Update automatically" on (Settings, About), an installed copy
+    /// With "Update automatically" on (Settings, General), an installed copy
     /// downloads new versions in the background, then keeps looking while
     /// Resonate stays open; the download installs when Resonate closes.
     /// Switching it on starts looking at once. Never in demo mode, which
@@ -1336,8 +1338,6 @@ public sealed partial class MainWindow : Window
     /// <summary>Closes Resonate from one of its own buttons (see <see cref="ReadyToClose"/>).</summary>
     public void Quit()
     {
-        // Quitting on purpose never hides in the tray.
-        _quitFromTray = true;
         if (ReadyToClose())
         {
             Close();
@@ -1479,6 +1479,9 @@ public sealed partial class MainWindow : Window
         {
             IsShown = shown;
             TellPlayersShown();
+
+            // Hidden or minimised, nobody watches the player: Spotify is asked half as often.
+            _services.Player.Spotify.InBackground = !shown;
             ShownChanged?.Invoke(this, EventArgs.Empty);
         }
     }

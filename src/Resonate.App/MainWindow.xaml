@@ -10,7 +10,7 @@
     <!--
         The shortcuts live on the root, so WinUI would show "Ctrl+F" as a hint
         over anything the pointer rests on: hidden (the owner's report,
-        9 October 2026). Settings, About lists every shortcut.
+        9 October 2026). Settings, General lists every shortcut.
     -->
     <Grid
         x:Name="RootGrid"

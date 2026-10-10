@@ -4,8 +4,8 @@ namespace Resonate.App.Services;
 
 /// <summary>
 /// Messages Windows sends a window that WinUI does not pass on, such as a
-/// global shortcut (WM_HOTKEY), the end of a resize (WM_EXITSIZEMOVE), the
-/// tray icon's clicks, a session change or a taskbar button's click.
+/// global shortcut (WM_HOTKEY), the end of a resize (WM_EXITSIZEMOVE),
+/// a session change or a taskbar button's click.
 /// Listening subclasses the window (SetWindowSubclass, on the window's own
 /// thread, the interface thread); the subclass is removed again when the
 /// last listener stops, so nothing hooks into Windows while no plugin needs it.

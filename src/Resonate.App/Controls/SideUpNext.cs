@@ -174,7 +174,7 @@ internal sealed partial class SideUpNext : Grid
     {
         try
         {
-            var queue = await Task.Run(() => _services.Api.GetQueueAsync(token), token);
+            var queue = await _services.Player.Spotify.GetQueueAsync().WaitAsync(token);
             if (key == _key && !token.IsCancellationRequested)
             {
                 Show(QueuePreview.Upcoming(queue));

@@ -174,6 +174,14 @@ public class SpotifyWebApiTests
         Assert.Single(_handler.Requests);
     }
 
+    [Theory]
+    [InlineData(9674, "Your Spotify developer app has used up its request allowance. Spotify allows more in about 2 h 42 min.")]
+    [InlineData(3600, "Your Spotify developer app has used up its request allowance. Spotify allows more in about 1 h.")]
+    [InlineData(600, "Your Spotify developer app has used up its request allowance. Spotify allows more in about 10 min.")]
+    [InlineData(5, "Your Spotify developer app has used up its request allowance for now. Try again later.")]
+    public void Exhausted_quota_says_when_Spotify_allows_more(int seconds, string expected) =>
+        Assert.Equal(expected, new SpotifyApiException(HttpStatusCode.TooManyRequests, "QUOTA_EXCEEDED", "Quota exceeded", TimeSpan.FromSeconds(seconds)).UserMessage);
+
     [Fact]
     public async Task Premium_only_errors_carry_their_reason()
     {

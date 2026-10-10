@@ -8,11 +8,6 @@
     <!-- Settings, Local Files: the folders Resonate looks in for the user's own music files. -->
     <local:SettingsGroup x:Name="Group" Header="Local Files">
         <StackPanel Spacing="12">
-            <TextBlock
-                Style="{StaticResource ResonateSecondaryTextStyle}"
-                Text="Your music files in these folders:"
-                TextWrapping="Wrap" />
-
             <ItemsControl ItemsSource="{x:Bind Folders}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="local:LocalFolderItem">

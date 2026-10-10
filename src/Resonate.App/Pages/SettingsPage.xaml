@@ -186,19 +186,19 @@
                 </StackPanel>
             </RadioButton>
             <RadioButton
-                x:Name="AboutTab"
+                x:Name="GeneralTab"
                 Grid.Column="5"
-                AutomationProperties.Name="About"
+                AutomationProperties.Name="General"
                 Checked="OnTabChecked"
                 GroupName="SettingsTabs"
                 Style="{StaticResource SettingsTabStyle}"
-                ToolTipService.ToolTip="Updates, account and help">
+                ToolTipService.ToolTip="Account, updates, shortcuts and help">
                 <StackPanel Spacing="4">
                     <FontIcon
                         HorizontalAlignment="Center"
                         FontSize="16"
-                        Glyph="&#xE946;" />
-                    <TextBlock Style="{StaticResource SettingsTabTextStyle}" Text="About" />
+                        Glyph="&#xE713;" />
+                    <TextBlock Style="{StaticResource SettingsTabTextStyle}" Text="General" />
                 </StackPanel>
             </RadioButton>
         </Grid>
@@ -210,7 +210,7 @@
                 <!-- Themes: presets, your own looks and the customizer (colours, background, shape, fonts) -->
                 <controls:ThemeStudio x:Name="Studio" />
 
-                <!-- Player: where it sits, how it looks, the visualizers and Winamp -->
+                <!-- Player: where it sits, its progress bar, how it looks, its visualizer, and Winamp -->
                 <StackPanel
                     x:Name="PlayerPanel"
                     Spacing="20"
@@ -219,13 +219,13 @@
                     <controls:ClassicPlayerPanel x:Name="ClassicPlayerSection" />
                 </StackPanel>
 
-                <!-- Layout: how pages open, what the sidebar, title bar and song lists show, and sizes -->
+                <!-- Layout: sizes, the sidebar, how pages open, Home's visualizer, and song lists -->
                 <controls:LayoutSettings x:Name="LayoutPanel" Visibility="Collapsed" />
 
                 <!-- Plugins: optional extras, built in or downloaded only when turned on (built in code, see PluginsPanel.cs) -->
                 <StackPanel x:Name="PluginsHost" Visibility="Collapsed" />
 
-                <!-- Playback: how Resonate plays and the Spotify app, the equalizer, Local Files -->
+                <!-- Playback: how Resonate plays, the Spotify app, the equalizer, Local Files -->
                 <StackPanel
                     x:Name="PlaybackPanel"
                     Spacing="20"
@@ -260,33 +260,36 @@
                                     Style="{StaticResource ResonateCaptionTextStyle}"
                                     TextWrapping="Wrap" />
                             </StackPanel>
+                        </StackPanel>
+                    </controls:SettingsGroup>
 
-                            <StackPanel x:Name="SpotifyAppOptions" Spacing="6">
-                                <controls:SettingRow Header="Keep the Spotify app hidden">
-                                    <ToggleSwitch
-                                        x:Name="KeepHiddenSwitch"
-                                        MinWidth="0"
-                                        AutomationProperties.Name="Keep the Spotify app hidden"
-                                        OffContent=""
-                                        OnContent=""
-                                        Toggled="OnKeepHiddenToggled" />
-                                </controls:SettingRow>
-                                <controls:SettingRow Header="Save power while it is hidden">
-                                    <ToggleSwitch
-                                        x:Name="SaveResourcesSwitch"
-                                        MinWidth="0"
-                                        AutomationProperties.Name="Save power while Spotify is hidden"
-                                        OffContent=""
-                                        OnContent=""
-                                        Toggled="OnSaveResourcesToggled" />
-                                </controls:SettingRow>
-                                <Button
-                                    Margin="0,6,0,0"
-                                    Click="OnShowSpotifyClick"
-                                    Content="Show the Spotify app"
-                                    Style="{StaticResource ResonateSubtleButtonStyle}"
-                                    ToolTipService.ToolTip="It hides again when you switch away" />
-                            </StackPanel>
+                    <!-- The Spotify app, with Windows media controls only -->
+                    <controls:SettingsGroup x:Name="SpotifyAppOptions" Header="Spotify app">
+                        <StackPanel Spacing="6">
+                            <controls:SettingRow Header="Keep it hidden">
+                                <ToggleSwitch
+                                    x:Name="KeepHiddenSwitch"
+                                    MinWidth="0"
+                                    AutomationProperties.Name="Keep the Spotify app hidden"
+                                    OffContent=""
+                                    OnContent=""
+                                    Toggled="OnKeepHiddenToggled" />
+                            </controls:SettingRow>
+                            <controls:SettingRow Header="Save power while hidden">
+                                <ToggleSwitch
+                                    x:Name="SaveResourcesSwitch"
+                                    MinWidth="0"
+                                    AutomationProperties.Name="Save power while Spotify is hidden"
+                                    OffContent=""
+                                    OnContent=""
+                                    Toggled="OnSaveResourcesToggled" />
+                            </controls:SettingRow>
+                            <Button
+                                Margin="0,6,0,0"
+                                Click="OnShowSpotifyClick"
+                                Content="Show the Spotify app"
+                                Style="{StaticResource ResonateSubtleButtonStyle}"
+                                ToolTipService.ToolTip="It hides again when you switch away" />
                         </StackPanel>
                     </controls:SettingsGroup>
 
@@ -297,11 +300,26 @@
                     <controls:LocalFoldersPanel />
                 </StackPanel>
 
-                <!-- About: updates, the Spotify account, help, and the credits -->
+                <!-- General: the Spotify account, start-up, updates, keyboard shortcuts, help, and the credits -->
                 <StackPanel
-                    x:Name="AboutPanel"
+                    x:Name="GeneralPanel"
                     Spacing="20"
                     Visibility="Collapsed">
+                    <!-- Account, and the requests sent to Spotify -->
+                    <controls:SettingsGroup Header="Spotify account">
+                        <StackPanel Spacing="12">
+                            <controls:SettingRow x:Name="AccountRow">
+                                <Button
+                                    x:Name="SignOutButton"
+                                    Click="OnSignOutClick"
+                                    Content="Sign out"
+                                    Style="{StaticResource ResonateSubtleButtonStyle}" />
+                            </controls:SettingRow>
+                            <!-- How many requests Resonate sent to Spotify (filled in code, SpotifyRequestsPanel) -->
+                            <Border x:Name="RequestsHost" />
+                        </StackPanel>
+                    </controls:SettingsGroup>
+
                     <!-- Windows -->
                     <controls:SettingsGroup Header="Windows">
                         <controls:SettingRow Header="Start with Windows">
@@ -358,26 +376,14 @@
                         </StackPanel>
                     </controls:SettingsGroup>
 
-                    <!-- Account -->
-                    <controls:SettingsGroup Header="Spotify account">
-                        <controls:SettingRow x:Name="AccountRow">
-                            <Button
-                                x:Name="SignOutButton"
-                                Click="OnSignOutClick"
-                                Content="Sign out"
-                                Style="{StaticResource ResonateSubtleButtonStyle}" />
-                        </controls:SettingRow>
+                    <!-- Keyboard shortcuts (filled in code, KeyShortcutsList), folded at first -->
+                    <controls:SettingsGroup Header="Keyboard shortcuts" StartsCollapsed="True">
+                        <Border x:Name="ShortcutsHost" />
                     </controls:SettingsGroup>
 
-                    <!-- Help: the keyboard shortcuts (filled in code) and the guides -->
+                    <!-- Help: the guides -->
                     <controls:SettingsGroup Header="Help">
                         <StackPanel Spacing="12">
-                            <Expander
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Stretch"
-                                Header="Keyboard shortcuts">
-                                <Border x:Name="ShortcutsHost" />
-                            </Expander>
                             <HyperlinkButton
                                 Padding="0"
                                 Content="Guide on GitHub"

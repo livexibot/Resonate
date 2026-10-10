@@ -52,6 +52,8 @@ public sealed class SpotifyApiException : Exception
     public string UserMessage => this switch
     {
         { IsPremiumRequired: true } => "Spotify only allows playback control with a Premium account.",
+        { IsQuotaExceeded: true, RetryAfter: { } wait } when wait >= TimeSpan.FromMinutes(1) =>
+            $"Your Spotify developer app has used up its request allowance. Spotify allows more in about {Format(wait)}.",
         { IsQuotaExceeded: true } => "Your Spotify developer app has used up its request allowance for now. Try again later.",
         { StatusCode: HttpStatusCode.TooManyRequests } => "Spotify asked Resonate to slow down. Try again in a moment.",
         { StatusCode: HttpStatusCode.Forbidden } => "Spotify does not allow this for your account or this app.",
@@ -59,4 +61,13 @@ public sealed class SpotifyApiException : Exception
         { IsNoActiveDevice: true } => "The Spotify app on this computer is not reachable. Make sure it is installed and signed in (Settings, Show the Spotify app).",
         _ => "Spotify could not do that right now.",
     };
+
+    /// <summary>"2 h 40 min", "45 min": a wait in words, to the minute.</summary>
+    private static string Format(TimeSpan wait)
+    {
+        var minutes = (int)Math.Ceiling(wait.TotalMinutes);
+        return minutes >= 60
+            ? minutes % 60 == 0 ? $"{minutes / 60} h" : $"{minutes / 60} h {minutes % 60} min"
+            : $"{minutes} min";
+    }
 }

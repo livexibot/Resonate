@@ -248,7 +248,7 @@ public static class ThemePresets
         Progress = ProgressStyle.Bold,
         Cover = CoverStyle.Square,
         StageVisualizer = VisualizerStyle.Bars,
-        PlayerVisualizer = VisualizerStyle.Bars,
+        PlayerVisualizer = VisualizerStyle.Off,
     };
 
     /// <summary>Pastel and soft: a pink and lilac gradient, very round shapes and a small player in the corner.</summary>
@@ -276,7 +276,7 @@ public static class ThemePresets
         Cover = CoverStyle.Vinyl,
         PlayerGlow = 0.2,
         StageVisualizer = VisualizerStyle.Pulse,
-        PlayerVisualizer = VisualizerStyle.Pills,
+        PlayerVisualizer = VisualizerStyle.Off,
     };
 
     /// <summary>A phosphor screen on true black: glowing green type and outlines, amber highlights, monospace and the player along the bottom.</summary>
@@ -306,7 +306,7 @@ public static class ThemePresets
         Cover = CoverStyle.Square,
         PlayerGlow = 0.35,
         StageVisualizer = VisualizerStyle.Retro,
-        PlayerVisualizer = VisualizerStyle.Retro,
+        PlayerVisualizer = VisualizerStyle.Off,
     };
 
     /// <summary>A late-night listening room: deep burgundy velvet, gold light, serif titles and the record turning.</summary>
@@ -339,7 +339,7 @@ public static class ThemePresets
         Cover = CoverStyle.Vinyl,
         PlayerGlow = 0.35,
         StageVisualizer = VisualizerStyle.Aurora,
-        PlayerVisualizer = VisualizerStyle.Lines,
+        PlayerVisualizer = VisualizerStyle.Off,
     };
     /// <summary>Calm green-grey paper tones with a deep green accent.</summary>
     public static ThemeDefinition Sage { get; } = new()
@@ -390,7 +390,7 @@ public static class ThemePresets
         Cover = CoverStyle.Vinyl,
         PlayerGlow = 0.5,
         StageVisualizer = VisualizerStyle.Aurora,
-        PlayerVisualizer = VisualizerStyle.Silk,
+        PlayerVisualizer = VisualizerStyle.Off,
     };
 
     /// <summary>
@@ -505,7 +505,7 @@ public static class ThemePresets
         PlayerGlow = 0.6,
         ProgressGlow = 0.6,
         StageVisualizer = VisualizerStyle.Mirror,
-        PlayerVisualizer = VisualizerStyle.Lines,
+        PlayerVisualizer = VisualizerStyle.Off,
         Scene = ThemeScene.Synthwave,
     };
 
@@ -583,7 +583,7 @@ public static class ThemePresets
         PlayerGlow = 0.45,
         ProgressGlow = 0.5,
         StageVisualizer = VisualizerStyle.Bars,
-        PlayerVisualizer = VisualizerStyle.Mirror,
+        PlayerVisualizer = VisualizerStyle.Off,
         Scene = ThemeScene.Cyberpunk,
     };
 

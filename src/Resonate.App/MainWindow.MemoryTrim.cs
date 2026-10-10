@@ -5,7 +5,7 @@ namespace Resonate.App;
 
 /// <summary>
 /// Lighter while out of sight: a few seconds after the window is minimised
-/// or hidden (the mini player, the tray), .NET tidies its memory and the
+/// or hidden (the mini player), .NET tidies its memory and the
 /// pages Resonate is not using go back to Windows, so Task Manager shows
 /// far less. They come back as soon as they are needed.
 /// </summary>

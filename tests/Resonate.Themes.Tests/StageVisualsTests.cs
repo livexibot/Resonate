@@ -68,6 +68,28 @@ public sealed class StageVisualsTests
     }
 
     [Fact]
+    public void The_grain_lifts_pixels_by_at_most_two_steps_about_one_on_average()
+    {
+        var pixels = DitherNoise.Pixels();
+        Assert.Equal(pixels, DitherNoise.Pixels());
+        var counts = new int[3];
+        for (var i = 0; i < pixels.Length; i += 4)
+        {
+            Assert.Equal(0xFF, pixels[i]);
+            Assert.Equal(0xFF, pixels[i + 1]);
+            Assert.Equal(0xFF, pixels[i + 2]);
+            Assert.InRange(pixels[i + 3], 0, 2);
+            counts[pixels[i + 3]]++;
+        }
+
+        // A quarter, a half and a quarter, give or take: grain, not a tint.
+        var total = (double)(pixels.Length / 4);
+        Assert.InRange(counts[0] / total, 0.22, 0.28);
+        Assert.InRange(counts[1] / total, 0.47, 0.53);
+        Assert.InRange(counts[2] / total, 0.22, 0.28);
+    }
+
+    [Fact]
     public void The_mask_is_the_same_every_time_and_white()
     {
         var first = CloudMask.Pixels(64);

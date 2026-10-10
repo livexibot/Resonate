@@ -192,7 +192,14 @@ internal sealed class FakeWebApi : ISpotifyWebApi
     public Task AddToQueueAsync(string uri, string? deviceId, CancellationToken cancellationToken) =>
         Record($"queue {uri}@{deviceId}");
 
-    public Task<PlayerQueue> GetQueueAsync(CancellationToken cancellationToken) => Task.FromResult(QueueResult);
+    /// <summary>How many times the queue was read.</summary>
+    public int QueueReads { get; private set; }
+
+    public Task<PlayerQueue> GetQueueAsync(CancellationToken cancellationToken)
+    {
+        QueueReads++;
+        return Task.FromResult(QueueResult);
+    }
 
     /// <summary>The "after" of each recently played request, in order.</summary>
     public List<DateTimeOffset?> RecentlyPlayedRequests { get; } = [];

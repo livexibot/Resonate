@@ -8,10 +8,18 @@ namespace Resonate.App.Controls;
 /// <summary>
 /// Lays its children out as if it were <see cref="Factor"/> times smaller,
 /// then draws them that much larger, so they fill it exactly: App size
-/// (Settings, Look, Size). XAML draws text, shapes and icons sharp at the
-/// size they end up on screen. Each child gets a ScaleTransform of its own,
-/// so it must not set a RenderTransform itself. At 1 nothing is transformed.
+/// (Settings, Layout, Size). XAML draws text, shapes and icons sharp at the
+/// size they end up on screen. The box itself carries the ScaleTransform,
+/// so nothing may set its RenderTransform. At 1 nothing is transformed.
 /// </summary>
+/// <remarks>
+/// Not each child: a child that asks for more room than it gets (the
+/// shell, now and then, in a window a little short for it) is cut by XAML
+/// to the room it got, in its parent's units and before its own transform.
+/// With the transform on the child that cut stayed 1/Factor of the window,
+/// so at 125 % only the top left four fifths showed (the owner's window,
+/// 10 October 2026). Here the cut lies inside the box and grows with it.
+/// </remarks>
 public sealed partial class ScaleBox : Panel
 {
     private double _factor = 1;
@@ -29,11 +37,8 @@ public sealed partial class ScaleBox : Panel
             }
 
             _factor = value;
-            foreach (var child in Children)
-            {
-                child.RenderTransform = value == 1 ? null : new ScaleTransform { ScaleX = value, ScaleY = value };
-            }
-
+            RenderTransform = value == 1 ? null : new ScaleTransform { ScaleX = value, ScaleY = value };
+            _clipped = default;
             InvalidateMeasure();
         }
     }
@@ -50,7 +55,8 @@ public sealed partial class ScaleBox : Panel
             height = Math.Max(height, child.DesiredSize.Height * scale);
         }
 
-        return new Size(width, height);
+        // Never more than it is given, so the box itself is never cut by its parent.
+        return new Size(Math.Min(width, availableSize.Width), Math.Min(height, availableSize.Height));
     }
 
     protected override Size ArrangeOverride(Size finalSize)
@@ -64,11 +70,12 @@ public sealed partial class ScaleBox : Panel
 
         // Layout rounds the children before they are scaled, so they may reach
         // a fraction of a pixel past the edge, which would make pictures of the
-        // window (look switching) larger than the window.
+        // window (look switching) larger than the window. The clip is in the
+        // box's own units, before its transform scales it to the box's size.
         if (finalSize != _clipped)
         {
             _clipped = finalSize;
-            Clip = new RectangleGeometry { Rect = new Rect(0, 0, finalSize.Width, finalSize.Height) };
+            Clip = new RectangleGeometry { Rect = inner };
         }
 
         return finalSize;

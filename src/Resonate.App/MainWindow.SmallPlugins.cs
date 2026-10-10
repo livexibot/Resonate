@@ -13,7 +13,7 @@ namespace Resonate.App;
 /// The smaller built-in plugins the owner asked for on 9 October 2026 (see
 /// <see cref="BuiltInPlugins"/>): Keep PC awake, Now playing file, Quiet
 /// hours and Export history, each running only while it is on; and Start
-/// with Windows, part of the app since then (Settings, About, on at first).
+/// with Windows, part of the app since then (Settings, General, on at first).
 /// </summary>
 public sealed partial class MainWindow
 {
@@ -156,7 +156,7 @@ public sealed partial class MainWindow
         }
     }
 
-    /// <summary>The switch in Settings, About.</summary>
+    /// <summary>The switch in Settings, General.</summary>
     internal void SetStartWithWindows(bool on)
     {
         _services.Settings.StartWithWindows = on;
@@ -193,18 +193,8 @@ public sealed partial class MainWindow
         }
     }
 
-    /// <summary>Started with Windows (--background): hidden in the tray (minimised if the tray icon could not be added).</summary>
-    internal void GoToBackground()
-    {
-        if (TrayOn)
-        {
-            AppWindow.Hide();
-        }
-        else
-        {
-            _presenter?.Minimize();
-        }
-    }
+    /// <summary>Started with Windows (--background): minimised to the taskbar.</summary>
+    internal void GoToBackground() => _presenter?.Minimize();
 
     // Export history
 

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
+using Resonate.App.Services;
 using Velopack;
 
 namespace Resonate.App;
@@ -21,6 +22,12 @@ public static class Program
 
         StartupOptions.Current = StartupOptions.Parse(args);
 
+        // One Resonate at a time: a second start brings the open one forward and ends here.
+        if (SingleInstance.AppliesTo(StartupOptions.Current) && !SingleInstance.Claim(AppPaths.SettingsFile))
+        {
+            return;
+        }
+
         WinRT.ComWrappersSupport.InitializeComWrappers();
         Application.Start(callback =>
         {
@@ -40,7 +47,7 @@ public sealed record StartupOptions
     /// <summary>Show sample data instead of a Spotify account (for screenshots and trying the look).</summary>
     public bool Demo { get; init; }
 
-    /// <summary>Started with Windows (Start with Windows, a built-in plugin): into the tray, or minimised.</summary>
+    /// <summary>Started with Windows (Start with Windows): minimised to the taskbar.</summary>
     public bool Background { get; init; }
 
     /// <summary>

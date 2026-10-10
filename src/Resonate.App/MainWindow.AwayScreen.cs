@@ -117,9 +117,8 @@ public sealed partial class MainWindow
     }
 
     /// <summary>
-    /// Resonate is open (its window, minimised or not, or the mini player;
-    /// never while it waits only in the tray, the owner's choice of
-    /// 10 October 2026), nothing full screen has the display, and when
+    /// Resonate is open (its window, minimised or not, or the mini player),
+    /// nothing full screen has the display, and when
     /// Resonate is in front, nothing in it is open or being typed in.
     /// </summary>
     private bool MayShowAway()

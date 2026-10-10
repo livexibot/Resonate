@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Settings, Winamp (the classic player): whether to use it, its skin, its size, the mini player and the visualiser. See ClassicPlayerPanel.xaml.cs. -->
+<!-- Settings, Winamp (the classic player): whether to use it, its skin, its size, the mini player and its title bar button, and the visualiser. See ClassicPlayerPanel.xaml.cs. -->
 <UserControl
     x:Class="Resonate.App.Controls.ClassicPlayerPanel"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -34,11 +34,20 @@
                         OnContent=""
                         Toggled="OnDoubleSizeToggled" />
                 </controls:SettingRow>
-                <controls:SettingRow Description="Ctrl+M" Header="Mini player">
+                <controls:SettingRow x:Name="MiniPlayerRow" Header="Mini player">
                     <Button
                         x:Name="OpenMiniButton"
                         Click="OnMiniPlayerClick"
                         Content="Open" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="Mini player button">
+                    <ToggleSwitch
+                        x:Name="MiniPlayerButtonSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Mini player button"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnMiniPlayerButtonToggled" />
                 </controls:SettingRow>
                 <controls:SettingRow Header="Mini player size">
                     <ComboBox

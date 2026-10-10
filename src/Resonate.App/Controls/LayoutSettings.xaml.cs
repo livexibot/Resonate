@@ -8,9 +8,10 @@ using Resonate.Themes;
 namespace Resonate.App.Controls;
 
 /// <summary>
-/// The Layout tab of Settings: how pages open and Home's background, the
-/// sidebar's links and the title bar's buttons, song lists, and sizes. All
-/// of it belongs to the user and is kept whatever look is in use.
+/// The Layout tab of Settings: sizes, the sidebar, how pages open and
+/// Home's background, Home's visualizer, and song lists. All of it belongs
+/// to the user and is kept whatever look is in use, except the Home
+/// visualizer's style, which is the look's (Off is the user's).
 /// </summary>
 public sealed partial class LayoutSettings : UserControl
 {
@@ -26,6 +27,18 @@ public sealed partial class LayoutSettings : UserControl
 
         // Home's background, under the page animation.
         PagesRows.Children.Add(StageSettings.HomeStage(_services));
+
+        // Home lists every visualizer style; Off hides it.
+        StageVisualizerChoice.Items.Add(new ComboBoxItem { Content = "Off", Tag = nameof(VisualizerStyle.Off) });
+        foreach (var style in VisualizerShapes.Offered)
+        {
+            StageVisualizerChoice.Items.Add(new ComboBoxItem { Content = style.ToString(), Tag = style.ToString() });
+        }
+
+        foreach (var row in StageSettings.HomeVisualizer(_services))
+        {
+            HomeVisualizerRows.Children.Add(row);
+        }
 
         foreach (var size in AppScale.AppSizes)
         {
@@ -68,6 +81,8 @@ public sealed partial class LayoutSettings : UserControl
         try
         {
             Select(PageAnimationChoice, _services.Settings.PageAnimation);
+            Select(StageVisualizerChoice, _services.Settings.HomeStageVisualizer ? _theme.Current.StageVisualizer.ToString() : nameof(VisualizerStyle.Off));
+            PlayerSettings.ShowRowsAfterFirst(HomeVisualizerRows, _services.Settings.HomeStageVisualizer);
             SidebarFullHeightSwitch.IsOn = _theme.SidebarFullHeight;
 
             var hidden = _services.Settings.HiddenSidebarLinks;
@@ -75,7 +90,6 @@ public sealed partial class LayoutSettings : UserControl
             LikedLinkSwitch.IsOn = !hidden.Contains(MainWindow.LikedSongsKey);
             LocalFilesLinkSwitch.IsOn = _services.LocalFiles.ShowInSidebar;
             DjLinkSwitch.IsOn = !hidden.Contains(MainWindow.DjKey);
-            MiniPlayerButtonSwitch.IsOn = _services.Settings.ShowMiniPlayerButton;
             PlaylistCoversSwitch.IsOn = _services.Settings.ShowPlaylistCovers;
             SongCoversSwitch.IsOn = _services.Settings.ShowSongCovers;
             ColumnNamesSwitch.IsOn = _services.Settings.ShowColumnNames;
@@ -92,10 +106,8 @@ public sealed partial class LayoutSettings : UserControl
             EnergyColumnSwitch.IsOn = _services.Settings.ShowEnergyColumn;
             ShowStatColumns();
 
-            // The keys as the user has them (Settings, About, Help).
+            // The keys as the user has them (Settings, General, Keyboard shortcuts).
             var keys = _services.Settings.KeyShortcuts;
-            var mini = AppKeys.For(AppCommand.MiniPlayer, keys);
-            MiniPlayerButtonRow.Description = mini.Count > 0 ? $"{AppKeys.Display(mini)} opens it either way." : string.Empty;
             AppSizeRow.Description = string.Join(", ", new[] { AppCommand.AppSizeUp, AppCommand.AppSizeDown, AppCommand.AppSizeReset }
                 .Select(command => AppKeys.For(command, keys))
                 .Where(combos => combos.Count > 0)
@@ -113,6 +125,30 @@ public sealed partial class LayoutSettings : UserControl
 
     private static void Select(ComboBox choice, string tag) =>
         choice.SelectedItem = choice.Items.OfType<ComboBoxItem>().FirstOrDefault(item => item.Tag as string == tag);
+
+    /// <summary>Off hides Home's visualizer (the user's choice); a style shows it, drawn as the look says.</summary>
+    private void OnStageVisualizerChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || StageVisualizerChoice.SelectedItem is not ComboBoxItem { Tag: string tag })
+        {
+            return;
+        }
+
+        var style = Enum.Parse<VisualizerStyle>(tag);
+        var on = style != VisualizerStyle.Off;
+        PlayerSettings.ShowRowsAfterFirst(HomeVisualizerRows, on);
+        if (on != _services.Settings.HomeStageVisualizer)
+        {
+            _services.Settings.HomeStageVisualizer = on;
+            _services.SaveSettings();
+            NowPlayingStage.NotifyOptionsChanged();
+        }
+
+        if (on && style != _theme.Current.StageVisualizer)
+        {
+            _theme.Edit(look => look with { StageVisualizer = style }, smooth: true);
+        }
+    }
 
     // The page animation belongs to the user, not to a look.
     private void OnPageAnimationChanged(object sender, SelectionChangedEventArgs e)
@@ -190,27 +226,8 @@ public sealed partial class LayoutSettings : UserControl
         App.MainWindow?.ShowPlaylistCovers(settings.ShowPlaylistCovers);
     }
 
-    /// <summary>The stat columns can be picked only while song stats are on.</summary>
-    private void ShowStatColumns()
-    {
-        var on = SongStatsSwitch.IsOn;
-        BpmColumnSwitch.IsEnabled = on;
-        KeyColumnSwitch.IsEnabled = on;
-        LoudnessColumnSwitch.IsEnabled = on;
-        EnergyColumnSwitch.IsEnabled = on;
-    }
-
-    private void OnMiniPlayerButtonToggled(object sender, RoutedEventArgs e)
-    {
-        if (_loading)
-        {
-            return;
-        }
-
-        _services.Settings.ShowMiniPlayerButton = MiniPlayerButtonSwitch.IsOn;
-        _services.SaveSettings();
-        App.MainWindow?.ShowTitleBarButtons();
-    }
+    /// <summary>The stat columns show only while song stats are on.</summary>
+    private void ShowStatColumns() => PlayerSettings.ShowRowsAfterFirst(SongStatsRows, SongStatsSwitch.IsOn);
 
     // The sizes belong to the user, not to a look.
     private void OnAppSizeChanged(object sender, SelectionChangedEventArgs e)

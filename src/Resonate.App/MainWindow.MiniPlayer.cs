@@ -56,6 +56,23 @@ public sealed partial class MainWindow
         mini.CloseForGood();
     }
 
+    /// <summary>
+    /// Resonate was started again (see <see cref="Resonate.App.Services.SingleInstance"/>): the
+    /// mini player comes forward if it is open, else this window, restored
+    /// if it was minimised.
+    /// </summary>
+    internal void ShowAgain()
+    {
+        if (_miniPlayer is { } mini)
+        {
+            mini.ShowAndFocus();
+            return;
+        }
+
+        AppWindow.Show();
+        BringToFront();
+    }
+
     private void ToggleMiniPlayer()
     {
         if (_miniPlayer is null)
