@@ -237,6 +237,9 @@ public sealed class AppSettings
     /// <summary>The queue pane's width as the user dragged it; null for the usual width.</summary>
     public double? QueueWidth { get; set; }
 
+    /// <summary>The player's column beside the page (Placement Left or Right) as the user dragged it; null for the look's width.</summary>
+    public double? SidePlayerWidth { get; set; }
+
     /// <summary>Where the window was left; null to open it centred.</summary>
     public WindowPlacement? Window { get; set; }
 

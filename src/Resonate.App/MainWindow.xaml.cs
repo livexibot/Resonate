@@ -461,6 +461,9 @@ public sealed partial class MainWindow : Window
         ApplySidebarCompact(sidebarWidth <= SidebarCompactWidth);
         SetWidth(_paneColumn, paneWidth);
 
+        // The player's column beside the page shares the page's column, so it keeps the page its least too.
+        LayOutSide();
+
         // A window too small for everything gives each panel its least, so the page keeps what it can.
         static double Fit(double wanted, double min, double max, double room) =>
             Math.Round(Math.Clamp(wanted, min, Math.Clamp(room, min, max)));

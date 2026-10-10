@@ -46,6 +46,16 @@ public sealed partial class MainWindow
 
     /// <summary>What plays next, at the foot of the column beside the page.</summary>
     private SideUpNext? _sideUpNext;
+
+    /// <summary>The grip in the gap between the column beside the page and the page, like the sidebar's.</summary>
+    private PaneSplitter? _sideSplitter;
+    private double _sideDragStart;
+    private bool _sideDragMoved;
+
+    /// <summary>The narrowest the column beside the page gets: room for shuffle, previous, play, next and repeat.</summary>
+    private const double SideMinWidth = 300;
+
+    private const double SideMaxWidth = 720;
     private double _playerInset = -1;
 
     /// <summary>Called once, from the constructor.</summary>
@@ -79,6 +89,60 @@ public sealed partial class MainWindow
         // The column beside the page: its panel follows the look, its cover the room above the controls.
         _services.Theme.Changed += (_, _) => StyleSideCard();
         PlayerBar.SizeChanged += (_, _) => FitSideCover();
+        SetUpSideSplitter();
+    }
+
+    /// <summary>
+    /// The column beside the page is dragged wider or narrower by a grip in
+    /// the gap, like the sidebar (the owner's request, 10 October 2026):
+    /// double-click for the look's width, arrow keys with the keyboard. The
+    /// width is the user's own (<see cref="AppSettings.SidePlayerWidth"/>).
+    /// </summary>
+    private void SetUpSideSplitter()
+    {
+        var grip = new PaneSplitter { Label = "Resize the player", Visibility = Visibility.Collapsed };
+        _sideSplitter = grip;
+        Grid.SetRow(grip, PlayerPlacement.PanelsRow);
+        Canvas.SetZIndex(grip, 2);
+        ShellGrid.Children.Add(grip);
+
+        // On the left the grip is on the column's right, so moving it right makes the column wider; on the right the other way round.
+        grip.DragStarted += (_, _) =>
+        {
+            _sideDragStart = PlayerSlot.Width;
+            _sideDragMoved = false;
+        };
+        grip.Dragged += (_, moved) =>
+        {
+            _sideDragMoved = true;
+            LayOutSide(_sideDragStart + (SideOnLeft ? moved : -moved));
+        };
+        grip.DragCompleted += (_, _) =>
+        {
+            if (_sideDragMoved)
+            {
+                KeepSideWidth();
+            }
+        };
+        grip.Stepped += (_, step) =>
+        {
+            LayOutSide(PlayerSlot.Width + (SideOnLeft ? step : -step));
+            KeepSideWidth();
+        };
+        grip.ResetRequested += (_, _) =>
+        {
+            _services.Settings.SidePlayerWidth = null;
+            _services.SaveSettings();
+            LayOutSide();
+        };
+    }
+
+    private bool SideOnLeft => _placement is { } placement && PlayerPlacement.IsLeftSide(placement.Layout);
+
+    private void KeepSideWidth()
+    {
+        _services.Settings.SidePlayerWidth = PlayerSlot.Width;
+        _services.SaveSettings();
     }
 
     /// <summary>The narrowest the player in use gets, which a hovering player needs over the page.</summary>
@@ -130,7 +194,16 @@ public sealed partial class MainWindow
 
         if (PlayerPlacement.IsSide(layout))
         {
-            PlaceBesidePage(layout, gap, look.PlayerWidth);
+            // A width typed under Advanced since the last drag wins over the dragged one.
+            if (_lookWidthSeen && _lastLookWidth != look.PlayerWidth && _services.Settings.SidePlayerWidth is not null)
+            {
+                _services.Settings.SidePlayerWidth = null;
+                _services.SaveSettings();
+            }
+
+            _lastLookWidth = look.PlayerWidth;
+            _lookWidthSeen = true;
+            PlaceBesidePage(layout);
             ClampPlayerSlot();
             UpdatePlayerInset();
             return;
@@ -252,7 +325,7 @@ public sealed partial class MainWindow
     /// column layout, on the panel), and what plays next filling the rest.
     /// The page and its shadow make room for it.
     /// </summary>
-    private void PlaceBesidePage(PlayerLayout layout, double gap, double? width)
+    private void PlaceBesidePage(PlayerLayout layout)
     {
         foreach (var element in new FrameworkElement[] { Sidebar, SidebarElevation, SidebarSplitter })
         {
@@ -261,21 +334,12 @@ public sealed partial class MainWindow
         }
 
         var left = PlayerPlacement.IsLeftSide(layout);
-        var columnWidth = width ?? PlayerPlacement.SideWidth;
-        var inset = layout is PlayerLayout.InsetLeft or PlayerLayout.InsetRight ? Math.Max(gap, 8) : 0;
         Grid.SetRow(PlayerSlot, PlayerPlacement.PanelsRow);
         Grid.SetColumn(PlayerSlot, Grid.GetColumn(ContentPanel));
         Grid.SetColumnSpan(PlayerSlot, 1);
-        PlayerSlot.Width = columnWidth;
         PlayerSlot.HorizontalAlignment = left ? HorizontalAlignment.Left : HorizontalAlignment.Right;
         PlayerSlot.VerticalAlignment = VerticalAlignment.Stretch;
-        PlayerSlot.Margin = new Thickness(inset);
         PlayerSlot.RowSpacing = 0;
-
-        var room = columnWidth + gap + (2 * inset);
-        var pageMargin = left ? new Thickness(room, 0, 0, 0) : new Thickness(0, 0, room, 0);
-        ContentPanel.Margin = pageMargin;
-        ContentElevation.Margin = pageMargin;
 
         if (_sideColumn is null)
         {
@@ -299,6 +363,59 @@ public sealed partial class MainWindow
             PlayerSlot.Children.Insert(2, _sideColumn);
             PlayerSlot.Children.Insert(3, _sideUpNext);
             StyleSideCard();
+        }
+
+        LayOutSide();
+    }
+
+    /// <summary>The look's width under Advanced when the column was last placed, to tell a new one from the dragged width.</summary>
+    private double? _lastLookWidth;
+    private bool _lookWidthSeen;
+
+    /// <summary>
+    /// The column beside the page as wide as <paramref name="wanted"/> (else
+    /// as the user dragged it, else the look's width, else the usual), within
+    /// what leaves the page its least; the page and its shadow make room, and
+    /// the grip sits in the gap between them.
+    /// </summary>
+    private void LayOutSide(double? wanted = null)
+    {
+        if (_sideColumn is null || _placement is not { } placement || !PlayerPlacement.IsSide(placement.Layout))
+        {
+            return;
+        }
+
+        var layout = placement.Layout;
+        var gap = placement.Gap;
+        var left = PlayerPlacement.IsLeftSide(layout);
+        var inset = layout is PlayerLayout.InsetLeft or PlayerLayout.InsetRight ? Math.Max(gap, 8) : 0;
+
+        // The page's column holds the page and the column beside it.
+        var shell = ShellGrid.ActualWidth - ShellGrid.Padding.Left - ShellGrid.Padding.Right;
+        var others = SidebarColumn.Width.Value + ShellGrid.ColumnSpacing
+            + (ShellGrid.ColumnDefinitions.Contains(_paneColumn) ? _paneColumn.Width.Value + ShellGrid.ColumnSpacing : 0);
+        var most = shell > 0 ? shell - others - PageMinWidth - gap - (2 * inset) : SideMaxWidth;
+        var width = Math.Round(Math.Clamp(
+            wanted ?? _services.Settings.SidePlayerWidth ?? _services.Theme.Current.PlayerWidth ?? PlayerPlacement.SideWidth,
+            SideMinWidth,
+            Math.Clamp(most, SideMinWidth, SideMaxWidth)));
+
+        PlayerSlot.Width = width;
+        PlayerSlot.Margin = new Thickness(inset);
+        var room = width + gap + (2 * inset);
+        var pageMargin = left ? new Thickness(room, 0, 0, 0) : new Thickness(0, 0, room, 0);
+        ContentPanel.Margin = pageMargin;
+        ContentElevation.Margin = pageMargin;
+
+        if (_sideSplitter is { } grip)
+        {
+            // Centred on the gap between the column's panel and the page.
+            var middle = inset + width + ((inset + gap) / 2);
+            var near = Math.Max(0, middle - (PaneSplitter.GripWidth / 2));
+            Grid.SetColumn(grip, Grid.GetColumn(ContentPanel));
+            grip.HorizontalAlignment = left ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+            grip.Margin = left ? new Thickness(near, 0, 0, 0) : new Thickness(0, 0, near, 0);
+            grip.Visibility = Visibility.Visible;
         }
     }
 
@@ -336,6 +453,7 @@ public sealed partial class MainWindow
         ContentPanel.Margin = new Thickness(0);
         ContentElevation.Margin = new Thickness(0);
         PlayerSlot.RowSpacing = 0;
+        _sideSplitter?.Visibility = Visibility.Collapsed;
         if (_sideColumn is null)
         {
             return;

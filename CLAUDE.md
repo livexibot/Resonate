@@ -1028,7 +1028,12 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   Spotify's queue read once per song while the window shows). The bar's
   outline is now set in code (`PlayerPlacement.Outline`) rather than the
   `ResonatePlayerBorderThickness` token, and its transport is a two-row
-  grid. The Column window shape keeps the old centred column.
+  grid. The Column window shape keeps the old centred column. A grip in
+  the gap resizes the column like the sidebar's (the owner's request,
+  10 October 2026; drag, arrow keys, double-click for the look's width):
+  the width is the user's own (`SidePlayerWidth`, 300 to 720, always
+  leaving the page its least, `MainWindow.LayOutSide`, also run from
+  `LayOutPanes`), and a width typed under Advanced afterwards replaces it.
 - The progress glow (10 October 2026, the owner found it a straight band
   under the wave): for the styles that draw a line (Wave, Heartbeat,
   Dots) the glow's shadow is cast by the line itself, read live from the
