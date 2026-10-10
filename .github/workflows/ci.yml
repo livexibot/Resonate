@@ -169,10 +169,11 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      # The artifact holds one folder, so it unpacks without its name: back into artifacts/win-x64.
       - uses: actions/download-artifact@v7
         with:
           name: windows-app
-          path: artifacts
+          path: artifacts/win-x64
 
       - name: Measure start-up time
         shell: pwsh
@@ -331,10 +332,11 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
+      # The artifact holds one folder, so it unpacks without its name: back into artifacts/win-x64.
       - uses: actions/download-artifact@v7
         with:
           name: windows-app
-          path: artifacts
+          path: artifacts/win-x64
 
       # Speed and memory with a heavy listener's library (10,000 liked songs):
       # every page, scrolling, switching looks, what the app costs while
