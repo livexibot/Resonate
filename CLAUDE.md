@@ -1031,9 +1031,17 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   grid. The Column window shape keeps the old centred column. A grip in
   the gap resizes the column like the sidebar's (the owner's request,
   10 October 2026; drag, arrow keys, double-click for the look's width):
-  the width is the user's own (`SidePlayerWidth`, 300 to 720, always
+  the width is the user's own (`SidePlayerWidth`, 200 to 720, always
   leaving the page its least, `MainWindow.LayOutSide`, also run from
   `LayOutPanes`), and a width typed under Advanced afterwards replaces it.
+  The controls rearrange rather than go (the owner: "just move controls to
+  make it fit nicely"; `PlayerBar.FitColumn`, `ArrangeTransport`,
+  `ArrangeColumnSide`): from 300 as described; narrower, smaller buttons
+  closer together and the volume slider across the column over the other
+  buttons; dragged under 200 it snaps to a 96 wide rail (as the sidebar
+  snaps to its covers) with the cover alone, a short progress bar, every
+  button one under the other, the speaker (its wheel sets the volume) and
+  Up next as covers, the songs in tooltips (`SetRail`).
 - The progress glow (10 October 2026, the owner found it a straight band
   under the wave): for the styles that draw a line (Wave, Heartbeat,
   Dots) the glow's shadow is cast by the line itself, read live from the

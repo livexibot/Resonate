@@ -52,8 +52,15 @@ public sealed partial class MainWindow
     private double _sideDragStart;
     private bool _sideDragMoved;
 
-    /// <summary>The narrowest the column beside the page gets: room for shuffle, previous, play, next and repeat.</summary>
-    private const double SideMinWidth = 300;
+    /// <summary>
+    /// The narrowest the column beside the page gets with its words: room
+    /// for shuffle, previous, play, next and repeat in a row. Dragged
+    /// narrower, it snaps to a rail (as the sidebar snaps to its covers).
+    /// </summary>
+    private const double SideMinWidth = 200;
+
+    /// <summary>The rail: the cover and every control in one line down the middle.</summary>
+    private const double SideRailWidth = 96;
 
     private const double SideMaxWidth = 720;
     private double _playerInset = -1;
@@ -96,7 +103,8 @@ public sealed partial class MainWindow
     /// The column beside the page is dragged wider or narrower by a grip in
     /// the gap, like the sidebar (the owner's request, 10 October 2026):
     /// double-click for the look's width, arrow keys with the keyboard. The
-    /// width is the user's own (<see cref="AppSettings.SidePlayerWidth"/>).
+    /// width is the user's own (<see cref="AppSettings.SidePlayerWidth"/>);
+    /// narrower than its controls fit in a row, it snaps to a rail.
     /// </summary>
     private void SetUpSideSplitter()
     {
@@ -395,10 +403,14 @@ public sealed partial class MainWindow
         var others = SidebarColumn.Width.Value + ShellGrid.ColumnSpacing
             + (ShellGrid.ColumnDefinitions.Contains(_paneColumn) ? _paneColumn.Width.Value + ShellGrid.ColumnSpacing : 0);
         var most = shell > 0 ? shell - others - PageMinWidth - gap - (2 * inset) : SideMaxWidth;
-        var width = Math.Round(Math.Clamp(
+        var width = Math.Min(
             wanted ?? _services.Settings.SidePlayerWidth ?? _services.Theme.Current.PlayerWidth ?? PlayerPlacement.SideWidth,
-            SideMinWidth,
-            Math.Clamp(most, SideMinWidth, SideMaxWidth)));
+            Math.Min(most, SideMaxWidth));
+        width = width < SideMinWidth ? SideRailWidth : Math.Round(width);
+        PlayerBar.FitColumn(width);
+        var rail = width < PlayerBar.ColumnRailBelow;
+        _sideColumn.SetRail(rail);
+        _sideUpNext?.SetRail(rail);
 
         PlayerSlot.Width = width;
         PlayerSlot.Margin = new Thickness(inset);

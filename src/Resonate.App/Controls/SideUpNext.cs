@@ -23,7 +23,10 @@ internal sealed partial class SideUpNext : Grid
 
     private readonly AppServices _services;
     private readonly StackPanel _list = new() { Spacing = 10 };
+    private readonly TextBlock _heading;
+    private readonly ScrollViewer _scroller;
     private readonly List<(Grid Cover, Image Image, TextBlock Title, TextBlock Artists, Grid Row)> _rows = [];
+    private bool _rail;
     private string? _key;
     private bool _stale;
     private CancellationTokenSource? _loading;
@@ -39,16 +42,17 @@ internal sealed partial class SideUpNext : Grid
         RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
-        Children.Add(new TextBlock { Style = (Style)resources["ResonateEyebrowTextStyle"], Text = "UP NEXT" });
-        var scroller = new ScrollViewer
+        _heading = new TextBlock { Style = (Style)resources["ResonateEyebrowTextStyle"], Text = "UP NEXT" };
+        Children.Add(_heading);
+        _scroller = new ScrollViewer
         {
             Content = _list,
             Padding = new Thickness(0, 0, 8, 0),
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
         };
-        SetRow(scroller, 1);
-        Children.Add(scroller);
+        SetRow(_scroller, 1);
+        Children.Add(_scroller);
 
         for (var i = 0; i < MaxRows; i++)
         {
@@ -77,6 +81,28 @@ internal sealed partial class SideUpNext : Grid
 
             _loading?.Cancel();
         };
+    }
+
+    /// <summary>In a rail (the column dragged narrow): the covers alone, down the middle, each song in its tooltip.</summary>
+    internal void SetRail(bool rail)
+    {
+        if (rail == _rail)
+        {
+            return;
+        }
+
+        _rail = rail;
+        Padding = rail ? new Thickness(12, 6, 12, 16) : new Thickness(20, 6, 12, 16);
+        _heading.Visibility = rail ? Visibility.Collapsed : Visibility.Visible;
+        _scroller.Padding = rail ? new Thickness(0) : new Thickness(0, 0, 8, 0);
+        _scroller.VerticalScrollBarVisibility = rail ? ScrollBarVisibility.Hidden : ScrollBarVisibility.Auto;
+        foreach (var (_, _, title, artists, row) in _rows)
+        {
+            row.HorizontalAlignment = rail ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
+            row.ColumnSpacing = rail ? 0 : 12;
+            row.Children[1].Visibility = rail ? Visibility.Collapsed : Visibility.Visible;
+            ToolTipService.SetToolTip(row, rail && title.Text.Length > 0 ? $"{title.Text} · {artists.Text}" : null);
+        }
     }
 
     private void OnShownChanged(object? sender, EventArgs e)
@@ -183,6 +209,7 @@ internal sealed partial class SideUpNext : Grid
             row.Visibility = Visibility.Visible;
             title.Text = track.Title;
             artists.Text = track.Artists;
+            ToolTipService.SetToolTip(row, _rail ? $"{track.Title} · {track.Artists}" : null);
             cover.Width = cover.Height = size;
             cover.CornerRadius = corner;
 

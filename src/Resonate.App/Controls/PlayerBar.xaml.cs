@@ -66,6 +66,15 @@ public sealed partial class PlayerBar : UserControl
 
     /// <summary>The height a player in the sidebar, which is as tall as what it shows, rounds its corners for.</summary>
     private const double SidebarCornerHeight = 96;
+
+    /// <summary>The width of the column beside the page, which decides how its controls are laid out (see <see cref="FitColumn"/>).</summary>
+    private double _columnWidth = PlayerPlacement.SideWidth;
+
+    /// <summary>Below this the column beside the page is a rail: everything in one line down the middle.</summary>
+    internal const double ColumnRailBelow = 160;
+
+    /// <summary>Below this the column beside the page tightens its buttons and puts the volume over them.</summary>
+    private const double ColumnNarrowBelow = 300;
     private bool _lyricsShown;
     private (bool On, string? Line, string? Next, string? Note, string? After) _lyricArgs;
     private Brush? _sungLyricBrush;
@@ -362,30 +371,136 @@ public sealed partial class PlayerBar : UserControl
     /// </summary>
     private void ArrangeSide()
     {
-        // In the column beside the page: the speaker and the slider on the left, the buttons on the right.
         var column = _mode == PlayerBarMode.Column;
-        var stacked = !column && (_widthClass == PlayerWidthClass.Compact || (App.Services.Theme.ButtonsAboveVolume && _widthClass == PlayerWidthClass.Full));
-        SideArea.ColumnDefinitions[0].Width = column ? new GridLength(1, GridUnitType.Star) : GridLength.Auto;
+        ArrangeTransport(column);
+        if (column)
+        {
+            ArrangeColumnSide();
+            return;
+        }
+
+        var stacked = _widthClass == PlayerWidthClass.Compact || (App.Services.Theme.ButtonsAboveVolume && _widthClass == PlayerWidthClass.Full);
+        SideArea.ColumnDefinitions[0].Width = GridLength.Auto;
+        SideArea.HorizontalAlignment = HorizontalAlignment.Right;
+        SideButtons.Orientation = Orientation.Horizontal;
+        VolumeControls.Orientation = Orientation.Horizontal;
+        SideButtons.HorizontalAlignment = HorizontalAlignment.Right;
         Grid.SetRow(SideButtons, 0);
-        Grid.SetColumn(SideButtons, column ? 1 : 0);
+        Grid.SetColumn(SideButtons, 0);
         Grid.SetRow(VolumeControls, stacked ? 1 : 0);
-        Grid.SetColumn(VolumeControls, stacked || column ? 0 : 1);
-        VolumeControls.HorizontalAlignment = column ? HorizontalAlignment.Left : HorizontalAlignment.Right;
-        SideArea.ColumnSpacing = column ? 8 : stacked ? 0 : 4;
+        Grid.SetColumn(VolumeControls, stacked ? 0 : 1);
+        VolumeControls.HorizontalAlignment = HorizontalAlignment.Right;
+        SideArea.ColumnSpacing = stacked ? 0 : 4;
         SideArea.RowSpacing = stacked ? 2 : 0;
         SideButtons.Spacing = stacked ? 6 : 4;
-        var size = stacked ? 32.0 : 36.0;
-        foreach (var button in new[] { PluginsButton, DeviceButton, LyricsButton, QueueButton, MuteButton })
-        {
-            button.Width = size;
-            button.Height = size;
-        }
+        SizeSideButtons(stacked ? 32.0 : 36.0);
 
         // Room for the slider row alone, rather than for every button beside it.
         if (_widthClass != PlayerWidthClass.Mini)
         {
             VolumeColumn.MinWidth = !stacked ? 272 : _widthClass == PlayerWidthClass.Full ? 180 : 156;
         }
+    }
+
+    private void SizeSideButtons(double size)
+    {
+        foreach (var button in new[] { PluginsButton, DeviceButton, LyricsButton, QueueButton, MuteButton })
+        {
+            button.Width = size;
+            button.Height = size;
+        }
+    }
+
+    /// <summary>
+    /// The width of the column beside the page (as the user drags it): wide,
+    /// the controls as they are; narrow, smaller buttons closer together and
+    /// the volume over the buttons; a rail, everything in one line down the
+    /// middle (the owner's request, 10 October 2026: "just move controls to
+    /// make it fit nicely").
+    /// </summary>
+    internal void FitColumn(double width)
+    {
+        if (Math.Abs(width - _columnWidth) < 0.5)
+        {
+            return;
+        }
+
+        _columnWidth = width;
+        if (_mode == PlayerBarMode.Column)
+        {
+            ShowWidthClass(PlayerWidthClass.Mini, force: true);
+        }
+    }
+
+    private bool ColumnIsRail => _columnWidth < ColumnRailBelow;
+
+    private bool ColumnIsNarrow => _columnWidth < ColumnNarrowBelow;
+
+    /// <summary>
+    /// Shuffle, previous, play, next and repeat: in a row as the look has
+    /// them, smaller and closer together in a narrow column, one under the
+    /// other in a rail.
+    /// </summary>
+    private void ArrangeTransport(bool column)
+    {
+        var rail = column && ColumnIsRail;
+        var narrow = column && ColumnIsNarrow;
+        TransportButtons.Orientation = rail ? Orientation.Vertical : Orientation.Horizontal;
+        foreach (var button in new Control[] { ShuffleButton, PreviousButton, NextButton, RepeatButton })
+        {
+            if (narrow && !rail)
+            {
+                button.Width = 32;
+                button.Height = 32;
+            }
+            else
+            {
+                button.ClearValue(WidthProperty);
+                button.ClearValue(HeightProperty);
+            }
+        }
+
+        if (!column)
+        {
+            return;
+        }
+
+        // The inside of the column, less its padding; four buttons and the play button share it.
+        var inside = _columnWidth - Bar.Padding.Left - Bar.Padding.Right;
+        TransportButtons.Spacing = rail ? 4 : narrow ? Math.Clamp(Math.Floor((inside - 168) / 4), 0, 14) : 14;
+        PositionText.Visibility = rail ? Visibility.Collapsed : Visibility.Visible;
+        DurationText.Visibility = rail ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    /// <summary>
+    /// The speaker, the volume and the buttons in the column beside the page:
+    /// wide, the speaker and the slider on the left and the buttons on the
+    /// right; narrow, the slider across the column over the buttons; a rail,
+    /// the buttons and the speaker one under the other (its wheel sets the
+    /// volume).
+    /// </summary>
+    private void ArrangeColumnSide()
+    {
+        var rail = ColumnIsRail;
+        var narrow = ColumnIsNarrow;
+        var inside = _columnWidth - Bar.Padding.Left - Bar.Padding.Right;
+        SideArea.HorizontalAlignment = rail ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
+        SideArea.ColumnDefinitions[0].Width = rail ? GridLength.Auto : new GridLength(1, GridUnitType.Star);
+        SideButtons.Orientation = rail ? Orientation.Vertical : Orientation.Horizontal;
+        VolumeControls.Orientation = Orientation.Horizontal;
+        SideButtons.HorizontalAlignment = rail || narrow ? HorizontalAlignment.Center : HorizontalAlignment.Right;
+        VolumeControls.HorizontalAlignment = rail ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+        // Wide: one row. Narrow: the slider over the buttons. Rail: the buttons over the speaker.
+        Grid.SetRow(VolumeControls, rail ? 1 : 0);
+        Grid.SetColumn(VolumeControls, 0);
+        Grid.SetRow(SideButtons, narrow && !rail ? 1 : 0);
+        Grid.SetColumn(SideButtons, narrow ? 0 : 1);
+        SideArea.ColumnSpacing = narrow ? 0 : 8;
+        SideArea.RowSpacing = rail ? 4 : narrow ? 6 : 0;
+        SideButtons.Spacing = rail ? 4 : narrow ? 10 : 4;
+        SizeSideButtons(narrow ? 32.0 : 36.0);
+        VolumeBar.Visibility = rail ? Visibility.Collapsed : Visibility.Visible;
+        VolumeBar.Width = narrow ? Math.Max(60, inside - 32 - VolumeControls.Spacing) : 120;
     }
 
     /// <summary>The bar's width comes from the window, never from what it shows, so changing what it shows cannot change the width back.</summary>
@@ -492,7 +607,7 @@ public sealed partial class PlayerBar : UserControl
         Bar.Padding = _mode switch
         {
             PlayerBarMode.Sidebar => new Thickness(12, 12, 12, 8),
-            PlayerBarMode.Column => new Thickness(20, 4, 20, 12),
+            PlayerBarMode.Column => ColumnIsNarrow ? new Thickness(12, 4, 12, 12) : new Thickness(20, 4, 20, 12),
             _ => new Thickness(padding, 0, padding, 0),
         };
         Bar.ColumnSpacing = stacked ? 0 : full ? 24 : mini ? 12 : 16;

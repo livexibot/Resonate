@@ -40,6 +40,9 @@ internal sealed partial class NowPlayingColumn : Grid
     /// <summary>Beside the page: the height the cover and the words may take, above the controls.</summary>
     private double _room = double.PositiveInfinity;
 
+    /// <summary>Beside the page, dragged narrow: the cover alone, the song in its tooltip.</summary>
+    private bool _rail;
+
     public NowPlayingColumn(AppServices services, bool beside = false)
     {
         _services = services;
@@ -125,6 +128,26 @@ internal sealed partial class NowPlayingColumn : Grid
         SizeCover(_coverHolder.ActualWidth, _coverHolder.ActualHeight);
     }
 
+    /// <summary>Beside the page, narrower than the words fit: the cover alone, with the song and its artists in its tooltip.</summary>
+    internal void SetRail(bool rail)
+    {
+        if (!_beside || rail == _rail)
+        {
+            return;
+        }
+
+        _rail = rail;
+        Padding = rail ? new Thickness(12, 16, 12, 6) : new Thickness(20, 20, 20, 10);
+        _coverHolder.Margin = new Thickness(0, 0, 0, rail ? 10 : 18);
+        _title.Visibility = rail ? Visibility.Collapsed : Visibility.Visible;
+        _artists.Visibility = _title.Visibility;
+        ShowTip();
+        SizeCover(_coverHolder.ActualWidth, _coverHolder.ActualHeight);
+    }
+
+    private void ShowTip() =>
+        ToolTipService.SetToolTip(_cover, _rail && _artists.Text.Length > 0 ? $"{_title.Text} · {_artists.Text}" : null);
+
     private void OnThemeChanged(object? sender, EventArgs e) => ApplyLook();
 
     /// <summary>A panel like the page's, in the look's corners and outline; beside the page, the column's panel lies behind it.</summary>
@@ -196,6 +219,7 @@ internal sealed partial class NowPlayingColumn : Grid
     {
         _title.Text = state.Title ?? "Nothing playing";
         _artists.Text = state.Artists ?? "Pick a song to start";
+        ShowTip();
 
         object key = state.ArtworkUrl ?? (object?)state.ArtworkBytes ?? "tile:" + (state.Album ?? state.Title);
         if (Equals(key, _artworkKey))
