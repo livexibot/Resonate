@@ -6,12 +6,21 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Resonate.App.Helpers;
 using Resonate.App.Services;
+using Resonate.App.Themes;
 using Resonate.Plugins;
 using Resonate.Spotify.Playback;
 using Resonate.Spotify.WebApi;
 using Resonate.Themes;
 
 namespace Resonate.App.Controls;
+
+/// <summary>How the player bar is laid out: a bar, the minimal player in the sidebar, or the controls of the column beside the page.</summary>
+internal enum PlayerBarMode
+{
+    Bar,
+    Sidebar,
+    Column,
+}
 
 /// <summary>
 /// Now playing, play and pause, skip, seek and volume. Every control acts on
@@ -52,8 +61,8 @@ public sealed partial class PlayerBar : UserControl
     private string? _durationLabel;
     private PlayerWidthClass _widthClass = PlayerWidthClass.Full;
 
-    /// <summary>Whether this is the minimal player at the foot of the sidebar (see <see cref="ShowInSidebar"/>).</summary>
-    private bool _inSidebar;
+    /// <summary>A bar, the minimal player at the foot of the sidebar, or the controls of the column beside the page (see <see cref="ShowMode"/>).</summary>
+    private PlayerBarMode _mode;
 
     /// <summary>The height a player in the sidebar, which is as tall as what it shows, rounds its corners for.</summary>
     private const double SidebarCornerHeight = 96;
@@ -86,12 +95,6 @@ public sealed partial class PlayerBar : UserControl
         _clock.Tick += (_, _) => UpdateClock();
     }
 
-    /// <summary>
-    /// Lyrics in the player: the line being sung and the next one, or nulls
-    /// for none. While there are lines the song and its artists share the top
-    /// line, "Song · Artist" (the owner's request, 9 October 2026), and the two
-    /// lines of lyrics sit under it; the mini bar keeps the song alone.
-    /// </summary>
     /// <summary>
     /// Lyrics in the player. While it is on: "Song · Artist" on one line, and
     /// under it the line being sung (on two lines when it needs them) and the
@@ -315,10 +318,15 @@ public sealed partial class PlayerBar : UserControl
         Bar.Height = BarHeightFor(_widthClass);
 
         // A pill when it hovers in a look with round buttons: the corners
-        // follow the bar's height, which is lower for the mini bar.
-        var corner = new CornerRadius(PlayerPlacement.Corner(look.PlayerLayout, look.Buttons, theme.Palette.CornerLarge, double.IsNaN(Bar.Height) ? SidebarCornerHeight : Bar.Height));
+        // follow the bar's height, which is lower for the mini bar. In the
+        // column beside the page the controls lie on the column's own panel.
+        var column = _mode == PlayerBarMode.Column;
+        var corner = new CornerRadius(column ? 0 : PlayerPlacement.Corner(look.PlayerLayout, look.Buttons, theme.Palette.CornerLarge, double.IsNaN(Bar.Height) ? SidebarCornerHeight : Bar.Height));
         Bar.CornerRadius = corner;
         BarHost.CornerRadius = corner;
+        Bar.Background = column ? theme.GetBrush("ResonateTransparentBrush") : theme.GetBrush("ResonatePlayerBrush");
+        Bar.BorderThickness = column ? new Thickness(0) : PlayerPlacement.Outline(look.PlayerLayout, theme.Palette.BorderWidth).ToThickness();
+        BarHost.Level = column ? ElevationLevel.Flat : ElevationLevel.Player;
 
         // The mini bar keeps to the page's corner; a pill no wider than its slot sits in the middle.
         BarHost.HorizontalAlignment = look.PlayerLayout switch
@@ -329,7 +337,7 @@ public sealed partial class PlayerBar : UserControl
         };
 
         // Settings, Layout, Advanced: the user's own width and height. In the sidebar, the sidebar's width.
-        BarHost.MaxWidth = _inSidebar ? double.PositiveInfinity : look.PlayerWidth ?? PlayerPlacement.MaxWidth(look.PlayerLayout);
+        BarHost.MaxWidth = _mode != PlayerBarMode.Bar ? double.PositiveInfinity : look.PlayerWidth ?? PlayerPlacement.MaxWidth(look.PlayerLayout);
 
         // A record for the vinyl style, and for every look while the user
         // lets covers spin; otherwise the look's own shape.
@@ -354,12 +362,16 @@ public sealed partial class PlayerBar : UserControl
     /// </summary>
     private void ArrangeSide()
     {
-        var stacked = _widthClass == PlayerWidthClass.Compact || (App.Services.Theme.ButtonsAboveVolume && _widthClass == PlayerWidthClass.Full);
+        // In the column beside the page: the speaker and the slider on the left, the buttons on the right.
+        var column = _mode == PlayerBarMode.Column;
+        var stacked = !column && (_widthClass == PlayerWidthClass.Compact || (App.Services.Theme.ButtonsAboveVolume && _widthClass == PlayerWidthClass.Full));
+        SideArea.ColumnDefinitions[0].Width = column ? new GridLength(1, GridUnitType.Star) : GridLength.Auto;
         Grid.SetRow(SideButtons, 0);
-        Grid.SetColumn(SideButtons, 0);
+        Grid.SetColumn(SideButtons, column ? 1 : 0);
         Grid.SetRow(VolumeControls, stacked ? 1 : 0);
-        Grid.SetColumn(VolumeControls, stacked ? 0 : 1);
-        SideArea.ColumnSpacing = stacked ? 0 : 4;
+        Grid.SetColumn(VolumeControls, stacked || column ? 0 : 1);
+        VolumeControls.HorizontalAlignment = column ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        SideArea.ColumnSpacing = column ? 8 : stacked ? 0 : 4;
         SideArea.RowSpacing = stacked ? 2 : 0;
         SideButtons.Spacing = stacked ? 6 : 4;
         var size = stacked ? 32.0 : 36.0;
@@ -381,42 +393,75 @@ public sealed partial class PlayerBar : UserControl
     {
         if (e.NewSize.Width >= 1)
         {
-            ShowWidthClass(_inSidebar ? PlayerWidthClass.Mini : PlayerPlacement.WidthClassFor(e.NewSize.Width));
+            ShowWidthClass(_mode != PlayerBarMode.Bar ? PlayerWidthClass.Mini : PlayerPlacement.WidthClassFor(e.NewSize.Width));
         }
     }
 
-    /// <summary>The user's own height, else the class's; a player in the sidebar is as tall as what it shows.</summary>
-    private double BarHeightFor(PlayerWidthClass widthClass) =>
-        App.Services.Theme.Current.PlayerHeight ?? (_inSidebar ? double.NaN : PlayerPlacement.HeightFor(widthClass));
+    /// <summary>The user's own height, else the class's; in the sidebar or the column the bar is as tall as what it shows.</summary>
+    private double BarHeightFor(PlayerWidthClass widthClass) => _mode switch
+    {
+        PlayerBarMode.Column => double.NaN,
+        PlayerBarMode.Sidebar => App.Services.Theme.Current.PlayerHeight ?? double.NaN,
+        _ => App.Services.Theme.Current.PlayerHeight ?? PlayerPlacement.HeightFor(widthClass),
+    };
 
     /// <summary>
-    /// The minimal player at the foot of the sidebar (Settings, Player,
-    /// Placement, Sidebar; the owner's request, 10 October 2026): the mini
-    /// bar stacked, the cover and the song over previous, play, next and the
-    /// progress, as wide as the sidebar. The plugins, devices, queue and
-    /// volume buttons are left out.
+    /// The bar's layout. The minimal player at the foot of the sidebar
+    /// (Settings, Player, Placement, Sidebar; the owner's request,
+    /// 10 October 2026): the mini bar stacked, the cover and the song over
+    /// previous, play, next and the progress, as wide as the sidebar, without
+    /// the plugins, devices, queue and volume buttons. The column beside the
+    /// page (Left or Right; the column shows the cover and the song above):
+    /// the progress with its times under it, shuffle, previous, play, next
+    /// and repeat, then the speaker, the volume and the buttons, all on the
+    /// column's panel.
     /// </summary>
-    internal void ShowInSidebar(bool on)
+    internal void ShowMode(PlayerBarMode mode)
     {
-        if (_inSidebar == on)
+        if (_mode == mode)
         {
             return;
         }
 
-        _inSidebar = on;
+        _mode = mode;
+        var stacked = mode != PlayerBarMode.Bar;
+        var column = mode == PlayerBarMode.Column;
         Bar.RowDefinitions.Clear();
-        if (on)
+        if (stacked)
         {
             Bar.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             Bar.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         }
 
-        Grid.SetColumnSpan(NowPlayingArea, on ? 3 : 1);
-        Grid.SetRow(Transport, on ? 1 : 0);
-        Grid.SetColumn(Transport, on ? 0 : 1);
-        Grid.SetColumnSpan(Transport, on ? 3 : 1);
-        SideArea.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
-        ShowWidthClass(on || Bar.ActualWidth < 1 ? PlayerWidthClass.Mini : PlayerPlacement.WidthClassFor(Bar.ActualWidth), force: true);
+        NowPlayingArea.Visibility = column ? Visibility.Collapsed : Visibility.Visible;
+        Grid.SetColumnSpan(NowPlayingArea, stacked ? 3 : 1);
+        Grid.SetRow(Transport, mode == PlayerBarMode.Sidebar ? 1 : 0);
+        Grid.SetColumn(Transport, stacked ? 0 : 1);
+        Grid.SetColumnSpan(Transport, stacked ? 3 : 1);
+        Grid.SetRow(SideArea, column ? 1 : 0);
+        Grid.SetColumn(SideArea, stacked ? 0 : 2);
+        Grid.SetColumnSpan(SideArea, stacked ? 3 : 1);
+        SideArea.HorizontalAlignment = column ? HorizontalAlignment.Stretch : HorizontalAlignment.Right;
+        SideArea.Visibility = mode == PlayerBarMode.Sidebar ? Visibility.Collapsed : Visibility.Visible;
+
+        // The progress over the buttons, its times under its two ends.
+        Grid.SetRow(TransportButtons, column ? 1 : 0);
+        Grid.SetRow(SeekRow, column ? 0 : 1);
+        SeekRow.RowDefinitions.Clear();
+        if (column)
+        {
+            SeekRow.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            SeekRow.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        }
+
+        Grid.SetRow(PositionBar, 0);
+        Grid.SetColumn(PositionBar, column ? 0 : 1);
+        Grid.SetColumnSpan(PositionBar, column ? 3 : 1);
+        Grid.SetRow(PositionText, column ? 1 : 0);
+        Grid.SetRow(DurationText, column ? 1 : 0);
+        PositionText.TextAlignment = column ? TextAlignment.Left : TextAlignment.Right;
+        DurationText.TextAlignment = column ? TextAlignment.Right : TextAlignment.Left;
+        ShowWidthClass(stacked || Bar.ActualWidth < 1 ? PlayerWidthClass.Mini : PlayerPlacement.WidthClassFor(Bar.ActualWidth), force: true);
     }
 
     /// <summary>
@@ -436,38 +481,58 @@ public sealed partial class PlayerBar : UserControl
         _widthClass = widthClass;
         var full = widthClass == PlayerWidthClass.Full;
         var mini = widthClass == PlayerWidthClass.Mini;
-        var shown = mini ? Visibility.Collapsed : Visibility.Visible;
+        var stacked = _mode != PlayerBarMode.Bar;
+        var column = _mode == PlayerBarMode.Column;
+
+        // The column beside the page has room for everything, the mini bar does not.
+        var shown = mini && !column ? Visibility.Collapsed : Visibility.Visible;
 
         Bar.Height = BarHeightFor(widthClass);
         var padding = full ? 20 : mini ? 14 : 16;
-        Bar.Padding = _inSidebar ? new Thickness(12, 12, 12, 8) : new Thickness(padding, 0, padding, 0);
-        Bar.ColumnSpacing = _inSidebar ? 0 : full ? 24 : mini ? 12 : 16;
-        Bar.RowSpacing = _inSidebar ? 8 : 0;
+        Bar.Padding = _mode switch
+        {
+            PlayerBarMode.Sidebar => new Thickness(12, 12, 12, 8),
+            PlayerBarMode.Column => new Thickness(20, 4, 20, 12),
+            _ => new Thickness(padding, 0, padding, 0),
+        };
+        Bar.ColumnSpacing = stacked ? 0 : full ? 24 : mini ? 12 : 16;
+        Bar.RowSpacing = _mode switch
+        {
+            PlayerBarMode.Sidebar => 8,
+            PlayerBarMode.Column => 14,
+            _ => 0,
+        };
 
         // Full and compact keep the controls in the middle; the mini bar gives the song what is left; in the sidebar, the song and the controls each take a row of their own.
         NowPlayingColumn.Width = new GridLength(mini ? 1 : 3, GridUnitType.Star);
         NowPlayingColumn.MinWidth = full ? 220 : mini ? 0 : 150;
-        ControlsColumn.Width = _inSidebar ? new GridLength(0) : mini ? GridLength.Auto : new GridLength(4, GridUnitType.Star);
+        ControlsColumn.Width = stacked ? new GridLength(0) : mini ? GridLength.Auto : new GridLength(4, GridUnitType.Star);
         ControlsColumn.MinWidth = full ? 320 : mini ? 0 : 216;
-        VolumeColumn.Width = _inSidebar ? new GridLength(0) : mini ? GridLength.Auto : new GridLength(3, GridUnitType.Star);
+        VolumeColumn.Width = stacked ? new GridLength(0) : mini ? GridLength.Auto : new GridLength(3, GridUnitType.Star);
         // Room for all four buttons (plugins, device, queue, speaker) and, in full, the slider.
         VolumeColumn.MinWidth = full ? 272 : mini ? 0 : 156;
 
-        TransportButtons.Spacing = full ? 14 : 8;
-        Transport.Spacing = _inSidebar ? 4 : mini ? 0 : 2;
+        TransportButtons.Spacing = full || column ? 14 : 8;
+        Transport.RowSpacing = _mode switch
+        {
+            PlayerBarMode.Sidebar => 4,
+            PlayerBarMode.Column => 12,
+            _ => mini ? 0 : 2,
+        };
         ShuffleButton.Visibility = shown;
         RepeatButton.Visibility = shown;
         PositionText.Visibility = shown;
         DurationText.Visibility = shown;
-        PositionColumn.Width = mini ? new GridLength(0) : GridLength.Auto;
-        DurationColumn.Width = mini ? new GridLength(0) : GridLength.Auto;
-        SeekRow.ColumnSpacing = mini ? 0 : 10;
-        SeekRow.MinWidth = mini && !_inSidebar ? 150 : 0;
+        PositionColumn.Width = mini && !column ? new GridLength(0) : GridLength.Auto;
+        DurationColumn.Width = mini && !column ? new GridLength(0) : GridLength.Auto;
+        SeekRow.ColumnSpacing = column ? 0 : mini ? 0 : 10;
+        SeekRow.RowSpacing = column ? 2 : 0;
+        SeekRow.MinWidth = mini && !stacked ? 150 : 0;
         MuteButton.Visibility = shown;
 
         // Narrower, the buttons go above the volume rather than the slider going away.
         VolumeBar.Visibility = shown;
-        VolumeBar.Width = full ? 112 : 96;
+        VolumeBar.Width = column ? 120 : full ? 112 : 96;
 
         // The mini bar has no room for lyrics; a wider one shows them again.
         var (lyricsOn, line, next, note, after) = _lyricArgs;

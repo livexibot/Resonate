@@ -1013,6 +1013,28 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   no player grows wider than the shell (`ClampPlayerSlot`, `MaxWidth`).
   The playlists, the queue, Settings and lyrics then leave room at their
   end to scroll clear of it (`SetPlayerRoom`).
+- The player beside the page (Placement Left or Right; redone on
+  10 October 2026, when the owner found the cover floating in an empty
+  panel over a separate bar): one panel (`_sideCard`, the player's fill,
+  the panels' shadow or the player's glow) holding, top to bottom, the
+  cover as wide as the column with the look's item shadow, the title and
+  the artists (links) on the left (`NowPlayingColumn` with `beside`, its
+  cover shrinking so the controls always fit, `FitTo`), the player bar in
+  its column layout (`PlayerBarMode.Column`: no song area, the progress
+  with its times under its ends, shuffle, previous, play, next, repeat,
+  then the speaker and volume on the left and the buttons on the right,
+  transparent, no outline or shadow), and Up next filling the rest
+  (`Controls/SideUpNext`: Resonate's own list, the local player, or
+  Spotify's queue read once per song while the window shows). The bar's
+  outline is now set in code (`PlayerPlacement.Outline`) rather than the
+  `ResonatePlayerBorderThickness` token, and its transport is a two-row
+  grid. The Column window shape keeps the old centred column.
+- The progress glow (10 October 2026, the owner found it a straight band
+  under the wave): for the styles that draw a line (Wave, Heartbeat,
+  Dots) the glow's shadow is cast by the line itself, read live from the
+  wave's visual through a `CompositionVisualSurface`, so it follows the
+  curves and rolls with them (`SeekBar.GlowVisual.ShowLine`, tighter blur
+  and stronger than the band).
 
 Classic player and cover art (checked 2026-10-08):
 - Classic Winamp skins (`.wsz`, Winamp 2) are zip archives of BMP sheets

@@ -39,6 +39,13 @@ public sealed partial class MainWindow
 
     /// <summary>The cover and the song above the player while it is a column beside the page.</summary>
     private NowPlayingColumn? _sideColumn;
+
+    /// <summary>The column's panel and its shadow, behind the cover, the controls and Up next.</summary>
+    private Border? _sideCard;
+    private Elevation? _sideShadow;
+
+    /// <summary>What plays next, at the foot of the column beside the page.</summary>
+    private SideUpNext? _sideUpNext;
     private double _playerInset = -1;
 
     /// <summary>Called once, from the constructor.</summary>
@@ -68,6 +75,10 @@ public sealed partial class MainWindow
 
         // Over the panels and the grips between them, so a player reaching over them takes its clicks.
         Canvas.SetZIndex(PlayerSlot, 1);
+
+        // The column beside the page: its panel follows the look, its cover the room above the controls.
+        _services.Theme.Changed += (_, _) => StyleSideCard();
+        PlayerBar.SizeChanged += (_, _) => FitSideCover();
     }
 
     /// <summary>The narrowest the player in use gets, which a hovering player needs over the page.</summary>
@@ -110,7 +121,7 @@ public sealed partial class MainWindow
         }
 
         _placement = placement;
-        PlayerBar.ShowInSidebar(inSidebar);
+        PlayerBar.ShowMode(inSidebar ? PlayerBarMode.Sidebar : PlayerPlacement.IsSide(layout) ? PlayerBarMode.Column : PlayerBarMode.Bar);
 
         // Settings, Layout, Advanced: moved by the user's own X and Y, wherever it sits.
         PlayerSlot.RenderTransform = look.PlayerOffsetX is null && look.PlayerOffsetY is null
@@ -233,9 +244,13 @@ public sealed partial class MainWindow
     }
 
     /// <summary>
-    /// The player as a column on the left or right of the page: the cover and
-    /// the song as large as the column allows, the player bar under them. The
-    /// page and its shadow make room for it.
+    /// The player as a column on the left or right of the page (redone on
+    /// 10 October 2026, when the owner found the cover floating in an empty
+    /// panel over a separate bar): one panel, like the page's, with the cover
+    /// as wide as the column at the top, the song and its artists under it,
+    /// then the progress, the buttons and the volume (the player bar in its
+    /// column layout, on the panel), and what plays next filling the rest.
+    /// The page and its shadow make room for it.
     /// </summary>
     private void PlaceBesidePage(PlayerLayout layout, double gap, double? width)
     {
@@ -255,7 +270,7 @@ public sealed partial class MainWindow
         PlayerSlot.HorizontalAlignment = left ? HorizontalAlignment.Left : HorizontalAlignment.Right;
         PlayerSlot.VerticalAlignment = VerticalAlignment.Stretch;
         PlayerSlot.Margin = new Thickness(inset);
-        PlayerSlot.RowSpacing = gap;
+        PlayerSlot.RowSpacing = 0;
 
         var room = columnWidth + gap + (2 * inset);
         var pageMargin = left ? new Thickness(room, 0, 0, 0) : new Thickness(0, 0, room, 0);
@@ -264,15 +279,54 @@ public sealed partial class MainWindow
 
         if (_sideColumn is null)
         {
-            _sideColumn = new NowPlayingColumn(_services);
-            PlayerSlot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            _sideColumn = new NowPlayingColumn(_services, beside: true);
+            _sideUpNext = new SideUpNext(_services);
+            _sideShadow = new Elevation { IsHitTestVisible = false };
+            _sideCard = new Border { IsHitTestVisible = false };
             PlayerSlot.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            PlayerSlot.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            PlayerSlot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             foreach (var child in PlayerSlot.Children.OfType<FrameworkElement>())
             {
                 Grid.SetRow(child, 1);
             }
 
-            PlayerSlot.Children.Insert(0, _sideColumn);
+            Grid.SetRowSpan(_sideShadow, 3);
+            Grid.SetRowSpan(_sideCard, 3);
+            Grid.SetRow(_sideUpNext, 2);
+            PlayerSlot.Children.Insert(0, _sideShadow);
+            PlayerSlot.Children.Insert(1, _sideCard);
+            PlayerSlot.Children.Insert(2, _sideColumn);
+            PlayerSlot.Children.Insert(3, _sideUpNext);
+            StyleSideCard();
+        }
+    }
+
+    /// <summary>The column's panel: the player's fill, the look's outline and corners, and the panels' shadow (or the player's glow).</summary>
+    private void StyleSideCard()
+    {
+        if (_sideCard is null || _sideShadow is null)
+        {
+            return;
+        }
+
+        var theme = _services.Theme;
+        var palette = theme.Palette;
+        var corner = new CornerRadius(palette.CornerLarge);
+        _sideCard.Background = theme.GetBrush("ResonatePlayerBrush");
+        _sideCard.BorderBrush = theme.GetBrush("ResonateBorderBrush");
+        _sideCard.BorderThickness = new Thickness(palette.BorderWidth);
+        _sideCard.CornerRadius = corner;
+        _sideShadow.CornerRadius = corner;
+        _sideShadow.Level = theme.Current.PlayerGlow > 0 ? ElevationLevel.Player : ElevationLevel.Panel;
+    }
+
+    /// <summary>The column's cover takes what the controls leave of the column's height.</summary>
+    private void FitSideCover()
+    {
+        if (_sideColumn is not null && PlayerSlot.ActualHeight > 0)
+        {
+            _sideColumn.FitTo(PlayerSlot.ActualHeight - (_classicPlayer?.ActualHeight ?? PlayerBar.ActualHeight));
         }
     }
 
@@ -287,8 +341,18 @@ public sealed partial class MainWindow
             return;
         }
 
-        PlayerSlot.Children.Remove(_sideColumn);
+        foreach (var part in new FrameworkElement?[] { _sideShadow, _sideCard, _sideColumn, _sideUpNext })
+        {
+            if (part is not null)
+            {
+                PlayerSlot.Children.Remove(part);
+            }
+        }
+
         _sideColumn = null;
+        _sideUpNext = null;
+        _sideCard = null;
+        _sideShadow = null;
         PlayerSlot.RowDefinitions.Clear();
         foreach (var child in PlayerSlot.Children.OfType<FrameworkElement>())
         {
@@ -305,6 +369,7 @@ public sealed partial class MainWindow
         }
 
         UpdatePlayerInset();
+        FitSideCover();
     }
 
     /// <summary>

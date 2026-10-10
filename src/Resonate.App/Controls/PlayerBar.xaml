@@ -156,12 +156,16 @@
                 </Grid>
             </Grid>
 
-            <!-- Transport controls and the seek bar -->
-            <StackPanel
+            <!-- Transport controls and the seek bar (the seek bar on top in the column beside the page) -->
+            <Grid
                 x:Name="Transport"
                 Grid.Column="1"
                 VerticalAlignment="Center"
-                Spacing="2">
+                RowSpacing="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
                 <StackPanel
                     x:Name="TransportButtons"
                     HorizontalAlignment="Center"
@@ -206,7 +210,10 @@
                         Style="{StaticResource ResonateToggleIconButtonStyle}"
                         ToolTipService.ToolTip="Repeat (Ctrl+R)" />
                 </StackPanel>
-                <Grid x:Name="SeekRow" ColumnSpacing="10">
+                <Grid
+                    x:Name="SeekRow"
+                    Grid.Row="1"
+                    ColumnSpacing="10">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition x:Name="PositionColumn" Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -235,7 +242,7 @@
                         Style="{StaticResource ResonateCaptionTextStyle}"
                         Text="0:00" />
                 </Grid>
-            </StackPanel>
+            </Grid>
 
             <!--
               Plugins, the queue and the volume: in one row, or (Settings,

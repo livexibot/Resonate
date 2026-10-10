@@ -9,17 +9,27 @@ using Resonate.Spotify.Playback;
 namespace Resonate.App.Controls;
 
 /// <summary>
-/// The Column window shape (Window shapes plugin): the song that plays, its
-/// cover as large as the window allows, its title and artists, over the
-/// player. Built in code; it follows the player only while it is shown.
+/// The song that plays: its cover, its title and artists. In the Column
+/// window shape (Window shapes plugin) a panel of its own, the cover as large
+/// as the window allows, over the player. Beside the page (Placement Left or
+/// Right) the top of the column's panel: the cover as wide as the column (or
+/// as tall as the room above the controls allows) and the title and artists
+/// under it, lined up on the left, with the controls and Up next below (see
+/// MainWindow.PlayerPlacement.cs). Built in code; it follows the player only
+/// while it is shown.
 /// </summary>
 internal sealed partial class NowPlayingColumn : Grid
 {
     private const int CoverPixels = 480;
     private const double CoverMaxSize = 560;
 
+    /// <summary>The smallest cover beside the page, however short the window.</summary>
+    private const double CoverMinSize = 72;
+
     private readonly AppServices _services;
+    private readonly bool _beside;
     private readonly Grid _coverHolder = new();
+    private readonly Elevation? _coverShadow;
     private readonly Border _cover = new();
     private readonly Image _image = new() { Stretch = Stretch.UniformToFill, Opacity = 0 };
     private readonly TextBlock _title = new();
@@ -27,28 +37,41 @@ internal sealed partial class NowPlayingColumn : Grid
     private object? _artworkKey;
     private int _queued;
 
-    public NowPlayingColumn(AppServices services)
+    /// <summary>Beside the page: the height the cover and the words may take, above the controls.</summary>
+    private double _room = double.PositiveInfinity;
+
+    public NowPlayingColumn(AppServices services, bool beside = false)
     {
         _services = services;
+        _beside = beside;
         var resources = Application.Current.Resources;
-        Padding = new Thickness(24, 24, 24, 20);
-        RowSpacing = 6;
-        RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        Padding = beside ? new Thickness(20, 20, 20, 10) : new Thickness(24, 24, 24, 20);
+        RowSpacing = beside ? 2 : 6;
+        RowDefinitions.Add(new RowDefinition { Height = beside ? GridLength.Auto : new GridLength(1, GridUnitType.Star) });
         RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
         _image.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(180) };
         _cover.Child = _image;
         _cover.HorizontalAlignment = HorizontalAlignment.Center;
-        _cover.VerticalAlignment = VerticalAlignment.Center;
-        _coverHolder.Margin = new Thickness(0, 0, 0, 14);
+        _cover.VerticalAlignment = beside ? VerticalAlignment.Top : VerticalAlignment.Center;
+        _coverHolder.Margin = new Thickness(0, 0, 0, beside ? 18 : 14);
+        if (beside)
+        {
+            // The look's shadow under the cover, as under the player's own.
+            _coverShadow = new Elevation { Level = ElevationLevel.Item, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, IsHitTestVisible = false };
+            _coverHolder.Children.Add(_coverShadow);
+        }
+
         _coverHolder.Children.Add(_cover);
         _coverHolder.SizeChanged += (_, e) => SizeCover(e.NewSize.Width, e.NewSize.Height);
         Children.Add(_coverHolder);
 
-        _title.Style = (Style)resources["ResonateSectionTextStyle"];
-        _title.TextAlignment = TextAlignment.Center;
-        _title.HorizontalAlignment = HorizontalAlignment.Center;
+        var alignment = beside ? TextAlignment.Left : TextAlignment.Center;
+        var placement = beside ? HorizontalAlignment.Stretch : HorizontalAlignment.Center;
+        _title.Style = (Style)resources[beside ? "ResonateTitleTextStyle" : "ResonateSectionTextStyle"];
+        _title.TextAlignment = alignment;
+        _title.HorizontalAlignment = placement;
         _title.TextWrapping = TextWrapping.Wrap;
         _title.MaxLines = 2;
         _title.TextTrimming = TextTrimming.CharacterEllipsis;
@@ -56,11 +79,22 @@ internal sealed partial class NowPlayingColumn : Grid
         Children.Add(_title);
 
         _artists.Style = (Style)resources["ResonateSecondaryTextStyle"];
-        _artists.TextAlignment = TextAlignment.Center;
-        _artists.HorizontalAlignment = HorizontalAlignment.Center;
+        _artists.TextAlignment = alignment;
+        _artists.HorizontalAlignment = placement;
         _artists.TextTrimming = TextTrimming.CharacterEllipsis;
         SetRow(_artists, 2);
         Children.Add(_artists);
+
+        if (beside)
+        {
+            // The artists open their pages, as in the player bar.
+            _artists.HorizontalAlignment = HorizontalAlignment.Left;
+            SongLinks.Attach(_artists, SongLinks.Artists, PlayingTrack.Get);
+
+            // A title on two lines leaves the cover less room.
+            _title.SizeChanged += (_, _) => SizeCover(_coverHolder.ActualWidth, _coverHolder.ActualHeight);
+            _artists.SizeChanged += (_, _) => SizeCover(_coverHolder.ActualWidth, _coverHolder.ActualHeight);
+        }
 
         Loaded += (_, _) =>
         {
@@ -76,26 +110,73 @@ internal sealed partial class NowPlayingColumn : Grid
         };
     }
 
+    /// <summary>
+    /// Beside the page: the height above the controls. The cover shrinks so
+    /// the words and the controls under it always fit.
+    /// </summary>
+    internal void FitTo(double room)
+    {
+        if (Math.Abs(room - _room) < 0.5)
+        {
+            return;
+        }
+
+        _room = room;
+        SizeCover(_coverHolder.ActualWidth, _coverHolder.ActualHeight);
+    }
+
     private void OnThemeChanged(object? sender, EventArgs e) => ApplyLook();
 
-    /// <summary>A panel like the page's, in the look's corners and outline.</summary>
+    /// <summary>A panel like the page's, in the look's corners and outline; beside the page, the column's panel lies behind it.</summary>
     private void ApplyLook()
     {
         var theme = _services.Theme;
         var palette = theme.Palette;
+        var coverCorner = new CornerRadius(theme.CoverIsRecord ? CoverMaxSize : palette.CornerMedium);
+        _cover.CornerRadius = coverCorner;
+        if (_coverShadow is not null)
+        {
+            _coverShadow.CornerRadius = coverCorner;
+            return;
+        }
+
         Background = theme.GetBrush("ResonateSurfaceBrush");
         BorderBrush = theme.GetBrush("ResonateBorderBrush");
         BorderThickness = new Thickness(palette.BorderWidth);
         CornerRadius = new CornerRadius(palette.CornerLarge);
-        _cover.CornerRadius = new CornerRadius(theme.CoverIsRecord ? CoverMaxSize : palette.CornerMedium);
     }
 
-    /// <summary>The cover is square, as large as its room allows.</summary>
+    /// <summary>
+    /// The cover is square, as large as its room allows: in the window shape
+    /// its row's room; beside the page the column's width, within the room
+    /// above the controls left by the words.
+    /// </summary>
     private void SizeCover(double width, double height)
     {
-        var size = Math.Max(0, Math.Min(Math.Min(width, height), CoverMaxSize));
+        double size;
+        if (_beside)
+        {
+            var words = _title.ActualHeight + _artists.ActualHeight + RowSpacing * 2 + Padding.Top + Padding.Bottom + _coverHolder.Margin.Bottom;
+            size = Math.Min(Math.Min(width, CoverMaxSize), Math.Max(CoverMinSize, _room - words));
+        }
+        else
+        {
+            size = Math.Min(Math.Min(width, height), CoverMaxSize);
+        }
+
+        size = Math.Max(0, Math.Floor(size));
+        if (Math.Abs(_cover.Width - size) < 0.5)
+        {
+            return;
+        }
+
         _cover.Width = size;
         _cover.Height = size;
+        if (_coverShadow is not null)
+        {
+            _coverShadow.Width = size;
+            _coverShadow.Height = size;
+        }
     }
 
     private void OnStateChanged(object? sender, EventArgs e)
@@ -125,7 +206,11 @@ internal sealed partial class NowPlayingColumn : Grid
         _artworkKey = key;
         _image.Opacity = 0;
         var name = state.Album ?? state.Title;
-        _cover.Background = name is null ? _services.Theme.GetBrush("ResonateSurfaceHoverBrush") : Artwork.PlaceholderBrush(name);
+
+        // Beside the page nothing shows while the cover loads, and the album's tile only when there is none.
+        _cover.Background = name is null ? _services.Theme.GetBrush("ResonateSurfaceHoverBrush")
+            : _beside && (state.ArtworkUrl is not null || state.ArtworkBytes is not null) ? null
+            : Artwork.PlaceholderBrush(name);
         if (state.ArtworkUrl is { } url)
         {
             _ = ShowCoverAsync(key, _services.Covers.GetReadyAsync(url, CoverPixels));
@@ -150,5 +235,10 @@ internal sealed partial class NowPlayingColumn : Grid
 
         _image.Source = image;
         _image.Opacity = image is null ? 0 : 1;
+        if (image is null && _cover.Background is null)
+        {
+            var state = _services.Player.State;
+            _cover.Background = Artwork.PlaceholderBrush(state.Album ?? state.Title ?? string.Empty);
+        }
     }
 }
