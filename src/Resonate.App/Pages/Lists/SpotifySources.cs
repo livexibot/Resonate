@@ -24,7 +24,7 @@ public sealed class LikedSongsSource : TrackListSource
 
     public override string OwnOrderName => "Recently added";
 
-    public override ListHeader CachedHeader => new("COLLECTION", "Liked Songs", null, _services.Library.Snapshot?.User?.DisplayName, null, "Liked Songs", Glyph: "");
+    public override ListHeader CachedHeader => new("COLLECTION", "Liked Songs", null, _services.Library.Snapshot?.User?.DisplayName, null, "Liked Songs", Glyph: "", AccentCover: true);
 
     public override Task<FullTrackList> LoadAllAsync(CancellationToken cancellationToken) =>
         LoadAsync(_services.Library, cancellationToken);
@@ -202,7 +202,7 @@ public sealed class LikedByArtistSource : TrackListSource
     }
 
     private ListHeader Header() =>
-        new("LIKED SONGS", _artistName.Length > 0 ? _artistName : "Liked songs", null, null, null, "Liked Songs", Glyph: "\uEB52");
+        new("LIKED SONGS", _artistName.Length > 0 ? _artistName : "Liked songs", null, null, null, "Liked Songs", Glyph: "\uEB52", AccentCover: true);
 }
 
 internal static class ListFormat

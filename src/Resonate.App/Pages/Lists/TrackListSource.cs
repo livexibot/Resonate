@@ -9,6 +9,7 @@ namespace Resonate.App.Pages.Lists;
 /// <param name="Kind">A small word above the title, such as "PLAYLIST" or "ALBUM".</param>
 /// <param name="PlaceholderName">Picks the colour tile shown until (or instead of) a cover.</param>
 /// <param name="Glyph">An icon on the colour tile, for lists without a cover (Liked Songs, Local Files).</param>
+/// <param name="AccentCover">The tile is the look's accent rather than a colour picked by name (Liked Songs and Local Files, the owner's choice of 10 October 2026).</param>
 public sealed record ListHeader(
     string Kind,
     string Title,
@@ -16,7 +17,8 @@ public sealed record ListHeader(
     string? Details,
     string? ImageUrl,
     string PlaceholderName,
-    string? Glyph = null)
+    string? Glyph = null,
+    bool AccentCover = false)
 {
     /// <summary>The album's artists, shown as links.</summary>
     public IReadOnlyList<ArtistRef> Artists { get; init; } = [];

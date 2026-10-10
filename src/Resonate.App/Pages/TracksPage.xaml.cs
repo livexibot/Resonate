@@ -39,6 +39,9 @@ public sealed partial class TracksPage : Page
     private readonly CancellationTokenSource _leaving = new();
     private readonly Dictionary<TrackInfo, TrackRow> _rowCache = new(ReferenceEqualityComparer.Instance);
     private readonly DispatcherQueueTimer _filterTimer;
+    /// <summary>The glyph on a colour tile picked by name: white, slightly see-through.</summary>
+    private static readonly SolidColorBrush GlyphBrush = new(global::Windows.UI.Color.FromArgb(0xE6, 0xFF, 0xFF, 0xFF));
+
     private readonly CoverHero _hero;
     private readonly PageCover _cover;
     private TrackListSource _source = null!;
@@ -269,11 +272,14 @@ public sealed partial class TracksPage : Page
         DescriptionText.Text = header.Description ?? string.Empty;
         DescriptionText.Visibility = string.IsNullOrEmpty(header.Description) ? Visibility.Collapsed : Visibility.Visible;
 
-        _cover.Show(header.ImageUrl, Artwork.PlaceholderBrush(header.PlaceholderName));
+        // Liked Songs and Local Files wear the look's accent; other lists a colour picked by name.
+        var accent = header.AccentCover;
+        _cover.Show(header.ImageUrl, accent ? Artwork.AccentCoverBrush : Artwork.PlaceholderBrush(header.PlaceholderName));
         CoverGlyph.Glyph = header.Glyph ?? string.Empty;
-        CoverGlyph.Visibility = header.Glyph is null ? Visibility.Collapsed : Visibility.Visible;
+        CoverGlyph.Visibility = string.IsNullOrEmpty(header.Glyph) ? Visibility.Collapsed : Visibility.Visible;
+        CoverGlyph.Foreground = accent ? _services.Theme.GetBrush("ResonateOnAccentBrush") : GlyphBrush;
 
-        _hero.Show(Artwork.PlaceholderColors(header.PlaceholderName).From, header.ImageUrl);
+        _hero.Show(accent ? _services.Theme.Palette.Accent : Artwork.PlaceholderColors(header.PlaceholderName).From, header.ImageUrl);
 
         ArtistLinks.Children.Clear();
         foreach (var artist in header.Artists)

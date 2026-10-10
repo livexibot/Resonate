@@ -284,7 +284,7 @@
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="vm:PlaylistNavItem">
                                 <Grid
-                                    MinHeight="64"
+                                    MinHeight="{x:Bind RowHeight, Mode=OneWay}"
                                     Margin="{x:Bind RowPadding, Mode=OneWay}"
                                     HorizontalAlignment="{x:Bind RowAlignment, Mode=OneWay}"
                                     Background="{StaticResource ResonateTransparentBrush}"

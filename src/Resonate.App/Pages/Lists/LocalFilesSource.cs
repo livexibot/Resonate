@@ -24,7 +24,7 @@ public sealed class LocalFilesSource : TrackListSource
 
     public override string OwnOrderName => "Recently added";
 
-    public override ListHeader CachedHeader => new("COLLECTION", "Local Files", null, Details(), null, "Local Files", Glyph: "");
+    public override ListHeader CachedHeader => new("COLLECTION", "Local Files", null, Details(), null, "Local Files", Glyph: "\uE8B7", AccentCover: true);
 
     public override Task<FullTrackList> LoadAllAsync(CancellationToken cancellationToken) => LoadAsync(cancellationToken);
 

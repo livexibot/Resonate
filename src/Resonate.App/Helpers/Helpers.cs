@@ -69,6 +69,42 @@ public static class Artwork
     /// <summary>The same name always gets the same gradient. Call on the interface thread.</summary>
     public static Brush PlaceholderBrush(string name) => BrushAt(PaletteIndex(name));
 
+    private static LinearGradientBrush? _accentCover;
+
+    /// <summary>
+    /// The tile of Liked Songs and Local Files: the look's accent, a little
+    /// lighter at the top left and deeper at the bottom right. One brush,
+    /// recoloured whenever the look changes. Call on the interface thread.
+    /// </summary>
+    public static Brush AccentCoverBrush
+    {
+        get
+        {
+            if (_accentCover is null)
+            {
+                _accentCover = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(1, 1) };
+                _accentCover.GradientStops.Add(new GradientStop { Offset = 0 });
+                _accentCover.GradientStops.Add(new GradientStop { Offset = 1 });
+                App.Services.Theme.Changed += (_, _) => PaintAccentCover();
+                PaintAccentCover();
+            }
+
+            return _accentCover;
+        }
+    }
+
+    private static void PaintAccentCover()
+    {
+        if (_accentCover is null)
+        {
+            return;
+        }
+
+        var accent = App.Services.Theme.Palette.Accent.Opaque;
+        _accentCover.GradientStops[0].Color = accent.Mix(ThemeColor.White, 0.16).ToColor();
+        _accentCover.GradientStops[1].Color = accent.Mix(ThemeColor.Black, 0.38).ToColor();
+    }
+
     private static Brush BrushAt(int index)
     {
         if (PlaceholderBrushes[index] is { } cached)

@@ -527,6 +527,9 @@ public sealed partial class PlaylistNavItem : ObservableObject
     /// <summary>The cover at the user's Cover size (48 at 100 %); always 48 while <see cref="Compact"/>, which is sized for it.</summary>
     public double CoverSize => Compact ? 48 : AppScale.Cover(48, App.Services.Settings.CoverSize);
 
+    /// <summary>64 tall, or more around a larger cover, so covers never touch from row to row.</summary>
+    public double RowHeight => AppScale.CoverRow(64, 48, CoverSize);
+
     /// <summary>While <see cref="Compact"/> the cover alone sits in the middle of the row, with no gaps beside it.</summary>
     public HorizontalAlignment RowAlignment => Compact ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
 
@@ -548,6 +551,7 @@ public sealed partial class PlaylistNavItem : ObservableObject
         OnPropertyChanged(nameof(CoverVisibility));
         OnPropertyChanged(nameof(CoverColumnWidth));
         OnPropertyChanged(nameof(CoverSize));
+        OnPropertyChanged(nameof(RowHeight));
         OnPropertyChanged(nameof(RowAlignment));
         OnPropertyChanged(nameof(ColumnGap));
         OnPropertyChanged(nameof(RowPadding));
