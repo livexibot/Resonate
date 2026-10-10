@@ -804,7 +804,8 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
 - Home stage: the top of Home is the playing song, large, over five
   drifting clouds of the cover's colours (`Controls/CloudField`,
   `NowPlayingStage`, colours kept readable by `StageColours.ForText`, 7:1
-  and 4.5:1), or the blurred cover (its own switch, on at first). Only
+  and 4.5:1); the blurred cover behind Home and its switch were removed on
+  10 October 2026 (the owner's request; the screensaver keeps one). Only
   while the look's "Colours follow the cover" is on; otherwise the clouds
   and bars take the look's two accents and the blurred cover becomes a
   soft field of them (`StageColours.Pick`, `LookPicture`; the cover is
@@ -990,8 +991,11 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
 - Images (9 October 2026, the owner found sidebar covers and the blurred
   background soft): covers are decoded in screen pixels
   (`DecodePixelType.Physical`, `CoverImages.DisplayScale`); "Logical"
-  read pictures made from bytes at 100 %. The blurred cover background is
-  drawn from a 512 px cover (160 before) off the interface thread. Cover
+  read pictures made from bytes at 100 %. The song cover backdrop is drawn
+  at 1024 px (512 until 10 October 2026, when the owner still found it
+  pixelated at a low Cover blur; 160 before), scaled up from Spotify's
+  640 px cover by Windows' decoder with Cubic (`CoverDecoder` picks Cubic
+  to enlarge, Fant to shrink) and blurred off the interface thread. Cover
   size (Settings, Layout, Size; 75 to 200 %) sizes the covers in song
   lists and the sidebar (`AppScale.CoverSizes`). App size now runs 50 to
   300 % and Text size 75 to 200 % in finer steps. Keyboard shortcut hints
@@ -1092,7 +1096,21 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   the run ends when something else plays. A voice from Windows
   (`SpeechSynthesizer`, an English voice, through a `MediaPlayer` kept out
   of the media controls) says each set's line while the music is turned
-  down to 35 % (`DjVoice`, on at first; never in the demo).
+  down to 35 % (`DjVoice`, on at first; never in the demo). Later that
+  day (the owner: a more human voice, all of Up next on the page, artists
+  near their taste, no repeats when play is pressed again): "New to you"
+  sets come round twice in every ten (`DjSetKind.NewToYou`, appended),
+  from `DjDiscovery` once a day at most 8 requests (songs in the genres
+  of the user's top artists by artists they have not saved, through
+  search, and unsaved songs from an album of a top artist; Spotify gives
+  new apps no recommendations or related artists); what the DJ played in
+  the last 3 days and each run's first set stay out of new runs
+  (`dj-recent.txt` in the cache folder, at most 600); the page lists
+  every song still to come under its set's title, a click playing the
+  run from there (`DjService.Run`, `PlayFromAsync`). The voice takes a
+  Windows voice named "Natural" when apps are offered one; the owner's PC
+  offers only David, Zira and Mark, so a human-sounding voice needs a
+  neural voice (asked the owner).
 - Where you left off (10 October 2026, the owner's request; it replaced
   the Resume on start plugin and cannot be turned off): the Spotify song
   that played last, its list and its place are kept in the settings
@@ -1192,8 +1210,9 @@ Classic player and cover art (checked 2026-10-08):
   asked on 9 October 2026 for Liquid Glass to be "truly liquid"): looks
   whose backdrop is the song cover show the cover itself, only blurred,
   with no tint, wash, gradient or colour change, and the look's background
-  colour while nothing plays. One 160 px bitmap blurred once (box blur up
-  to 20 px) and stretched by the GPU, so nothing is blurred per frame.
+  colour while nothing plays. One 1024 px bitmap blurred once (box blur
+  up to 128 px, `ArtworkSampler`) and stretched by the GPU about twice
+  across a 5K window, so nothing is blurred per frame.
   Bright covers make white text harder to read; nothing dims them.
   Real covers are never decoded
   in CI (demo covers are made-up gradients), so check Liquid Glass with
@@ -2255,8 +2274,7 @@ when the work first needs them, then tick them off here.
   cover, player glow, song change and buttons above volume; Visualizer,
   the player bar's, its sliders shown only while it is on; then Winamp,
   with the title bar's mini player button), Layout (`LayoutSettings`:
-  Size first; Sidebar; Pages with page animation and the blurred cover on
-  Home; Home visualizer, its style (Off being the user's switch) and
+  Size first; Sidebar; Pages with page animation; Home visualizer, its style (Off being the user's switch) and
   sliders, shown only while on; Song lists; Song stats, the stat columns
   shown only while on), Plugins (grouped by what they are for:
   `PluginsPanel.Category`; a new plugin lands under "More plugins" until

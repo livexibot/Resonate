@@ -26,6 +26,9 @@ public enum DjSetKind
 
     /// <summary>A bit of everything liked, when nothing else is left.</summary>
     Mix,
+
+    /// <summary>Songs the user has not saved, near their taste (see <see cref="DjDiscovery"/>).</summary>
+    NewToYou,
 }
 
 /// <summary>One set: a few songs with a theme and a line for the DJ's voice.</summary>
@@ -45,10 +48,11 @@ public static class DjMix
     /// <summary>A set needs at least this many songs, or another kind takes its turn.</summary>
     public const int SmallestSet = 3;
 
+    // New music comes round twice in every ten sets, when there is some.
     private static readonly DjSetKind[] Rotation =
     [
-        DjSetKind.Favourites, DjSetKind.FreshFinds, DjSetKind.Throwbacks, DjSetKind.Spotlight,
-        DjSetKind.DeepCuts, DjSetKind.RightNow, DjSetKind.Spotlight, DjSetKind.Mix,
+        DjSetKind.Favourites, DjSetKind.NewToYou, DjSetKind.FreshFinds, DjSetKind.Throwbacks, DjSetKind.Spotlight,
+        DjSetKind.NewToYou, DjSetKind.DeepCuts, DjSetKind.RightNow, DjSetKind.Spotlight, DjSetKind.Mix,
     ];
 
     /// <summary>
@@ -64,8 +68,19 @@ public static class DjMix
         int sets = 20,
         int setSize = DefaultSetSize,
         DjSetKind? first = null,
-        IReadOnlySet<string>? skip = null)
+        IReadOnlySet<string>? skip = null,
+        IReadOnlyList<DjFind>? finds = null)
     {
+        finds ??= [];
+        var foundBy = new Dictionary<string, DjFind>(StringComparer.Ordinal);
+        foreach (var find in finds)
+        {
+            if (find.Track.Uri is { } uri)
+            {
+                foundBy.TryAdd(uri, find);
+            }
+        }
+
         setSize = Math.Clamp(setSize, SmallestSet, 15);
         var library = Playable(liked);
         var known = new Dictionary<string, TrackInfo>(StringComparer.Ordinal);
@@ -131,6 +146,7 @@ public static class DjMix
                 DjSetKind.DeepCuts => library.Where(t => !lastPlayed.ContainsKey(t.Uri!)
                     && (t.AddedAt is not { } added || now - added > TimeSpan.FromDays(45))),
                 DjSetKind.Spotlight => SpotlightSongs(out artist),
+                DjSetKind.NewToYou => finds.Select(f => f.Track),
                 DjSetKind.RightNow => recent.Where(p => HoursApart(p.PlayedAt.ToOffset(now.Offset).Hour, now.Hour) <= 2)
                     .GroupBy(p => p.Uri).Select(g => known.GetValueOrDefault(g.Key)).OfType<TrackInfo>(),
                 _ => library,
@@ -159,6 +175,7 @@ public static class DjMix
             var period = Period(now.Hour);
             var (title, intros) = kind switch
             {
+                DjSetKind.NewToYou => NewToYou(picked),
                 DjSetKind.Favourites => ("Your favourites", new[] { "Let's start with the songs you can't stop playing.", "Here are your favourites lately." }),
                 DjSetKind.Throwbacks => ("Throwbacks", new[] { "Let's go back a bit, to songs you liked a while ago.", "Some throwbacks you haven't heard in a while." }),
                 DjSetKind.FreshFinds => ("Fresh finds", new[] { "Here's what you've been liking lately.", "Fresh finds, songs you saved recently." }),
@@ -169,6 +186,22 @@ public static class DjMix
             };
 
             return new DjSet(kind, title, intros[random.Next(intros.Length)], picked);
+        }
+
+        // Named after the genre or artist most of the set came from.
+        (string Title, string[] Intros) NewToYou(List<TrackInfo> picked)
+        {
+            var source = picked.Select(t => foundBy.GetValueOrDefault(t.Uri!)).OfType<DjFind>()
+                .GroupBy(f => (f.Source, f.FromGenre)).OrderByDescending(g => g.Count()).FirstOrDefault();
+            if (source is null || source.Count() < (picked.Count + 1) / 2)
+            {
+                return ("New to you", ["Something new now, close to what you love.", "Here's some music you haven't saved yet."]);
+            }
+
+            var (name, genre) = source.Key;
+            return genre
+                ? ($"New in {name}", [$"Something new for you: some {name} you haven't heard yet.", $"A few new artists in {name}."])
+                : ($"New from {name}", [$"Some songs by {name} you haven't saved yet.", $"More from {name}, ones you haven't heard."]);
         }
 
         IEnumerable<TrackInfo> SpotlightSongs(out string? artist)

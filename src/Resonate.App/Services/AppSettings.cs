@@ -267,8 +267,6 @@ public sealed class AppSettings
 
     // Home stage
 
-    /// <summary>The Home stage shows the playing cover blurred behind its clouds (on unless the user turns it off).</summary>
-    public bool HomeStageBlurredCover { get; set; } = true;
 
     /// <summary>The last cover's colours (#RRGGBB), so the stage opens in them before any cover is read.</summary>
     public List<string> HomeStageColours { get; set; } = [];

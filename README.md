@@ -18,8 +18,8 @@ itself after that.
 - **Your Spotify library, without the wait.** Home, playlists, Liked Songs,
   search, artist and album pages, the queue and synced lyrics, with
   smooth scrolling and instant clicks.
-- **Lossless sound.** The official Spotify app plays the music, hidden in
-  the background. Resonate is the window you use.
+- **Lossless sound.** You choose what to play in Resonate; the official
+  Spotify app plays it in Lossless, hidden in the background.
 - **Twenty looks and a full customizer.** Colours, light or dark,
   backgrounds, corners, fonts and where the player sits. The special looks
   have moving scenery and weather.
@@ -61,9 +61,15 @@ it. Add any classic `.wsz` skin you like.
 ## How it works
 
 Resonate never plays Spotify's music itself. The Spotify app runs hidden
-and plays everything in Lossless. Resonate controls it through Windows'
-media controls (instant play, pause and skip) and Spotify's Web API (your
-library, search and playlists).
+and plays everything in Lossless. Play, pause and skip go to it straight
+through Windows' media controls. Choosing a song, a playlist or the DJ,
+and showing your library and search, go through Spotify's Web API with
+your own developer app.
+
+Spotify limits how many requests a developer app may make. Resonate asks
+as little as it can and counts every request (Settings, General, Spotify
+account). If Spotify ever refuses for a while, play, pause and skip keep
+working, and Resonate says when choosing songs works again.
 
 Rather close the Spotify app? Choose "Spotify Web API only" in Settings,
 Playback. Resonate then plays through Spotify's official web player,

@@ -3,8 +3,8 @@ using Windows.Graphics.Imaging;
 namespace Resonate.Windows;
 
 /// <summary>
-/// Shrinks a song's cover to a few dozen pixels with Windows' image decoder,
-/// for colour picking and the blurred background of the glass look.
+/// Scales a song's cover with Windows' image decoder: down to a few dozen
+/// pixels for colour picking, or up for the song cover backdrop.
 /// </summary>
 public static class CoverDecoder
 {
@@ -18,11 +18,12 @@ public static class CoverDecoder
         {
             using var stream = await ImageStreams.FromBytesAsync(image).ConfigureAwait(false);
             var decoder = await BitmapDecoder.CreateAsync(stream).AsTask(cancellationToken).ConfigureAwait(false);
+            // Fant shrinks smoothly; a cover made larger (the backdrop's) is drawn up with Cubic, which keeps it from looking blocky.
             var transform = new BitmapTransform
             {
                 ScaledWidth = (uint)size,
                 ScaledHeight = (uint)size,
-                InterpolationMode = BitmapInterpolationMode.Fant,
+                InterpolationMode = decoder.PixelWidth < size || decoder.PixelHeight < size ? BitmapInterpolationMode.Cubic : BitmapInterpolationMode.Fant,
             };
             var pixels = await decoder.GetPixelDataAsync(
                 BitmapPixelFormat.Bgra8,

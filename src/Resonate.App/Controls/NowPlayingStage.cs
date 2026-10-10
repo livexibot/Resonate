@@ -1057,10 +1057,14 @@ internal sealed partial class NowPlayingStage : Grid
     /// <summary>The stage is in the window, the window shows, and the stage is on screen (not under the away screen).</summary>
     private bool Seen => _attached && _onScreen && !(_covered && _kind == StageKind.Home) && (_kind == StageKind.Away || (App.MainWindow?.IsShown ?? true));
 
-    /// <summary>The blurred cover behind the stage: Home's switch, or the screensaver's Background.</summary>
+    /// <summary>
+    /// The blurred cover behind the stage: only the screensaver's, by its
+    /// Background. Home shows the clouds (the owner had Home's switch
+    /// removed, 10 October 2026).
+    /// </summary>
     private bool BlurredCover => _kind == StageKind.Away
-        ? _services.Settings.ScreensaverBackground == "Cover" && !_services.Settings.ScreensaverOled
-        : _services.Settings.HomeStageBlurredCover;
+        && _services.Settings.ScreensaverBackground == "Cover"
+        && !_services.Settings.ScreensaverOled;
 
     /// <summary>The screensaver's plain background (black in OLED mode, or the user's colour), or null for the song's colours.</summary>
     private ThemeColor? ScreensaverPlain

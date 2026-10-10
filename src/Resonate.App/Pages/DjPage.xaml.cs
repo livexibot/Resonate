@@ -9,14 +9,19 @@ namespace Resonate.App.Pages;
 /// <summary>
 /// Resonate's own DJ (<see cref="DjService"/>): Start DJ plays a run of
 /// themed sets from the user's music; while it plays, the button switches
-/// it up, the set playing shows under the title and the next ones below.
+/// it up, the set playing shows under the title, and Up next lists every
+/// song still to come, by set (the owner's request, 10 October 2026); a
+/// click plays the run from that song.
 /// </summary>
 public sealed partial class DjPage : Page
 {
-    private const int SetsShown = 4;
+    private const int CoverSize = 40;
 
     private readonly AppServices _services = App.Services;
     private readonly DjService _dj;
+    private readonly List<(int Index, FrameworkElement Row)> _songRows = [];
+    private readonly List<(int Last, FrameworkElement Header)> _setHeaders = [];
+    private IReadOnlyList<Resonate.Spotify.Library.TrackInfo>? _shownRun;
     private bool _loading;
 
     public DjPage()
@@ -57,38 +62,126 @@ public sealed partial class DjPage : Page
         NowText.Text = on && current < sets.Count ? sets[current].Title : string.Empty;
         NowText.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
 
-        SetsList.Children.Clear();
-        if (on)
-        {
-            foreach (var set in sets.Skip(current + 1).Take(SetsShown))
-            {
-                SetsList.Children.Add(SetRow(set));
-            }
-        }
-
-        SetsPanel.Visibility = SetsList.Children.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        ShowUpNext(on);
     }
 
-    /// <summary>A set: its title, and the first artists in it.</summary>
-    private FrameworkElement SetRow(Resonate.Spotify.Playback.DjSet set)
+    /// <summary>
+    /// Every song after the one playing, under its set's title. The rows are
+    /// built once per run; as songs play, the ones heard fold away.
+    /// </summary>
+    private void ShowUpNext(bool on)
     {
-        var resources = Application.Current.Resources;
-        var artists = string.Join(", ", set.Tracks.Select(t => t.Artists.Split(',')[0].Trim()).Distinct().Take(3));
-        return new Border
+        var run = on ? _dj.Run : [];
+        if (!ReferenceEquals(run, _shownRun))
         {
-            Padding = new Thickness(16, 12, 16, 12),
-            CornerRadius = new CornerRadius(_services.Theme.Palette.CornerMedium),
-            Background = _services.Theme.GetBrush("ResonateSurfaceHoverBrush"),
-            Child = new StackPanel
+            BuildUpNext(run);
+        }
+
+        var current = _dj.CurrentIndex;
+        var any = false;
+        foreach (var (index, row) in _songRows)
+        {
+            var show = index > current;
+            row.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            any |= show;
+        }
+
+        foreach (var (last, header) in _setHeaders)
+        {
+            header.Visibility = last > current ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        SetsPanel.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void BuildUpNext(IReadOnlyList<Resonate.Spotify.Library.TrackInfo> run)
+    {
+        _shownRun = run;
+        SetsList.Children.Clear();
+        _songRows.Clear();
+        _setHeaders.Clear();
+        var resources = Application.Current.Resources;
+        var size = Resonate.Themes.AppScale.Cover(CoverSize, _services.Settings.CoverSize);
+        var index = 0;
+        foreach (var set in _dj.Sets)
+        {
+            var header = new TextBlock
             {
-                Spacing = 2,
-                Children =
-                {
-                    new TextBlock { Text = set.Title, Style = (Style)resources["ResonateBodyTextStyle"], FontWeight = Microsoft.UI.Text.FontWeights.SemiBold },
-                    new TextBlock { Text = artists, Style = (Style)resources["ResonateSecondaryTextStyle"], TextTrimming = TextTrimming.CharacterEllipsis },
-                },
+                Text = set.Title,
+                Style = (Style)resources["ResonateEyebrowTextStyle"],
+                Margin = new Thickness(0, _setHeaders.Count == 0 ? 0 : 14, 0, 2),
+            };
+            SetsList.Children.Add(header);
+            _setHeaders.Add((index + set.Tracks.Count - 1, header));
+            foreach (var track in set.Tracks)
+            {
+                var row = SongRow(track, index, size, resources);
+                SetsList.Children.Add(row);
+                _songRows.Add((index, row));
+                index++;
+            }
+        }
+    }
+
+    /// <summary>A song: its cover, title and artists; a click plays the run from it.</summary>
+    private Grid SongRow(Resonate.Spotify.Library.TrackInfo track, int index, int size, ResourceDictionary resources)
+    {
+        var tile = Artwork.PlaceholderBrush(track.Album.Length > 0 ? track.Album : track.Title);
+        var image = new Image { Stretch = Microsoft.UI.Xaml.Media.Stretch.UniformToFill, Source = _services.Covers.Get(CoverImages.UrlFor(track, size), size, out var missing) };
+        var cover = new Grid
+        {
+            Width = size,
+            Height = size,
+            CornerRadius = new CornerRadius(_services.Theme.Palette.CornerSmall),
+            Background = image.Source is null ? tile : null,
+            Children = { image },
+        };
+        if (image.Source is { } source)
+        {
+            _ = ShowTileIfMissingAsync(new WeakReference<Grid>(cover), new WeakReference<Image>(image), source, missing, tile);
+        }
+
+        var words = new StackPanel
+        {
+            Spacing = 2,
+            VerticalAlignment = VerticalAlignment.Center,
+            Children =
+            {
+                new TextBlock { Text = track.Title, Style = (Style)resources["ResonateBodyTextStyle"], TextTrimming = TextTrimming.CharacterEllipsis },
+                new TextBlock { Text = track.Artists, Style = (Style)resources["ResonateSecondaryTextStyle"], TextTrimming = TextTrimming.CharacterEllipsis },
             },
         };
+        Grid.SetColumn(words, 1);
+        var length = new TextBlock
+        {
+            Text = Format.Duration(track.Duration),
+            Style = (Style)resources["ResonateSecondaryTextStyle"],
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        Grid.SetColumn(length, 2);
+        var row = new Grid
+        {
+            ColumnSpacing = 12,
+            Padding = new Thickness(8, 4, 12, 4),
+            CornerRadius = new CornerRadius(_services.Theme.Palette.CornerMedium),
+            Background = _services.Theme.GetBrush("ResonateTransparentBrush"),
+            ColumnDefinitions = { new ColumnDefinition { Width = GridLength.Auto }, new ColumnDefinition(), new ColumnDefinition { Width = GridLength.Auto } },
+            Children = { cover, words, length },
+        };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(row, $"{track.Title}, {track.Artists}");
+        row.PointerEntered += (_, _) => row.Background = _services.Theme.GetBrush("ResonateSurfaceHoverBrush");
+        row.PointerExited += (_, _) => row.Background = _services.Theme.GetBrush("ResonateTransparentBrush");
+        row.Tapped += (_, _) => _ = _dj.PlayFromAsync(index);
+        return row;
+    }
+
+    // Holds the row only weakly: a cover that never answers must not keep the page in memory.
+    private static async Task ShowTileIfMissingAsync(WeakReference<Grid> cover, WeakReference<Image> image, Microsoft.UI.Xaml.Media.ImageSource source, Task<bool> missing, Microsoft.UI.Xaml.Media.Brush tile)
+    {
+        if (await missing && image.TryGetTarget(out var shown) && ReferenceEquals(shown.Source, source) && cover.TryGetTarget(out var box))
+        {
+            box.Background = tile;
+        }
     }
 
     private void OnStartClick(object sender, RoutedEventArgs e) => _ = StartAsync();
