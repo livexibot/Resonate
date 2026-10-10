@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.18.0](https://github.com/livexibot/Resonate/compare/v0.17.0...v0.18.0) (2026-10-10)
+
+
+### New features
+
+* a floating player set wider than the page reaches over the whole window ([1f70390](https://github.com/livexibot/Resonate/commit/1f7039008415d5d15aed21b4c52c48380ccbdee0))
+* a minimal player in the sidebar under the playlists ([1f70390](https://github.com/livexibot/Resonate/commit/1f7039008415d5d15aed21b4c52c48380ccbdee0))
+* a playlist filter in the sidebar, and your own playlists first in Search ([1f70390](https://github.com/livexibot/Resonate/commit/1f7039008415d5d15aed21b4c52c48380ccbdee0))
+* Liked Songs, Local Files and DJ covers follow the accent, with a folder icon for Local Files ([1f70390](https://github.com/livexibot/Resonate/commit/1f7039008415d5d15aed21b4c52c48380ccbdee0))
+* lyrics in the player show the first two lines before the singing starts, say when there are none and wrap long lines ([1f70390](https://github.com/livexibot/Resonate/commit/1f7039008415d5d15aed21b4c52c48380ccbdee0))
+* Resonate opens on the song you left off, paused where it was, ready to play on ([1f70390](https://github.com/livexibot/Resonate/commit/1f7039008415d5d15aed21b4c52c48380ccbdee0))
+* Resonate's own DJ with themed sets from your library, Switch it up and a voice between sets ([1f70390](https://github.com/livexibot/Resonate/commit/1f7039008415d5d15aed21b4c52c48380ccbdee0))
+* song rows show Play and More on hover, the playing song shows a speaker, and the player's title opens its list at the song ([1f70390](https://github.com/livexibot/Resonate/commit/1f7039008415d5d15aed21b4c52c48380ccbdee0))
+* the mouse's forward button and Alt+Right go forward again after Back ([1f70390](https://github.com/livexibot/Resonate/commit/1f7039008415d5d15aed21b4c52c48380ccbdee0))
+* the player beside the page as one panel with a large cover, full controls and Up next, resizable down to a slim rail ([1f70390](https://github.com/livexibot/Resonate/commit/1f7039008415d5d15aed21b4c52c48380ccbdee0))
+* the progress glow follows the wave, Heartbeat and Dots lines ([1f70390](https://github.com/livexibot/Resonate/commit/1f7039008415d5d15aed21b4c52c48380ccbdee0))
+
+
+### Fixes
+
+* readable grey text on every look ([1f70390](https://github.com/livexibot/Resonate/commit/1f7039008415d5d15aed21b4c52c48380ccbdee0))
+* room between sidebar covers at any Cover size ([1f70390](https://github.com/livexibot/Resonate/commit/1f7039008415d5d15aed21b4c52c48380ccbdee0))
+* Settings and the queue lie over the page in small windows instead of squeezing it, and Home fits smaller windows ([1f70390](https://github.com/livexibot/Resonate/commit/1f7039008415d5d15aed21b4c52c48380ccbdee0))
+* the lossless badge is never cut off ([1f70390](https://github.com/livexibot/Resonate/commit/1f7039008415d5d15aed21b4c52c48380ccbdee0))
+* the screensaver waits while Resonate is only in the tray ([1f70390](https://github.com/livexibot/Resonate/commit/1f7039008415d5d15aed21b4c52c48380ccbdee0))
+
 ## [0.17.0](https://github.com/livexibot/Resonate/compare/v0.16.0...v0.17.0) (2026-10-09)
 
 
