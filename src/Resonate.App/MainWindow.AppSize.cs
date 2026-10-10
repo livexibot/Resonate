@@ -9,7 +9,7 @@ using Windows.System;
 namespace Resonate.App;
 
 /// <summary>
-/// App size (Settings, Look, Size): everything under the title bar is laid
+/// App size (Settings, Layout, Size): everything under the title bar is laid
 /// out smaller and drawn larger by <see cref="Controls.ScaleBox"/>, so pages,
 /// panels and the player grow together, and their narrow layouts take over
 /// when the window has less room for them. Ctrl+Plus, Ctrl+Minus and Ctrl+0
@@ -25,6 +25,7 @@ public sealed partial class MainWindow
 
     private void SetUpAppSize()
     {
+
         // The window is in its place by now, so this is the screen it is on.
         ApplyAppSize(grow: true);
         _services.Theme.SizeChanged += (_, _) =>

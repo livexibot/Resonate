@@ -193,18 +193,8 @@ public sealed partial class MainWindow
         }
     }
 
-    /// <summary>Started with Windows (--background): hidden in the tray (minimised if the tray icon could not be added).</summary>
-    internal void GoToBackground()
-    {
-        if (TrayOn)
-        {
-            AppWindow.Hide();
-        }
-        else
-        {
-            _presenter?.Minimize();
-        }
-    }
+    /// <summary>Started with Windows (--background): minimised to the taskbar.</summary>
+    internal void GoToBackground() => _presenter?.Minimize();
 
     // Export history
 

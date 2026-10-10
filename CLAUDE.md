@@ -113,8 +113,8 @@ visitors; keep it short and in step with this file.
   to reach 4.5:1 (`ArtworkColors.DimForWhiteText`, 85th percentile, linear
   light; since 10 October 2026 grey text too, see "Design review fixes");
   dark covers are untouched. Ember was replaced by Velvet. New
-  built-in plugins: Tray icon (closing hides to the tray; its menu plays,
-  pauses, skips and quits; `MainWindow.Tray.cs`) and Lyrics in the player
+  built-in plugins: Tray icon (closing hid to the tray; removed on
+  10 October 2026, see "One copy, no tray") and Lyrics in the player
   (it asks LRCLIB once per song while on; while a song has lines the
   player shows "Song · Artist" on one line, the song bold, and the sung
   line and the next one under it, the owner's layout of 9 October 2026).
@@ -263,9 +263,23 @@ visitors; keep it short and in step with this file.
   lost its caption, and one arrow step on the sidebar's grip from covers
   only opens the names (a small step snapped straight back). The owner
   saw the window's content drawn in only its top left four fifths (no
-  player) after widening the sidebar in the installed 0.18.0, at 125 %
-  App size; demo and real-data tries at their size did not show it, and
-  Resonate wrote no crash. Ask whether it froze if it happens again.
+  player) after widening the sidebar with Velvet in a window, at 125 %
+  App size: see "App size" under Size (the cut now follows the scale;
+  forcing the shell taller than the window drew the owner's picture with
+  the old code and a full window with the new).
+- One copy, no tray (10 October 2026, the owner: only one Resonate open
+  at a time, then "Remove the tray stuff, just make it so if they close
+  the app its closed"): `Services/SingleInstance.cs` holds a mutex named
+  after the settings file while Resonate runs, so a local build with
+  `--data` still runs beside the installed copy; a second start sets an
+  event, the open copy answers at once from a thread of its own and
+  comes forward (`MainWindow.ShowAgain`: the mini player if open, else
+  the window, restored), and the second quits. With no answer in 3 s
+  (a copy that is closing, as an update restarts Resonate) it waits up
+  to 10 s for that copy to end and starts. CI's checks (benchmark,
+  screenshots, perf, update, plugin and web player checks) never count.
+  The tray icon is gone (`MainWindow.Tray.cs` deleted); closing the
+  window quits, and Start with Windows starts minimised.
 - Narrow sidebar (9 October 2026): WinUI's list rows are at least 88 wide
   (`ListViewItemMinWidth`) and padded 16 and 12, wider than the 84 px
   sidebar, which put the icons and covers 13 px right of centre. The
@@ -975,7 +989,7 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   of the app, see "Where you left off"), Media shortcuts (global keys
   for play or pause, skip, volume and like, recorded like Quick search's
   with `ShortcutBox`), Start with Windows (HKCU Run, `--background`:
-  into the tray or minimised; never from a local build or the demo) and
+  minimised; never from a local build or the demo) and
   Export history (CSV through the Windows App SDK's save picker,
   `HistoryCsv`, formula-safe cells). Measure on the owner's PC:
   notifications from the unpackaged app, the taskbar buttons, the other
@@ -1032,8 +1046,8 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   right-aligned, at 32 px (`PlayerBar.ArrangeSide`).
 - Later on 9 October 2026 (the owner's requests): the tray icon, editing
   the queue (Up next) and the taskbar buttons are part of the app
-  (`BuiltInPlugins.IsAlwaysOn`, not listed), so closing the window always
-  hides Resonate in the tray; Start with Windows is a switch in Settings,
+  (`BuiltInPlugins.IsAlwaysOn`, not listed; the tray icon was removed on
+  10 October 2026 and closing the window quits); Start with Windows is a switch in Settings,
   General (`StartWithWindows`, on at first; the installed copy writes the
   Run key at every start, a local build never). Every plugin has settings
   behind its gear (`BuiltInPluginSettings.Create`, saved in `AppSettings`
@@ -1068,7 +1082,7 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   recoloured on `Theme.Changed`; `ListHeader.AccentCover`); the mouse's
   forward button and Alt+Right go forward after Back (`MainWindow._forward`,
   cleared when a page is opened anew; `AppCommand.Forward`); the
-  Screensaver never starts while Resonate is only in the tray (minimised
+  Screensaver never starts while Resonate's window is hidden (minimised
   and the mini player count as open); Lyrics in the player keeps "Song ·
   Artist" on one line while it is on and says "No lyrics", "No synced
   lyrics" or "Instrumental" under it once the lookup ends, and a lyric
@@ -1524,8 +1538,12 @@ app and make text bigger):
   and Ctrl+0) and Text size (90 to 150 %). Both belong to the user, not to
   a look; the steps live in `Resonate.Themes/AppScale.cs` and are tested.
 - App size: `Controls/ScaleBox` lays out everything under the title bar at
-  1/size and draws it that much larger with a `ScaleTransform`
-  (`MainWindow.AppSize.cs`). The title bar keeps Windows' size, like the
+  1/size and draws it that much larger with a `ScaleTransform` on the box
+  itself (`MainWindow.AppSize.cs`), never on its children: XAML cuts a
+  child that asks for more room than it is given to that room, in its
+  parent's units and before the child's own transform, so with the
+  transform on the child only the top left 1/size of the window showed
+  (the owner's Velvet window at 125 %, 10 October 2026). The title bar keeps Windows' size, like the
   caption buttons beside it. Pages see a narrower window, so their compact
   layouts and the Compact and Mini player take over sooner, and the
   window's minimum size grows with App size (within its screen, worked out
@@ -2081,8 +2099,8 @@ when the work first needs them, then tick them off here.
   and a way to review or sign them first.
 - Keyboard shortcuts for everything (the Summon bar's Ctrl+K palette is a
   start).
-- A tray icon and close to tray (the Summon bar needs it to work after the
-  window is closed), and taskbar-thumbnail controls.
+- Taskbar-thumbnail controls. (A tray icon was built and then removed at
+  the owner's request on 10 October 2026: closing the window quits.)
 - Equalizer and playlist windows for the classic player in the full window
   too. For now only the mini player has them; in the full window EQ opens
   Settings at the equalizer and PL opens the queue.

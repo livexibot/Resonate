@@ -25,7 +25,6 @@ public sealed partial class MainWindow
         SetUpSignalPath();
         SetUpPauseOnLock();
         SetUpPauseOnUnplug();
-        SetUpTray();
         SetUpPlayerLyrics();
         SetUpSongNotifications();
         SetUpKeepAwake();
@@ -96,8 +95,6 @@ public sealed partial class MainWindow
     partial void SetUpPauseOnLock();
 
     partial void SetUpPauseOnUnplug();
-
-    partial void SetUpTray();
 
     partial void SetUpPlayerLyrics();
 

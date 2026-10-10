@@ -36,5 +36,9 @@ public partial class App : Application
             // Started with Windows: out of the way at once.
             _window.GoToBackground();
         }
+
+        // Starting Resonate again brings this window forward.
+        var window = _window;
+        SingleInstance.OnAsked(window.DispatcherQueue, window.ShowAgain);
     }
 }

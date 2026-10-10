@@ -79,7 +79,7 @@ public sealed class AppSettings
     /// <summary>The Spotify song that played last and its place, shown when Resonate opens (see MainWindow.LastPlayed.cs).</summary>
     public Resonate.Spotify.Playback.LastPlayed? LastPlayed { get; set; }
 
-    /// <summary>Resonate opens when the user signs in to Windows, quietly in the tray (Settings, General; on at first, the owner's choice of 9 October 2026).</summary>
+    /// <summary>Resonate opens when the user signs in to Windows, minimised (Settings, General; on at first, the owner's choice of 9 October 2026).</summary>
     public bool StartWithWindows { get; set; } = true;
 
     /// <summary>The player's buttons sit in a row above the volume (Settings, Player, Style).</summary>
