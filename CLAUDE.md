@@ -15,12 +15,17 @@ visitors; keep it short and in step with this file.
   2026; see "First milestone"). Releases are published with one
   installer, for ordinary (x64) Windows PCs (`Resonate-win-x64-Setup.exe`;
   the owner dropped arm64 and the portable zip on 8 October 2026 to save
-  build time); the latest is v0.18.0 (10 October 2026, afternoon:
-  Resonate's own DJ, opening where you left off, the player beside the
+  build time); the latest is v0.19.0 (10 October 2026, evening: Settings
+  regrouped with a General tab, one Resonate at a time, no tray icon
+  (closing quits), far fewer Spotify requests with a count in Settings,
+  media controls that work while Spotify refuses the Web API, the App
+  size cut fixed, no rings on Home, no player bar visualizer in presets;
+  pull request #70, release #72, with the shorter README and its pictures
+  in #71; the beta's `live` branch was started again from `main` after
+  it); v0.18.0 (10 October 2026, afternoon: Resonate's own DJ, opening where you left off, the player beside the
   page as one resizable panel down to a rail, the sidebar player, a wide
   floating player over the whole window, the progress glow along the line,
-  and the design review fixes; pull request #68, release #69; the beta's
-  `live` branch was started again from `main` after it); v0.17.0
+  and the design review fixes; pull request #68, release #69); v0.17.0
   (9 October 2026, late night: four
   new special looks, Synthwave, Liquid Chrome, Cyberpunk and Afterhours,
   with moving scenery, weather and decorations, the Ocean dark preset in
@@ -1965,6 +1970,26 @@ Track features and bugs as GitHub issues with labels such as `feature`,
 `bug`, `design` and `performance`. When the owner asks for something that
 cannot be done right away, open an issue for it so nothing is forgotten.
 
+### Outside issues and pull requests (since 10 October 2026)
+
+The repository is public and takes issues and pull requests from anyone
+(the owner's request: "users can post issues, and new stuff to the app
+but you have to go through it and i have to approve it"). Issues come in
+through two forms (`.github/ISSUE_TEMPLATE`: "Something is wrong", "An
+idea"; blank issues are off) and pull requests through
+`.github/pull_request_template.md`; `CONTRIBUTING.md` says what fits.
+Claude reads every new issue and pull request and tells the owner in
+plain words what it is and what Claude recommends. Claude reviews outside
+pull requests with comments only: never "Approve" on GitHub (the GitHub
+tools act as the owner's account, so an approval would count as the
+owner's) and never merges one before the owner has approved it on GitHub
+or said so in the project; the admin bypass on `main` is for Claude's own
+and release-please's pull requests, never for outside ones. A fork's CI waits for approval; Claude may let
+it run only after reading the whole diff for anything harmful (CI runs
+there with a read-only token and no secrets, and the screenshot push is
+skipped for forks). Claude's own pull requests follow the template too,
+after the attribution block.
+
 ### Releases (automatic)
 
 - Versions follow semantic versioning, starting at `0.1.0`. While the
@@ -2061,6 +2086,11 @@ Keep it obvious what is what:
   portable zip, the owner's choice of 8 October 2026).
 - `release-please-config.json`, `.release-please-manifest.json`,
   `version.txt`: release settings and the current version.
+- `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md` and
+  `THIRD-PARTY-NOTICES.md` (spotifast's MIT licence for the ported lyrics
+  code) for contributors; `.github/ISSUE_TEMPLATE`,
+  `.github/pull_request_template.md` and `.github/CODEOWNERS` (the owner
+  owns everything).
 - `README.md` for visitors, `CLAUDE.md` (this brief), `CHANGELOG.md`
   (generated), `LICENSE`.
 
@@ -2070,24 +2100,41 @@ Claude cannot change these repository settings. Walk the owner through them
 when the work first needs them, then tick them off here.
 
 - [x] Delete the leftover branches and tag from the reset.
-- [ ] Settings, General, Pull Requests: allow squash merging only, and turn
-  on "Automatically delete head branches".
-- [ ] Settings, General, Features: tick "Issues". It was off on 8 October
-  2026, so follow-ups are noted in this file until it is on.
+- [x] Settings, General, Pull Requests: allow squash merging only, and turn
+  on "Automatically delete head branches". Done 10 October 2026 (the
+  owner: "Change any github settings you want"), squash title the pull
+  request's title.
+- [x] Settings, General, Features: tick "Issues". On since 10 October 2026.
 - [x] Settings, Actions, General, Workflow permissions: "Read and write
   permissions" and "Allow GitHub Actions to create and approve pull
   requests" (release-please needs both). Done 7 October 2026.
 - [ ] GitHub account Settings, Emails: tick "Keep my email addresses
   private", so commits made on the website use the no-reply address.
-- [ ] Settings, Rules: protect `main` so changes arrive only through pull
-  requests with passing CI, and block force pushes. Do this once CI exists.
+- [x] Settings, Rules: ruleset "main" (id 24855435, 10 October 2026) on
+  the default branch: changes only through a squash-merged pull request
+  with one approval from a code owner (stale approvals dismissed on a new
+  push) and CI's six checks passing ("What changed", the Linux logic job,
+  "Logic tests on Windows" and the three "Windows app" jobs, from GitHub
+  Actions only); no force pushes or deletion. The repository admin role
+  (the owner's account, which Claude's work uses) may bypass it through a
+  pull request only, never by pushing to `main`, so Claude merges its own
+  pull requests and release-please's with `gh pr merge --squash --admin`
+  once CI is green. Renaming a CI job means updating the ruleset, or
+  outside pull requests can never merge.
+- [x] Settings, Actions, General, "Fork pull request workflows from
+  outside collaborators": approval for all outside collaborators
+  (10 October 2026).
+- [x] Settings, Security: private vulnerability reporting (SECURITY.md
+  points to it), Dependabot alerts, secret scanning and push protection
+  on (10 October 2026). Dependabot's automatic security pull requests stay
+  off.
 - [ ] Create a Spotify developer app at developer.spotify.com (with the
   Premium account), add the redirect URI `http://127.0.0.1:43821/callback`,
   tick "Web API", and paste its client ID into Resonate's first screen.
 - [ ] In the Spotify app: switch audio quality to Lossless, stay signed
   in, and let it start with Windows, minimised.
-- [ ] Choose a license before making the repository public (MIT is a
-  common, simple choice).
+- [x] Choose a license: MIT (the owner's choice, 10 October 2026;
+  `LICENSE`, copyright livexibot).
 - [x] Make the repository public (decided 7 October 2026, so installed
   copies can see new releases). Public by 8 October 2026.
 - [ ] Optional, later: Windows code signing, so the installer does not show
