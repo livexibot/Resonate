@@ -71,6 +71,9 @@ public sealed partial class MainWindow : Window
     private readonly CancellationTokenSource _lifetime = new();
     private readonly DispatcherQueueTimer _messageTimer;
     private readonly List<string> _history = [];
+
+    /// <summary>Pages left with Back, newest last, for Forward; a page opened anew forgets them, as in a browser.</summary>
+    private readonly List<string> _forward = [];
     private readonly ColumnDefinition _paneColumn = new() { Width = new GridLength(Controls.QueuePanel.PaneWidth) };
     private string? _currentKey;
     private bool _syncingSelection;
@@ -196,6 +199,7 @@ public sealed partial class MainWindow : Window
 
         ShowPlaylists(_services.Library.Snapshot);
         _history.Clear();
+        _forward.Clear();
         _currentKey = null;
         Open(HomeKey);
 
@@ -539,6 +543,7 @@ public sealed partial class MainWindow : Window
 
         // Back leads nowhere from the sign-in page; signing in starts again at Home.
         _history.Clear();
+        _forward.Clear();
         BackButton.Visibility = Visibility.Collapsed;
         UpdateTitleBarPassthrough();
     }
@@ -566,6 +571,12 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        // A page opened anew: Forward has nowhere left to go.
+        if (key != _currentKey)
+        {
+            _forward.Clear();
+        }
+
         SelectNav(key);
         Navigate(key, remember: true);
     }
@@ -590,8 +601,28 @@ public sealed partial class MainWindow : Window
 
         var key = _history[^1];
         _history.RemoveAt(_history.Count - 1);
+        if (_currentKey is { } current && current != key)
+        {
+            _forward.Add(current);
+        }
+
         SelectNav(key);
         Navigate(key, remember: false);
+    }
+
+    /// <summary>Goes forward again to a page left with Back, like a browser's Forward button.</summary>
+    public void GoForward()
+    {
+        if (_forward.Count == 0 || ShellGrid.Visibility != Visibility.Visible)
+        {
+            return;
+        }
+
+        var key = _forward[^1];
+        _forward.RemoveAt(_forward.Count - 1);
+        LeaveMiniPlayer();
+        SelectNav(key);
+        Navigate(key, remember: true);
     }
 
     /// <summary>The page on show, such as a <see cref="HomePage"/>.</summary>
@@ -1108,13 +1139,19 @@ public sealed partial class MainWindow : Window
         _ => RepeatMode.Off,
     };
 
-    /// <summary>The mouse's back button goes back.</summary>
+    /// <summary>The mouse's back button goes back, and its forward button forward again.</summary>
     private void OnRootPointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (e.GetCurrentPoint(RootGrid).Properties.IsXButton1Pressed)
+        var buttons = e.GetCurrentPoint(RootGrid).Properties;
+        if (buttons.IsXButton1Pressed)
         {
             e.Handled = true;
             GoBack();
+        }
+        else if (buttons.IsXButton2Pressed)
+        {
+            e.Handled = true;
+            GoForward();
         }
     }
 

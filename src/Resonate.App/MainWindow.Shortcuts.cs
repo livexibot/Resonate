@@ -166,6 +166,9 @@ public sealed partial class MainWindow
             case AppCommand.Back:
                 GoBack();
                 break;
+            case AppCommand.Forward:
+                GoForward();
+                break;
             case AppCommand.AppSizeUp:
                 StepAppSize(1);
                 break;

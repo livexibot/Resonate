@@ -30,6 +30,7 @@ public enum AppCommand
     AppSizeUp,
     AppSizeDown,
     AppSizeReset,
+    Forward,
 }
 
 /// <summary>
@@ -116,6 +117,7 @@ public static class AppKeys
         (AppCommand.NewPlaylist, "New playlist"),
         (AppCommand.MiniPlayer, "Mini player"),
         (AppCommand.Back, "Back"),
+        (AppCommand.Forward, "Forward"),
         (AppCommand.AppSizeUp, "Bigger"),
         (AppCommand.AppSizeDown, "Smaller"),
         (AppCommand.AppSizeReset, "Usual size"),
@@ -138,6 +140,7 @@ public static class AppKeys
         [AppCommand.NewPlaylist] = [Ctrl("N")],
         [AppCommand.MiniPlayer] = [Ctrl("M")],
         [AppCommand.Back] = [new(false, true, false, "Left")],
+        [AppCommand.Forward] = [new(false, true, false, "Right")],
 
         // The plus key beside Backspace (Shift with it types the plus on US keyboards) and the number pad's.
         [AppCommand.AppSizeUp] = [Ctrl("Equal"), new(true, false, true, "Equal"), Ctrl("Add")],
