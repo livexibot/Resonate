@@ -551,8 +551,9 @@ Spotify features Resonate builds on (researched 2026-10-07; "measure" means
 only the owner's PC can tell):
 - DJ is the playlist `spotify:playlist:37i9dQZF1EYkqdzj48dyYq`. The Web API
   quietly declines to start it (and a PUT play with it stops the music), so
-  never send it as a context. Resonate opens that URI in the Spotify app and
-  then follows `/me/player`. While DJ plays, shuffle and repeat are
+  never send it as a context. Since 10 October 2026 Resonate's DJ page plays
+  its own DJ instead (see the 10 October notes); Spotify's DJ started in a
+  Spotify app is still shown and controlled like any music. While DJ plays, shuffle and repeat are
   disallowed and the item can be empty while the DJ talks. Measure: that
   opening the URI starts DJ.
 - Local files: the Web API refuses `spotify:local:` URIs (400 "Invalid track
@@ -955,6 +956,33 @@ moment", and for synced lyrics like Spotify's, from spotifast's source):
   `ShowLikeColumn`, `ShowDurationColumn`). Sidebar rows and song rows now
   name themselves for screen readers (`ToString`), which also lets UI
   Automation drive a demo copy for checks.
+
+- 10 October 2026 (the owner's requests, after 0.17.0): the sidebar's
+  playlist rows grow with Cover size like song rows (`PlaylistNavItem.RowHeight`,
+  `AppScale.CoverRow`); Liked Songs, Local Files (now with the sidebar's
+  folder icon) and DJ covers are the look's accent (`Artwork.AccentCoverBrush`,
+  recoloured on `Theme.Changed`; `ListHeader.AccentCover`); the mouse's
+  forward button and Alt+Right go forward after Back (`MainWindow._forward`,
+  cleared when a page is opened anew; `AppCommand.Forward`); the
+  Screensaver never starts while Resonate is only in the tray (minimised
+  and the mini player count as open); Lyrics in the player keeps "Song ·
+  Artist" on one line while it is on and says "No lyrics", "No synced
+  lyrics" or "Instrumental" under it once the lookup ends, and a lyric
+  line wraps onto two lines (the next line then keeps to one).
+- Resonate's own DJ (10 October 2026, the owner's choice between it and
+  opening Spotify's DJ in the Spotify app, which Spotify's Web API cannot
+  start: a PUT play with its playlist stops the music; the owner's Spotify
+  app also showed "Something went wrong" when asked to open it): the DJ
+  page starts an endless run of short themed sets from Liked Songs and the
+  listening history (`Resonate.Spotify/Playback/DjMix.cs`, tested:
+  favourites of the last two months, fresh finds, throwbacks, deep cuts,
+  more from one artist, picks for this time of day, a mix; no song twice
+  in a run), played as one list (`Services/DjService.cs`, 40 sets of
+  `DjSetSize` songs). "Switch it up" starts a new run with another kind;
+  the run ends when something else plays. A voice from Windows
+  (`SpeechSynthesizer`, an English voice, through a `MediaPlayer` kept out
+  of the media controls) says each set's line while the music is turned
+  down to 35 % (`DjVoice`, on at first; never in the demo).
 
 Classic player and cover art (checked 2026-10-08):
 - Classic Winamp skins (`.wsz`, Winamp 2) are zip archives of BMP sheets
