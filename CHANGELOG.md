@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.19.0](https://github.com/livexibot/Resonate/compare/v0.18.0...v0.19.0) (2026-10-10)
+
+
+### New features
+
+* only one Resonate runs at a time; starting it again brings the open window forward ([ffec70c](https://github.com/livexibot/Resonate/commit/ffec70cd0428f1bccd75197105de1a9a0d7c9125))
+* Settings easier to find your way in: Home's visualizer under Layout, the progress bar and Song stats in their own groups, plugins grouped by what they do, and a General tab ([ffec70c](https://github.com/livexibot/Resonate/commit/ffec70cd0428f1bccd75197105de1a9a0d7c9125))
+* Settings, General, Spotify account counts the requests sent to Spotify today and in total ([ffec70c](https://github.com/livexibot/Resonate/commit/ffec70cd0428f1bccd75197105de1a9a0d7c9125))
+
+
+### Fixes
+
+* at a larger App size the window is never cut to its top left corner ([ffec70c](https://github.com/livexibot/Resonate/commit/ffec70cd0428f1bccd75197105de1a9a0d7c9125))
+* closing the window quits Resonate; the tray icon is gone and Start with Windows opens it minimised ([ffec70c](https://github.com/livexibot/Resonate/commit/ffec70cd0428f1bccd75197105de1a9a0d7c9125))
+* no preset turns on the player bar's visualizer ([ffec70c](https://github.com/livexibot/Resonate/commit/ffec70cd0428f1bccd75197105de1a9a0d7c9125))
+* no rings in Home's background ([ffec70c](https://github.com/livexibot/Resonate/commit/ffec70cd0428f1bccd75197105de1a9a0d7c9125))
+* one arrow step on the sidebar's grip opens the names from covers only ([ffec70c](https://github.com/livexibot/Resonate/commit/ffec70cd0428f1bccd75197105de1a9a0d7c9125))
+* Resonate asks Spotify far less often (slower polls, one queue read per song, no needless checks), so the developer app's allowance lasts ([ffec70c](https://github.com/livexibot/Resonate/commit/ffec70cd0428f1bccd75197105de1a9a0d7c9125))
+* Windows media controls still reach Spotify while its Web API allowance is used up, and the message says when more is allowed ([ffec70c](https://github.com/livexibot/Resonate/commit/ffec70cd0428f1bccd75197105de1a9a0d7c9125))
+
 ## [0.18.0](https://github.com/livexibot/Resonate/compare/v0.17.0...v0.18.0) (2026-10-10)
 
 
