@@ -130,6 +130,12 @@ public static class PlayerPlacement
     /// <summary>Whether a side column is on the left of the page.</summary>
     public static bool IsLeftSide(PlayerLayout layout) => layout is PlayerLayout.Left or PlayerLayout.InsetLeft;
 
+    /// <summary>Whether the player is the minimal one at the foot of the sidebar.</summary>
+    public static bool IsInSidebar(PlayerLayout layout) => layout == PlayerLayout.Sidebar;
+
+    /// <summary>The space between the sidebar's last playlist and a player at its foot.</summary>
+    public const double SidebarPlayerGap = 8;
+
     /// <summary>Whether a hovering player keeps to the top of the page instead of the bottom.</summary>
     public static bool HoversAtTop(PlayerLayout layout) => layout == PlayerLayout.HoveringTop;
 
@@ -159,7 +165,8 @@ public static class PlayerPlacement
         var gap = Math.Max(panelGap, 0);
         return layout switch
         {
-            PlayerLayout.Floating => Around(Math.Max(gap, FloatingGap)),
+            // In the sidebar, the same as floating: the window places its slot inside the sidebar.
+            PlayerLayout.Floating or PlayerLayout.Sidebar => Around(Math.Max(gap, FloatingGap)),
 
             // Right under the title bar, where the panels start otherwise; the slot keeps the gap below it.
             PlayerLayout.FloatingTop => new EdgeInsets(Math.Max(gap, FloatingGap), 0, Math.Max(gap, FloatingGap), 0),
@@ -180,6 +187,7 @@ public static class PlayerPlacement
     public static EdgeInsets Outline(PlayerLayout layout, double borderWidth) => layout switch
     {
         PlayerLayout.Floating or PlayerLayout.FloatingTop or PlayerLayout.Left or PlayerLayout.Right or PlayerLayout.InsetLeft or PlayerLayout.InsetRight => EdgeInsets.All(borderWidth),
+        PlayerLayout.Sidebar => EdgeInsets.All(Math.Max(borderWidth, 1)),
         PlayerLayout.Hovering or PlayerLayout.Corner or PlayerLayout.HoveringTop or PlayerLayout.CornerLeft => EdgeInsets.All(Math.Max(borderWidth, 1)),
         PlayerLayout.Top => new EdgeInsets(0, 0, 0, borderWidth),
         _ => new EdgeInsets(0, borderWidth, 0, 0),
@@ -193,7 +201,7 @@ public static class PlayerPlacement
     /// </summary>
     public static double Corner(PlayerLayout layout, ButtonShape buttons, double cornerLarge, double height) => layout switch
     {
-        PlayerLayout.Floating or PlayerLayout.FloatingTop or PlayerLayout.Left or PlayerLayout.Right or PlayerLayout.InsetLeft or PlayerLayout.InsetRight
+        PlayerLayout.Floating or PlayerLayout.FloatingTop or PlayerLayout.Left or PlayerLayout.Right or PlayerLayout.InsetLeft or PlayerLayout.InsetRight or PlayerLayout.Sidebar
             => Math.Min(Math.Max(cornerLarge, 4), height / 2),
         PlayerLayout.Hovering or PlayerLayout.Corner or PlayerLayout.HoveringTop or PlayerLayout.CornerLeft when buttons == ButtonShape.Round => height / 2,
         PlayerLayout.Hovering or PlayerLayout.Corner or PlayerLayout.HoveringTop or PlayerLayout.CornerLeft => Math.Min(Math.Min(cornerLarge * 1.5, HoveringCornerLimit), height / 2),

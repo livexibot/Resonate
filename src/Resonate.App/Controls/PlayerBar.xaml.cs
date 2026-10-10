@@ -51,8 +51,14 @@ public sealed partial class PlayerBar : UserControl
     private string? _positionLabel;
     private string? _durationLabel;
     private PlayerWidthClass _widthClass = PlayerWidthClass.Full;
+
+    /// <summary>Whether this is the minimal player at the foot of the sidebar (see <see cref="ShowInSidebar"/>).</summary>
+    private bool _inSidebar;
+
+    /// <summary>The height a player in the sidebar, which is as tall as what it shows, rounds its corners for.</summary>
+    private const double SidebarCornerHeight = 96;
     private bool _lyricsShown;
-    private (bool On, string? Line, string? Next, string? Note) _lyricArgs;
+    private (bool On, string? Line, string? Next, string? Note, string? After) _lyricArgs;
     private Brush? _sungLyricBrush;
     private float _artworkSize = 56;
 
@@ -92,9 +98,9 @@ public sealed partial class PlayerBar : UserControl
     /// next one, or a word when there are none ("No lyrics"). Off: the song
     /// above its artists. The mini bar has no room for lyrics.
     /// </summary>
-    public void ShowLyrics(bool on, string? line = null, string? next = null, string? note = null)
+    public void ShowLyrics(bool on, string? line = null, string? next = null, string? note = null, string? after = null)
     {
-        _lyricArgs = (on, line, next, note);
+        _lyricArgs = (on, line, next, note, after);
         on &= _widthClass != PlayerWidthClass.Mini;
 
         // Before the first sung line (or in a pause) the coming line moves up
@@ -105,9 +111,10 @@ public sealed partial class PlayerBar : UserControl
         _sungLyricBrush ??= LyricLineText.Foreground;
         LyricLineText.Foreground = singing ? _sungLyricBrush : NextLyricText.Foreground;
 
-        NextLyricText.Text = next ?? string.Empty;
+        // Under the line sung, the next; before the first, the coming line and the one after it.
+        NextLyricText.Text = (singing ? next : shown == next ? after : null) ?? string.Empty;
         LyricLineText.Visibility = on && !string.IsNullOrEmpty(shown) ? Visibility.Visible : Visibility.Collapsed;
-        NextLyricText.Visibility = on && singing && !string.IsNullOrWhiteSpace(next) ? Visibility.Visible : Visibility.Collapsed;
+        NextLyricText.Visibility = on && !string.IsNullOrWhiteSpace(NextLyricText.Text) ? Visibility.Visible : Visibility.Collapsed;
         ShowSongDot();
         if (on == _lyricsShown)
         {
@@ -305,11 +312,11 @@ public sealed partial class PlayerBar : UserControl
         VolumeBar.BarStyle = ProgressPatterns.ForVolume(look.Progress);
 
         // Settings, Layout, Advanced: the user's own height.
-        Bar.Height = look.PlayerHeight ?? PlayerPlacement.HeightFor(_widthClass);
+        Bar.Height = BarHeightFor(_widthClass);
 
         // A pill when it hovers in a look with round buttons: the corners
         // follow the bar's height, which is lower for the mini bar.
-        var corner = new CornerRadius(PlayerPlacement.Corner(look.PlayerLayout, look.Buttons, theme.Palette.CornerLarge, Bar.Height));
+        var corner = new CornerRadius(PlayerPlacement.Corner(look.PlayerLayout, look.Buttons, theme.Palette.CornerLarge, double.IsNaN(Bar.Height) ? SidebarCornerHeight : Bar.Height));
         Bar.CornerRadius = corner;
         BarHost.CornerRadius = corner;
 
@@ -321,8 +328,8 @@ public sealed partial class PlayerBar : UserControl
             _ => HorizontalAlignment.Stretch,
         };
 
-        // Settings, Layout, Advanced: the user's own width and height.
-        BarHost.MaxWidth = look.PlayerWidth ?? PlayerPlacement.MaxWidth(look.PlayerLayout);
+        // Settings, Layout, Advanced: the user's own width and height. In the sidebar, the sidebar's width.
+        BarHost.MaxWidth = _inSidebar ? double.PositiveInfinity : look.PlayerWidth ?? PlayerPlacement.MaxWidth(look.PlayerLayout);
 
         // A record for the vinyl style, and for every look while the user
         // lets covers spin; otherwise the look's own shape.
@@ -374,8 +381,42 @@ public sealed partial class PlayerBar : UserControl
     {
         if (e.NewSize.Width >= 1)
         {
-            ShowWidthClass(PlayerPlacement.WidthClassFor(e.NewSize.Width));
+            ShowWidthClass(_inSidebar ? PlayerWidthClass.Mini : PlayerPlacement.WidthClassFor(e.NewSize.Width));
         }
+    }
+
+    /// <summary>The user's own height, else the class's; a player in the sidebar is as tall as what it shows.</summary>
+    private double BarHeightFor(PlayerWidthClass widthClass) =>
+        App.Services.Theme.Current.PlayerHeight ?? (_inSidebar ? double.NaN : PlayerPlacement.HeightFor(widthClass));
+
+    /// <summary>
+    /// The minimal player at the foot of the sidebar (Settings, Player,
+    /// Placement, Sidebar; the owner's request, 10 October 2026): the mini
+    /// bar stacked, the cover and the song over previous, play, next and the
+    /// progress, as wide as the sidebar. The plugins, devices, queue and
+    /// volume buttons are left out.
+    /// </summary>
+    internal void ShowInSidebar(bool on)
+    {
+        if (_inSidebar == on)
+        {
+            return;
+        }
+
+        _inSidebar = on;
+        Bar.RowDefinitions.Clear();
+        if (on)
+        {
+            Bar.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            Bar.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        }
+
+        Grid.SetColumnSpan(NowPlayingArea, on ? 3 : 1);
+        Grid.SetRow(Transport, on ? 1 : 0);
+        Grid.SetColumn(Transport, on ? 0 : 1);
+        Grid.SetColumnSpan(Transport, on ? 3 : 1);
+        SideArea.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
+        ShowWidthClass(on || Bar.ActualWidth < 1 ? PlayerWidthClass.Mini : PlayerPlacement.WidthClassFor(Bar.ActualWidth), force: true);
     }
 
     /// <summary>
@@ -385,9 +426,9 @@ public sealed partial class PlayerBar : UserControl
     /// the progress and the queue when it is narrower still. Only a change of
     /// class touches the layout, never each pixel of a resize.
     /// </summary>
-    private void ShowWidthClass(PlayerWidthClass widthClass)
+    private void ShowWidthClass(PlayerWidthClass widthClass, bool force = false)
     {
-        if (widthClass == _widthClass)
+        if (widthClass == _widthClass && !force)
         {
             return;
         }
@@ -397,22 +438,23 @@ public sealed partial class PlayerBar : UserControl
         var mini = widthClass == PlayerWidthClass.Mini;
         var shown = mini ? Visibility.Collapsed : Visibility.Visible;
 
-        Bar.Height = App.Services.Theme.Current.PlayerHeight ?? PlayerPlacement.HeightFor(widthClass);
+        Bar.Height = BarHeightFor(widthClass);
         var padding = full ? 20 : mini ? 14 : 16;
-        Bar.Padding = new Thickness(padding, 0, padding, 0);
-        Bar.ColumnSpacing = full ? 24 : mini ? 12 : 16;
+        Bar.Padding = _inSidebar ? new Thickness(12, 12, 12, 8) : new Thickness(padding, 0, padding, 0);
+        Bar.ColumnSpacing = _inSidebar ? 0 : full ? 24 : mini ? 12 : 16;
+        Bar.RowSpacing = _inSidebar ? 8 : 0;
 
-        // Full and compact keep the controls in the middle; the mini bar gives the song what is left.
+        // Full and compact keep the controls in the middle; the mini bar gives the song what is left; in the sidebar, the song and the controls each take a row of their own.
         NowPlayingColumn.Width = new GridLength(mini ? 1 : 3, GridUnitType.Star);
         NowPlayingColumn.MinWidth = full ? 220 : mini ? 0 : 150;
-        ControlsColumn.Width = mini ? GridLength.Auto : new GridLength(4, GridUnitType.Star);
+        ControlsColumn.Width = _inSidebar ? new GridLength(0) : mini ? GridLength.Auto : new GridLength(4, GridUnitType.Star);
         ControlsColumn.MinWidth = full ? 320 : mini ? 0 : 216;
-        VolumeColumn.Width = mini ? GridLength.Auto : new GridLength(3, GridUnitType.Star);
+        VolumeColumn.Width = _inSidebar ? new GridLength(0) : mini ? GridLength.Auto : new GridLength(3, GridUnitType.Star);
         // Room for all four buttons (plugins, device, queue, speaker) and, in full, the slider.
         VolumeColumn.MinWidth = full ? 272 : mini ? 0 : 156;
 
         TransportButtons.Spacing = full ? 14 : 8;
-        Transport.Spacing = mini ? 0 : 2;
+        Transport.Spacing = _inSidebar ? 4 : mini ? 0 : 2;
         ShuffleButton.Visibility = shown;
         RepeatButton.Visibility = shown;
         PositionText.Visibility = shown;
@@ -420,7 +462,7 @@ public sealed partial class PlayerBar : UserControl
         PositionColumn.Width = mini ? new GridLength(0) : GridLength.Auto;
         DurationColumn.Width = mini ? new GridLength(0) : GridLength.Auto;
         SeekRow.ColumnSpacing = mini ? 0 : 10;
-        SeekRow.MinWidth = mini ? 150 : 0;
+        SeekRow.MinWidth = mini && !_inSidebar ? 150 : 0;
         MuteButton.Visibility = shown;
 
         // Narrower, the buttons go above the volume rather than the slider going away.
@@ -428,8 +470,8 @@ public sealed partial class PlayerBar : UserControl
         VolumeBar.Width = full ? 112 : 96;
 
         // The mini bar has no room for lyrics; a wider one shows them again.
-        var (lyricsOn, line, next, note) = _lyricArgs;
-        ShowLyrics(lyricsOn, line, next, note);
+        var (lyricsOn, line, next, note, after) = _lyricArgs;
+        ShowLyrics(lyricsOn, line, next, note, after);
 
         _artworkSize = mini ? 48 : 56;
         NowPlaying.ColumnSpacing = mini ? 10 : 14;

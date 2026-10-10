@@ -803,6 +803,47 @@ public sealed class ListPlaybackTests : IDisposable
     /// <summary>Commands run one after another, so once a later one is done, every earlier one is too.</summary>
     private Task AfterQueuedCommandsAsync() => _player.SeekAsync(_player.State.PositionAt(_time.GetUtcNow()));
 
+    [Fact]
+    public async Task The_song_from_last_time_shows_paused_and_plays_on_in_its_list_from_its_place()
+    {
+        await _player.StartAsync(TestContext.Current.CancellationToken);
+        _player.ShowLastPlayed(new LastPlayed { TrackUri = "spotify:track:kept", ContextUri = Playlist, Title = "Kept", Artists = "Band", DurationMs = 200_000, PositionMs = 65_000 });
+
+        Assert.Equal("Kept", _player.State.Title);
+        Assert.False(_player.State.IsPlaying);
+        Assert.Equal(TimeSpan.FromSeconds(65), _player.State.Position);
+
+        await _player.PlayAsync();
+
+        var body = Assert.Single(_web.PlayBodies)!;
+        Assert.Equal(Playlist, body.ContextUri);
+        Assert.Equal("spotify:track:kept", body.Offset!.Uri);
+        Assert.Equal(65_000, body.PositionMs);
+    }
+
+    [Fact]
+    public async Task The_song_from_last_time_plays_by_itself_when_its_list_is_gone()
+    {
+        _web.FailContextPlayback = new SpotifyApiException(HttpStatusCode.NotFound, null, "gone");
+        await _player.StartAsync(TestContext.Current.CancellationToken);
+        _player.ShowLastPlayed(new LastPlayed { TrackUri = "spotify:track:kept", ContextUri = Playlist, Title = "Kept", DurationMs = 200_000, PositionMs = 30_000 });
+
+        await _player.PlayAsync();
+
+        var body = Assert.Single(_web.PlayBodies)!;
+        Assert.Null(body.ContextUri);
+        Assert.Equal(["spotify:track:kept"], body.Uris);
+        Assert.Equal(30_000, body.PositionMs);
+    }
+
+    [Fact]
+    public async Task What_Spotify_says_plays_wins_over_the_song_from_last_time()
+    {
+        await StartAsync();
+        _player.ShowLastPlayed(new LastPlayed { TrackUri = "spotify:track:kept", Title = "Kept", DurationMs = 200_000 });
+        Assert.NotEqual("Kept", _player.State.Title);
+    }
+
     private async Task StartAsync()
     {
         Playing(Song(1000), seconds: 60);

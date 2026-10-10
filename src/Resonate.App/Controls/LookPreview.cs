@@ -108,6 +108,14 @@ internal sealed partial class LookPreview : Grid
             return;
         }
 
+        if (PlayerPlacement.IsInSidebar(layout))
+        {
+            // The panels reach the bottom, and a small player sits at the foot of the sidebar.
+            SetRowSpan(shell, 2);
+            shell.Children.Add(SidebarPlayer());
+            return;
+        }
+
         var playerGap = floating ? Math.Max(gap, 4) : 0;
         var outline = _palette.BorderWidth > 0 ? 1 : 0;
         var player = Panel(
@@ -310,6 +318,25 @@ internal sealed partial class LookPreview : Grid
         pill.VerticalAlignment = VerticalAlignment.Bottom;
         pill.Margin = inCorner ? new Thickness(0, 0, 4, 4) : new Thickness(0, 0, 0, 4);
         return pill;
+    }
+
+    private FrameworkElement SidebarPlayer()
+    {
+        var content = new StackPanel { Padding = new Thickness(4), Spacing = 3 };
+        var song = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+        song.Children.Add(Cover(9));
+        var name = Bar(_palette.TextPrimary, 3, 20);
+        name.VerticalAlignment = VerticalAlignment.Center;
+        song.Children.Add(name);
+        content.Children.Add(song);
+        var play = PlayButton();
+        play.HorizontalAlignment = HorizontalAlignment.Center;
+        content.Children.Add(play);
+
+        var card = Panel(_palette.Player, content, new CornerRadius(Math.Min(PanelCorner.TopLeft, 6)), new Thickness(1));
+        card.VerticalAlignment = VerticalAlignment.Bottom;
+        card.Margin = new Thickness(3);
+        return card;
     }
 
     private Border Cover(double size = 14)

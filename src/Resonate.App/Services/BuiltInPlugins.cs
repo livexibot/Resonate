@@ -35,7 +35,6 @@ public sealed class BuiltInPlugins
     public const string PauseForSounds = "pause-for-sounds";
     public const string DesktopLyrics = "desktop-lyrics";
     public const string BeatGlow = "beat-glow";
-    public const string ResumeOnStart = "resume-on-start";
     public const string MediaShortcuts = "media-hotkeys";
     public const string StartWithWindows = "start-with-windows";
     public const string HistoryExport = "history-export";
@@ -83,7 +82,6 @@ public sealed class BuiltInPlugins
         new(PauseForSounds, "Pause for other sounds", "Pauses the music while another app plays sound, such as a call or a video, and plays on after."),
         new(DesktopLyrics, "Desktop lyrics", "Shows the sung line in a small window that stays on top of every app."),
         new(BeatGlow, "Beat glow", "Makes the window's edge glow with the beat of the music."),
-        new(ResumeOnStart, "Resume on start", "Plays the song you were listening to when you open Resonate."),
         new(MediaShortcuts, "Media shortcuts", "Shortcuts that play, pause, skip, change the volume or like the song from any app."),
 
         new(HistoryExport, "Export history", "Saves your listening history as a spreadsheet file."),

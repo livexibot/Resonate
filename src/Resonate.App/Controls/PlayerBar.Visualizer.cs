@@ -45,6 +45,9 @@ public sealed partial class PlayerBar
                 Margin = new Thickness(0, 0, 0, 2),
             };
             Grid.SetColumnSpan(_barVisualizer, 3);
+
+            // Both rows of the player in the sidebar.
+            Grid.SetRowSpan(_barVisualizer, 2);
             Bar.Children.Insert(0, _barVisualizer);
             _barVisualizer.SizeChanged += (_, e) => _barVisualizer?.SetRoom(e.NewSize.Height);
             App.Services.Visualiser.LiveChanged += OnBarVisualizerLive;

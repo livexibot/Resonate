@@ -114,6 +114,7 @@ public sealed partial class MainWindow : Window
         ApplyCaptionButtonColors();
         SetUpAppSize();
         ApplyShortcuts();
+        SetUpLastPlayed();
 
         _messageTimer = DispatcherQueue.CreateTimer();
         _messageTimer.Interval = TimeSpan.FromSeconds(7);
@@ -506,6 +507,9 @@ public sealed partial class MainWindow : Window
         }
 
         PlaylistsHeader.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+
+        // A player at the sidebar's foot has no room in the narrow sidebar; it floats under the panels meanwhile.
+        ApplyPlayerPlacement();
     }
     /// <summary>A drag or an arrow key ended: the panels keep these widths, next time too.</summary>
     private void KeepPaneWidths()

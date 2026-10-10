@@ -93,8 +93,6 @@ internal static class BuiltInPluginSettings
                 Slider("Strength", 10, 100, () => settings.BeatGlowStrength, v => settings.BeatGlowStrength = v, fresh.BeatGlowStrength, "%"),
                 Slider("Size", 10, 60, () => settings.BeatGlowSize, v => settings.BeatGlowSize = v, fresh.BeatGlowSize, "%"),
                 Choice("Colour", ["Accent", "Second accent"], () => Math.Clamp(settings.BeatGlowColour, 0, 1), i => settings.BeatGlowColour = i)),
-            BuiltInPlugins.ResumeOnStart => Stack(
-                Switch("From the start of the song", () => settings.ResumeFromStart, on => settings.ResumeFromStart = on)),
             BuiltInPlugins.MediaShortcuts => MediaShortcuts(services),
             BuiltInPlugins.HistoryExport => Stack(
                 Choice("Plays from", ["All time", "The last 7 days", "The last 30 days", "The last year"], () => Math.Max(0, Array.IndexOf(ExportDays, settings.HistoryExportDays)), i => settings.HistoryExportDays = ExportDays[i]),

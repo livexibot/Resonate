@@ -192,7 +192,7 @@
 
         <!-- One tab's settings at a time; the others are collapsed, so they cost no layout. -->
         <ScrollViewer x:Name="Scroller" Grid.Row="1">
-            <Grid Padding="24,8,24,40">
+            <Grid x:Name="ScrollContent" Padding="24,8,24,40">
 
                 <!-- Themes: presets, your own looks and the customizer (colours, background, shape, fonts) -->
                 <controls:ThemeStudio x:Name="Studio" />

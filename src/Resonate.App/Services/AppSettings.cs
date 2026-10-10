@@ -76,6 +76,9 @@ public sealed class AppSettings
     /// <summary>The library sidebar runs the window's full height, beside the player (off unless the user switches it on).</summary>
     public bool SidebarFullHeight { get; set; }
 
+    /// <summary>The Spotify song that played last and its place, shown when Resonate opens (see MainWindow.LastPlayed.cs).</summary>
+    public Resonate.Spotify.Playback.LastPlayed? LastPlayed { get; set; }
+
     /// <summary>Resonate opens when the user signs in to Windows, quietly in the tray (Settings, About; on at first, the owner's choice of 9 October 2026).</summary>
     public bool StartWithWindows { get; set; } = true;
 
@@ -512,9 +515,6 @@ public sealed class AppSettings
     public int BeatGlowSize { get; set; } = 38;
 
     public int BeatGlowColour { get; set; }
-
-    /// <summary>Resume on start: from the start of the song instead of where it stopped.</summary>
-    public bool ResumeFromStart { get; set; }
 
     /// <summary>Export history: all of it (0), or the last 7, 30 or 365 days.</summary>
     public int HistoryExportDays { get; set; }

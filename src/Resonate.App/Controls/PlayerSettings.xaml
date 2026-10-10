@@ -39,6 +39,7 @@
                         <ComboBoxItem Content="Bottom" Tag="Bottom" />
                         <ComboBoxItem Content="Left" Tag="Left" />
                         <ComboBoxItem Content="Right" Tag="Right" />
+                        <ComboBoxItem Content="Sidebar" Tag="Sidebar" />
                     </ComboBox>
                 </controls:SettingRow>
                 <controls:SettingRow Header="Type">

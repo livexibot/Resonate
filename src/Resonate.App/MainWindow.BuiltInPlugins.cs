@@ -34,7 +34,6 @@ public sealed partial class MainWindow
         SetUpQuietHours();
         SetUpPauseForSounds();
         SetUpBeatGlow();
-        SetUpResumeOnStart();
         SetUpMediaShortcuts();
         SetUpStartWithWindows();
         SetUpAlarm();
@@ -115,8 +114,6 @@ public sealed partial class MainWindow
     partial void SetUpPauseForSounds();
 
     partial void SetUpBeatGlow();
-
-    partial void SetUpResumeOnStart();
 
     partial void SetUpMediaShortcuts();
 

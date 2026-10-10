@@ -11,9 +11,11 @@ namespace Resonate.App;
 /// <summary>
 /// Where the player sits: under the panels or above them across the window,
 /// under or above the page beside a sidebar that runs the window's full
-/// height, or hovering over the bottom of the page, as a centred pill or in
+/// height, hovering over the bottom of the page, as a centred pill or in
 /// its corner (under the panels instead while the page is too narrow for it,
-/// as with Settings open in a small window). The player's slot never leaves
+/// as with Settings open in a small window), or at the foot of the sidebar.
+/// A hovering player set wider than the page reaches over the sidebar and
+/// the panes, and no player grows wider than the window. The player's slot never leaves
 /// the shell grid; only its row, columns, alignment and margin change, so
 /// the classic player is never taken out of the window (which would rebuild
 /// it). The numbers come from <see cref="PlayerPlacement"/>. Pages leave
@@ -27,7 +29,13 @@ public sealed partial class MainWindow
     /// </summary>
     private const int ToTheLastColumn = 99;
 
-    private (PlayerLayout Layout, double Gap, bool FullHeight, bool Hovers, double? Width, double? Height, double? X, double? Y)? _placement;
+    private (PlayerLayout Layout, double Gap, bool FullHeight, bool Hovers, bool Wide, bool InSidebar, double? Width, double? Height, double? X, double? Y)? _placement;
+
+    /// <summary>The sidebar's padding in MainWindow.xaml; a player at its foot adds to the bottom.</summary>
+    private static readonly Thickness SidebarPadding = new(6, 10, 6, 8);
+
+    /// <summary>The room the pane on the right leaves under its content for a wide hovering player over it.</summary>
+    private double _paneRoom;
 
     /// <summary>The cover and the song above the player while it is a column beside the page.</summary>
     private NowPlayingColumn? _sideColumn;
@@ -47,8 +55,19 @@ public sealed partial class MainWindow
             if (e.NewSize.Width != e.PreviousSize.Width)
             {
                 ApplyPlayerPlacement();
+                UpdateCoveredRoom();
             }
         };
+        ShellGrid.SizeChanged += (_, e) =>
+        {
+            if (e.NewSize.Width != e.PreviousSize.Width)
+            {
+                ClampPlayerSlot();
+            }
+        };
+
+        // Over the panels and the grips between them, so a player reaching over them takes its clicks.
+        Canvas.SetZIndex(PlayerSlot, 1);
     }
 
     /// <summary>The narrowest the player in use gets, which a hovering player needs over the page.</summary>
@@ -66,22 +85,32 @@ public sealed partial class MainWindow
         var gap = theme.Palette.PanelGap;
 
         // A window shape without the page (Window shapes plugin) has the player under everything.
-        if (ShapeHidesPanels && (PlayerPlacement.IsAtTop(layout) || PlayerPlacement.HoversAtTop(layout) || PlayerPlacement.IsSide(layout)))
+        if (ShapeHidesPanels && (PlayerPlacement.IsAtTop(layout) || PlayerPlacement.HoversAtTop(layout) || PlayerPlacement.IsSide(layout) || PlayerPlacement.IsInSidebar(layout)))
         {
             layout = layout is PlayerLayout.Top or PlayerLayout.Left or PlayerLayout.Right ? PlayerLayout.Docked : PlayerLayout.Floating;
         }
 
-        var hovers = PlayerPlacement.HoversOverPage(layout)
-            && !ShapeHidesPanels
-            && PlayerPlacement.HoveringFits(ContentPanel.ActualWidth, NarrowestPlayerWidth, gap);
+        // The sidebar's player needs the sidebar with its names (not covers only) and the player bar (Winamp is wider); otherwise it floats under the panels.
+        var inSidebar = PlayerPlacement.IsInSidebar(layout) && _sidebarCompact != true && _classicPlayer is null;
+        if (PlayerPlacement.IsInSidebar(layout) && !inSidebar)
+        {
+            layout = PlayerLayout.Floating;
+        }
+
+        // A hovering player set wider than the page (Settings, Player, Advanced) reaches over the sidebar and the panes, however narrow the page.
+        var overPage = PlayerPlacement.HoversOverPage(layout) && !ShapeHidesPanels;
+        var pageWidth = ContentPanel.ActualWidth;
+        var wide = overPage && look.PlayerWidth is { } wanted && pageWidth > 0 && wanted > pageWidth + 0.5;
+        var hovers = overPage && (wide || PlayerPlacement.HoveringFits(pageWidth, NarrowestPlayerWidth, gap));
         var fullHeight = theme.SidebarFullHeight && !ShapeHidesPanels;
-        var placement = (layout, gap, fullHeight, hovers, look.PlayerWidth, look.PlayerHeight, look.PlayerOffsetX, look.PlayerOffsetY);
+        var placement = (layout, gap, fullHeight, hovers, wide, inSidebar, look.PlayerWidth, look.PlayerHeight, look.PlayerOffsetX, look.PlayerOffsetY);
         if (_placement == placement)
         {
             return;
         }
 
         _placement = placement;
+        PlayerBar.ShowInSidebar(inSidebar);
 
         // Settings, Layout, Advanced: moved by the user's own X and Y, wherever it sits.
         PlayerSlot.RenderTransform = look.PlayerOffsetX is null && look.PlayerOffsetY is null
@@ -91,11 +120,20 @@ public sealed partial class MainWindow
         if (PlayerPlacement.IsSide(layout))
         {
             PlaceBesidePage(layout, gap, look.PlayerWidth);
+            ClampPlayerSlot();
             UpdatePlayerInset();
             return;
         }
 
         LeaveSide();
+        if (inSidebar)
+        {
+            PlaceInSidebar(gap);
+            ClampPlayerSlot();
+            UpdatePlayerInset();
+            return;
+        }
+
         PlayerSlot.Width = look.PlayerWidth ?? double.NaN;
         PlayerSlot.HorizontalAlignment = look.PlayerWidth is null ? HorizontalAlignment.Stretch
             : layout == PlayerLayout.Corner ? HorizontalAlignment.Right
@@ -111,13 +149,87 @@ public sealed partial class MainWindow
         // The page's column, wherever it is (columns may be added before it).
         var page = Grid.GetColumn(ContentPanel);
         Grid.SetRow(PlayerSlot, slot.Row);
-        Grid.SetColumn(PlayerSlot, slot.StartsAtContent ? page : 0);
-        Grid.SetColumnSpan(PlayerSlot, slot.SpansFollowingColumns ? ToTheLastColumn : 1);
+        Grid.SetColumn(PlayerSlot, !wide && slot.StartsAtContent ? page : 0);
+        Grid.SetColumnSpan(PlayerSlot, wide || slot.SpansFollowingColumns ? ToTheLastColumn : 1);
         PlayerSlot.VerticalAlignment = !slot.AlignBottom ? VerticalAlignment.Stretch
             : hovers && PlayerPlacement.HoversAtTop(layout) ? VerticalAlignment.Top
             : VerticalAlignment.Bottom;
         PlayerSlot.Margin = slot.Margin.ToThickness();
+        ClampPlayerSlot();
         UpdatePlayerInset();
+    }
+
+    /// <summary>
+    /// The minimal player at the foot of the sidebar: its slot lies over the
+    /// sidebar's bottom, inside its padding, and the playlists end above it
+    /// (see <see cref="UpdateCoveredRoom"/>). The bar keeps the floating
+    /// margin of the look; the slot takes it back, so the bar lines up with
+    /// the sidebar's rows.
+    /// </summary>
+    private void PlaceInSidebar(double gap)
+    {
+        foreach (var element in new FrameworkElement[] { Sidebar, SidebarElevation, SidebarSplitter })
+        {
+            Grid.SetRow(element, PlayerPlacement.PanelsRow);
+            Grid.SetRowSpan(element, 1);
+        }
+
+        var own = PlayerPlacement.Margin(PlayerLayout.Sidebar, gap);
+        var border = _services.Theme.Palette.BorderWidth;
+        var side = SidebarPadding.Left + border - own.Left;
+        Grid.SetRow(PlayerSlot, PlayerPlacement.PanelsRow);
+        Grid.SetColumn(PlayerSlot, Grid.GetColumn(Sidebar));
+        Grid.SetColumnSpan(PlayerSlot, 1);
+        PlayerSlot.Width = double.NaN;
+        PlayerSlot.HorizontalAlignment = HorizontalAlignment.Stretch;
+        PlayerSlot.VerticalAlignment = VerticalAlignment.Bottom;
+        PlayerSlot.Margin = new Thickness(side, 0, side, SidebarPadding.Bottom + border - own.Bottom);
+    }
+
+    /// <summary>
+    /// A player set wider than the window (Settings, Player, Advanced) keeps
+    /// inside it: as wide as the shell's room, its own margins counted.
+    /// </summary>
+    private void ClampPlayerSlot()
+    {
+        var room = ShellGrid.ActualWidth - ShellGrid.Padding.Left - ShellGrid.Padding.Right - PlayerSlot.Margin.Left - PlayerSlot.Margin.Right;
+        PlayerSlot.MaxWidth = _placement is { InSidebar: true } || room <= 0 ? double.PositiveInfinity : room;
+    }
+
+    /// <summary>
+    /// The playlists end above a player at the sidebar's foot; they, and the
+    /// queue, Settings or lyrics, can scroll clear of a hovering player wide
+    /// enough to lie over them.
+    /// </summary>
+    private void UpdateCoveredRoom()
+    {
+        var border = _services.Theme.Palette.BorderWidth;
+        var bottom = _placement is { InSidebar: true } && PlayerSlot.ActualHeight > 0
+            ? Math.Round(PlayerSlot.Margin.Bottom + PlayerSlot.ActualHeight - border + PlayerPlacement.SidebarPlayerGap)
+            : SidebarPadding.Bottom;
+        if (Math.Abs(Sidebar.Padding.Bottom - bottom) > 0.5)
+        {
+            Sidebar.Padding = new Thickness(SidebarPadding.Left, SidebarPadding.Top, SidebarPadding.Right, bottom);
+        }
+
+        var wide = _placement is { Wide: true } && PlayerSlot.ActualHeight > 0;
+        var player = wide ? BoundsInShell(PlayerSlot) : default;
+        var reach = Math.Ceiling(PlayerSlot.ActualHeight) + PlayerPlacement.HoverClearance;
+        var under = wide && player.Left < BoundsInShell(Sidebar).Right - 0.5 ? reach : 0;
+        if (Math.Abs(PlaylistList.Padding.Bottom - under) > 0.5)
+        {
+            PlaylistList.Padding = new Thickness(0, 0, 0, under);
+        }
+
+        var pane = new FrameworkElement[] { QueuePane, SettingsPane, LyricsPane }.FirstOrDefault(p => p.Visibility == Visibility.Visible);
+        var paneUnder = wide && pane is not null && player.Right > BoundsInShell(pane).Left + 0.5 ? reach : 0;
+        if (Math.Abs(paneUnder - _paneRoom) > 0.5)
+        {
+            _paneRoom = paneUnder;
+            QueuePane.SetPlayerRoom(paneUnder);
+            SettingsPane.SetPlayerRoom(paneUnder);
+            LyricsPane.SetPlayerRoom(paneUnder);
+        }
     }
 
     /// <summary>
@@ -203,6 +315,7 @@ public sealed partial class MainWindow
     /// </summary>
     private void UpdatePlayerInset(bool newPage = false)
     {
+        UpdateCoveredRoom();
         var inset = _placement is { Hovers: true } placement ? PlayerPlacement.PageInset(placement.Layout, PlayerSlot.ActualHeight) : 0;
         if (!newPage && Math.Abs(inset - _playerInset) < 0.5)
         {
