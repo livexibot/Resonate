@@ -27,10 +27,13 @@ internal sealed partial class ScreensaverWindow : Window
     private const uint DwmDoNotRound = 1;
     private const uint DwmColorNone = 0xFFFFFFFE;
 
+    private readonly bool _hidePointer;
     private bool _cursorHidden;
 
-    public ScreensaverWindow(AwayScreen screen, RectInt32 area, ElementTheme theme)
+    /// <param name="hidePointer">The screensaver hides the pointer; the full-screen view of Home's visualizer keeps it.</param>
+    public ScreensaverWindow(AwayScreen screen, RectInt32 area, ElementTheme theme, bool hidePointer = true)
     {
+        _hidePointer = hidePointer;
         AppWindow.Title = "Resonate screensaver";
         AppWindow.IsShownInSwitchers = false;
         // Its Brightness: the screen over black.
@@ -62,7 +65,7 @@ internal sealed partial class ScreensaverWindow : Window
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         SetWindowPos(hwnd, TopMost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
         SetForegroundWindow(hwnd);
-        if (!_cursorHidden)
+        if (_hidePointer && !_cursorHidden)
         {
             _cursorHidden = true;
             ShowCursor(false);

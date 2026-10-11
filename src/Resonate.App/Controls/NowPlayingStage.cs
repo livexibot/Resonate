@@ -69,6 +69,7 @@ internal sealed partial class NowPlayingStage : Grid
 
     private readonly AppServices _services;
     private readonly StageKind _kind;
+    private readonly bool _fullView;
     private readonly Image _blur = new() { Stretch = Stretch.UniformToFill, Visibility = Visibility.Collapsed, IsHitTestVisible = false };
     private readonly CloudField _clouds = new();
 
@@ -86,6 +87,7 @@ internal sealed partial class NowPlayingStage : Grid
     private readonly TextBlock _source;
     private readonly Button? _play;
     private readonly Button? _next;
+    private readonly Button? _fullScreen;
     private readonly StackPanel? _controls;
     private readonly StackPanel? _upNext;
     private readonly List<(Grid Cover, Image Image, TextBlock Title, TextBlock Artists, Grid Row)> _upNextRows = [];
@@ -121,10 +123,19 @@ internal sealed partial class NowPlayingStage : Grid
     private bool _refitQueued;
     private bool _visualizerAroundCover;
 
-    public NowPlayingStage(AppServices services, StageKind kind)
+    /// <summary>The screensaver's OLED mode (never in the full-screen view).</summary>
+    private bool Oled => _kind == StageKind.Away && !_fullView && _services.Settings.ScreensaverOled;
+
+    /// <param name="fullView">
+    /// The full-screen view of Home's visualizer (the owner's request,
+    /// 11 October 2026): laid out like the screensaver, but with Home's
+    /// visualizer and the look's own colours, never the screensaver's settings.
+    /// </param>
+    public NowPlayingStage(AppServices services, StageKind kind, bool fullView = false)
     {
         _services = services;
         _kind = kind;
+        _fullView = fullView && kind == StageKind.Away;
         var resources = Application.Current.Resources;
         var away = kind == StageKind.Away;
 
@@ -236,6 +247,30 @@ internal sealed partial class NowPlayingStage : Grid
         Children.Add(_grain);
         Children.Add(_visualizer);
         Children.Add(Body);
+
+        // Home: the visualizer full screen (the owner's request, 11 October 2026), quiet until the pointer is on the stage.
+        if (kind == StageKind.Home)
+        {
+            _fullScreen = new Button
+            {
+                Style = (Style)resources["ResonateIconButtonStyle"],
+                Width = 40,
+                Height = 40,
+                FontSize = 16,
+                Content = "",
+                Margin = new Thickness(0, 16, 16, 0),
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Top,
+                Opacity = 0.45,
+                OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(160) },
+            };
+            AutomationProperties.SetName(_fullScreen, "Full screen");
+            ToolTipService.SetToolTip(_fullScreen, "Full screen");
+            _fullScreen.Click += (_, _) => App.MainWindow?.ShowVisualizerFullScreen();
+            Children.Add(_fullScreen);
+            PointerEntered += (_, _) => _fullScreen.Opacity = 1;
+            PointerExited += (_, _) => _fullScreen.Opacity = 0.45;
+        }
 
         _screenTimer = DispatcherQueue.GetForCurrentThread().CreateTimer();
         _screenTimer.Interval = ScreenCheck;
@@ -524,7 +559,7 @@ internal sealed partial class NowPlayingStage : Grid
         // No grain on a plain background: black stays black for OLED.
         _grain.Visibility = _clouds.Visibility;
         // OLED: see-through, over the screensaver window's black, so the glow behind shows.
-        Background = _kind == StageKind.Away && _services.Settings.ScreensaverOled
+        Background = Oled
             ? new SolidColorBrush(Microsoft.UI.Colors.Transparent)
             : new SolidColorBrush(page.ToColor());
         // Square: on Home it reaches the page's edges, and its lower corners stay square too (the owner's choice, 11 October 2026).
@@ -1067,8 +1102,9 @@ internal sealed partial class NowPlayingStage : Grid
     /// removed, 10 October 2026).
     /// </summary>
     private bool BlurredCover => _kind == StageKind.Away
+        && !_fullView
         && _services.Settings.ScreensaverBackground == "Cover"
-        && !_services.Settings.ScreensaverOled;
+        && !Oled;
 
     /// <summary>The screensaver's plain background (black in OLED mode, or the user's colour), or null for the song's colours.</summary>
     private ThemeColor? ScreensaverPlain
@@ -1076,7 +1112,12 @@ internal sealed partial class NowPlayingStage : Grid
         get
         {
             var settings = _services.Settings;
-            if (settings.ScreensaverOled)
+            if (_fullView)
+            {
+                return null;
+            }
+
+            if (Oled)
             {
                 return ThemeColor.Black;
             }
@@ -1087,7 +1128,7 @@ internal sealed partial class NowPlayingStage : Grid
 
     /// <summary>The screensaver's own visualizer style, or null for the look's Home style (or for Home itself).</summary>
     private VisualizerStyle? ScreensaverStyle =>
-        _kind == StageKind.Away && _services.Settings.ScreensaverVisualizer is { } name && name != "Off" && Enum.TryParse<VisualizerStyle>(name, out var style)
+        _kind == StageKind.Away && !_fullView && _services.Settings.ScreensaverVisualizer is { } name && name != "Off" && Enum.TryParse<VisualizerStyle>(name, out var style)
             ? VisualizerShapes.Current(style)
             : null;
 
@@ -1109,7 +1150,7 @@ internal sealed partial class NowPlayingStage : Grid
         _clouds.SetRunning(playing && !_screenTaken, animate);
 
         // With Windows' animations off the bars could only stand still, so they are not shown.
-        var bars = (_kind == StageKind.Away ? _services.Settings.ScreensaverVisualizer != "Off" : _services.Settings.HomeStageVisualizer) && animate;
+        var bars = (_kind == StageKind.Away && !_fullView ? _services.Settings.ScreensaverVisualizer != "Off" : _services.Settings.HomeStageVisualizer) && animate;
         _visualizer.Visibility = bars ? Visibility.Visible : Visibility.Collapsed;
         _visualizer.SetRunning(bars && playing && !_screenTaken, _services.Visualiser.IsLive, animate);
         if (Seen && _upNextStale)
@@ -1242,7 +1283,7 @@ internal sealed partial class NowPlayingStage : Grid
     private void FitAway(global::Windows.Foundation.Size size)
     {
         var height = Math.Max(size.Height, 1);
-        var oled = _services.Settings.ScreensaverOled;
+        var oled = Oled;
         var text = _services.Theme.TextSize;
         var pad = Math.Clamp(height * 0.065, 40, 180);
         var cover = Math.Clamp(height * (oled ? 0.17 : 0.24), 140, 760);

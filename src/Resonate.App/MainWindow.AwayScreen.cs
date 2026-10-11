@@ -48,6 +48,14 @@ public sealed partial class MainWindow
     /// <summary>Settings' "Show now": the screensaver at once, to try its look.</summary>
     internal void ShowScreensaverNow() => ShowAway();
 
+    /// <summary>
+    /// Home's visualizer full screen (the button on Home's stage): the
+    /// screensaver's window and layout with Home's visualizer and the look's
+    /// colours, kept until Esc or its exit button. Works whether or not the
+    /// Screensaver plugin is on.
+    /// </summary>
+    internal void ShowVisualizerFullScreen() => ShowAway(fullView: true);
+
     /// <summary>Starts or stops following the player, as the plugin is turned on or off.</summary>
     private void WatchAway()
     {
@@ -147,22 +155,22 @@ public sealed partial class MainWindow
         return FocusManager.GetFocusedElement(root) is not (TextBox or PasswordBox or AutoSuggestBox or RichEditBox);
     }
 
-    private void ShowAway()
+    private void ShowAway(bool fullView = false)
     {
         if (_awayScreen is not null)
         {
             return;
         }
 
-        var away = new AwayScreen(_services);
+        var away = new AwayScreen(_services, fullView);
         away.WakeRequested += (_, _) => HideAway();
         _awayScreen = away;
-        _awayHadFront = IsShown && UserPresence.IsForeground(Hwnd);
+        _awayHadFront = fullView || (IsShown && UserPresence.IsForeground(Hwnd));
 
         // The whole display Resonate is on, above every app.
         var display = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary);
         var theme = Content is FrameworkElement content ? content.ActualTheme : ElementTheme.Dark;
-        var window = new ScreensaverWindow(away, display.OuterBounds, theme);
+        var window = new ScreensaverWindow(away, display.OuterBounds, theme, hidePointer: !fullView);
         _screensaver = window;
         window.ShowOnTop();
         away.Appear();

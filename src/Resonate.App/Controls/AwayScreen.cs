@@ -48,22 +48,32 @@ internal sealed partial class AwayScreen : UserControl
     private readonly TextBlock _date;
     private readonly DispatcherQueueTimer _poll;
     private readonly bool _oled;
+    private readonly bool _fullView;
     private readonly Microsoft.UI.Xaml.Shapes.Ellipse? _glow;
     private readonly Helpers.SlowClock? _drift;
+    private readonly Button? _exit;
+    private readonly DispatcherQueueTimer? _exitHide;
     private uint? _shownTick;
     private long _minute = -1;
     private DateTimeOffset? _pausedSince;
     private bool _woken;
 
-    public AwayScreen(AppServices services)
+    /// <param name="fullView">
+    /// Home's visualizer full screen (its button on Home's stage): Home's
+    /// visualizer and the look's colours, no clock, and it stays until Esc or
+    /// its exit button, which shows while the pointer moves (the owner's
+    /// request, 11 October 2026).
+    /// </param>
+    public AwayScreen(AppServices services, bool fullView = false)
     {
         _services = services;
+        _fullView = fullView;
         IsTabStop = true;
         UseSystemFocusVisuals = false;
         Opacity = 0;
         var resources = Application.Current.Resources;
 
-        _stage = new NowPlayingStage(services, StageKind.Away);
+        _stage = new NowPlayingStage(services, StageKind.Away, fullView);
 
         // At the user's Text size, read as the screen appears (Settings cannot change it meanwhile).
         var text = services.Theme.TextSize;
@@ -86,8 +96,8 @@ internal sealed partial class AwayScreen : UserControl
             Children = { _clock, _date },
         };
 
-        _oled = services.Settings.ScreensaverOled;
-        _clockPanel.Visibility = services.Settings.ScreensaverClock ? Visibility.Visible : Visibility.Collapsed;
+        _oled = !fullView && services.Settings.ScreensaverOled;
+        _clockPanel.Visibility = !fullView && services.Settings.ScreensaverClock ? Visibility.Visible : Visibility.Collapsed;
 
         // OLED: words a step down from white, which ages the screen less.
         if (_oled)
@@ -123,6 +133,30 @@ internal sealed partial class AwayScreen : UserControl
 
         root.Children.Add(_stage);
         root.Children.Add(_clockPanel);
+        if (fullView)
+        {
+            // Out of full screen: a button at the top right while the pointer moves.
+            _exit = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE73F", FontSize = 18 },
+                Width = 48,
+                Height = 48,
+                Margin = new Thickness(0, 28, 28, 0),
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Top,
+                Style = (Style)resources["ResonateIconButtonStyle"],
+                Opacity = 0,
+                OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(200) },
+            };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_exit, "Exit full screen");
+            ToolTipService.SetToolTip(_exit, "Exit full screen (Esc)");
+            _exit.Click += (_, _) => Wake();
+            root.Children.Add(_exit);
+            _exitHide = DispatcherQueue.GetForCurrentThread().CreateTimer();
+            _exitHide.Interval = TimeSpan.FromSeconds(2.5);
+            _exitHide.IsRepeating = false;
+        }
+
         Content = root;
         SizeChanged += (_, e) => FitToScreen(e.NewSize);
 
@@ -148,14 +182,22 @@ internal sealed partial class AwayScreen : UserControl
         PreviewKeyDown += OnKey;
         ProcessKeyboardAccelerators += (_, e) =>
         {
-            // No shortcut runs while away: the key only wakes the window.
+            // No shortcut runs while away: the key only wakes the window (and does nothing in the full-screen view).
             e.Handled = true;
-            Wake();
+            if (!_fullView)
+            {
+                Wake();
+            }
         };
         Unloaded += (_, _) =>
         {
             StopPolling();
             _drift?.Pause();
+            if (_exitHide is { } hide)
+            {
+                hide.Stop();
+                hide.Tick -= OnExitHide;
+            }
         };
     }
 
@@ -221,6 +263,12 @@ internal sealed partial class AwayScreen : UserControl
 
     private void OnPointerMoved(object sender, PointerRoutedEventArgs e)
     {
+        if (_fullView)
+        {
+            ShowExit();
+            return;
+        }
+
         // A pointer event Windows makes up (the screen appearing under a resting mouse) is not a touch.
         if (UserPresence.LastInputTick != _shownTick)
         {
@@ -231,13 +279,60 @@ internal sealed partial class AwayScreen : UserControl
     private void OnPointerInput(object sender, PointerRoutedEventArgs e)
     {
         e.Handled = true;
+        if (_fullView)
+        {
+            ShowExit();
+            return;
+        }
+
         Wake();
+    }
+
+    /// <summary>The full-screen view's exit button, for a moment after the pointer moves.</summary>
+    private void ShowExit()
+    {
+        if (_exit is null || _exitHide is null)
+        {
+            return;
+        }
+
+        _exit.Opacity = 1;
+        _exitHide.Tick -= OnExitHide;
+        _exitHide.Tick += OnExitHide;
+        _exitHide.Stop();
+        _exitHide.Start();
+    }
+
+    private void OnExitHide(DispatcherQueueTimer sender, object args)
+    {
+        sender.Tick -= OnExitHide;
+        if (_exit is { } exit && !exit.IsPointerOver)
+        {
+            exit.Opacity = 0;
+        }
     }
 
     private void OnPointerHandled(object sender, PointerRoutedEventArgs e) => e.Handled = true;
 
     private void OnKey(object sender, KeyRoutedEventArgs e)
     {
+        if (_fullView)
+        {
+            // Esc leaves, Space plays or pauses; media and volume keys pass, other keys do nothing.
+            var code = (int)e.Key;
+            if (e.Key == global::Windows.System.VirtualKey.Escape)
+            {
+                Wake();
+            }
+            else if (e.Key == global::Windows.System.VirtualKey.Space && !e.KeyStatus.WasKeyDown)
+            {
+                _ = _services.Player.TogglePlayPauseAsync();
+            }
+
+            e.Handled = code is < 0xAD or > 0xB7;
+            return;
+        }
+
         // Volume and media keys keep working (from 0xAD, volume mute, to 0xB7, launch app 2).
         var key = (int)e.Key;
         if (key is < 0xAD or > 0xB7)
@@ -260,7 +355,7 @@ internal sealed partial class AwayScreen : UserControl
     /// <summary>Once a second while shown: input elsewhere (the title bar, another window), the clock, and dimming while paused.</summary>
     private void Check()
     {
-        if (UserPresence.LastInputTick != _shownTick)
+        if (!_fullView && UserPresence.LastInputTick != _shownTick)
         {
             Wake();
             return;
