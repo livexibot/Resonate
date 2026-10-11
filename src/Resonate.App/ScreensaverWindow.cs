@@ -27,17 +27,26 @@ internal sealed partial class ScreensaverWindow : Window
     private const uint DwmDoNotRound = 1;
     private const uint DwmColorNone = 0xFFFFFFFE;
 
-    private readonly bool _hidePointer;
+    private readonly bool _screensaver;
     private bool _cursorHidden;
 
-    /// <param name="hidePointer">The screensaver hides the pointer; the full-screen view of Home's visualizer keeps it.</param>
-    public ScreensaverWindow(AwayScreen screen, RectInt32 area, ElementTheme theme, bool hidePointer = true)
+    /// <param name="screensaver">
+    /// The screensaver (its brightness, the pointer hidden, above every app);
+    /// otherwise the full-screen view of Home's visualizer (see
+    /// MainWindow.FullScreenStage.cs), an ordinary full-screen window.
+    /// </param>
+    public ScreensaverWindow(FrameworkElement screen, RectInt32 area, ElementTheme theme, bool screensaver = true)
     {
-        _hidePointer = hidePointer;
-        AppWindow.Title = "Resonate screensaver";
-        AppWindow.IsShownInSwitchers = false;
+        _screensaver = screensaver;
+        AppWindow.Title = screensaver ? "Resonate screensaver" : "Resonate";
+        AppWindow.IsShownInSwitchers = !screensaver;
+
         // Its Brightness: the screen over black.
-        screen.Opacity = Math.Clamp(App.Services.Settings.ScreensaverBrightness, 20, 100) / 100.0;
+        if (screensaver)
+        {
+            screen.Opacity = Math.Clamp(App.Services.Settings.ScreensaverBrightness, 20, 100) / 100.0;
+        }
+
         Content = new Grid
         {
             Background = new SolidColorBrush(Microsoft.UI.Colors.Black),
@@ -63,9 +72,13 @@ internal sealed partial class ScreensaverWindow : Window
     {
         Activate();
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-        SetWindowPos(hwnd, TopMost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
+        if (_screensaver)
+        {
+            SetWindowPos(hwnd, TopMost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
+        }
+
         SetForegroundWindow(hwnd);
-        if (_hidePointer && !_cursorHidden)
+        if (_screensaver && !_cursorHidden)
         {
             _cursorHidden = true;
             ShowCursor(false);

@@ -45,6 +45,19 @@ public sealed class PlayerRouterTests : IDisposable
     }
 
     [Fact]
+    public async Task Starting_a_list_says_what_it_plays_from_first()
+    {
+        var started = new List<string?>();
+        _router.ListStarting += (_, source) => started.Add(source);
+
+        await _router.PlayAsync(new PlayRequest([Song("x")], 0, null, "DJ"));
+        await _router.PlayAsync(new PlayRequest([Song("y")], 0, null, "Liked Songs"));
+        await _router.PlayContextAsync("spotify:playlist:abc");
+
+        Assert.Equal(["DJ", "Liked Songs", null], started);
+    }
+
+    [Fact]
     public async Task Spotify_songs_play_in_Spotify_and_pause_the_local_player()
     {
         await StartSpotifyPlaying();

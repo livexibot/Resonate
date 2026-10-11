@@ -52,10 +52,22 @@ internal sealed class DjService
     private DateOnly _findsDay;
     private string? _lastPlayedUri;
 
+    /// <summary>What the DJ's lists play from (<see cref="PlayRequest.SourceName"/>).</summary>
+    public const string SourceName = "DJ";
+
     public DjService(AppServices services)
     {
         _services = services;
         _dispatcher = DispatcherQueue.GetForCurrentThread();
+
+        // A song, list or playlist picked anywhere else ends the run, even one with songs the run has.
+        services.Player.ListStarting += (_, source) =>
+        {
+            if (source != SourceName)
+            {
+                _dispatcher.TryEnqueue(EndRun);
+            }
+        };
         services.Player.StateChanged += (_, _) =>
         {
             if (Interlocked.Exchange(ref _followQueued, 1) == 0)
@@ -84,7 +96,7 @@ internal sealed class DjService
     /// <summary>Plays the run from the song at <paramref name="index"/> (the DJ page's Up next).</summary>
     public Task PlayFromAsync(int index) =>
         index >= 0 && index < _run.Count
-            ? _services.Player.PlayAsync(new PlayRequest(_run, index, null, "DJ") { Shuffle = false })
+            ? _services.Player.PlayAsync(new PlayRequest(_run, index, null, SourceName) { Shuffle = false })
             : Task.CompletedTask;
 
     /// <summary>The set playing now, or -1 while the DJ is not what plays.</summary>
@@ -151,7 +163,7 @@ internal sealed class DjService
             _announced = -1;
             Changed?.Invoke(this, EventArgs.Empty);
             Announce(0);
-            await _services.Player.PlayAsync(new PlayRequest(run, 0, null, "DJ") { Shuffle = false });
+            await _services.Player.PlayAsync(new PlayRequest(run, 0, null, SourceName) { Shuffle = false });
             App.MainWindow?.NoteListPlayed(MainWindow.DjKey, "DJ");
             return true;
         }
@@ -208,18 +220,34 @@ internal sealed class DjService
             return;
         }
 
-        CurrentSet = set;
         if (set < 0)
         {
-            _sets = [];
-            _positions = [];
-            _run = [];
+            EndRun();
+            return;
         }
-        else if (set > _announced)
+
+        CurrentSet = set;
+        if (set > _announced)
         {
             Announce(set);
         }
 
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>The run ends: something else plays (picked in Resonate, or elsewhere), and its voice stops.</summary>
+    private void EndRun()
+    {
+        if (_sets.Count == 0 || IsStarting)
+        {
+            return;
+        }
+
+        CurrentSet = -1;
+        _sets = [];
+        _positions = [];
+        _run = [];
+        StopVoice();
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
