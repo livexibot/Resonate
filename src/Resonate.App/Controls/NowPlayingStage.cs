@@ -527,7 +527,8 @@ internal sealed partial class NowPlayingStage : Grid
         Background = _kind == StageKind.Away && _services.Settings.ScreensaverOled
             ? new SolidColorBrush(Microsoft.UI.Colors.Transparent)
             : new SolidColorBrush(page.ToColor());
-        var corner = home ? palette.CornerLarge : 0;
+        // Square: on Home it reaches the page's edges, and its lower corners stay square too (the owner's choice, 11 October 2026).
+        var corner = 0;
         CornerRadius = new CornerRadius(corner);
         _clouds.CornerRadiusValue = (float)corner;
         _grain.CornerRadiusValue = (float)corner;

@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Resonate.App.Controls;
+using Resonate.App.Helpers;
 using Resonate.App.Services;
 using Resonate.Themes.Skins;
 using Windows.Graphics;
@@ -32,10 +33,6 @@ internal sealed partial class MiniPlayerWindow : Window
     /// <summary>The first time, the mini player opens this far in from the screen's bottom right corner.</summary>
     private const int CornerMargin = 24;
 
-    private const int DwmWindowCornerPreference = 33;
-    private const int DwmCornerDoNotRound = 1;
-    private const int DwmBorderColor = 34;
-    private const uint DwmColorNone = 0xFFFFFFFE;
 
     private readonly AppServices _services = App.Services;
     private readonly SkinLibrary _skins;
@@ -51,6 +48,13 @@ internal sealed partial class MiniPlayerWindow : Window
     private bool _movingWindow;
     private CursorPoint _moveCursor;
     private PointInt32 _moveWindow;
+
+    // Resizing by a corner: where it started, the window per screen pixel of skin then, and which corner.
+    private bool _resizing;
+    private CursorPoint _resizeCursor;
+    private RectInt32 _resizeStart;
+    private (double Width, double Height) _resizeUnit;
+    private ResizeCorner? _resizeCorner;
 
     public MiniPlayerWindow()
     {
@@ -68,7 +72,9 @@ internal sealed partial class MiniPlayerWindow : Window
         _presenter.IsAlwaysOnTop = _skins.MiniOnTop;
         _presenter.SetBorderAndTitleBar(false, false);
         AppWindow.SetPresenter(_presenter);
-        SquareCorners();
+
+        // Square, with no frame or light outline: the skin's own frame is the window's edge.
+        FramelessWindow.Apply(this, border: null, rounded: false);
 
         _main = new ClassicPlayer(this);
         _equalizer = new ClassicEqualizer(this);
@@ -97,7 +103,24 @@ internal sealed partial class MiniPlayerWindow : Window
         _host.DragOver += SkinDrop.OnDragOver;
         _host.Drop += SkinDrop.OnDrop;
         _host.Loaded += OnHostLoaded;
-        Content = _host;
+
+        // A corner at each corner of the window to drag it larger or smaller (the owner's request, 11 October 2026).
+        var root = new Grid { Children = { _host } };
+        foreach (var (left, top) in new[] { (true, true), (false, true), (true, false), (false, false) })
+        {
+            var corner = new ResizeCorner(left, top);
+            corner.PointerPressed += (_, e) => BeginResize(corner, e);
+            corner.PointerMoved += (_, _) => Resize();
+            corner.PointerReleased += (_, e) =>
+            {
+                corner.ReleasePointerCapture(e.Pointer);
+                EndResize();
+            };
+            corner.PointerCaptureLost += (_, _) => EndResize();
+            root.Children.Add(corner);
+        }
+
+        Content = root;
 
         _skins.MiniOptionsChanged += OnMiniOptionsChanged;
         Activated += OnActivated;
@@ -154,10 +177,12 @@ internal sealed partial class MiniPlayerWindow : Window
         _playlist.SetScale(scale, _raster);
         Show(_playlist, layout.PlaylistHeight > 0, _stack.Children.Count);
 
+        // The window has no frame (FramelessWindow), so it is all content: sized whole, not by its client
+        // area, which Windows would pad with the frame it thinks the window has.
         var size = new SizeInt32(ClassicStack.Width * scale, layout.Height * scale);
-        if (AppWindow.ClientSize.Width != size.Width || AppWindow.ClientSize.Height != size.Height)
+        if (AppWindow.Size.Width != size.Width || AppWindow.Size.Height != size.Height)
         {
-            AppWindow.ResizeClient(size);
+            AppWindow.Resize(size);
         }
 
         if (keepOnScreen && AppWindow.IsVisible)
@@ -297,6 +322,71 @@ internal sealed partial class MiniPlayerWindow : Window
         }
     }
 
+    // Resizing: a corner dragged picks the size (1x to 4x, whole screen pixels per skin pixel) nearest the
+    // pointer, and the opposite corner stays where it is.
+
+    private void BeginResize(ResizeCorner corner, PointerRoutedEventArgs e)
+    {
+        e.Handled = true;
+        var scale = Scale;
+        if (!GetCursorPos(out _resizeCursor) || scale <= 0)
+        {
+            return;
+        }
+
+        var position = AppWindow.Position;
+        var size = AppWindow.Size;
+        _resizeStart = new RectInt32(position.X, position.Y, size.Width, size.Height);
+        _resizeUnit = (size.Width / (double)scale, size.Height / (double)scale);
+        _resizeCorner = corner;
+        _resizing = corner.CapturePointer(e.Pointer);
+    }
+
+    private void Resize()
+    {
+        if (!_resizing || _resizeCorner is not { } corner || !GetCursorPos(out var cursor))
+        {
+            return;
+        }
+
+        var wantedWidth = _resizeStart.Width + ((cursor.X - _resizeCursor.X) * (corner.Left ? -1 : 1));
+        var wantedHeight = _resizeStart.Height + ((cursor.Y - _resizeCursor.Y) * (corner.Top ? -1 : 1));
+        var best = _skins.MiniSize;
+        var closest = double.MaxValue;
+        for (var size = 1; size <= SkinLibrary.MaxMiniSize; size++)
+        {
+            var pixels = ClassicPlayer.PixelScale(size, _raster);
+            var gap = Math.Abs((_resizeUnit.Width * pixels) - wantedWidth) + Math.Abs((_resizeUnit.Height * pixels) - wantedHeight);
+            if (gap < closest)
+            {
+                closest = gap;
+                best = size;
+            }
+        }
+
+        if (best == _skins.MiniSize)
+        {
+            return;
+        }
+
+        // Settings follow (Mini player size); the window is sized again at once.
+        _skins.MiniSize = best;
+        var now = AppWindow.Size;
+        var x = corner.Left ? _resizeStart.X + _resizeStart.Width - now.Width : _resizeStart.X;
+        var y = corner.Top ? _resizeStart.Y + _resizeStart.Height - now.Height : _resizeStart.Y;
+        AppWindow.Move(new PointInt32(x, y));
+    }
+
+    private void EndResize()
+    {
+        if (_resizing)
+        {
+            _resizing = false;
+            _resizeCorner = null;
+            SavePlace();
+        }
+    }
+
     // The window's life
 
     private void OnActivated(object sender, WindowActivatedEventArgs args)
@@ -391,16 +481,6 @@ internal sealed partial class MiniPlayerWindow : Window
         }
     }
 
-    /// <summary>Square, borderless edges, so the skin's own frame is the window's edge.</summary>
-    private void SquareCorners()
-    {
-        var hwnd = Hwnd;
-        var corner = DwmCornerDoNotRound;
-        _ = DwmSetWindowAttribute(hwnd, DwmWindowCornerPreference, ref corner, sizeof(int));
-        var border = unchecked((int)DwmColorNone);
-        _ = DwmSetWindowAttribute(hwnd, DwmBorderColor, ref border, sizeof(int));
-    }
-
     [StructLayout(LayoutKind.Sequential)]
     private struct CursorPoint
     {
@@ -418,7 +498,4 @@ internal sealed partial class MiniPlayerWindow : Window
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool IsIconic(nint hwnd);
-
-    [LibraryImport("dwmapi.dll")]
-    private static partial int DwmSetWindowAttribute(nint hwnd, int attribute, ref int value, int size);
 }

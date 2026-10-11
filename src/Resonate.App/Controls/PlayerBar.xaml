@@ -54,8 +54,16 @@
                         <ColumnDefinition x:Name="ArtworkColumn" Width="56" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <!-- The cover, with the look's shadow under it (it stays still while the cover spins). -->
-                    <controls:Elevation x:Name="ArtworkShadow" Level="Item">
+                    <!--
+                        The cover, with the look's shadow under it (it stays still while the cover spins).
+                        Centred, so the shadow keeps the cover's size: stretched to the words' height (lyric
+                        lines that wrap), it glowed as a tall block round the cover (the owner saw it, 11 October 2026).
+                    -->
+                    <controls:Elevation
+                        x:Name="ArtworkShadow"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Level="Item">
                         <Grid
                             x:Name="ArtworkFrame"
                             Width="56"

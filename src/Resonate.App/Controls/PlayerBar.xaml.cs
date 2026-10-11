@@ -347,7 +347,7 @@ public sealed partial class PlayerBar : UserControl
         Bar.CornerRadius = corner;
         BarHost.CornerRadius = corner;
         Bar.Background = theme.GetBrush(column ? "ResonateTransparentBrush" : _overPage ? "ResonatePlayerOverPageBrush" : "ResonatePlayerBrush");
-        Bar.BorderThickness = column ? new Thickness(0) : PlayerPlacement.Outline(look.PlayerLayout, theme.Palette.BorderWidth).ToThickness();
+        Bar.BorderThickness = column ? new Thickness(0) : PlayerPlacement.Outline(look.PlayerLayout, theme.Palette.BorderWidth, theme.SidebarFullHeight).ToThickness();
         BarHost.Level = column ? ElevationLevel.Flat : ElevationLevel.Player;
 
         // The mini bar keeps to the page's corner; a pill no wider than its slot sits in the middle.

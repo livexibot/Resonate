@@ -183,14 +183,18 @@ public static class PlayerPlacement
     /// docked (its top at the bottom, its bottom at the top), the look's
     /// outline all round when floating, and at least a hairline all round when
     /// hovering, so it keeps an edge over the page in looks without shadows.
+    /// Docked beside a sidebar that runs the window's full height
+    /// (<paramref name="besideSidebar"/>), it faces the sidebar too, so the
+    /// line turns the corner there instead of stopping short (the owner saw
+    /// it cut off, 11 October 2026).
     /// </summary>
-    public static EdgeInsets Outline(PlayerLayout layout, double borderWidth) => layout switch
+    public static EdgeInsets Outline(PlayerLayout layout, double borderWidth, bool besideSidebar = false) => layout switch
     {
         PlayerLayout.Floating or PlayerLayout.FloatingTop or PlayerLayout.Left or PlayerLayout.Right or PlayerLayout.InsetLeft or PlayerLayout.InsetRight => EdgeInsets.All(borderWidth),
         PlayerLayout.Sidebar => EdgeInsets.All(Math.Max(borderWidth, 1)),
         PlayerLayout.Hovering or PlayerLayout.Corner or PlayerLayout.HoveringTop or PlayerLayout.CornerLeft => EdgeInsets.All(Math.Max(borderWidth, 1)),
-        PlayerLayout.Top => new EdgeInsets(0, 0, 0, borderWidth),
-        _ => new EdgeInsets(0, borderWidth, 0, 0),
+        PlayerLayout.Top => new EdgeInsets(besideSidebar ? borderWidth : 0, 0, 0, borderWidth),
+        _ => new EdgeInsets(besideSidebar ? borderWidth : 0, borderWidth, 0, 0),
     };
 
     /// <summary>

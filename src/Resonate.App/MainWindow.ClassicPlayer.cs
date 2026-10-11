@@ -54,6 +54,13 @@ public sealed partial class MainWindow
     /// <summary>Called once, from the constructor.</summary>
     private void SetUpClassicPlayer()
     {
+        // Winamp is the window on the desktop, not the player in this window
+        // (the owner, 11 October 2026): a copy that used it in here goes back to the player bar.
+        if (_services.Skins.UsesClassicPlayer)
+        {
+            _services.Skins.UsesClassicPlayer = false;
+        }
+
         _services.Skins.OptionsChanged += (_, _) => ApplyPlayerStyle();
         Activated += OnWindowActivated;
     }

@@ -62,8 +62,6 @@ public sealed partial class ClassicPlayerPanel : UserControl
         _loading = true;
         try
         {
-            UseSwitch.IsOn = _skins.UsesClassicPlayer;
-            DoubleSizeSwitch.IsOn = _skins.DoubleSize;
             MiniSizeChoice.SelectedIndex = _skins.MiniSize - 1;
             MiniOnTopSwitch.IsOn = _skins.MiniOnTop;
             MiniPlayerButtonSwitch.IsOn = App.Services.Settings.ShowMiniPlayerButton;
@@ -112,14 +110,6 @@ public sealed partial class ClassicPlayerPanel : UserControl
         }
     }
 
-    private void OnUseToggled(object sender, RoutedEventArgs e)
-    {
-        if (!_loading)
-        {
-            _skins.UsesClassicPlayer = UseSwitch.IsOn;
-        }
-    }
-
     private void OnSkinChanged(object sender, SelectionChangedEventArgs e)
     {
         var index = SkinList.SelectedIndex;
@@ -131,14 +121,6 @@ public sealed partial class ClassicPlayerPanel : UserControl
         var file = _skinFiles[index];
         RemoveSkinButton.IsEnabled = file is not null && !App.Services.IsDemo;
         _skins.Select(file);
-    }
-
-    private void OnDoubleSizeToggled(object sender, RoutedEventArgs e)
-    {
-        if (!_loading)
-        {
-            _skins.DoubleSize = DoubleSizeSwitch.IsOn;
-        }
     }
 
     private void OnMiniPlayerClick(object sender, RoutedEventArgs e) => App.MainWindow?.ShowMiniPlayer();

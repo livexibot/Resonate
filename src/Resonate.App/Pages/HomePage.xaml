@@ -444,8 +444,15 @@
             Padding="28,28,28,28"
             SizeChanged="OnBodySizeChanged"
             Spacing="40">
-            <!-- The Home stage, a built-in plugin (HomePage.Stage.cs): shown only while it is on. -->
-            <Border x:Name="StageSlot" Visibility="Collapsed" />
+            <!--
+              The Home stage (HomePage.Stage.cs), up to the page's top edge and
+              across it, so its backdrop meets the page's own corners (the
+              owner's request, 11 October 2026); the rest keeps the padding.
+            -->
+            <Border
+                x:Name="StageSlot"
+                Margin="-28,-28,-28,0"
+                Visibility="Collapsed" />
 
             <StackPanel Spacing="12">
                 <!--
