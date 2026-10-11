@@ -450,13 +450,15 @@ public sealed partial class MainWindow : Window
             }
         }
 
-        var paneWidth = Fit(pane ?? paneWanted, paneMin, paneMax, room - sidebarWidth - (2 * gap) - PageMinWidth);
+        // A sidebar that hides lies over the page and takes no room beside it.
+        var sidebarRoom = SidebarAutoHides ? 0 : sidebarWidth + gap;
+        var paneWidth = Fit(pane ?? paneWanted, paneMin, paneMax, room - sidebarRoom - gap - PageMinWidth);
         SetWidth(SidebarColumn, sidebarWidth);
         ApplySidebarCompact(sidebarWidth <= SidebarCompactWidth);
         SetWidth(_paneColumn, paneWidth);
 
         // Still too little room for the page: the pane lies over it (see MainWindow.PaneOverlay.cs).
-        ShowPaneOverPage(paneOpen && room - Math.Min(sidebarWidth, SidebarColumn.MaxWidth) - (2 * gap) - paneWidth < PageMinWidth - 0.5);
+        ShowPaneOverPage(paneOpen && room - (SidebarAutoHides ? 0 : Math.Min(sidebarWidth, SidebarColumn.MaxWidth) + gap) - gap - paneWidth < PageMinWidth - 0.5);
 
         // The player's column beside the page shares the page's column, so it keeps the page its least too.
         LayOutSide();

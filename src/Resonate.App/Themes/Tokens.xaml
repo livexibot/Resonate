@@ -97,6 +97,9 @@
     <SolidColorBrush x:Key="ResonateSidebarBrush" Color="#14151A" />
     <SolidColorBrush x:Key="ResonateSurfaceBrush" Color="#1A1C22" />
     <SolidColorBrush x:Key="ResonatePlayerBrush" Color="#0F1014" />
+    <!-- The sidebar and the player lying over the page while auto-hide brings them out: almost opaque (ThemePalette.SidebarOverPage, PlayerOverPage). -->
+    <SolidColorBrush x:Key="ResonateSidebarOverPageBrush" Color="#14151A" />
+    <SolidColorBrush x:Key="ResonatePlayerOverPageBrush" Color="#0F1014" />
     <SolidColorBrush x:Key="ResonateSurfaceHoverBrush" Color="#14F2F3F5" />
     <SolidColorBrush x:Key="ResonateSurfacePressedBrush" Color="#1FF2F3F5" />
     <SolidColorBrush x:Key="ResonateControlBrush" Color="#0FF2F3F5" />

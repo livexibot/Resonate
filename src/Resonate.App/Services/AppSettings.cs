@@ -76,6 +76,12 @@ public sealed class AppSettings
     /// <summary>The library sidebar runs the window's full height, beside the player (off unless the user switches it on).</summary>
     public bool SidebarFullHeight { get; set; }
 
+    /// <summary>The sidebar slides out of sight and comes back over the page when the pointer reaches the window's left edge (Settings, Layout, Auto-hide).</summary>
+    public bool AutoHideSidebar { get; set; }
+
+    /// <summary>The player slides out of sight and comes back over the page when the pointer reaches its edge of the window (Settings, Layout, Auto-hide).</summary>
+    public bool AutoHidePlayer { get; set; }
+
     /// <summary>The Spotify song that played last and its place, shown when Resonate opens (see MainWindow.LastPlayed.cs).</summary>
     public Resonate.Spotify.Playback.LastPlayed? LastPlayed { get; set; }
 

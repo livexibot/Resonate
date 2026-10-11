@@ -167,6 +167,9 @@ public sealed partial class MainWindow
         var layout = look.PlayerLayout;
         var gap = theme.Palette.PanelGap;
 
+        // Auto-hide follows the window shape and the look's player too (MainWindow.AutoHide.cs).
+        ApplyAutoHide();
+
         // A window shape without the page (Window shapes plugin) has the player under everything.
         if (ShapeHidesPanels && (PlayerPlacement.IsAtTop(layout) || PlayerPlacement.HoversAtTop(layout) || PlayerPlacement.IsSide(layout) || PlayerPlacement.IsInSidebar(layout)))
         {
@@ -196,6 +199,9 @@ public sealed partial class MainWindow
         }
 
         _placement = placement;
+
+        // Auto-hide: the slide away follows the new place and size, once it is laid out.
+        DispatcherQueue.TryEnqueue(SlidePlayer);
         PlayerBar.ShowMode(inSidebar ? PlayerBarMode.Sidebar : PlayerPlacement.IsSide(layout) ? PlayerBarMode.Column : PlayerBarMode.Bar);
 
         // Settings, Layout, Advanced: moved by the user's own X and Y, wherever it sits.
@@ -245,11 +251,19 @@ public sealed partial class MainWindow
         var page = Grid.GetColumn(ContentPanel);
         Grid.SetRow(PlayerSlot, slot.Row);
         Grid.SetColumn(PlayerSlot, !wide && slot.StartsAtContent ? page : 0);
-        Grid.SetColumnSpan(PlayerSlot, wide || slot.SpansFollowingColumns ? ToTheLastColumn : 1);
+        Grid.SetColumnSpan(PlayerSlot, wide || slot.SpansFollowingColumns ? ToTheLastColumn : slot.StartsAtContent ? PageColumnSpan(paneOver: false) : 1);
         PlayerSlot.VerticalAlignment = !slot.AlignBottom ? VerticalAlignment.Stretch
             : hovers && PlayerPlacement.HoversAtTop(layout) ? VerticalAlignment.Top
             : VerticalAlignment.Bottom;
         PlayerSlot.Margin = slot.Margin.ToThickness();
+        if (PlayerAutoHides && !hovers)
+        {
+            // Auto-hide: over the page's edge rather than in a row of its own, so the page keeps the room while it is away.
+            Grid.SetRow(PlayerSlot, PlayerPlacement.PanelsRow);
+            PlayerSlot.VerticalAlignment = PlayerPlacement.IsAtTop(layout) ? VerticalAlignment.Top : VerticalAlignment.Bottom;
+            PlayerSlot.Margin = new Thickness(PlayerSlot.Margin.Left, 0, PlayerSlot.Margin.Right, 0);
+        }
+
         ClampPlayerSlot();
         UpdatePlayerInset();
     }
@@ -347,7 +361,7 @@ public sealed partial class MainWindow
         var left = PlayerPlacement.IsLeftSide(layout);
         Grid.SetRow(PlayerSlot, PlayerPlacement.PanelsRow);
         Grid.SetColumn(PlayerSlot, Grid.GetColumn(ContentPanel));
-        Grid.SetColumnSpan(PlayerSlot, 1);
+        Grid.SetColumnSpan(PlayerSlot, PageColumnSpan(paneOver: false));
         PlayerSlot.HorizontalAlignment = left ? HorizontalAlignment.Left : HorizontalAlignment.Right;
         PlayerSlot.VerticalAlignment = VerticalAlignment.Stretch;
         PlayerSlot.RowSpacing = 0;
@@ -404,7 +418,7 @@ public sealed partial class MainWindow
 
         // The page's column holds the page and the column beside it.
         var shell = ShellGrid.ActualWidth - ShellGrid.Padding.Left - ShellGrid.Padding.Right;
-        var others = SidebarColumn.Width.Value + ShellGrid.ColumnSpacing
+        var others = SidebarRoom
             + (ShellGrid.ColumnDefinitions.Contains(_paneColumn) ? _paneColumn.Width.Value + ShellGrid.ColumnSpacing : 0);
         var most = shell > 0 ? shell - others - PageMinWidth - gap - (2 * inset) : SideMaxWidth;
         var width = Math.Min(
@@ -419,7 +433,8 @@ public sealed partial class MainWindow
         PlayerSlot.Width = width;
         PlayerSlot.Margin = new Thickness(inset);
         var room = width + gap + (2 * inset);
-        var pageMargin = left ? new Thickness(room, 0, 0, 0) : new Thickness(0, 0, room, 0);
+        // A player that hides lies over the page when it comes out, so the page keeps the column's room.
+        var pageMargin = PlayerAutoHides ? new Thickness(0) : left ? new Thickness(room, 0, 0, 0) : new Thickness(0, 0, room, 0);
         ContentPanel.Margin = pageMargin;
         ContentElevation.Margin = pageMargin;
 
@@ -429,9 +444,10 @@ public sealed partial class MainWindow
             var middle = inset + width + ((inset + gap) / 2);
             var near = Math.Max(0, middle - (PaneSplitter.GripWidth / 2));
             Grid.SetColumn(grip, Grid.GetColumn(ContentPanel));
+            Grid.SetColumnSpan(grip, PageColumnSpan(paneOver: false));
             grip.HorizontalAlignment = left ? HorizontalAlignment.Left : HorizontalAlignment.Right;
             grip.Margin = left ? new Thickness(near, 0, 0, 0) : new Thickness(0, 0, near, 0);
-            grip.Visibility = Visibility.Visible;
+            grip.Visibility = PlayerAutoHides ? Visibility.Collapsed : Visibility.Visible;
         }
     }
 
@@ -446,7 +462,7 @@ public sealed partial class MainWindow
         var theme = _services.Theme;
         var palette = theme.Palette;
         var corner = new CornerRadius(palette.CornerLarge);
-        _sideCard.Background = theme.GetBrush("ResonatePlayerBrush");
+        _sideCard.Background = theme.GetBrush(PlayerAutoHides ? "ResonatePlayerOverPageBrush" : "ResonatePlayerBrush");
         _sideCard.BorderBrush = theme.GetBrush("ResonateBorderBrush");
         _sideCard.BorderThickness = new Thickness(palette.BorderWidth);
         _sideCard.CornerRadius = corner;
@@ -515,7 +531,7 @@ public sealed partial class MainWindow
     private void UpdatePlayerInset(bool newPage = false)
     {
         UpdateCoveredRoom();
-        var inset = _placement is { Hovers: true } placement ? PlayerPlacement.PageInset(placement.Layout, PlayerSlot.ActualHeight) : 0;
+        var inset = !PlayerAutoHides && _placement is { Hovers: true } placement ? PlayerPlacement.PageInset(placement.Layout, PlayerSlot.ActualHeight) : 0;
         if (!newPage && Math.Abs(inset - _playerInset) < 0.5)
         {
             return;

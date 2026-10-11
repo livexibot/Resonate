@@ -75,6 +75,7 @@ public sealed partial class PlayerBar : UserControl
     /// <summary>Below this the column beside the page tightens its buttons and puts the volume over them.</summary>
     private const double ColumnNarrowBelow = 300;
     private bool _lyricsShown;
+    private bool _overPage;
     private (bool On, string? Line, string? Next, string? Note, string? After) _lyricArgs;
     private Brush? _sungLyricBrush;
     private float _artworkSize = 56;
@@ -310,6 +311,16 @@ public sealed partial class PlayerBar : UserControl
     /// <summary>The bar itself, without its margins, for a special look's decorations that sit on it.</summary>
     internal FrameworkElement Surface => Bar;
 
+    /// <summary>Auto-hide lays the bar over the page: its fill becomes almost opaque (see MainWindow.AutoHide.cs).</summary>
+    internal void LieOverPage(bool over)
+    {
+        if (_overPage != over)
+        {
+            _overPage = over;
+            ApplyLook();
+        }
+    }
+
     /// <summary>How round the bar's corners are.</summary>
     internal double SurfaceCorner => Bar.CornerRadius.TopLeft;
 
@@ -335,7 +346,7 @@ public sealed partial class PlayerBar : UserControl
         var corner = new CornerRadius(column ? 0 : PlayerPlacement.Corner(look.PlayerLayout, look.Buttons, theme.Palette.CornerLarge, double.IsNaN(Bar.Height) ? SidebarCornerHeight : Bar.Height));
         Bar.CornerRadius = corner;
         BarHost.CornerRadius = corner;
-        Bar.Background = column ? theme.GetBrush("ResonateTransparentBrush") : theme.GetBrush("ResonatePlayerBrush");
+        Bar.Background = theme.GetBrush(column ? "ResonateTransparentBrush" : _overPage ? "ResonatePlayerOverPageBrush" : "ResonatePlayerBrush");
         Bar.BorderThickness = column ? new Thickness(0) : PlayerPlacement.Outline(look.PlayerLayout, theme.Palette.BorderWidth).ToThickness();
         BarHost.Level = column ? ElevationLevel.Flat : ElevationLevel.Player;
 
@@ -476,8 +487,8 @@ public sealed partial class PlayerBar : UserControl
     /// The speaker, the volume and the buttons in the column beside the page:
     /// wide, the speaker and the slider on the left and the buttons on the
     /// right; narrow, the slider across the column over the buttons; a rail,
-    /// the buttons and the speaker one under the other (its wheel sets the
-    /// volume).
+    /// the speaker (its wheel sets the volume) and then the buttons, one under
+    /// the other (the owner's order, 11 October 2026).
     /// </summary>
     private void ArrangeColumnSide()
     {
@@ -490,10 +501,10 @@ public sealed partial class PlayerBar : UserControl
         VolumeControls.Orientation = Orientation.Horizontal;
         SideButtons.HorizontalAlignment = rail || narrow ? HorizontalAlignment.Center : HorizontalAlignment.Right;
         VolumeControls.HorizontalAlignment = rail ? HorizontalAlignment.Center : HorizontalAlignment.Left;
-        // Wide: one row. Narrow: the slider over the buttons. Rail: the buttons over the speaker.
-        Grid.SetRow(VolumeControls, rail ? 1 : 0);
+        // Wide: one row. Narrow: the slider over the buttons. Rail: the speaker over the buttons.
+        Grid.SetRow(VolumeControls, 0);
         Grid.SetColumn(VolumeControls, 0);
-        Grid.SetRow(SideButtons, narrow && !rail ? 1 : 0);
+        Grid.SetRow(SideButtons, narrow || rail ? 1 : 0);
         Grid.SetColumn(SideButtons, narrow ? 0 : 1);
         SideArea.ColumnSpacing = narrow ? 0 : 8;
         SideArea.RowSpacing = rail ? 4 : narrow ? 6 : 0;
