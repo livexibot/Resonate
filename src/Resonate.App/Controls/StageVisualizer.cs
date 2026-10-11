@@ -506,10 +506,10 @@ internal sealed partial class StageVisualizer : Grid
         }
     }
 
-    /// <summary>Clips a drawing along the bottom to the stage's rounded corners; one around the cover reaches past its box, so it is never clipped.</summary>
+    /// <summary>Clips a drawing along the bottom to the stage (and its corners, square or rounded); one around the cover reaches past its box, so it is never clipped.</summary>
     private void ClipToCorners(Vector2 offset)
     {
-        if (_clipCorner <= 0 || InBar || _drawing.AroundCover)
+        if (_clipCorner < 0 || InBar || _drawing.AroundCover)
         {
             _root.Clip = null;
             return;
