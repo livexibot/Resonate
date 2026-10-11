@@ -346,6 +346,11 @@ public sealed class PlayerLayoutTests
     public void Players_on_top_face_the_panels_with_their_outline_and_corners()
     {
         Assert.Equal(new EdgeInsets(0, 0, 0, 1.5), PlayerPlacement.Outline(PlayerLayout.Top, 1.5));
+
+        // Beside a full-height sidebar the docked bars face it too.
+        Assert.Equal(new EdgeInsets(1.5, 0, 0, 1.5), PlayerPlacement.Outline(PlayerLayout.Top, 1.5, besideSidebar: true));
+        Assert.Equal(new EdgeInsets(1.5, 1.5, 0, 0), PlayerPlacement.Outline(PlayerLayout.Docked, 1.5, besideSidebar: true));
+        Assert.Equal(EdgeInsets.All(1.5), PlayerPlacement.Outline(PlayerLayout.Floating, 1.5, besideSidebar: true));
         Assert.Equal(EdgeInsets.All(1.5), PlayerPlacement.Outline(PlayerLayout.FloatingTop, 1.5));
         Assert.Equal(EdgeInsets.All(1), PlayerPlacement.Outline(PlayerLayout.Corner, 0));
         Assert.Equal(0, PlayerPlacement.Corner(PlayerLayout.Top, ButtonShape.Round, 16, 88));

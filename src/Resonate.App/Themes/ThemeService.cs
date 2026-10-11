@@ -636,7 +636,7 @@ public sealed class ThemeService
             var gap = palette.PanelGap;
             var layout = look.PlayerLayout;
             var playerMargin = PlayerPlacement.Margin(layout, gap);
-            var playerOutline = PlayerPlacement.Outline(layout, palette.BorderWidth);
+            var playerOutline = PlayerPlacement.Outline(layout, palette.BorderWidth, SidebarFullHeight);
             var playerCorner = PlayerPlacement.Corner(layout, look.Buttons, palette.CornerLarge, PlayerPlacement.BarHeight);
             foreach (var dictionary in _tokens.ThemeDictionaries.Values.OfType<ResourceDictionary>())
             {
