@@ -177,10 +177,12 @@ internal sealed partial class MiniPlayerWindow : Window
         _playlist.SetScale(scale, _raster);
         Show(_playlist, layout.PlaylistHeight > 0, _stack.Children.Count);
 
+        // The window has no frame (FramelessWindow), so it is all content: sized whole, not by its client
+        // area, which Windows would pad with the frame it thinks the window has.
         var size = new SizeInt32(ClassicStack.Width * scale, layout.Height * scale);
-        if (AppWindow.ClientSize.Width != size.Width || AppWindow.ClientSize.Height != size.Height)
+        if (AppWindow.Size.Width != size.Width || AppWindow.Size.Height != size.Height)
         {
-            AppWindow.ResizeClient(size);
+            AppWindow.Resize(size);
         }
 
         if (keepOnScreen && AppWindow.IsVisible)
