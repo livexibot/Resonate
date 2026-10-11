@@ -48,9 +48,6 @@ internal sealed partial class NowPlayingStage : Grid
     /// <summary>The largest the cover is drawn, and the width pictures are decoded at.</summary>
     private const int CoverMax = 440;
 
-    // How much of Home's stage, from its bottom, fades into the page.
-    private const float HomeFade = 0.4f;
-
     private const int SampleSize = 40;
     private const int BlurRadius = 3;
     private const int UpNextCount = 3;
@@ -507,19 +504,6 @@ internal sealed partial class NowPlayingStage : Grid
         _visualizer.Reach = _wide ? (away ? 52 : 40) : 20;
     }
 
-    /// <summary>The page's colour, full at the top and fading out over the stage's lowest <see cref="HomeFade"/>.</summary>
-    private static LinearGradientBrush FadingDown(ThemeColor page) => new()
-    {
-        StartPoint = new global::Windows.Foundation.Point(0, 0),
-        EndPoint = new global::Windows.Foundation.Point(0, 1),
-        GradientStops =
-        {
-            new GradientStop { Color = page.ToColor(), Offset = 0 },
-            new GradientStop { Color = page.ToColor(), Offset = 1 - HomeFade },
-            new GradientStop { Color = page.WithAlpha(0).ToColor(), Offset = 1 },
-        },
-    };
-
     /// <summary>The look's colours and corners, and the clouds and blurred cover made readable for its text.</summary>
     private void ApplyLook()
     {
@@ -540,13 +524,9 @@ internal sealed partial class NowPlayingStage : Grid
         // No grain on a plain background: black stays black for OLED.
         _grain.Visibility = _clouds.Visibility;
         // OLED: see-through, over the screensaver window's black, so the glow behind shows.
-        // Home: the backdrop melts into the page over its lowest part rather than ending in a line
-        // (the owner's request, 11 October 2026), so the page, see-through or not, shows there.
         Background = _kind == StageKind.Away && _services.Settings.ScreensaverOled
             ? new SolidColorBrush(Microsoft.UI.Colors.Transparent)
-            : home ? FadingDown(page)
             : new SolidColorBrush(page.ToColor());
-        _clouds.FadeBottom = home ? HomeFade : 0;
         var corner = home ? palette.CornerLarge : 0;
         CornerRadius = new CornerRadius(corner);
         _clouds.CornerRadiusValue = (float)corner;

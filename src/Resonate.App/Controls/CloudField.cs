@@ -50,7 +50,6 @@ internal sealed partial class CloudField : Grid
 
     private readonly Compositor _compositor;
     private readonly ContainerVisual _root;
-    private readonly ContainerVisual _content;
     private readonly CompositionRoundedRectangleGeometry _shape;
     private readonly CompositionSurfaceBrush _mask;
     private readonly SpriteVisual[] _sprites = new SpriteVisual[Clouds.Length];
@@ -64,7 +63,6 @@ internal sealed partial class CloudField : Grid
     private bool _running;
     private bool _animate;
     private bool _maskReady;
-    private BottomFade? _fade;
 
     public CloudField()
     {
@@ -79,8 +77,6 @@ internal sealed partial class CloudField : Grid
         _mask = _compositor.CreateSurfaceBrush();
         _mask.Stretch = CompositionStretch.Fill;
         _mask.BitmapInterpolationMode = CompositionBitmapInterpolationMode.Linear;
-        _content = _compositor.CreateContainerVisual();
-        _root.Children.InsertAtTop(_content);
 
         for (var i = 0; i < Clouds.Length; i++)
         {
@@ -91,7 +87,7 @@ internal sealed partial class CloudField : Grid
             var sprite = _compositor.CreateSpriteVisual();
             sprite.Brush = brush;
             _sprites[i] = sprite;
-            _content.Children.InsertAtTop(sprite);
+            _root.Children.InsertAtTop(sprite);
         }
 
         ElementCompositionPreview.SetElementChildVisual(this, _root);
@@ -134,40 +130,6 @@ internal sealed partial class CloudField : Grid
     {
         get => _shape.CornerRadius.X;
         set => _shape.CornerRadius = new Vector2(value, value);
-    }
-
-    /// <summary>
-    /// The lowest share of the field (0 to 1) where the clouds fade out into
-    /// what lies under the field (Home's stage melting into the page); 0 for none.
-    /// </summary>
-    public float FadeBottom
-    {
-        get => _fade?.Share ?? 0;
-        set
-        {
-            if (value <= 0)
-            {
-                if (_fade is { } fade)
-                {
-                    _root.Children.RemoveAll();
-                    fade.Dispose();
-                    _fade = null;
-                    _root.Children.InsertAtTop(_content);
-                }
-
-                return;
-            }
-
-            if (_fade is null)
-            {
-                _root.Children.Remove(_content);
-                _fade = new BottomFade(_compositor, _content);
-                _fade.Resize(_size);
-                _root.Children.InsertAtTop(_fade.Sprite);
-            }
-
-            _fade.Share = value;
-        }
     }
 
     /// <summary>
@@ -289,7 +251,6 @@ internal sealed partial class CloudField : Grid
     {
         _size = new Vector2((float)e.NewSize.Width, (float)e.NewSize.Height);
         _shape.Size = _size;
-        _fade?.Resize(_size);
         if (!_drift.IsRunning || _builtFor == default)
         {
             Build();
