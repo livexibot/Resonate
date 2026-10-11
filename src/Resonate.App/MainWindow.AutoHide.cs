@@ -19,13 +19,14 @@ namespace Resonate.App;
 /// moment after the pointer leaves it and its edge, unless a menu or dialog
 /// is open or a text field in it has the keyboard. The page keeps its size
 /// while they come and go. A player beside the page on the left shares the
-/// left edge with a hiding sidebar, and both come out together; the player
-/// in the sidebar goes with the sidebar.
+/// left edge with a hiding sidebar: both come out together, the player
+/// beside the sidebar, and stay while the pointer is on either (the owner's
+/// request, 11 October 2026); the player in the sidebar goes with the sidebar.
 /// </summary>
 public sealed partial class MainWindow
 {
-    /// <summary>The strip along the window's edge that brings it back, in the content's units.</summary>
-    private const double EdgeThickness = 10;
+    /// <summary>The strip along the window's edge that brings it back, in the content's units (10 was too narrow to find, the owner said).</summary>
+    private const double EdgeThickness = 28;
 
     /// <summary>How long the pointer rests on an edge before what hides there comes out (a pass on the way elsewhere opens nothing).</summary>
     private static readonly TimeSpan EdgeDwell = TimeSpan.FromMilliseconds(120);
@@ -213,7 +214,7 @@ public sealed partial class MainWindow
         {
             drawer.EdgeInside = true;
             drawer.CancelHide();
-            if (!drawer.Out)
+            if (!drawer.Out || (drawer == _sidebarDrawer && SharesLeftEdge && !_playerDrawer.Out))
             {
                 drawer.Rest(DispatcherQueue, EdgeDwell);
             }
@@ -266,7 +267,9 @@ public sealed partial class MainWindow
     /// </summary>
     private bool MayHide(Drawer drawer)
     {
-        if (drawer.Inside || drawer.EdgeInside || (drawer == _sidebarDrawer && SharesLeftEdge && _playerDrawer.Inside))
+        // Sharing the left edge, the two stay out while the pointer is on either.
+        var other = drawer == _sidebarDrawer ? _playerDrawer : _sidebarDrawer;
+        if (drawer.Inside || drawer.EdgeInside || (SharesLeftEdge && (other.Inside || other.EdgeInside)))
         {
             return false;
         }
@@ -350,7 +353,11 @@ public sealed partial class MainWindow
             edge.VerticalAlignment = top ? VerticalAlignment.Top : VerticalAlignment.Bottom;
         }
 
-        Slide(PlayerSlot, hidden ? away : Vector3.Zero, hidden ? 0 : 1);
+        // Out with the sidebar on the shared left edge, it comes out beside it rather than over it.
+        var beside = SharesLeftEdge && _sidebarDrawer.Out
+            ? new Vector3((float)(SidebarColumn.Width.Value + ShellGrid.ColumnSpacing), 0, 0)
+            : Vector3.Zero;
+        Slide(PlayerSlot, hidden ? away : beside, hidden ? 0 : 1);
         PlayerSlot.IsHitTestVisible = !hidden;
 
         // Over the sidebar too when both are out (it is over the panels and grips otherwise, see SetUpPlayerPlacement).
