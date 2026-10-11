@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.21.0](https://github.com/livexibot/Resonate/compare/v0.20.0...v0.21.0) (2026-10-11)
+
+
+### New features
+
+* a Glow style for Home's visualizer, round the cover ([0a4cfa4](https://github.com/livexibot/Resonate/commit/0a4cfa4769ff6f2ac38e5e19a15f43e0419b6d10))
+* auto-hide for the sidebar and the player (Settings, Layout), back on a rest or a click at the window's edge; a left player comes out beside the sidebar ([0a4cfa4](https://github.com/livexibot/Resonate/commit/0a4cfa4769ff6f2ac38e5e19a15f43e0419b6d10))
+* Quick search opens with a soft rise, rows easing in and a highlight that fades from row to row ([0a4cfa4](https://github.com/livexibot/Resonate/commit/0a4cfa4769ff6f2ac38e5e19a15f43e0419b6d10))
+* the player beside the page shows Lyrics in the player's lines under the song ([0a4cfa4](https://github.com/livexibot/Resonate/commit/0a4cfa4769ff6f2ac38e5e19a15f43e0419b6d10))
+* the side player's narrow rail says UP NEXT over the coming songs, with the speaker first ([0a4cfa4](https://github.com/livexibot/Resonate/commit/0a4cfa4769ff6f2ac38e5e19a15f43e0419b6d10))
+
+
+### Fixes
+
+* local songs in playlists show their covers from Local Files ([0a4cfa4](https://github.com/livexibot/Resonate/commit/0a4cfa4769ff6f2ac38e5e19a15f43e0419b6d10))
+* Quick search and Desktop lyrics have no light outline round their windows ([0a4cfa4](https://github.com/livexibot/Resonate/commit/0a4cfa4769ff6f2ac38e5e19a15f43e0419b6d10))
+* switches, check boxes and drop-down choices take the look's accent and follow the cover ([0a4cfa4](https://github.com/livexibot/Resonate/commit/0a4cfa4769ff6f2ac38e5e19a15f43e0419b6d10))
+
 ## [0.20.0](https://github.com/livexibot/Resonate/compare/v0.19.0...v0.20.0) (2026-10-11)
 
 
