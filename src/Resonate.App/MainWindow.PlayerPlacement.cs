@@ -355,6 +355,7 @@ public sealed partial class MainWindow
         if (_sideColumn is null)
         {
             _sideColumn = new NowPlayingColumn(_services, beside: true);
+            ShowPlayerLyricsBeside(_sideColumn);
             _sideUpNext = new SideUpNext(_services);
             _sideShadow = new Elevation { IsHitTestVisible = false };
             _sideCard = new Border { IsHitTestVisible = false };

@@ -83,7 +83,11 @@ internal sealed partial class SideUpNext : Grid
         };
     }
 
-    /// <summary>In a rail (the column dragged narrow): the covers alone, down the middle, each song in its tooltip.</summary>
+    /// <summary>
+    /// In a rail (the column dragged narrow): the heading centred over the
+    /// covers alone, down the middle, each song in its tooltip. The heading
+    /// breaks onto two lines where the rail is too narrow for it.
+    /// </summary>
     internal void SetRail(bool rail)
     {
         if (rail == _rail)
@@ -93,7 +97,10 @@ internal sealed partial class SideUpNext : Grid
 
         _rail = rail;
         Padding = rail ? new Thickness(12, 6, 12, 16) : new Thickness(20, 6, 12, 16);
-        _heading.Visibility = rail ? Visibility.Collapsed : Visibility.Visible;
+        _heading.HorizontalAlignment = rail ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
+        _heading.TextAlignment = rail ? TextAlignment.Center : TextAlignment.Left;
+        _heading.TextWrapping = rail ? TextWrapping.WrapWholeWords : TextWrapping.NoWrap;
+        _heading.TextTrimming = rail ? TextTrimming.None : TextTrimming.CharacterEllipsis;
         _scroller.Padding = rail ? new Thickness(0) : new Thickness(0, 0, 8, 0);
         _scroller.VerticalScrollBarVisibility = rail ? ScrollBarVisibility.Hidden : ScrollBarVisibility.Auto;
         foreach (var (_, _, title, artists, row) in _rows)
