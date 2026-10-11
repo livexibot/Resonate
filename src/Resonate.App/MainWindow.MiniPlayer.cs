@@ -35,6 +35,8 @@ public sealed partial class MainWindow
             return;
         }
 
+        // It opens with the queue (its playlist window) showing.
+        _services.Skins.MiniPlaylist = true;
         var mini = new MiniPlayerWindow();
         _miniPlayer = mini;
         mini.ShowAndFocus();

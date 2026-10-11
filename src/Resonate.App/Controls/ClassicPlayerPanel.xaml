@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Settings, Winamp (the classic player): whether to use it, its skin, its size, the mini player and its title bar button, and the visualiser. See ClassicPlayerPanel.xaml.cs. -->
+<!-- Settings, Winamp: opening its window on the desktop, its skin, its size and title bar button, and the visualiser. See ClassicPlayerPanel.xaml.cs. -->
 <UserControl
     x:Class="Resonate.App.Controls.ClassicPlayerPanel"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -9,14 +9,11 @@
     <controls:SettingsGroup x:Name="Group" StartsCollapsed="True" Header="Winamp">
         <StackPanel Spacing="12">
             <StackPanel Spacing="6">
-                <controls:SettingRow Description="In place of the player bar." Header="Use the Winamp player">
-                    <ToggleSwitch
-                        x:Name="UseSwitch"
-                        MinWidth="0"
-                        AutomationProperties.Name="Use the Winamp player"
-                        OffContent=""
-                        OnContent=""
-                        Toggled="OnUseToggled" />
+                <controls:SettingRow x:Name="MiniPlayerRow" Header="Mini player">
+                    <Button
+                        x:Name="OpenMiniButton"
+                        Click="OnMiniPlayerClick"
+                        Content="Open" />
                 </controls:SettingRow>
                 <controls:SettingRow Header="Skin">
                     <ComboBox
@@ -24,21 +21,6 @@
                         MinWidth="190"
                         AutomationProperties.Name="Skin"
                         SelectionChanged="OnSkinChanged" />
-                </controls:SettingRow>
-                <controls:SettingRow Header="Double size">
-                    <ToggleSwitch
-                        x:Name="DoubleSizeSwitch"
-                        MinWidth="0"
-                        AutomationProperties.Name="Double size"
-                        OffContent=""
-                        OnContent=""
-                        Toggled="OnDoubleSizeToggled" />
-                </controls:SettingRow>
-                <controls:SettingRow x:Name="MiniPlayerRow" Header="Mini player">
-                    <Button
-                        x:Name="OpenMiniButton"
-                        Click="OnMiniPlayerClick"
-                        Content="Open" />
                 </controls:SettingRow>
                 <controls:SettingRow Header="Mini player button">
                     <ToggleSwitch

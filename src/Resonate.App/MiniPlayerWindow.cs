@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Resonate.App.Controls;
+using Resonate.App.Helpers;
 using Resonate.App.Services;
 using Resonate.Themes.Skins;
 using Windows.Graphics;
@@ -32,10 +33,6 @@ internal sealed partial class MiniPlayerWindow : Window
     /// <summary>The first time, the mini player opens this far in from the screen's bottom right corner.</summary>
     private const int CornerMargin = 24;
 
-    private const int DwmWindowCornerPreference = 33;
-    private const int DwmCornerDoNotRound = 1;
-    private const int DwmBorderColor = 34;
-    private const uint DwmColorNone = 0xFFFFFFFE;
 
     private readonly AppServices _services = App.Services;
     private readonly SkinLibrary _skins;
@@ -68,7 +65,9 @@ internal sealed partial class MiniPlayerWindow : Window
         _presenter.IsAlwaysOnTop = _skins.MiniOnTop;
         _presenter.SetBorderAndTitleBar(false, false);
         AppWindow.SetPresenter(_presenter);
-        SquareCorners();
+
+        // Square, with no frame or light outline: the skin's own frame is the window's edge.
+        FramelessWindow.Apply(this, border: null, rounded: false);
 
         _main = new ClassicPlayer(this);
         _equalizer = new ClassicEqualizer(this);
@@ -391,16 +390,6 @@ internal sealed partial class MiniPlayerWindow : Window
         }
     }
 
-    /// <summary>Square, borderless edges, so the skin's own frame is the window's edge.</summary>
-    private void SquareCorners()
-    {
-        var hwnd = Hwnd;
-        var corner = DwmCornerDoNotRound;
-        _ = DwmSetWindowAttribute(hwnd, DwmWindowCornerPreference, ref corner, sizeof(int));
-        var border = unchecked((int)DwmColorNone);
-        _ = DwmSetWindowAttribute(hwnd, DwmBorderColor, ref border, sizeof(int));
-    }
-
     [StructLayout(LayoutKind.Sequential)]
     private struct CursorPoint
     {
@@ -418,7 +407,4 @@ internal sealed partial class MiniPlayerWindow : Window
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool IsIconic(nint hwnd);
-
-    [LibraryImport("dwmapi.dll")]
-    private static partial int DwmSetWindowAttribute(nint hwnd, int attribute, ref int value, int size);
 }

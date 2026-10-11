@@ -4,8 +4,9 @@ using Microsoft.UI.Xaml;
 namespace Resonate.App.Helpers;
 
 /// <summary>
-/// The small windows of plugins (Quick search, Desktop lyrics): no frame at
-/// all, Windows 11's rounded corners, and the hairline Windows draws round a
+/// The small windows of plugins (Quick search, Desktop lyrics) and the Winamp
+/// mini player: no frame at all, Windows 11's rounded corners (square for
+/// Winamp), and the hairline Windows draws round a
 /// window in a colour of the look's (or none) instead of its own light grey.
 /// An overlapped window without border or title bar still has a dialog frame
 /// (a light edge 3 px wide all round, the "weird white outline" the owner saw
@@ -25,13 +26,14 @@ internal static unsafe partial class FramelessWindow
     private const uint FrameChanged = 0x20;
     private const uint CornerPreference = 33;
     private const uint BorderColor = 34;
+    private const uint DoNotRound = 1;
     private const uint Round = 2;
     private const uint ColorNone = 0xFFFFFFFE;
 
     private static readonly HashSet<nint> Hooked = [];
 
-    /// <summary>Takes the frame away (once is enough) and sets the hairline; call after the presenter is set.</summary>
-    public static void Apply(Window window, global::Windows.UI.Color? border)
+    /// <summary>Takes the frame away (once is enough) and sets the hairline and the corners; call after the presenter is set.</summary>
+    public static void Apply(Window window, global::Windows.UI.Color? border, bool rounded = true)
     {
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
         if (Hooked.Add(hwnd))
@@ -41,7 +43,7 @@ internal static unsafe partial class FramelessWindow
 
         // Asks for the frame again, which the window now answers with none.
         _ = SetWindowPos(hwnd, 0, 0, 0, 0, 0, NoMove | NoSize | NoZOrder | NoActivate | FrameChanged);
-        var round = Round;
+        var round = rounded ? Round : DoNotRound;
         _ = DwmSetWindowAttribute(hwnd, CornerPreference, ref round, sizeof(uint));
 
         // A COLORREF is 0x00BBGGRR.
