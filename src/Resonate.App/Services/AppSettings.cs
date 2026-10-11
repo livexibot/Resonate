@@ -267,8 +267,6 @@ public sealed class AppSettings
 
     // Home stage
 
-    /// <summary>The Home stage shows the playing cover blurred behind its clouds (on unless the user turns it off).</summary>
-    public bool HomeStageBlurredCover { get; set; } = true;
 
     /// <summary>The last cover's colours (#RRGGBB), so the stage opens in them before any cover is read.</summary>
     public List<string> HomeStageColours { get; set; } = [];
@@ -557,6 +555,22 @@ public sealed class AppSettings
 
     public int SkipShortestSeconds { get; set; } = 90;
 
+    /// <summary>Sleep timer: a fade over the last minute, and the user's own length in the menu beside 15, 30 and 60 minutes.</summary>
+    public bool SleepTimerFade { get; set; } = true;
+
+    public int SleepTimerMinutes { get; set; } = 90;
+
+    /// <summary>Skip rules: artists, versions ("live") and songs ("Title — Artists") to skip, and lengths (0 for any).</summary>
+    public List<string> SkipArtists { get; set; } = [];
+
+    public List<string> SkipVersions { get; set; } = [];
+
+    public List<string> SkipSongs { get; set; } = [];
+
+    public int SkipLongerThanMinutes { get; set; }
+
+    public int SkipShorterThanSeconds { get; set; }
+
     /// <summary>Volume per device: each output's volume by its name, a volume for new ones (0 keeps the volume), and a word when it changes.</summary>
     public Dictionary<string, int> DeviceVolumes { get; set; } = [];
 
@@ -731,13 +745,12 @@ public static class AppPaths
     public static string CacheFolder { get; } = Path.Combine(Local, "data");
 
     /// <summary>
-    /// Plugins that are on, and the helper that runs them. Next to the cache,
-    /// so it survives updates and goes on uninstall; emptied when the last
-    /// plugin is turned off.
+    /// Where downloaded plugins and their helper were kept until
+    /// 10 October 2026; <see cref="OldPlugins"/> deletes it.
     /// </summary>
     public static string PluginsFolder { get; } = Path.Combine(Local, "plugins");
 
-    /// <summary>Which plugins are on, their settings and what they keep (next to the settings).</summary>
+    /// <summary>Which downloaded plugins were on and their settings, until 10 October 2026; read once by <see cref="OldPlugins"/>, then deleted.</summary>
     public static string PluginsFile { get; } = Path.Combine(Roaming, "plugins.json");
 
     /// <summary>

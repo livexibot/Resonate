@@ -60,7 +60,7 @@ internal sealed partial class MiniPlayerWindow : Window
         AppWindow.Title = App.MainWindow?.AppWindow.Title ?? "Resonate";
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Resonate.ico"));
 
-        // A presenter of its own, rather than a cast of the current one, which Native AOT may not recognise (see CLAUDE.md).
+        // A presenter of its own, rather than a cast of the current one, which Native AOT may not recognise (C#/WinRT cannot find the type after trimming).
         _presenter = OverlappedPresenter.Create();
         _presenter.IsResizable = false;
         _presenter.IsMaximizable = false;

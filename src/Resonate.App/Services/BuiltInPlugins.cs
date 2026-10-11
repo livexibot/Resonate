@@ -3,13 +3,18 @@ namespace Resonate.App.Services;
 /// <summary>A plugin built into Resonate, listed in Settings, Plugins.</summary>
 public sealed record BuiltInPlugin(string Id, string Name, string Description);
 
+/// <summary>Something a plugin that is on offers in the player's plugin menu.</summary>
+public sealed record PluginCommand(string Title, Action Run);
+
 /// <summary>
-/// Features built into Resonate that stay off until they are turned on in
-/// Settings, Plugins, like the downloaded plugins (the owner asked for them
-/// as optional plugins, 8 October 2026). They need Resonate's own windows,
-/// pages and the Spotify Web API, which the JavaScript helper cannot reach,
-/// so they are compiled in; while one is off, nothing of it runs or shows.
-/// Each one watches <see cref="Changed"/> to start and stop at once.
+/// Every plugin of Resonate: features that stay off until they are turned
+/// on in Settings, Plugins (the owner asked for them as optional plugins,
+/// 8 October 2026). All of them are compiled in; since 10 October 2026 there
+/// are no downloaded plugins (the owner: "just make plugins in the code
+/// itself, and just install all plugins by default"). While one is off,
+/// nothing of it runs or shows. Each one watches <see cref="Changed"/> to
+/// start and stop at once, and one with commands (the sleep timer) offers
+/// them in the player's plugin menu through <see cref="AddMenu"/>.
 /// </summary>
 public sealed class BuiltInPlugins
 {
@@ -42,8 +47,14 @@ public sealed class BuiltInPlugins
     public const string SkipIntros = "skip-intros";
     public const string DeviceVolume = "device-volume";
 
+    // Downloaded JavaScript plugins until 10 October 2026: the IDs stay, so what was on stays on.
+    public const string SleepTimer = "sleep-timer";
+    public const string SkipSongs = "skip-rules";
+
     private readonly AppSettings _settings;
     private readonly Action _save;
+
+    private readonly List<(string Id, Func<IReadOnlyList<PluginCommand>> Commands, Func<string?> Status)> _menus = [];
 
     public BuiltInPlugins(AppSettings settings, Action save)
     {
@@ -53,6 +64,28 @@ public sealed class BuiltInPlugins
 
     /// <summary>Raised on the interface thread with a plugin's ID after it was turned on or off.</summary>
     public event EventHandler<string>? Changed;
+
+    /// <summary>Raised on the interface thread when a plugin's commands or status changed (see <see cref="MenusChanged"/>).</summary>
+    public event EventHandler? MenusChanged;
+
+    /// <summary>
+    /// A plugin's part of the player's plugin menu: its commands and a line
+    /// about what it is doing (null for none), read each time the menu or
+    /// the button is drawn. Call <see cref="NotifyMenus"/> when they change.
+    /// </summary>
+    public void AddMenu(string id, Func<IReadOnlyList<PluginCommand>> commands, Func<string?> status) =>
+        _menus.Add((id, commands, status));
+
+    /// <summary>The plugins that are on and offer commands now, by name, with their commands and status.</summary>
+    public IReadOnlyList<(BuiltInPlugin Plugin, IReadOnlyList<PluginCommand> Commands, string? Status)> Menus() =>
+        [.. _menus
+            .Where(menu => IsOn(menu.Id))
+            .Select(menu => (Plugin: All.First(p => p.Id == menu.Id), Commands: menu.Commands(), Status: menu.Status()))
+            .Where(menu => menu.Commands.Count > 0)
+            .OrderBy(menu => menu.Plugin.Name, StringComparer.CurrentCultureIgnoreCase)];
+
+    /// <summary>A plugin's commands or status changed. Call on the interface thread.</summary>
+    public void NotifyMenus() => MenusChanged?.Invoke(this, EventArgs.Empty);
 
     /// <summary>
     /// Every built-in plugin, with a plain name and one sentence about it (the
@@ -89,6 +122,8 @@ public sealed class BuiltInPlugins
         new(FocusTimer, "Focus timer", "Times rounds of focus with breaks between them, pausing the music for each break."),
         new(SkipIntros, "Skip intros and outros", "Skips the first and last seconds of every song, for long intros and fade-outs."),
         new(DeviceVolume, "Volume per device", "Remembers a volume for each pair of headphones and speakers and puts it back when you switch."),
+        new(SleepTimer, "Sleep timer", "Pauses the music after a while or at the end of the song, fading it out first."),
+        new(SkipSongs, "Skip rules", "Skips songs by artist, version or length, and any song you tell it to."),
     ];
 
     /// <summary>

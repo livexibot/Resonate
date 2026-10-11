@@ -8,8 +8,8 @@ using Resonate.Themes;
 namespace Resonate.App.Controls;
 
 /// <summary>
-/// The Layout tab of Settings: sizes, the sidebar, how pages open and
-/// Home's background, Home's visualizer, and song lists. All of it belongs
+/// The Layout tab of Settings: sizes, the sidebar, how pages open, Home's
+/// visualizer, and song lists. All of it belongs
 /// to the user and is kept whatever look is in use, except the Home
 /// visualizer's style, which is the look's (Off is the user's).
 /// </summary>
@@ -24,9 +24,6 @@ public sealed partial class LayoutSettings : UserControl
     public LayoutSettings()
     {
         InitializeComponent();
-
-        // Home's background, under the page animation.
-        PagesRows.Children.Add(StageSettings.HomeStage(_services));
 
         // Home lists every visualizer style; Off hides it.
         StageVisualizerChoice.Items.Add(new ComboBoxItem { Content = "Off", Tag = nameof(VisualizerStyle.Off) });

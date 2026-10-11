@@ -1,139 +1,80 @@
 # Plugins
 
-Plugins are optional extras for Resonate, off until you turn them on in
-Settings, Plugins. Some are built into the app; the others are not in the
-installer: such a plugin is downloaded the first time you turn it on, and
-its files are deleted when you turn it off. With no plugin on, Resonate
-has nothing extra on disk and nothing extra running.
+Plugins are extras that come with Resonate, off until you turn them on in
+Settings, Plugins. Nothing is downloaded: every plugin is part of the app,
+and while one is off it does nothing at all. Once a plugin is on, the gear
+beside its switch opens its settings.
 
-## The plugins
+Plugins with commands, such as the sleep timer, add a puzzle button to the
+player. It lights up while a plugin has something to say, such as the
+time left.
 
-### Built into Resonate
-
-These come with the app instead of being downloaded, because they need
-Resonate's own pages and your library. They are off until you turn them on
-in Settings, Plugins, and while off they do nothing at all.
+## Lyrics
 
 | Plugin | What it does |
 | --- | --- |
-| Lyrics | Words that follow the song, from LRCLIB, a free lyrics library. The song's name is sent to LRCLIB only while the lyrics pane is open. Click a line to jump there. |
-| Home stage | Home opens on the song playing, large, over drifting clouds of its colours (or its cover, blurred). |
-| Away screen | After a few idle minutes with music playing, the window shows the song and a clock. Any touch brings Resonate back. |
-| Rediscover | A row on Home: songs liked on this day in past years, ones you haven't played in a long time, and albums you love with songs you haven't liked yet. |
-| Up next | Drag songs in the queue into a new order, remove them, shuffle, clear or save what's coming. |
-| Artist orbit | Artist pages show the artists you play alongside them, from your own playlists and listening. |
-| Smart playlists | Playlists that fill themselves from rules, such as "saved this month" or "released in the 90s", and can be kept up to date on Spotify. |
-| Window shapes | The window turns into a compact view, a column or a one-line strip that can stay on top. |
-| Summon bar | A shortcut you choose opens a search box over any app; Enter plays. Ctrl+K opens it inside Resonate. |
-| Signal path | A badge in the player says whether what you hear is lossless, and what to change if not. |
+| Lyrics in the player | Shows the sung line and the next one under the song in the player bar. |
+| Desktop lyrics | Shows the sung line in a small window that stays on top of every app. |
 
-### Downloaded when turned on
+## Look and window
 
-| Plugin | What it does | It can |
-| --- | --- | --- |
-| Sleep timer | Pauses after 15, 30 or 60 minutes, your own length, or at the end of the song, fading out over the last minute and putting the volume back afterwards. | see what is playing, control playback, change the volume |
-| Skip rules | Skips songs you never want to hear: by artist, by version (live, remix, sped up), by title, or by length. "Always skip this song" and "Always skip this artist" are in the player bar's plugin menu. | see what is playing, control playback |
+| Plugin | What it does |
+| --- | --- |
+| Beat glow | Makes the window's edge glow with the beat of the music. |
+| Compact window | Shrinks the window to a small player or a one-line strip that can stay on top. |
+| Lossless badge | Shows in the player whether you hear lossless sound, and what changes it. |
+| Screensaver | After a few idle minutes, covers the screen with the song, a clock and a visualizer, above every app. |
 
-Each plugin's settings appear under it in Settings once it is on. Plugins
-that offer commands (start a sleep timer, skip this artist) add a puzzle
-button to the player bar; it lights up while a plugin has something to
-report, such as a sleep timer counting down.
+## Discover
 
-## How it works
+| Plugin | What it does |
+| --- | --- |
+| Rediscover songs | Adds a Home row of songs you liked on this day and ones you have not played in a while. |
+| Related artists | Shows the artists you play alongside an artist on their page. |
+| Smart playlists | Makes playlists that fill themselves from your Liked Songs by rules you set. |
 
-- **Only Resonate's own plugins.** Plugins live in this repository
-  (`plugins/`), are reviewed like any other change, and are built by the
-  release workflow. Each release builds a catalog into the app with the
-  SHA-256 of every plugin file and of the helper, so the app installs only
-  the exact files built for it, from that release's downloads on GitHub.
-  A file that does not match is thrown away. Community plugins may come
-  later; they would need a stronger sandbox first.
-- **A separate helper runs them.** The app is compiled ahead of time and
-  cannot load code, so plugins are JavaScript run by a small helper program
-  (`Resonate.PluginHost`, about 5 MB to download). It is downloaded with
-  the first plugin you turn on, started only while a plugin is on, runs at
-  below-normal priority, and is deleted with the last plugin. If it
-  crashes, Resonate restarts it twice at most in ten minutes.
-- **Plugins only get what they list.** Each plugin runs in its own
-  JavaScript engine with no access to files, the network, other programs,
-  or .NET, and no `eval`. It sees and does only what its permissions allow,
-  checked by the helper and again by Resonate, with limits on how often it
-  can skip, change the volume or show a message. A call that keeps the
-  processor busy for more than two seconds is stopped (waiting for a busy
-  computer does not count), memory is capped at 64 MB per plugin, and a
-  plugin with five errors in a minute is stopped, with the reason shown
-  under it in Settings.
-- **Updates.** Each Resonate update brings its own copies of the plugins
-  you have on and downloads them on the next start; your settings stay.
+## Volume and pausing
 
-The downloads come from the repository's GitHub releases, which only work
-without a sign-in once the repository is public (the same as updates).
+| Plugin | What it does |
+| --- | --- |
+| Pause for other sounds | Pauses the music while another app plays sound, such as a call or a video, and plays on after. |
+| Pause on lock | Pauses when you lock your PC and plays on when you unlock it. |
+| Pause on unplug | Pauses when your headphones or speaker disconnect. |
+| Quiet hours | Keeps the volume down during the hours you choose, such as at night. |
+| Volume per device | Remembers a volume for each pair of headphones and speakers and puts it back when you switch. |
 
-## Writing a plugin
+## Timers
 
-A plugin is a folder under `plugins/` with a `plugin.json` and a script.
+| Plugin | What it does |
+| --- | --- |
+| Alarm | Wakes you with your music at the time you pick, rising slowly from quiet. |
+| Focus timer | Times rounds of focus with breaks between them, pausing the music for each break. |
+| Sleep timer | Pauses after 15, 30 or 60 minutes, your own length, or at the end of the song, from the player's puzzle button. It fades out over the last minute and puts the volume back afterwards. |
 
-```json
-{
-  "id": "sleep-timer",
-  "name": "Sleep timer",
-  "version": "1.0.0",
-  "description": "One short line for Settings.",
-  "author": "Resonate",
-  "main": "main.js",
-  "permissions": ["player.read", "player.control", "player.volume"],
-  "settings": [
-    { "key": "fade", "type": "toggle", "title": "Fade out before pausing", "default": true },
-    { "key": "customMinutes", "type": "number", "title": "Your own length", "min": 5, "max": 240, "step": 5, "unit": "minutes", "default": 90 }
-  ]
-}
-```
+## Skipping
 
-- `id`: lower-case letters, digits and dashes; the folder has the same name.
-- `permissions`: `player.read` (see what is playing), `player.control`
-  (play, pause, skip, seek), `player.volume` (change the volume).
-- `settings`: drawn by Resonate in Settings. Types: `toggle`, `number`
-  (`min`, `max`, `step`, `unit`), `text`, `list` (one item per line, given
-  to the plugin as an array) and `choice` (`options`: a list of `value` and
-  `title`). Every value is checked against its type and limits before the
-  plugin sees it.
+| Plugin | What it does |
+| --- | --- |
+| Skip intros and outros | Skips the first and last seconds of every song, for long intros and fade-outs. |
+| Skip rules | Skips songs you never want to hear: by artist, by version (live, remix, sped up), by title, or by length. "Always skip this song" and "Always skip" an artist are in the player's puzzle button. |
 
-### The `resonate` object
+## Shortcuts
 
-```js
-resonate.player.state            // null, or { title, artists, album, uri, contextUri,
-                                 //   isPlaying, position, duration, volume, canSeek }
-resonate.player.onChange(fn)     // fn(state, before) whenever anything changes
-resonate.player.onTrackChange(fn)// fn(state, before) when the song changes
-resonate.player.play() / pause() / next() / previous()
-resonate.player.seek(seconds)
-resonate.player.setVolume(0.5)   // 0 to 1
+| Plugin | What it does |
+| --- | --- |
+| Media shortcuts | Shortcuts that play, pause, skip, change the volume or like the song from any app. |
+| Quick search | Opens a search box over any app with a shortcut, to play or queue a song. |
 
-resonate.settings.get(key)       // the setting's current value
-resonate.settings.all
-resonate.settings.set(key, value)
-resonate.settings.onChange(fn)   // fn(all, before)
+## Desktop and files
 
-resonate.storage.get(key) / set(key, value) / remove(key) / keys()
-                                 // kept between starts, up to 64 KB as JSON
+| Plugin | What it does |
+| --- | --- |
+| Export history | Saves your listening history as a spreadsheet file. |
+| Keep PC awake | Stops your PC from going to sleep while music plays. |
+| Now playing file | Writes the playing song to a text file, for stream overlays such as OBS. |
+| Song notifications | Shows a Windows notification with the cover when a new song starts while Resonate is in the background. |
 
-resonate.ui.addCommand(id, title, run)   // an item in the player bar's plugin menu
-resonate.ui.removeCommand(id)
-resonate.ui.setCommands([{ id, title, run }, ...])  // replaces them all
-resonate.ui.setStatus(text)      // a short line in Settings and the menu; null clears it
-resonate.ui.notify(text)         // a message at the top of the window
+## Ideas for new plugins
 
-setTimeout, setInterval (at least 250 ms), clearTimeout, clearInterval
-console.log, console.error       // the last error shows under the plugin in Settings
-```
-
-Positions and durations are in seconds. Times move on by themselves while
-a song plays, so `resonate.player.state.position` is always current.
-
-### Testing
-
-Plugins run in the real helper in `tests/Resonate.Plugins.Tests`, on a fake
-clock, so a sleep timer's hour passes in milliseconds (see
-`SleepTimerTests.cs` and `SkipRulesTests.cs`). Every plugin in `plugins/`
-is also checked for a valid `plugin.json`, and CI installs and runs all of
-them in the installed Windows app (`--plugin-check`).
+Open an issue with the "An idea" form. A new plugin is a pull request like
+any other change to Resonate (see [CONTRIBUTING.md](../CONTRIBUTING.md)).

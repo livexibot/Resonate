@@ -39,6 +39,8 @@ public sealed partial class MainWindow
         SetUpFocusTimer();
         SetUpSkipIntros();
         SetUpDeviceVolume();
+        SetUpSleepTimer();
+        SetUpSkipSongs();
     }
 
     /// <summary>
@@ -121,6 +123,10 @@ public sealed partial class MainWindow
     partial void SetUpFocusTimer();
 
     partial void SetUpSkipIntros();
+
+    partial void SetUpSleepTimer();
+
+    partial void SetUpSkipSongs();
 
     partial void SetUpDeviceVolume();
 }

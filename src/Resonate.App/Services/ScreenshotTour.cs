@@ -150,16 +150,9 @@ internal sealed class ScreenshotTour
                 await Task.Delay(600);
                 await CaptureAsync("5-customize.png");
 
-                // The plugins, turned on (demo mode shows their settings without downloading them):
-                // Skip rules' lists sit under their names, the sleep timer's controls beside them.
-                var plugins = App.Services.Plugins;
-                foreach (var id in (string[])["skip-rules", "sleep-timer"])
-                {
-                    if (plugins.Available.FirstOrDefault(p => p.Id == id) is { } plugin)
-                    {
-                        await plugins.EnableAsync(plugin.Id, CancellationToken.None);
-                    }
-                }
+                // Two plugins turned on, so their gears and the player's plugin button show.
+                App.Services.BuiltIns.Set(BuiltInPlugins.SkipSongs, true);
+                App.Services.BuiltIns.Set(BuiltInPlugins.SleepTimer, true);
 
                 settings.ShowPlugins();
                 await Task.Delay(800);

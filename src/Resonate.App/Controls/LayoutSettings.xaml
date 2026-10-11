@@ -98,7 +98,7 @@
             </StackPanel>
         </controls:SettingsGroup>
 
-        <!-- How pages open, and the blurred cover behind Home's stage (added in code) -->
+        <!-- How pages open -->
         <controls:SettingsGroup Header="Pages">
             <StackPanel x:Name="PagesRows" Spacing="6">
                 <controls:SettingRow Header="Page animation">

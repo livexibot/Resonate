@@ -523,7 +523,10 @@ internal sealed partial class NowPlayingStage : Grid
 
         // No grain on a plain background: black stays black for OLED.
         _grain.Visibility = _clouds.Visibility;
-        Background = new SolidColorBrush(page.ToColor());
+        // OLED: see-through, over the screensaver window's black, so the glow behind shows.
+        Background = _kind == StageKind.Away && _services.Settings.ScreensaverOled
+            ? new SolidColorBrush(Microsoft.UI.Colors.Transparent)
+            : new SolidColorBrush(page.ToColor());
         var corner = home ? palette.CornerLarge : 0;
         CornerRadius = new CornerRadius(corner);
         _clouds.CornerRadiusValue = (float)corner;
@@ -1057,10 +1060,14 @@ internal sealed partial class NowPlayingStage : Grid
     /// <summary>The stage is in the window, the window shows, and the stage is on screen (not under the away screen).</summary>
     private bool Seen => _attached && _onScreen && !(_covered && _kind == StageKind.Home) && (_kind == StageKind.Away || (App.MainWindow?.IsShown ?? true));
 
-    /// <summary>The blurred cover behind the stage: Home's switch, or the screensaver's Background.</summary>
+    /// <summary>
+    /// The blurred cover behind the stage: only the screensaver's, by its
+    /// Background. Home shows the clouds (the owner had Home's switch
+    /// removed, 10 October 2026).
+    /// </summary>
     private bool BlurredCover => _kind == StageKind.Away
-        ? _services.Settings.ScreensaverBackground == "Cover" && !_services.Settings.ScreensaverOled
-        : _services.Settings.HomeStageBlurredCover;
+        && _services.Settings.ScreensaverBackground == "Cover"
+        && !_services.Settings.ScreensaverOled;
 
     /// <summary>The screensaver's plain background (black in OLED mode, or the user's colour), or null for the song's colours.</summary>
     private ThemeColor? ScreensaverPlain
@@ -1152,38 +1159,41 @@ internal sealed partial class NowPlayingStage : Grid
     /// </summary>
     private void Fit(global::Windows.Foundation.Size size)
     {
-        var away = _kind == StageKind.Away;
-        var pad = away ? 72.0 : size.Width < 640 ? 28 : 48;
+        if (_kind == StageKind.Away)
+        {
+            FitAway(size);
+            return;
+        }
 
-        // The away screen keeps the top for its clock.
-        var top = away ? 160 : pad;
+        var pad = size.Width < 640 ? 28.0 : 48;
+        var top = pad;
         Body.Margin = new Thickness(pad, top, pad, pad);
         // At full width the visualizer reaches both edges of the stage (the owner's request, 9 October 2026).
         _visualizer.Margin = new Thickness(0);
         var innerWidth = Math.Max(0, size.Width - (2 * pad));
         var innerHeight = Math.Max(0, size.Height - top - pad);
-        var spacing = away ? 64 : 48;
+        var spacing = 48;
         var upNext = _upNext is not null && size.Height >= 560 && _upNextRows.Any(r => r.Row.Visibility == Visibility.Visible);
         var wide = StageLayout.SideBySide(innerWidth, innerHeight);
         double cover;
         double title;
         if (wide)
         {
-            cover = StageLayout.SideCover(innerWidth, innerHeight, away ? 560 : CoverMax);
-            title = StageLayout.TitleSize(away, sideBySide: true, cover);
+            cover = StageLayout.SideCover(innerWidth, innerHeight, CoverMax);
+            title = StageLayout.TitleSize(false, sideBySide: true, cover);
             var column = Math.Max(0, innerWidth - cover - spacing);
             upNext = upNext && WordsHeight(column, title, upNext: true) <= innerHeight;
 
             // A large Text size on a short stage: the compact title, so the buttons stay whole.
             if (!upNext && WordsHeight(column, title, upNext: false) > innerHeight)
             {
-                title = StageLayout.TitleSize(away, sideBySide: false, cover);
+                title = StageLayout.TitleSize(false, sideBySide: false, cover);
             }
         }
         else
         {
             // The words first: the cover above them takes only the room they leave.
-            title = StageLayout.TitleSize(away, sideBySide: false, 0);
+            title = StageLayout.TitleSize(false, sideBySide: false, 0);
             double? stacked = upNext ? StageLayout.StackedCover(innerWidth, innerHeight, WordsHeight(innerWidth, title, upNext: true)) : null;
             upNext = stacked is not null;
             stacked ??= StageLayout.StackedCover(innerWidth, innerHeight, WordsHeight(innerWidth, title, upNext: false));
@@ -1215,6 +1225,58 @@ internal sealed partial class NowPlayingStage : Grid
             _upNext.Visibility = upNext ? Visibility.Visible : Visibility.Collapsed;
         }
 
+        QueueBarRoom();
+    }
+
+    /// <summary>The share of the screen's height the screensaver's visualizer takes along the bottom.</summary>
+    private const double AwayBarShare = 0.22;
+
+    /// <summary>
+    /// The screensaver's layout (redone on 10 October 2026, the owner: "make
+    /// it way more modern"): the song as a card at the bottom left, just
+    /// above the visualizer, its cover and words sized from the screen's
+    /// height, so they look the same on a laptop and a 5K screen; smaller
+    /// in OLED mode, where it wanders (see <see cref="AwayScreen"/>).
+    /// </summary>
+    private void FitAway(global::Windows.Foundation.Size size)
+    {
+        var height = Math.Max(size.Height, 1);
+        var oled = _services.Settings.ScreensaverOled;
+        var text = _services.Theme.TextSize;
+        var pad = Math.Clamp(height * 0.065, 40, 180);
+        var cover = Math.Clamp(height * (oled ? 0.17 : 0.24), 140, 760);
+        var title = Math.Clamp(height * (oled ? 0.042 : 0.052), 30, 140);
+
+        Body.Margin = new Thickness(pad, pad, pad, (height * AwayBarShare) + (pad * 0.4));
+        Body.VerticalAlignment = VerticalAlignment.Bottom;
+        Body.HorizontalAlignment = HorizontalAlignment.Left;
+        _visualizer.Margin = new Thickness(0);
+        _wide = true;
+        _coverBox.Width = cover;
+        _coverBox.Height = cover;
+        Grid.SetRow(_text, 0);
+        Grid.SetColumn(_text, 1);
+        Grid.SetColumnSpan(_text, 1);
+        Body.ColumnDefinitions[0].Width = GridLength.Auto;
+        Body.ColumnDefinitions[1].Width = GridLength.Auto;
+        Body.RowDefinitions[0].Height = GridLength.Auto;
+        Body.RowDefinitions[1].Height = new GridLength(0);
+        Body.ColumnSpacing = cover * 0.14;
+        Body.RowSpacing = 0;
+        _text.VerticalAlignment = VerticalAlignment.Bottom;
+        _text.MaxWidth = Math.Max(240, size.Width - cover - (cover * 0.14) - (2 * pad));
+        _title.FontSize = AppScale.Font(title, text);
+        _eyebrow.FontSize = AppScale.Font(Math.Max(12, title * 0.2), text);
+        _artists.FontSize = AppScale.Font(title * 0.5, text);
+        _source.FontSize = AppScale.Font(title * 0.32, text);
+        if (_upNextLine is not null)
+        {
+            _upNextLine.FontSize = AppScale.Font(title * 0.32, text);
+        }
+
+        // Quieter than on Home: it lies along the bottom under the card.
+        _visualizer.Opacity = oled ? 0.45 : 0.75;
+        FitReach();
         QueueBarRoom();
     }
 
@@ -1286,6 +1348,13 @@ internal sealed partial class NowPlayingStage : Grid
     {
         if (!_attached || ActualHeight <= 0)
         {
+            return;
+        }
+
+        // The screensaver: a band along the bottom, under the card.
+        if (_kind == StageKind.Away)
+        {
+            _visualizer.SetRoom(ActualHeight * AwayBarShare);
             return;
         }
 
