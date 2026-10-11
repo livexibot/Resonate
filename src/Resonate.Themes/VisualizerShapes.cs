@@ -40,6 +40,7 @@ public static class VisualizerShapes
         VisualizerStyle.Aurora,
         VisualizerStyle.Retro,
         VisualizerStyle.Pulse,
+        VisualizerStyle.Glow,
     ];
 
     /// <summary>
@@ -56,7 +57,7 @@ public static class VisualizerShapes
     };
 
     /// <summary>Styles drawn around the cover, which Home shows inside the cover's box.</summary>
-    public static bool AroundCover(VisualizerStyle style) => Current(style) is VisualizerStyle.Pulse;
+    public static bool AroundCover(VisualizerStyle style) => Current(style) is VisualizerStyle.Pulse or VisualizerStyle.Glow;
 
     /// <summary>Styles the player bar can show: Off, and anything that does not need Home's cover.</summary>
     public static bool FitsPlayerBar(VisualizerStyle style) => !AroundCover(style);

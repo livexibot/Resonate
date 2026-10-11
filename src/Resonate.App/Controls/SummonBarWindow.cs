@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using Microsoft.UI.Composition;
 using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -44,7 +45,11 @@ internal sealed record SummonCommand(string Name, string Glyph, string Keywords,
 /// after a pause in typing, Spotify's results. Enter plays, Shift+Enter adds
 /// to the queue, Ctrl+Enter opens in Resonate, Esc closes and gives the
 /// keyboard back to the app that had it. A second window, made on first use
-/// and kept hidden between uses; built in code.
+/// and kept hidden between uses; built in code. Frosted glass in the look's
+/// colours with the look's hairline round it (never Windows' light one), it
+/// opens with a soft rise and the first rows easing in one after another,
+/// and the highlight fades from row to row (the owner: "every thing needs to
+/// feel premium", 11 October 2026).
 /// </summary>
 internal sealed partial class SummonBarWindow : Window
 {
@@ -56,6 +61,8 @@ internal sealed partial class SummonBarWindow : Window
     private const int LocalLimit = 4;
     private const int CommandLimit = 4;
     private const int SpotifyCacheLimit = 64;
+
+    private const int StaggeredRows = 8;
 
     private static readonly TimeSpan TypingPause = TimeSpan.FromMilliseconds(250);
 
@@ -76,6 +83,10 @@ internal sealed partial class SummonBarWindow : Window
     private bool _hiding;
     private bool _focusOnActivate;
 
+    // The rows of the first results after opening ease in; later ones (typing) show at once.
+    private bool _staggerNext;
+    private global::Windows.UI.Color _hairline;
+
     public SummonBarWindow(AppServices services, MainWindow main)
     {
         _services = services;
@@ -92,9 +103,8 @@ internal sealed partial class SummonBarWindow : Window
         presenter.SetBorderAndTitleBar(false, false);
         AppWindow.SetPresenter(presenter);
         AppWindow.IsShownInSwitchers = false;
-
-        var corner = 2; // DWMWCP_ROUND: Windows 11 rounds the box; Windows 10 ignores it.
-        _ = DwmSetWindowAttribute(Hwnd, 33, ref corner, sizeof(int));
+        SystemBackdrop = new DesktopAcrylicBackdrop();
+        FramelessWindow.Apply(this, border: null);
 
         Content = BuildContent();
         Activated += OnActivated;
@@ -111,11 +121,15 @@ internal sealed partial class SummonBarWindow : Window
         ApplyLook();
         PlaceOnScreen();
         _ = RefreshIndexAsync();
+        _staggerNext = true;
         _box.Text = string.Empty;
         ShowResults();
 
         _focusOnActivate = true;
         AppWindow.Show(true);
+
+        // Showing puts the dialog frame back (a light edge all round): take it away again.
+        FramelessWindow.Apply(this, _hairline);
         Activate();
 
         // Allowed: Resonate had the last input (the shortcut).
@@ -164,21 +178,36 @@ internal sealed partial class SummonBarWindow : Window
         _root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         _root.PreviewKeyDown += OnKeyDown;
 
-        var search = new Grid { Padding = new Thickness(18, 12, 12, 10), ColumnSpacing = 12 };
+        var search = new Grid
+        {
+            Padding = new Thickness(22, 16, 16, 14),
+            ColumnSpacing = 14,
+            BorderBrush = _services.Theme.GetBrush("ResonateBorderBrush"),
+            BorderThickness = new Thickness(0, 0, 0, 1),
+        };
         search.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         search.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        search.Children.Add(new FontIcon { Glyph = "", FontSize = 18, Foreground = _services.Theme.GetBrush("ResonateTextSecondaryBrush") });
+        search.Children.Add(new FontIcon { Glyph = "", FontSize = 20, VerticalAlignment = VerticalAlignment.Center, Foreground = _services.Theme.GetBrush("ResonateAccentBrush") });
         _box.PlaceholderText = "Play something…";
-        _box.FontSize = 18;
+        _box.FontSize = 20;
         _box.BorderThickness = new Thickness(0);
+        _box.Padding = new Thickness(0, 4, 0, 4);
+        _box.VerticalAlignment = VerticalAlignment.Center;
         _box.Background = _services.Theme.GetBrush("ResonateTransparentBrush");
+
+        // No field box of its own: the whole window is the field.
+        foreach (var key in new[] { "TextControlBackgroundPointerOver", "TextControlBackgroundFocused", "TextControlBorderBrush", "TextControlBorderBrushPointerOver", "TextControlBorderBrushFocused" })
+        {
+            _box.Resources[key] = _services.Theme.GetBrush("ResonateTransparentBrush");
+        }
+
         AutomationProperties.SetName(_box, "Search your library and Spotify");
         _box.TextChanged += (_, _) => ShowResults();
         Grid.SetColumn(_box, 1);
         search.Children.Add(_box);
         _root.Children.Add(search);
 
-        var list = new StackPanel { Padding = new Thickness(8, 0, 8, 8) };
+        var list = new StackPanel { Padding = new Thickness(10, 4, 10, 10) };
         list.Children.Add(_ownPanel);
         list.Children.Add(_spotifyPanel);
         _scroller.Content = list;
@@ -186,26 +215,69 @@ internal sealed partial class SummonBarWindow : Window
         Grid.SetRow(_scroller, 1);
         _root.Children.Add(_scroller);
 
-        var foot = new TextBlock
+        // The keys, as key caps along the foot.
+        var foot = new StackPanel
         {
-            Margin = new Thickness(18, 8, 18, 10),
-            Style = (Style)resources["ResonateCaptionTextStyle"],
-            Text = "Enter plays · Shift+Enter adds to the queue · Ctrl+Enter opens · Esc closes · for Spotify",
-            TextTrimming = TextTrimming.CharacterEllipsis,
+            Orientation = Orientation.Horizontal,
+            Spacing = 18,
+            Padding = new Thickness(22, 10, 22, 12),
+            BorderBrush = _services.Theme.GetBrush("ResonateBorderBrush"),
+            BorderThickness = new Thickness(0, 1, 0, 0),
         };
+        foreach (var (keys, does) in new[] { ("↵", "Play"), ("Shift ↵", "Queue"), ("Ctrl ↵", "Open"), ("Esc", "Close") })
+        {
+            foot.Children.Add(KeyHint(resources, keys, does));
+        }
+
         Grid.SetRow(foot, 2);
         _root.Children.Add(foot);
         return _root;
     }
 
-    /// <summary>The look's colours, made opaque (the bar has no window behind it), and its light or dark mode.</summary>
+    /// <summary>A key cap and what it does.</summary>
+    private StackPanel KeyHint(ResourceDictionary resources, string keys, string does)
+    {
+        var theme = _services.Theme;
+        var cap = new Border
+        {
+            Padding = new Thickness(6, 1, 6, 2),
+            MinWidth = 22,
+            CornerRadius = new CornerRadius(5),
+            Background = theme.GetBrush("ResonateControlBrush"),
+            BorderBrush = theme.GetBrush("ResonateBorderBrush"),
+            BorderThickness = new Thickness(1, 1, 1, 2),
+            Child = new TextBlock
+            {
+                Text = keys,
+                Style = (Style)resources["ResonateCaptionTextStyle"],
+                Foreground = theme.GetBrush("ResonateTextPrimaryBrush"),
+                HorizontalAlignment = HorizontalAlignment.Center,
+            },
+        };
+        return new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 7,
+            Children =
+            {
+                cap,
+                new TextBlock { Text = does, Style = (Style)resources["ResonateCaptionTextStyle"], VerticalAlignment = VerticalAlignment.Center },
+            },
+        };
+    }
+
+    /// <summary>
+    /// The look's page colour over frosted glass (strong enough that text
+    /// always reads), its light or dark mode, and its outline as the
+    /// window's hairline.
+    /// </summary>
     private void ApplyLook()
     {
         var palette = _services.Theme.Palette;
+        var page = palette.Surface.Over(palette.Background);
         _root.RequestedTheme = palette.IsLight ? ElementTheme.Light : ElementTheme.Dark;
-        _root.Background = palette.Surface.Over(palette.Background).ToBrush();
-        _root.BorderBrush = _services.Theme.GetBrush("ResonateBorderBrush");
-        _root.BorderThickness = new Thickness(1);
+        _root.Background = page.WithAlpha(0.86).ToBrush();
+        _hairline = palette.Border.Over(page).ToColor();
     }
 
     /// <summary>Centred near the top of the screen the mouse is on.</summary>
@@ -222,28 +294,67 @@ internal sealed partial class SummonBarWindow : Window
         AppWindow.MoveAndResize(new RectInt32(x, y, width, height));
     }
 
-    /// <summary>Fades in with a short rise (none while Windows' animations are off).</summary>
+    /// <summary>
+    /// Opens with a soft rise: the content fades in, grows from just under
+    /// its size at the top and settles (none while Windows' animations are off).
+    /// </summary>
     private void Rise()
     {
         var visual = ElementCompositionPreview.GetElementVisual(_root);
         if (!_services.Theme.AnimationsEnabled)
         {
             visual.Opacity = 1;
+            visual.Scale = Vector3.One;
             return;
         }
 
         ElementCompositionPreview.SetIsTranslationEnabled(_root, true);
         var compositor = visual.Compositor;
-        var ease = compositor.CreateCubicBezierEasingFunction(new Vector2(0.2f, 0), new Vector2(0, 1));
+        var ease = compositor.CreateCubicBezierEasingFunction(new Vector2(0.16f, 1f), new Vector2(0.3f, 1f));
+        visual.CenterPoint = new Vector3((float)(_root.ActualWidth > 0 ? _root.ActualWidth / 2 : BarWidth / 2), 0, 0);
         var fade = compositor.CreateScalarKeyFrameAnimation();
         fade.InsertKeyFrame(0, 0);
         fade.InsertKeyFrame(1, 1, ease);
-        fade.Duration = TimeSpan.FromMilliseconds(140);
+        fade.Duration = TimeSpan.FromMilliseconds(180);
+        visual.StartAnimation("Opacity", fade);
+        var grow = compositor.CreateVector3KeyFrameAnimation();
+        grow.InsertKeyFrame(0, new Vector3(0.965f, 0.965f, 1));
+        grow.InsertKeyFrame(1, Vector3.One, ease);
+        grow.Duration = TimeSpan.FromMilliseconds(320);
+        visual.StartAnimation("Scale", grow);
+        var rise = compositor.CreateVector3KeyFrameAnimation();
+        rise.InsertKeyFrame(0, new Vector3(0, -6, 0));
+        rise.InsertKeyFrame(1, Vector3.Zero, ease);
+        rise.Duration = TimeSpan.FromMilliseconds(320);
+        visual.StartAnimation("Translation", rise);
+    }
+
+    /// <summary>The first rows after opening ease in one after another.</summary>
+    private void EaseIn(UIElement row, int order)
+    {
+        if (!_services.Theme.AnimationsEnabled)
+        {
+            return;
+        }
+
+        ElementCompositionPreview.SetIsTranslationEnabled(row, true);
+        var visual = ElementCompositionPreview.GetElementVisual(row);
+        var compositor = visual.Compositor;
+        var ease = compositor.CreateCubicBezierEasingFunction(new Vector2(0.16f, 1f), new Vector2(0.3f, 1f));
+        var delay = TimeSpan.FromMilliseconds(60 + (order * 22));
+        var fade = compositor.CreateScalarKeyFrameAnimation();
+        fade.InsertKeyFrame(0, 0);
+        fade.InsertKeyFrame(1, 1, ease);
+        fade.Duration = TimeSpan.FromMilliseconds(240);
+        fade.DelayTime = delay;
+        fade.DelayBehavior = AnimationDelayBehavior.SetInitialValueBeforeDelay;
         visual.StartAnimation("Opacity", fade);
         var rise = compositor.CreateVector3KeyFrameAnimation();
         rise.InsertKeyFrame(0, new Vector3(0, 8, 0));
         rise.InsertKeyFrame(1, Vector3.Zero, ease);
-        rise.Duration = TimeSpan.FromMilliseconds(180);
+        rise.Duration = TimeSpan.FromMilliseconds(300);
+        rise.DelayTime = delay;
+        rise.DelayBehavior = AnimationDelayBehavior.SetInitialValueBeforeDelay;
         visual.StartAnimation("Translation", rise);
     }
 
@@ -302,6 +413,15 @@ internal sealed partial class SummonBarWindow : Window
         _selected = 0;
         ShowSpotify(query);
         Select(0);
+        if (_staggerNext)
+        {
+            _staggerNext = false;
+            var order = 0;
+            foreach (var element in _ownPanel.Children.Concat(_spotifyPanel.Children).Take(StaggeredRows + 3))
+            {
+                EaseIn(element, order++);
+            }
+        }
     }
 
     private void ShowSpotify(string query)
@@ -407,7 +527,7 @@ internal sealed partial class SummonBarWindow : Window
     private static void AddHeader(StackPanel panel, string name, string? note)
     {
         var resources = Application.Current.Resources;
-        var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Margin = new Thickness(10, 12, 10, 4) };
+        var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Margin = new Thickness(12, 14, 12, 6) };
         header.Children.Add(new TextBlock { Text = name, Style = (Style)resources["ResonateEyebrowTextStyle"] });
         if (note is not null)
         {
@@ -424,10 +544,13 @@ internal sealed partial class SummonBarWindow : Window
         var grid = new Grid
         {
             Height = RowHeight,
-            Padding = new Thickness(10, 6, 10, 6),
-            ColumnSpacing = 12,
-            CornerRadius = new CornerRadius(theme.Palette.CornerSmall),
+            Padding = new Thickness(12, 6, 12, 6),
+            ColumnSpacing = 14,
+            CornerRadius = new CornerRadius(Math.Max(theme.Palette.CornerMedium, 6)),
             Background = theme.GetBrush("ResonateTransparentBrush"),
+
+            // The highlight fades from row to row.
+            BackgroundTransition = new BrushTransition { Duration = TimeSpan.FromMilliseconds(120) },
         };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(CoverPixels) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -438,7 +561,7 @@ internal sealed partial class SummonBarWindow : Window
         {
             Width = CoverPixels,
             Height = CoverPixels,
-            CornerRadius = new CornerRadius(row.Item?.Kind == QuickKind.Artist ? CoverPixels / 2 : 4),
+            CornerRadius = new CornerRadius(row.Item?.Kind == QuickKind.Artist ? CoverPixels / 2 : Math.Min(theme.Palette.CornerSmall, 8)),
             Background = row.Command is null ? Artwork.PlaceholderBrush(title) : theme.GetBrush("ResonateSurfaceHoverBrush"),
         };
         if (Glyph(row) is { } glyph)
@@ -454,7 +577,7 @@ internal sealed partial class SummonBarWindow : Window
         grid.Children.Add(tile);
 
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 1 };
-        text.Children.Add(new TextBlock { Text = title, Style = (Style)resources["ResonateBodyTextStyle"], TextTrimming = TextTrimming.CharacterEllipsis });
+        text.Children.Add(new TextBlock { Text = title, Style = (Style)resources["ResonateBodyTextStyle"], FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
         text.Children.Add(new TextBlock
         {
             Text = row.Item?.Subtitle ?? "Command",
@@ -640,7 +763,4 @@ internal sealed partial class SummonBarWindow : Window
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool IsWindow(nint hwnd);
-
-    [LibraryImport("dwmapi.dll")]
-    private static partial int DwmSetWindowAttribute(nint hwnd, int attribute, ref int value, int size);
 }

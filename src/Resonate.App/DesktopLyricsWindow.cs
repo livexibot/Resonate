@@ -1,9 +1,13 @@
+using System.Numerics;
 using System.Runtime.InteropServices;
+using Microsoft.UI.Composition;
 using Microsoft.UI.Text;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media;
+using Resonate.App.Helpers;
 using Resonate.App.Services;
 using Windows.Graphics;
 
@@ -14,7 +18,9 @@ namespace Resonate.App;
 /// a small frosted window that stays on top of every app, never in the task
 /// switcher, never taking the keyboard. Dragged anywhere by itself, it opens
 /// where it was left (above the taskbar the first time). Without synced
-/// lyrics it shows the song and its artists.
+/// lyrics it shows the song and its artists. No frame or light outline
+/// round it (see <see cref="FramelessWindow"/>); it fades in when it opens,
+/// and each new line rises softly into place.
 /// </summary>
 internal sealed partial class DesktopLyricsWindow : Window
 {
@@ -44,6 +50,7 @@ internal sealed partial class DesktopLyricsWindow : Window
         _presenter.SetBorderAndTitleBar(false, false);
         AppWindow.SetPresenter(_presenter);
         SystemBackdrop = new DesktopAcrylicBackdrop();
+        FramelessWindow.Apply(this, border: null);
 
         var resources = Application.Current.Resources;
         _line = new TextBlock
@@ -96,8 +103,15 @@ internal sealed partial class DesktopLyricsWindow : Window
         ApplySize();
     }
 
-    /// <summary>Shows the window without taking the keyboard from the app in front.</summary>
-    public void ShowQuietly() => AppWindow.Show(activateWindow: false);
+    /// <summary>Shows the window without taking the keyboard from the app in front, fading in.</summary>
+    public void ShowQuietly()
+    {
+        AppWindow.Show(activateWindow: false);
+
+        // Showing puts the dialog frame back (a light edge all round): take it away again.
+        FramelessWindow.Apply(this, border: null);
+        Settle(_root, rise: 0, TimeSpan.FromMilliseconds(260));
+    }
 
     /// <summary>The sung line and the next one, or the song when there are no synced lyrics; null hides the text.</summary>
     public void Show((string? Line, string? Next, string Title, string? Artists)? lyrics)
@@ -116,6 +130,7 @@ internal sealed partial class DesktopLyricsWindow : Window
             return;
         }
 
+        var line = _line.Text;
         if (now.Line is null && now.Next is null)
         {
             _line.Text = now.Title;
@@ -125,6 +140,40 @@ internal sealed partial class DesktopLyricsWindow : Window
         {
             _line.Text = now.Line ?? now.Next ?? string.Empty;
             _next.Text = now.Line is null ? string.Empty : now.Next ?? string.Empty;
+        }
+
+        // A new line rises softly into place, the next one a moment after.
+        if (_line.Text != line)
+        {
+            Settle(_line, rise: 10, TimeSpan.FromMilliseconds(280));
+            Settle(_next, rise: 8, TimeSpan.FromMilliseconds(320));
+        }
+    }
+
+    /// <summary>Fades <paramref name="element"/> in from <paramref name="rise"/> pixels lower (at once while Windows' animations are off).</summary>
+    private void Settle(UIElement element, float rise, TimeSpan time)
+    {
+        if (!_services.Theme.AnimationsEnabled)
+        {
+            return;
+        }
+
+        ElementCompositionPreview.SetIsTranslationEnabled(element, true);
+        var visual = ElementCompositionPreview.GetElementVisual(element);
+        var compositor = visual.Compositor;
+        var ease = compositor.CreateCubicBezierEasingFunction(new Vector2(0.16f, 1f), new Vector2(0.3f, 1f));
+        var fade = compositor.CreateScalarKeyFrameAnimation();
+        fade.InsertKeyFrame(0, 0);
+        fade.InsertKeyFrame(1, 1, ease);
+        fade.Duration = time;
+        visual.StartAnimation(nameof(Visual.Opacity), fade);
+        if (rise > 0)
+        {
+            var move = compositor.CreateVector3KeyFrameAnimation();
+            move.InsertKeyFrame(0, new Vector3(0, rise, 0));
+            move.InsertKeyFrame(1, Vector3.Zero, ease);
+            move.Duration = time;
+            visual.StartAnimation("Translation", move);
         }
     }
 

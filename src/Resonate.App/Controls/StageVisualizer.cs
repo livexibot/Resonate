@@ -349,6 +349,7 @@ internal sealed partial class StageVisualizer : Grid
         VisualizerStyle.Silk => new SilkDrawing(canvas),
         VisualizerStyle.Aurora => new AuroraDrawing(canvas),
         VisualizerStyle.Pulse => new PulseDrawing(canvas),
+        VisualizerStyle.Glow => new GlowDrawing(canvas),
         VisualizerStyle.Mirror => new BarsDrawing(canvas, VisualizerStyle.Mirror),
         VisualizerStyle.Lines => new BarsDrawing(canvas, VisualizerStyle.Lines),
         _ => new BarsDrawing(canvas, VisualizerStyle.Bars),

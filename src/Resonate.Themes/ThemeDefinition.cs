@@ -152,6 +152,9 @@ public enum VisualizerStyle
 
     /// <summary>Large soft glows along the bottom that swell and drift with the lows, mids and highs.</summary>
     Aurora,
+
+    /// <summary>A soft glow round the cover in its own shape that swells and brightens with the lows, mids and highs (Home only).</summary>
+    Glow,
 }
 
 /// <summary>
