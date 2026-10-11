@@ -169,17 +169,36 @@ public sealed class LocalFilesService : IDisposable
             token);
     }
 
-    /// <summary>The row cover for a local song, or null. Never throws.</summary>
+    /// <summary>
+    /// The row cover for a local song, or null. Never throws. A local song
+    /// in a Spotify playlist takes the cover of the same song in Local Files
+    /// (<see cref="LocalLibrary.Match"/>), once the index is read.
+    /// </summary>
     public async Task<byte[]?> GetThumbnailAsync(TrackInfo track)
     {
-        if (Covers is null || track.FilePath is not { } path || Library.Find(path) is not { } file)
+        if (Covers is null)
         {
             return null;
         }
 
         try
         {
-            return await Covers.GetAsync(file).ConfigureAwait(false);
+            LocalFile? file;
+            if (track.FilePath is { } path)
+            {
+                file = Library.Find(path);
+            }
+            else if (track.IsLocal)
+            {
+                await LoadAsync(_lifetime.Token).ConfigureAwait(false);
+                file = Library.Match(track.Title, track.Artists, track.Album, track.Duration);
+            }
+            else
+            {
+                return null;
+            }
+
+            return file is null ? null : await Covers.GetAsync(file).ConfigureAwait(false);
         }
         catch (Exception)
         {

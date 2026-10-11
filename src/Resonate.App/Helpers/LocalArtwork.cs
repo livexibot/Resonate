@@ -6,7 +6,7 @@ using Resonate.Windows;
 
 namespace Resonate.App.Helpers;
 
-/// <summary>Covers for the rows of Local Files, read from the music files themselves.</summary>
+/// <summary>Covers for the rows of Local Files (and local songs in playlists), read from the music files themselves.</summary>
 public static class LocalArtwork
 {
     /// <summary>
@@ -25,7 +25,7 @@ public static class LocalArtwork
     /// </summary>
     public static ImageSource? For(TrackInfo track, int displayWidth, out Task<bool> missing)
     {
-        if (App.Services.LocalFiles.Covers is null || track.FilePath is null)
+        if (App.Services.LocalFiles.Covers is null || (track.FilePath is null && !track.IsLocal))
         {
             missing = Task.FromResult(true);
             return null;
