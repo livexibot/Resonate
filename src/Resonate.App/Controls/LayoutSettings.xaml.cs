@@ -81,6 +81,8 @@ public sealed partial class LayoutSettings : UserControl
             Select(StageVisualizerChoice, _services.Settings.HomeStageVisualizer ? _theme.Current.StageVisualizer.ToString() : nameof(VisualizerStyle.Off));
             PlayerSettings.ShowRowsAfterFirst(HomeVisualizerRows, _services.Settings.HomeStageVisualizer);
             SidebarFullHeightSwitch.IsOn = _theme.SidebarFullHeight;
+            AutoHideSidebarSwitch.IsOn = _services.Settings.AutoHideSidebar;
+            AutoHidePlayerSwitch.IsOn = _services.Settings.AutoHidePlayer;
 
             var hidden = _services.Settings.HiddenSidebarLinks;
             SearchLinkSwitch.IsOn = !hidden.Contains(MainWindow.SearchKey);
@@ -164,6 +166,20 @@ public sealed partial class LayoutSettings : UserControl
         {
             _theme.SidebarFullHeight = SidebarFullHeightSwitch.IsOn;
         }
+    }
+
+    // Auto-hide belongs to the user too; the window follows at once.
+    private void OnAutoHideToggled(object sender, RoutedEventArgs e)
+    {
+        if (_loading)
+        {
+            return;
+        }
+
+        _services.Settings.AutoHideSidebar = AutoHideSidebarSwitch.IsOn;
+        _services.Settings.AutoHidePlayer = AutoHidePlayerSwitch.IsOn;
+        _services.SaveSettings();
+        App.MainWindow?.ApplyAutoHide();
     }
 
     private void OnLinkToggled(object sender, RoutedEventArgs e)

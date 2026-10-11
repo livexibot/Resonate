@@ -1,4 +1,5 @@
 using Microsoft.UI.Dispatching;
+using Resonate.App.Controls;
 using Resonate.App.Services;
 using Resonate.Spotify.Lyrics;
 
@@ -6,7 +7,8 @@ namespace Resonate.App;
 
 /// <summary>
 /// Lyrics in the player and Desktop lyrics, built-in plugins: the line being
-/// sung and the next one, under "Song · Artist" in the player bar and in a
+/// sung and the next one, under "Song · Artist" in the player bar (under the
+/// song in the column when the player is beside the page) and in a
 /// small window on top of every app (<see cref="DesktopLyricsWindow"/>). The
 /// song's synced lyrics come from the same library as the lyrics pane
 /// (LRCLIB, kept 30 days on this PC), asked once per song while either is
@@ -27,6 +29,7 @@ public sealed partial class MainWindow
     private CancellationTokenSource? _lyricLoading;
     private int _lyricQueued;
     private DesktopLyricsWindow? _desktopLyrics;
+    private (bool On, string? Line, string? Next, string? Note, string? After) _playerLyricArgs;
 
     private bool InPlayerLyricsOn => _services.BuiltIns.IsOn(BuiltInPlugins.PlayerLyrics);
 
@@ -62,7 +65,7 @@ public sealed partial class MainWindow
     {
         if (!InPlayerLyricsOn)
         {
-            PlayerBar.ShowLyrics(false);
+            ShowPlayerLyrics(false);
         }
 
         if (DesktopLyricsOn)
@@ -81,6 +84,21 @@ public sealed partial class MainWindow
 
         TurnPlayerLyrics(InPlayerLyricsOn || DesktopLyricsOn);
         ShowLyricLine();
+    }
+
+    /// <summary>The player's lyric lines, in the player bar and, beside the page, in the column over it.</summary>
+    private void ShowPlayerLyrics(bool on, string? line = null, string? next = null, string? note = null, string? after = null)
+    {
+        _playerLyricArgs = (on, line, next, note, after);
+        PlayerBar.ShowLyrics(on, line, next, note, after);
+        _sideColumn?.ShowLyrics(on, line, next, note, after);
+    }
+
+    /// <summary>A side column made after the lines were shown takes them at once.</summary>
+    private void ShowPlayerLyricsBeside(NowPlayingColumn column)
+    {
+        var (on, line, next, note, after) = _playerLyricArgs;
+        column.ShowLyrics(on, line, next, note, after);
     }
 
     /// <summary>Settings changed the desktop lyrics' size.</summary>
@@ -103,7 +121,7 @@ public sealed partial class MainWindow
             _lyricSong = default;
             _playerLyrics = null;
             _lyricsLookedUp = false;
-            PlayerBar.ShowLyrics(false);
+            ShowPlayerLyrics(false);
             return;
         }
 
@@ -191,13 +209,13 @@ public sealed partial class MainWindow
                 // Before the first line, the first two to come; after it, the next one only if the user keeps it.
                 var nextLine = _services.Settings.PlayerLyricsNextLine;
                 var after = index < 0 && nextLine && lyrics.Lines.Count > 1 ? lyrics.Lines[1].Text : null;
-                PlayerBar.ShowLyrics(true, line, line is null || nextLine ? next : null, after: after);
+                ShowPlayerLyrics(true, line, line is null || nextLine ? next : null, after: after);
             }
         }
         else if (InPlayerLyricsOn)
         {
             // Nothing to follow: a word under the song once the lookup has ended (nothing while it runs).
-            PlayerBar.ShowLyrics(true, note: !_lyricsLookedUp || state.Title is null ? null
+            ShowPlayerLyrics(true, note: !_lyricsLookedUp || state.Title is null ? null
                 : _playerLyrics is { IsInstrumental: true } ? "Instrumental"
                 : _playerLyrics is { Lines.Count: > 0 } ? "No synced lyrics"
                 : "No lyrics");

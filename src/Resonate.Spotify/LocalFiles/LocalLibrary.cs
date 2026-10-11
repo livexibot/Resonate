@@ -59,6 +59,9 @@ public sealed class LocalLibrary : IDisposable
     private bool _disposed;
     private long _version;
 
+    // Built again when the list changes (Version), for Match.
+    private volatile MatchIndex? _match;
+
     /// <param name="indexFile">Where the index is kept; null keeps it in memory only.</param>
     /// <param name="excludedFolders">Folders never looked into; Spotify's own when null.</param>
     public LocalLibrary(string? indexFile, IReadOnlyList<string>? excludedFolders = null, TimeProvider? time = null)
@@ -183,6 +186,22 @@ public sealed class LocalLibrary : IDisposable
     {
         var folders = _folders;
         return _byPath.TryGetValue(path, out var file) && IsInFolders(file.Path, folders) ? file : null;
+    }
+
+    /// <summary>
+    /// The file a local song in a Spotify playlist stands for, from what
+    /// Spotify knows of it (see <see cref="LocalFileMatch"/>), when it is in the list.
+    /// </summary>
+    public LocalFile? Match(string title, string artists, string album, TimeSpan duration)
+    {
+        var version = Version;
+        var match = _match;
+        if (match is null || match.Version != version)
+        {
+            _match = match = new MatchIndex(version, new LocalFileMatch(_files));
+        }
+
+        return match.Files.Find(title, artists, album, duration);
     }
 
     /// <summary>
@@ -691,3 +710,6 @@ public sealed class LocalLibrary : IDisposable
 
     private readonly record struct FoundFile(string Path, long Size, long LastWriteTicks, DateTimeOffset CreationTimeUtc);
 }
+
+/// <summary>The match lookup for one version of the list.</summary>
+internal sealed record MatchIndex(long Version, LocalFileMatch Files);

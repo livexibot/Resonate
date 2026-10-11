@@ -1013,7 +1013,7 @@ internal sealed partial class NowPlayingStage : Grid
             // The accent behind a picture, like the big cover's; the album's colour tile when there is none.
             var tile = Artwork.PlaceholderBrush(track.Album.Length > 0 ? track.Album : track.Title);
             Task<bool> missing;
-            var source = track.FilePath is not null
+            var source = track.FilePath is not null || track.IsLocal
                 ? LocalArtwork.For(track, size, out missing)
                 : _services.Covers.Get(CoverImages.UrlFor(track, size), size, out missing);
             image.Source = source;

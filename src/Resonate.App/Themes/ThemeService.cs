@@ -892,6 +892,8 @@ public sealed class ThemeService
         Solid("ResonateSidebarBrush", p => p.Sidebar);
         Solid("ResonateSurfaceBrush", p => p.Surface);
         Solid("ResonatePlayerBrush", p => p.Player);
+        Solid("ResonatePlayerOverPageBrush", p => p.PlayerOverPage);
+        Solid("ResonateSidebarOverPageBrush", p => p.SidebarOverPage);
         Solid("ResonateSurfaceHoverBrush", p => p.Hover);
         Solid("ResonateSurfacePressedBrush", p => p.Pressed);
         Solid("ResonateControlBrush", p => p.Control);

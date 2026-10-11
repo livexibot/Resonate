@@ -11,7 +11,7 @@ public sealed class VisualizerShapesTests
     public void The_menus_offer_the_kept_and_new_styles_only()
     {
         Assert.Equal(
-            [VisualizerStyle.Bars, VisualizerStyle.Mirror, VisualizerStyle.Lines, VisualizerStyle.Pills, VisualizerStyle.Silk, VisualizerStyle.Aurora, VisualizerStyle.Retro, VisualizerStyle.Pulse],
+            [VisualizerStyle.Bars, VisualizerStyle.Mirror, VisualizerStyle.Lines, VisualizerStyle.Pills, VisualizerStyle.Silk, VisualizerStyle.Aurora, VisualizerStyle.Retro, VisualizerStyle.Pulse, VisualizerStyle.Glow],
             VisualizerShapes.Offered);
     }
 
@@ -54,7 +54,7 @@ public sealed class VisualizerShapesTests
     {
         foreach (var style in Enum.GetValues<VisualizerStyle>())
         {
-            var around = VisualizerShapes.Current(style) == VisualizerStyle.Pulse;
+            var around = VisualizerShapes.Current(style) is VisualizerStyle.Pulse or VisualizerStyle.Glow;
             Assert.Equal(around, VisualizerShapes.AroundCover(style));
             Assert.Equal(!around, VisualizerShapes.FitsPlayerBar(style));
         }

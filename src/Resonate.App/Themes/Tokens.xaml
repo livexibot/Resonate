@@ -97,6 +97,9 @@
     <SolidColorBrush x:Key="ResonateSidebarBrush" Color="#14151A" />
     <SolidColorBrush x:Key="ResonateSurfaceBrush" Color="#1A1C22" />
     <SolidColorBrush x:Key="ResonatePlayerBrush" Color="#0F1014" />
+    <!-- The sidebar and the player lying over the page while auto-hide brings them out: almost opaque (ThemePalette.SidebarOverPage, PlayerOverPage). -->
+    <SolidColorBrush x:Key="ResonateSidebarOverPageBrush" Color="#14151A" />
+    <SolidColorBrush x:Key="ResonatePlayerOverPageBrush" Color="#0F1014" />
     <SolidColorBrush x:Key="ResonateSurfaceHoverBrush" Color="#14F2F3F5" />
     <SolidColorBrush x:Key="ResonateSurfacePressedBrush" Color="#1FF2F3F5" />
     <SolidColorBrush x:Key="ResonateControlBrush" Color="#0FF2F3F5" />
@@ -183,6 +186,54 @@
     <StaticResource x:Key="HyperlinkButtonForeground" ResourceKey="ResonateAccentBrush" />
     <StaticResource x:Key="HyperlinkButtonForegroundPointerOver" ResourceKey="ResonateAccentHoverBrush" />
     <StaticResource x:Key="HyperlinkButtonForegroundPressed" ResourceKey="ResonateAccentPressedBrush" />
+    <!--
+      Switches, check boxes, radio buttons, toggle buttons and the chosen item
+      of a drop-down: the look's accent, which follows the cover when the look
+      does (Windows' own accent brushes are made once and never change).
+    -->
+    <StaticResource x:Key="ToggleSwitchFillOn" ResourceKey="ResonateAccentBrush" />
+    <StaticResource x:Key="ToggleSwitchFillOnPointerOver" ResourceKey="ResonateAccentHoverBrush" />
+    <StaticResource x:Key="ToggleSwitchFillOnPressed" ResourceKey="ResonateAccentPressedBrush" />
+    <StaticResource x:Key="ToggleSwitchStrokeOn" ResourceKey="ResonateAccentBrush" />
+    <StaticResource x:Key="ToggleSwitchStrokeOnPointerOver" ResourceKey="ResonateAccentHoverBrush" />
+    <StaticResource x:Key="ToggleSwitchStrokeOnPressed" ResourceKey="ResonateAccentPressedBrush" />
+    <StaticResource x:Key="ToggleSwitchKnobFillOn" ResourceKey="ResonateOnAccentBrush" />
+    <StaticResource x:Key="ToggleSwitchKnobFillOnPointerOver" ResourceKey="ResonateOnAccentBrush" />
+    <StaticResource x:Key="ToggleSwitchKnobFillOnPressed" ResourceKey="ResonateOnAccentBrush" />
+    <StaticResource x:Key="CheckBoxCheckBackgroundFillChecked" ResourceKey="ResonateAccentBrush" />
+    <StaticResource x:Key="CheckBoxCheckBackgroundFillCheckedPointerOver" ResourceKey="ResonateAccentHoverBrush" />
+    <StaticResource x:Key="CheckBoxCheckBackgroundFillCheckedPressed" ResourceKey="ResonateAccentPressedBrush" />
+    <StaticResource x:Key="CheckBoxCheckBackgroundStrokeChecked" ResourceKey="ResonateAccentBrush" />
+    <StaticResource x:Key="CheckBoxCheckBackgroundStrokeCheckedPointerOver" ResourceKey="ResonateAccentHoverBrush" />
+    <StaticResource x:Key="CheckBoxCheckBackgroundStrokeCheckedPressed" ResourceKey="ResonateAccentPressedBrush" />
+    <StaticResource x:Key="CheckBoxCheckBackgroundFillIndeterminate" ResourceKey="ResonateAccentBrush" />
+    <StaticResource x:Key="CheckBoxCheckBackgroundFillIndeterminatePointerOver" ResourceKey="ResonateAccentHoverBrush" />
+    <StaticResource x:Key="CheckBoxCheckBackgroundFillIndeterminatePressed" ResourceKey="ResonateAccentPressedBrush" />
+    <StaticResource x:Key="CheckBoxCheckBackgroundStrokeIndeterminate" ResourceKey="ResonateAccentBrush" />
+    <StaticResource x:Key="CheckBoxCheckBackgroundStrokeIndeterminatePointerOver" ResourceKey="ResonateAccentHoverBrush" />
+    <StaticResource x:Key="CheckBoxCheckBackgroundStrokeIndeterminatePressed" ResourceKey="ResonateAccentPressedBrush" />
+    <StaticResource x:Key="CheckBoxCheckGlyphForegroundChecked" ResourceKey="ResonateOnAccentBrush" />
+    <StaticResource x:Key="CheckBoxCheckGlyphForegroundCheckedPointerOver" ResourceKey="ResonateOnAccentBrush" />
+    <StaticResource x:Key="CheckBoxCheckGlyphForegroundCheckedPressed" ResourceKey="ResonateOnAccentBrush" />
+    <StaticResource x:Key="CheckBoxCheckGlyphForegroundIndeterminate" ResourceKey="ResonateOnAccentBrush" />
+    <StaticResource x:Key="CheckBoxCheckGlyphForegroundIndeterminatePointerOver" ResourceKey="ResonateOnAccentBrush" />
+    <StaticResource x:Key="CheckBoxCheckGlyphForegroundIndeterminatePressed" ResourceKey="ResonateOnAccentBrush" />
+    <StaticResource x:Key="RadioButtonOuterEllipseCheckedFill" ResourceKey="ResonateAccentBrush" />
+    <StaticResource x:Key="RadioButtonOuterEllipseCheckedFillPointerOver" ResourceKey="ResonateAccentHoverBrush" />
+    <StaticResource x:Key="RadioButtonOuterEllipseCheckedFillPressed" ResourceKey="ResonateAccentPressedBrush" />
+    <StaticResource x:Key="RadioButtonOuterEllipseCheckedStroke" ResourceKey="ResonateAccentBrush" />
+    <StaticResource x:Key="RadioButtonOuterEllipseCheckedStrokePointerOver" ResourceKey="ResonateAccentHoverBrush" />
+    <StaticResource x:Key="RadioButtonOuterEllipseCheckedStrokePressed" ResourceKey="ResonateAccentPressedBrush" />
+    <StaticResource x:Key="RadioButtonCheckGlyphFill" ResourceKey="ResonateOnAccentBrush" />
+    <StaticResource x:Key="RadioButtonCheckGlyphFillPointerOver" ResourceKey="ResonateOnAccentBrush" />
+    <StaticResource x:Key="RadioButtonCheckGlyphFillPressed" ResourceKey="ResonateOnAccentBrush" />
+    <StaticResource x:Key="ToggleButtonBackgroundChecked" ResourceKey="ResonateAccentBrush" />
+    <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="ResonateAccentHoverBrush" />
+    <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="ResonateAccentPressedBrush" />
+    <StaticResource x:Key="ToggleButtonForegroundChecked" ResourceKey="ResonateOnAccentBrush" />
+    <StaticResource x:Key="ToggleButtonForegroundCheckedPointerOver" ResourceKey="ResonateOnAccentBrush" />
+    <StaticResource x:Key="ToggleButtonForegroundCheckedPressed" ResourceKey="ResonateOnAccentBrush" />
+    <StaticResource x:Key="ComboBoxItemPillFillBrush" ResourceKey="ResonateAccentBrush" />
     <!-- Text fields: the look's quiet fill, an outline that shows on the page, its text colours, and an accent outline while typing. -->
     <StaticResource x:Key="TextControlBackground" ResourceKey="ResonateControlBrush" />
     <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="ResonateSurfaceHoverBrush" />

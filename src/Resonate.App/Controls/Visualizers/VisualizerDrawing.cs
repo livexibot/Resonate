@@ -191,6 +191,18 @@ internal abstract class VisualizerDrawing : IDisposable
         brush.Color = colour.ToColor();
     }
 
+    protected void Paint(DropShadow shadow, ThemeColor colour, bool animate)
+    {
+        if (animate)
+        {
+            shadow.StartAnimation("Color", Flow(colour));
+            return;
+        }
+
+        shadow.StopAnimation("Color");
+        shadow.Color = colour.ToColor();
+    }
+
     /// <summary>A brush brightest at the top (the tip) and faint at the bottom.</summary>
     protected (CompositionLinearGradientBrush Brush, CompositionColorGradientStop Tip, CompositionColorGradientStop Base) TipBrush()
     {

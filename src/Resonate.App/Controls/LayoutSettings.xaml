@@ -98,6 +98,30 @@
             </StackPanel>
         </controls:SettingsGroup>
 
+        <!-- Auto-hide: the sidebar and the player slide away and come back from the window's edge -->
+        <controls:SettingsGroup Header="Auto-hide">
+            <StackPanel Spacing="6">
+                <controls:SettingRow Header="Sidebar">
+                    <ToggleSwitch
+                        x:Name="AutoHideSidebarSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Auto-hide the sidebar"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnAutoHideToggled" />
+                </controls:SettingRow>
+                <controls:SettingRow Header="Player">
+                    <ToggleSwitch
+                        x:Name="AutoHidePlayerSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Auto-hide the player"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnAutoHideToggled" />
+                </controls:SettingRow>
+            </StackPanel>
+        </controls:SettingsGroup>
+
         <!-- How pages open -->
         <controls:SettingsGroup Header="Pages">
             <StackPanel x:Name="PagesRows" Spacing="6">

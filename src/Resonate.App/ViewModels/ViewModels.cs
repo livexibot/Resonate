@@ -555,7 +555,8 @@ public sealed partial class TrackRow : ObservableObject
     public static CoverTile CoverFor(TrackInfo track, int displayWidth)
     {
         var placeholder = Artwork.PlaceholderBrush(track.Album.Length > 0 ? track.Album : track.Title);
-        return track.FilePath is not null
+        // A local song in a Spotify playlist has no cover from Spotify: the file's own, from Local Files.
+        return track.FilePath is not null || track.IsLocal
             ? CoverTile.ForLocalFile(track, displayWidth, placeholder)
             : new CoverTile(CoverImages.UrlFor(track, displayWidth), displayWidth, placeholder);
     }

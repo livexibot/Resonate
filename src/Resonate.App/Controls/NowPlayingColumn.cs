@@ -15,8 +15,11 @@ namespace Resonate.App.Controls;
 /// Right) the top of the column's panel: the cover as wide as the column (or
 /// as tall as the room above the controls allows) and the title and artists
 /// under it, lined up on the left, with the controls and Up next below (see
-/// MainWindow.PlayerPlacement.cs). Built in code; it follows the player only
-/// while it is shown.
+/// MainWindow.PlayerPlacement.cs). With Lyrics in the player on, the line
+/// being sung and the next one sit under the artists beside the page, in a
+/// room of three lines kept while the plugin is on, so the cover never
+/// jumps as lines come and go (see MainWindow.PlayerLyrics.cs). Built in
+/// code; it follows the player only while it is shown.
 /// </summary>
 internal sealed partial class NowPlayingColumn : Grid
 {
@@ -34,6 +37,10 @@ internal sealed partial class NowPlayingColumn : Grid
     private readonly Image _image = new() { Stretch = Stretch.UniformToFill, Opacity = 0 };
     private readonly TextBlock _title = new();
     private readonly TextBlock _artists = new();
+    private readonly StackPanel _lyrics = new() { Spacing = 2, Margin = new Thickness(0, 10, 0, 0), Visibility = Visibility.Collapsed };
+    private readonly TextBlock _lyricLine = new();
+    private readonly TextBlock _nextLine = new();
+    private bool _lyricsOn;
     private object? _artworkKey;
     private int _queued;
 
@@ -51,6 +58,7 @@ internal sealed partial class NowPlayingColumn : Grid
         Padding = beside ? new Thickness(20, 20, 20, 10) : new Thickness(24, 24, 24, 20);
         RowSpacing = beside ? 2 : 6;
         RowDefinitions.Add(new RowDefinition { Height = beside ? GridLength.Auto : new GridLength(1, GridUnitType.Star) });
+        RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
@@ -97,6 +105,25 @@ internal sealed partial class NowPlayingColumn : Grid
             // A title on two lines leaves the cover less room.
             _title.SizeChanged += (_, _) => SizeCover(_coverHolder.ActualWidth, _coverHolder.ActualHeight);
             _artists.SizeChanged += (_, _) => SizeCover(_coverHolder.ActualWidth, _coverHolder.ActualHeight);
+
+            // Lyrics: the sung line in the accent on up to two lines, the next one dimmed on one.
+            foreach (var (text, lines) in new[] { (_lyricLine, 2), (_nextLine, 1) })
+            {
+                text.Style = (Style)resources["ResonateBodyTextStyle"];
+                text.TextWrapping = TextWrapping.WrapWholeWords;
+                text.TextTrimming = TextTrimming.CharacterEllipsis;
+                text.MaxLines = lines;
+                text.LineStackingStrategy = LineStackingStrategy.BlockLineHeight;
+                _lyrics.Children.Add(text);
+            }
+
+            _lyricLine.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+            _lyricLine.Foreground = services.Theme.GetBrush("ResonateAccentTextBrush");
+            _nextLine.Foreground = services.Theme.GetBrush("ResonateTextTertiaryBrush");
+            _lyricLine.RegisterPropertyChangedCallback(TextBlock.FontSizeProperty, (_, _) => SizeLyrics());
+            SizeLyrics();
+            SetRow(_lyrics, 3);
+            Children.Add(_lyrics);
         }
 
         Loaded += (_, _) =>
@@ -141,8 +168,49 @@ internal sealed partial class NowPlayingColumn : Grid
         _coverHolder.Margin = new Thickness(0, 0, 0, rail ? 10 : 18);
         _title.Visibility = rail ? Visibility.Collapsed : Visibility.Visible;
         _artists.Visibility = _title.Visibility;
+        _lyrics.Visibility = _lyricsOn && !rail ? Visibility.Visible : Visibility.Collapsed;
         ShowTip();
         SizeCover(_coverHolder.ActualWidth, _coverHolder.ActualHeight);
+    }
+
+    /// <summary>
+    /// Lyrics in the player, beside the page (the player bar's own lines
+    /// are hidden there): as <see cref="PlayerBar.ShowLyrics"/>, the line
+    /// sung and the next; before the first, the coming line dimmed and the
+    /// one after it; or a word such as "No lyrics".
+    /// </summary>
+    internal void ShowLyrics(bool on, string? line, string? next, string? note, string? after)
+    {
+        if (!_beside)
+        {
+            return;
+        }
+
+        var singing = !string.IsNullOrWhiteSpace(line);
+        var shown = singing ? line : !string.IsNullOrWhiteSpace(next) ? next : note;
+        _lyricLine.Text = shown ?? string.Empty;
+        _lyricLine.Foreground = _services.Theme.GetBrush(singing ? "ResonateAccentTextBrush" : "ResonateTextTertiaryBrush");
+        _nextLine.Text = (singing ? next : shown == next ? after : null) ?? string.Empty;
+        if (on == _lyricsOn)
+        {
+            return;
+        }
+
+        _lyricsOn = on;
+        _lyrics.Visibility = on && !_rail ? Visibility.Visible : Visibility.Collapsed;
+        SizeCover(_coverHolder.ActualWidth, _coverHolder.ActualHeight);
+    }
+
+    /// <summary>Three lines of lyrics at the text's size, whatever they hold, so the room never changes as they do.</summary>
+    private void SizeLyrics()
+    {
+        var lineHeight = Math.Ceiling(_lyricLine.FontSize * 1.4);
+        _lyricLine.LineHeight = _nextLine.LineHeight = lineHeight;
+        _lyrics.Height = (lineHeight * 3) + _lyrics.Spacing;
+        if (_coverHolder.ActualWidth > 0)
+        {
+            SizeCover(_coverHolder.ActualWidth, _coverHolder.ActualHeight);
+        }
     }
 
     private void ShowTip() =>
@@ -180,6 +248,11 @@ internal sealed partial class NowPlayingColumn : Grid
         if (_beside)
         {
             var words = _title.ActualHeight + _artists.ActualHeight + RowSpacing * 2 + Padding.Top + Padding.Bottom + _coverHolder.Margin.Bottom;
+            if (_lyrics.Visibility == Visibility.Visible)
+            {
+                words += _lyrics.Height + _lyrics.Margin.Top + RowSpacing;
+            }
+
             size = Math.Min(Math.Min(width, CoverMaxSize), Math.Max(CoverMinSize, _room - words));
         }
         else

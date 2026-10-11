@@ -47,6 +47,16 @@ public sealed record ThemePalette
 
     public required ThemeColor Player { get; init; }
 
+    /// <summary>
+    /// The player as it lies over the page when auto-hide brings it out: as
+    /// the hovering player's, almost opaque, so the page never shows through
+    /// behind its text.
+    /// </summary>
+    public ThemeColor PlayerOverPage { get; init; }
+
+    /// <summary>The sidebar as it lies over the page when auto-hide brings it out, almost opaque.</summary>
+    public ThemeColor SidebarOverPage { get; init; }
+
     /// <summary>Drawn over anything to show the pointer is on it.</summary>
     public required ThemeColor Hover { get; init; }
 
@@ -205,6 +215,8 @@ public sealed record ThemePalette
             LightestPage = lightestPage,
             HeaderPage = surface.Over(HardestBackdrop(theme, text, scenery: false)),
             Player = player,
+            PlayerOverPage = OverPage(theme.Player.Opaque.WithAlpha(panelOpacity), effectiveSurface, panelOpacity),
+            SidebarOverPage = OverPage(sidebarPanel, effectiveSurface, panelOpacity),
             Hover = hover,
             Pressed = pressed,
             Control = text.WithAlpha(isLight ? 0.04 : 0.06),
@@ -248,6 +260,10 @@ public sealed record ThemePalette
     /// is the panel as it looks over the background, made almost opaque:
     /// glass looks get smoky glass instead of a see-through bar over text.
     /// </summary>
+    /// <summary>A panel as it looks over the page, made almost opaque to lie over it.</summary>
+    private static ThemeColor OverPage(ThemeColor panel, ThemeColor effectiveSurface, double panelOpacity) =>
+        panel.Over(effectiveSurface).WithAlpha(Math.Max(panelOpacity, HoveringPlayerOpacity));
+
     private static ThemeColor PlayerFill(ThemeDefinition theme, ThemeColor effectiveSurface)
     {
         var panel = theme.Player.Opaque.WithAlpha(theme.PanelOpacity);

@@ -51,8 +51,8 @@ public sealed partial class MainWindow
             _paneOverPage = over;
 
             // The panes come after the page, so they lie over it.
-            Grid.SetColumnSpan(ContentPanel, over ? 2 : 1);
-            Grid.SetColumnSpan(ContentElevation, over ? 2 : 1);
+            Grid.SetColumnSpan(ContentPanel, PageColumnSpan(over));
+            Grid.SetColumnSpan(ContentElevation, PageColumnSpan(over));
             var shown = over ? Visibility.Visible : Visibility.Collapsed;
             PaneBacking.Visibility = shown;
             PaneEdge.Visibility = shown;
