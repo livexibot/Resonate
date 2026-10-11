@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.22.0](https://github.com/livexibot/Resonate/compare/v0.21.0...v0.22.0) (2026-10-11)
+
+
+### New features
+
+* Home's stage reaches the page's top, with square corners ([73f4b83](https://github.com/livexibot/Resonate/commit/73f4b839191064d0cdd9a196949860b87cc46eec))
+* the Winamp window resizes by dragging its corners ([73f4b83](https://github.com/livexibot/Resonate/commit/73f4b839191064d0cdd9a196949860b87cc46eec))
+* Winamp is the window on the desktop only, and opens with its queue ([73f4b83](https://github.com/livexibot/Resonate/commit/73f4b839191064d0cdd9a196949860b87cc46eec))
+
+
+### Fixes
+
+* a docked player beside a full-height sidebar has its outline on that side too ([73f4b83](https://github.com/livexibot/Resonate/commit/73f4b839191064d0cdd9a196949860b87cc46eec))
+* no light outline round the Winamp window ([73f4b83](https://github.com/livexibot/Resonate/commit/73f4b839191064d0cdd9a196949860b87cc46eec))
+* the floating player's cover glow keeps the cover's size when lyric lines wrap ([73f4b83](https://github.com/livexibot/Resonate/commit/73f4b839191064d0cdd9a196949860b87cc46eec))
+
 ## [0.21.0](https://github.com/livexibot/Resonate/compare/v0.20.0...v0.21.0) (2026-10-11)
 
 
