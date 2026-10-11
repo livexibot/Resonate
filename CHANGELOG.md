@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.20.0](https://github.com/livexibot/Resonate/compare/v0.19.0...v0.20.0) (2026-10-11)
+
+
+### New features
+
+* a more modern screensaver, with an OLED mode that is mostly black and slowly moving ([5ca5290](https://github.com/livexibot/Resonate/commit/5ca5290f62b18bc11340c716fd05f41ffa525cd2))
+* every plugin is built into Resonate and off until you turn it on; nothing is downloaded any more ([5ca5290](https://github.com/livexibot/Resonate/commit/5ca5290f62b18bc11340c716fd05f41ffa525cd2))
+* Sleep timer and Skip rules run inside Resonate, with their menu in the player's plugin button and their settings carried over ([5ca5290](https://github.com/livexibot/Resonate/commit/5ca5290f62b18bc11340c716fd05f41ffa525cd2))
+* the DJ mixes in new music near your taste, keeps what it just played out of new runs, and lists every song coming up ([5ca5290](https://github.com/livexibot/Resonate/commit/5ca5290f62b18bc11340c716fd05f41ffa525cd2))
+
+
+### Fixes
+
+* a sharper song cover backdrop at a low blur ([5ca5290](https://github.com/livexibot/Resonate/commit/5ca5290f62b18bc11340c716fd05f41ffa525cd2))
+* Home's blurred cover and its switch are gone ([5ca5290](https://github.com/livexibot/Resonate/commit/5ca5290f62b18bc11340c716fd05f41ffa525cd2))
+
 ## [0.19.0](https://github.com/livexibot/Resonate/compare/v0.18.0...v0.19.0) (2026-10-10)
 
 
