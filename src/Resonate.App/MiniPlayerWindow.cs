@@ -49,6 +49,13 @@ internal sealed partial class MiniPlayerWindow : Window
     private CursorPoint _moveCursor;
     private PointInt32 _moveWindow;
 
+    // Resizing by a corner: where it started, the window per screen pixel of skin then, and which corner.
+    private bool _resizing;
+    private CursorPoint _resizeCursor;
+    private RectInt32 _resizeStart;
+    private (double Width, double Height) _resizeUnit;
+    private ResizeCorner? _resizeCorner;
+
     public MiniPlayerWindow()
     {
         _skins = _services.Skins;
@@ -96,7 +103,24 @@ internal sealed partial class MiniPlayerWindow : Window
         _host.DragOver += SkinDrop.OnDragOver;
         _host.Drop += SkinDrop.OnDrop;
         _host.Loaded += OnHostLoaded;
-        Content = _host;
+
+        // A corner at each corner of the window to drag it larger or smaller (the owner's request, 11 October 2026).
+        var root = new Grid { Children = { _host } };
+        foreach (var (left, top) in new[] { (true, true), (false, true), (true, false), (false, false) })
+        {
+            var corner = new ResizeCorner(left, top);
+            corner.PointerPressed += (_, e) => BeginResize(corner, e);
+            corner.PointerMoved += (_, _) => Resize();
+            corner.PointerReleased += (_, e) =>
+            {
+                corner.ReleasePointerCapture(e.Pointer);
+                EndResize();
+            };
+            corner.PointerCaptureLost += (_, _) => EndResize();
+            root.Children.Add(corner);
+        }
+
+        Content = root;
 
         _skins.MiniOptionsChanged += OnMiniOptionsChanged;
         Activated += OnActivated;
@@ -292,6 +316,71 @@ internal sealed partial class MiniPlayerWindow : Window
         if (_movingWindow)
         {
             _movingWindow = false;
+            SavePlace();
+        }
+    }
+
+    // Resizing: a corner dragged picks the size (1x to 4x, whole screen pixels per skin pixel) nearest the
+    // pointer, and the opposite corner stays where it is.
+
+    private void BeginResize(ResizeCorner corner, PointerRoutedEventArgs e)
+    {
+        e.Handled = true;
+        var scale = Scale;
+        if (!GetCursorPos(out _resizeCursor) || scale <= 0)
+        {
+            return;
+        }
+
+        var position = AppWindow.Position;
+        var size = AppWindow.Size;
+        _resizeStart = new RectInt32(position.X, position.Y, size.Width, size.Height);
+        _resizeUnit = (size.Width / (double)scale, size.Height / (double)scale);
+        _resizeCorner = corner;
+        _resizing = corner.CapturePointer(e.Pointer);
+    }
+
+    private void Resize()
+    {
+        if (!_resizing || _resizeCorner is not { } corner || !GetCursorPos(out var cursor))
+        {
+            return;
+        }
+
+        var wantedWidth = _resizeStart.Width + ((cursor.X - _resizeCursor.X) * (corner.Left ? -1 : 1));
+        var wantedHeight = _resizeStart.Height + ((cursor.Y - _resizeCursor.Y) * (corner.Top ? -1 : 1));
+        var best = _skins.MiniSize;
+        var closest = double.MaxValue;
+        for (var size = 1; size <= SkinLibrary.MaxMiniSize; size++)
+        {
+            var pixels = ClassicPlayer.PixelScale(size, _raster);
+            var gap = Math.Abs((_resizeUnit.Width * pixels) - wantedWidth) + Math.Abs((_resizeUnit.Height * pixels) - wantedHeight);
+            if (gap < closest)
+            {
+                closest = gap;
+                best = size;
+            }
+        }
+
+        if (best == _skins.MiniSize)
+        {
+            return;
+        }
+
+        // Settings follow (Mini player size); the window is sized again at once.
+        _skins.MiniSize = best;
+        var now = AppWindow.Size;
+        var x = corner.Left ? _resizeStart.X + _resizeStart.Width - now.Width : _resizeStart.X;
+        var y = corner.Top ? _resizeStart.Y + _resizeStart.Height - now.Height : _resizeStart.Y;
+        AppWindow.Move(new PointInt32(x, y));
+    }
+
+    private void EndResize()
+    {
+        if (_resizing)
+        {
+            _resizing = false;
+            _resizeCorner = null;
             SavePlace();
         }
     }
