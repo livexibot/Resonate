@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.23.0](https://github.com/livexibot/Resonate/compare/v0.22.0...v0.23.0) (2026-10-12)
+
+
+### New features
+
+* Home's visualizer goes full screen, as on Home and not blown up ([e0d168e](https://github.com/livexibot/Resonate/commit/e0d168e61356e8d47366d6e4c34926da8a77cea6))
+* scroll bars stay hidden until the pointer is on them ([e0d168e](https://github.com/livexibot/Resonate/commit/e0d168e61356e8d47366d6e4c34926da8a77cea6))
+
+
+### Fixes
+
+* black, white and grey covers give a monochrome look when colours follow the cover ([e0d168e](https://github.com/livexibot/Resonate/commit/e0d168e61356e8d47366d6e4c34926da8a77cea6))
+* picking a song outside the DJ ends DJ mode ([e0d168e](https://github.com/livexibot/Resonate/commit/e0d168e61356e8d47366d6e4c34926da8a77cea6))
+
 ## [0.22.0](https://github.com/livexibot/Resonate/compare/v0.21.0...v0.22.0) (2026-10-11)
 
 
