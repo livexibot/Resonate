@@ -234,6 +234,12 @@
     <StaticResource x:Key="ToggleButtonForegroundCheckedPointerOver" ResourceKey="ResonateOnAccentBrush" />
     <StaticResource x:Key="ToggleButtonForegroundCheckedPressed" ResourceKey="ResonateOnAccentBrush" />
     <StaticResource x:Key="ComboBoxItemPillFillBrush" ResourceKey="ResonateAccentBrush" />
+    <!--
+      Scroll bars: none while the pointer only moves over a list or a page (the thin line Windows
+      shows then is see-through); the full bar shows when the pointer is on the bar's edge
+      (the owner's request, 12 October 2026: "hide scrollbars when not used, show them on hover").
+    -->
+    <StaticResource x:Key="ScrollBarPanningThumbBackground" ResourceKey="ResonateTransparentBrush" />
     <!-- Text fields: the look's quiet fill, an outline that shows on the page, its text colours, and an accent outline while typing. -->
     <StaticResource x:Key="TextControlBackground" ResourceKey="ResonateControlBrush" />
     <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="ResonateSurfaceHoverBrush" />
