@@ -84,4 +84,43 @@ public sealed class CoverLookTests
 
         Assert.Null(ArtworkColors.PickAccents(pixels, size, size));
     }
+    [Fact]
+    public void A_black_and_white_cover_turns_a_dark_look_grey_with_a_white_accent()
+    {
+        var look = ThemePresets.Midnight with { AdaptiveAccent = true };
+
+        var followed = CoverLook.Follow(look, ThemeColor.White, ThemeColor.Black);
+
+        Assert.Equal(ThemeColor.White, followed.Accent);
+        foreach (var colour in new[] { followed.Background, followed.Background2, followed.Sidebar, followed.Surface, followed.Player, followed.Text })
+        {
+            Assert.True(colour.ToHsl().Saturation < CoverLook.GreyBelow);
+        }
+
+        // Each part keeps its own lightness.
+        Assert.Equal(look.Background.ToHsl().Lightness, followed.Background.ToHsl().Lightness, 2);
+        Assert.Equal(look.Text.ToHsl().Lightness, followed.Text.ToHsl().Lightness, 2);
+    }
+
+    [Fact]
+    public void A_black_and_white_cover_gives_a_light_look_a_black_accent()
+    {
+        var look = ThemePresets.Daylight with { AdaptiveAccent = true };
+
+        var followed = CoverLook.Follow(look, ThemeColor.White, ThemeColor.Black);
+
+        Assert.Equal(CoverLook.MonochromeDark, followed.Accent);
+        Assert.True(followed.Accent.ToHsl().Lightness < 0.15);
+    }
+
+    [Fact]
+    public void A_monochrome_look_keeps_its_accent_readable()
+    {
+        foreach (var preset in ThemePresets.All)
+        {
+            var palette = ThemePalette.From(CoverLook.Monochrome(preset));
+            var page = palette.Surface.Over(palette.Background);
+            Assert.True(ThemeColor.ContrastRatio(palette.Accent.Opaque, page) >= 3, preset.Name);
+        }
+    }
 }

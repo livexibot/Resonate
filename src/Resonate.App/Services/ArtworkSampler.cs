@@ -167,7 +167,8 @@ public sealed class ArtworkSampler : IDisposable
 
         _pixels = pixels;
         ShowBackdrop(pixels);
-        _theme.SetArtworkAccent(pixels is null ? null : ArtworkColors.PickAccents(pixels, BackdropSize, BackdropSize));
+        // A cover with no colour of its own (black and white) gives greys: a look that follows the cover turns monochrome (CoverLook.Monochrome).
+        _theme.SetArtworkAccent(pixels is null ? null : ArtworkColors.PickAccents(pixels, BackdropSize, BackdropSize) ?? (ThemeColor.White, ThemeColor.Black));
     }
 
     /// <summary>

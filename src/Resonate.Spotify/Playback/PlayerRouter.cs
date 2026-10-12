@@ -43,9 +43,18 @@ public sealed partial class PlayerRouter : IPlayer, IDisposable
 
     private IPlayer Active => Volatile.Read(ref _active);
 
+    /// <summary>
+    /// Raised (on the caller's thread) as Resonate starts playing a list or
+    /// a whole playlist, with what it plays from (<see cref="PlayRequest.SourceName"/>,
+    /// null for a whole playlist), before it plays: the DJ ends its run when
+    /// the user picks something else (the owner's request, 11 October 2026).
+    /// </summary>
+    public event EventHandler<string?>? ListStarting;
+
     /// <summary>Plays a list: local files with the local player, everything else in the Spotify app.</summary>
     public Task PlayAsync(PlayRequest request)
     {
+        ListStarting?.Invoke(this, request.SourceName);
         if (request.IsLocalFiles)
         {
             Activate(_local);
@@ -59,6 +68,7 @@ public sealed partial class PlayerRouter : IPlayer, IDisposable
     /// <summary>Plays a whole Spotify playlist or album from its start (for lists whose songs Spotify does not share).</summary>
     public Task PlayContextAsync(string contextUri)
     {
+        ListStarting?.Invoke(this, null);
         Activate(Spotify);
         return Spotify.PlayContextAsync(contextUri);
     }

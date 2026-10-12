@@ -69,6 +69,7 @@ internal sealed partial class NowPlayingStage : Grid
 
     private readonly AppServices _services;
     private readonly StageKind _kind;
+    private readonly bool _fullView;
     private readonly Image _blur = new() { Stretch = Stretch.UniformToFill, Visibility = Visibility.Collapsed, IsHitTestVisible = false };
     private readonly CloudField _clouds = new();
 
@@ -121,10 +122,16 @@ internal sealed partial class NowPlayingStage : Grid
     private bool _refitQueued;
     private bool _visualizerAroundCover;
 
-    public NowPlayingStage(AppServices services, StageKind kind)
+    /// <param name="fullView">
+    /// Home's stage full screen, in a window of its own (its button on
+    /// Home's stage, the owner's request of 11 October 2026): exactly Home's
+    /// stage, which keeps moving while the window hides the page behind.
+    /// </param>
+    public NowPlayingStage(AppServices services, StageKind kind, bool fullView = false)
     {
         _services = services;
         _kind = kind;
+        _fullView = fullView && kind == StageKind.Home;
         var resources = Application.Current.Resources;
         var away = kind == StageKind.Away;
 
@@ -146,7 +153,12 @@ internal sealed partial class NowPlayingStage : Grid
 
         if (!away)
         {
-            _title.Tapped += OnTitleTapped;
+            // Full screen, the page it would open lies behind; the title stays put.
+            if (!_fullView)
+            {
+                _title.Tapped += OnTitleTapped;
+            }
+
             _play = new Button
             {
                 Style = (Style)resources["ResonatePlayButtonStyle"],
@@ -236,6 +248,41 @@ internal sealed partial class NowPlayingStage : Grid
         Children.Add(_grain);
         Children.Add(_visualizer);
         Children.Add(Body);
+
+        // Home: full screen and back (the owner's request, 11 October 2026), quiet until the pointer is on the stage.
+        if (kind == StageKind.Home)
+        {
+            var fullScreen = new Button
+            {
+                Style = (Style)resources["ResonateIconButtonStyle"],
+                Width = 40,
+                Height = 40,
+                FontSize = 16,
+                Content = _fullView ? "" : "",
+                Margin = new Thickness(0, 16, 16, 0),
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Top,
+                Opacity = 0.45,
+                OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(160) },
+            };
+            var name = _fullView ? "Exit full screen" : "Full screen";
+            AutomationProperties.SetName(fullScreen, name);
+            ToolTipService.SetToolTip(fullScreen, _fullView ? name + " (Esc)" : name);
+            fullScreen.Click += (_, _) =>
+            {
+                if (_fullView)
+                {
+                    App.MainWindow?.HideVisualizerFullScreen();
+                }
+                else
+                {
+                    App.MainWindow?.ShowVisualizerFullScreen();
+                }
+            };
+            Children.Add(fullScreen);
+            PointerEntered += (_, _) => fullScreen.Opacity = 1;
+            PointerExited += (_, _) => fullScreen.Opacity = 0.45;
+        }
 
         _screenTimer = DispatcherQueue.GetForCurrentThread().CreateTimer();
         _screenTimer.Interval = ScreenCheck;
@@ -1059,7 +1106,7 @@ internal sealed partial class NowPlayingStage : Grid
     }
 
     /// <summary>The stage is in the window, the window shows, and the stage is on screen (not under the away screen).</summary>
-    private bool Seen => _attached && _onScreen && !(_covered && _kind == StageKind.Home) && (_kind == StageKind.Away || (App.MainWindow?.IsShown ?? true));
+    private bool Seen => _attached && _onScreen && !(_covered && _kind == StageKind.Home && !_fullView) && (_kind == StageKind.Away || _fullView || (App.MainWindow?.IsShown ?? true));
 
     /// <summary>
     /// The blurred cover behind the stage: only the screensaver's, by its
@@ -1133,8 +1180,8 @@ internal sealed partial class NowPlayingStage : Grid
     /// <summary>A full-screen game or video, a presentation, the lock screen, or a display that is off or dimmed.</summary>
     private bool ScreenTaken()
     {
-        // The screensaver is the full-screen window itself.
-        if (_kind != StageKind.Away && UserPresence.IsScreenTaken())
+        // The screensaver and the full-screen view are the full-screen window themselves.
+        if (_kind != StageKind.Away && !_fullView && UserPresence.IsScreenTaken())
         {
             return true;
         }
@@ -1171,7 +1218,10 @@ internal sealed partial class NowPlayingStage : Grid
         Body.Margin = new Thickness(pad, top, pad, pad);
         // At full width the visualizer reaches both edges of the stage (the owner's request, 9 October 2026).
         _visualizer.Margin = new Thickness(0);
-        var innerWidth = Math.Max(0, size.Width - (2 * pad));
+        // Full screen: the cover and the words as on Home, together in the middle (the bars still span the screen).
+        var innerWidth = Math.Max(0, Math.Min(size.Width - (2 * pad), _fullView ? FullViewWidth : double.MaxValue));
+        Body.HorizontalAlignment = _fullView ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
+        Body.MaxWidth = _fullView ? innerWidth : double.PositiveInfinity;
         var innerHeight = Math.Max(0, size.Height - top - pad);
         var spacing = 48;
         var upNext = _upNext is not null && size.Height >= 560 && _upNextRows.Any(r => r.Row.Visibility == Visibility.Visible);
@@ -1212,7 +1262,7 @@ internal sealed partial class NowPlayingStage : Grid
         Grid.SetColumn(_text, _wide ? 1 : 0);
         Grid.SetColumnSpan(_text, _wide ? 1 : 2);
         Body.ColumnDefinitions[0].Width = _wide ? GridLength.Auto : new GridLength(1, GridUnitType.Star);
-        Body.ColumnDefinitions[1].Width = _wide ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+        Body.ColumnDefinitions[1].Width = !_wide ? new GridLength(0) : _fullView ? GridLength.Auto : new GridLength(1, GridUnitType.Star);
         Body.RowDefinitions[0].Height = _wide ? new GridLength(1, GridUnitType.Star) : GridLength.Auto;
         Body.RowDefinitions[1].Height = _wide ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
         Body.ColumnSpacing = _wide ? spacing : 0;
@@ -1228,6 +1278,9 @@ internal sealed partial class NowPlayingStage : Grid
 
         QueueBarRoom();
     }
+
+    /// <summary>Full screen, how wide the cover and the words may spread, centred.</summary>
+    private const double FullViewWidth = 1500;
 
     /// <summary>The share of the screen's height the screensaver's visualizer takes along the bottom.</summary>
     private const double AwayBarShare = 0.22;

@@ -38,7 +38,11 @@ public sealed partial class MainWindow
     partial void SetUpAwayScreen()
     {
         FollowPlugin(BuiltInPlugins.AwayScreen, WatchAway);
-        Closed += (_, _) => HideAway();
+        Closed += (_, _) =>
+        {
+            HideAway();
+            _fullScreenWindow?.Close();
+        };
         WatchAway();
     }
 
@@ -123,7 +127,8 @@ public sealed partial class MainWindow
     /// </summary>
     private bool MayShowAway()
     {
-        if ((!AppWindow.IsVisible && _miniPlayer is null) || UserPresence.IsScreenTaken())
+        // Not over Home's visualizer full screen, which the user is watching.
+        if ((!AppWindow.IsVisible && _miniPlayer is null) || UserPresence.IsScreenTaken() || _fullScreenView is not null)
         {
             return false;
         }
