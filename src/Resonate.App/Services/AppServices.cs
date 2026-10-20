@@ -69,6 +69,9 @@ public sealed class AppServices : IDisposable
             new SongStatsCache(isDemo ? null : Path.Combine(AppPaths.CacheFolder, "song-stats.json")),
             settings);
 
+        // The list around the song that played last, for next time; never in demo mode.
+        KeptList = new KeptListFile(isDemo ? null : Path.Combine(AppPaths.CacheFolder, "last-list.json"));
+
         // Demo mode (CI's screenshots) never touches the user's own skins.
         Skins = new SkinLibrary(settings, isDemo ? Path.Combine(Path.GetTempPath(), "Resonate demo skins") : AppPaths.SkinsFolder);
 
@@ -127,6 +130,9 @@ public sealed class AppServices : IDisposable
     public RequestCounter Requests { get; }
 
     public LibraryService Library { get; }
+
+    /// <summary>The list around the song that played last, kept so it goes on after a restart (see MainWindow.LastPlayed.cs).</summary>
+    public KeptListFile KeptList { get; }
 
     /// <summary>The listening history, stats and daily mixes on Home.</summary>
     public HomeFeed Home { get; }

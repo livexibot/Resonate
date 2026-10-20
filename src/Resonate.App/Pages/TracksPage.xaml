@@ -132,6 +132,7 @@
                                 VerticalAlignment="Center"
                                 AutomationProperties.Name="Filter songs"
                                 CornerRadius="{ThemeResource ResonateCornerInput}"
+                                LosingFocus="OnFilterLosingFocus"
                                 PlaceholderText="Filter"
                                 TextChanged="OnFilterChanged" />
                             <Button
