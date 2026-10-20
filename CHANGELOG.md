@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.1](https://github.com/livexibot/Resonate/compare/v0.23.0...v0.23.1) (2026-10-20)
+
+
+### Fixes
+
+* after a restart the list plays on, and the song filter keeps the keyboard ([#83](https://github.com/livexibot/Resonate/issues/83)) ([eb5e39e](https://github.com/livexibot/Resonate/commit/eb5e39ea3c6a7de5eb079939735dca91bfc51ae6))
+
 ## [0.23.0](https://github.com/livexibot/Resonate/compare/v0.22.0...v0.23.0) (2026-10-12)
 
 
