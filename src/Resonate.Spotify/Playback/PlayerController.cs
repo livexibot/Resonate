@@ -290,10 +290,70 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             }
 
             _resumeFrom = last;
+            _sourceContext = last.ContextUri;
             SetState(last.ToState(_state, _time.GetUtcNow()));
         }
 
         RaiseStateChanged();
+    }
+
+    /// <summary>
+    /// The list the song shown plays in, as kept for next time (see
+    /// <see cref="KeptList"/>); null when Resonate plays no list of its own
+    /// (music started elsewhere, a queued song, Spotify's DJ).
+    /// </summary>
+    public KeptList? KeepList()
+    {
+        lock (_gate)
+        {
+            if (_session is not { PlayingOther: false } session
+                || session.Current is not { } current
+                || !IsShowing(current)
+                || SpotifyDj.IsPlaying(_state))
+            {
+                return null;
+            }
+
+            return session.ToKept(_spotifyShuffle);
+        }
+    }
+
+    /// <summary>
+    /// Picks up the list kept last time (see <see cref="KeepList"/>) around the
+    /// song <see cref="ShowLastPlayed"/> shows, while nothing else is known:
+    /// Up next shows it at once, and Play, Next and Previous go on through it,
+    /// with no request to Spotify before then. False when it does not belong
+    /// to the song shown.
+    /// </summary>
+    public bool RestoreList(KeptList kept)
+    {
+        lock (_gate)
+        {
+            if (_session is not null
+                || _resumeFrom is not { } last
+                || _state.IsPlaying
+                || _state.TrackUri != last.TrackUri
+                || kept.Index < 0
+                || kept.Index >= kept.Songs.Count
+                || kept.Songs[kept.Index].Uri != last.TrackUri
+                || ListSession.Restore(kept, _nextInt) is not { } session)
+            {
+                return false;
+            }
+
+            _session = session;
+            _sessionSettledAt = _time.GetUtcNow();
+            if (_spotifyShuffle is null && kept.SpotifyShuffle == false)
+            {
+                // Resonate had switched it off for its lists, and nothing has said otherwise since.
+                _spotifyShuffle = false;
+            }
+
+            SetState(_state with { Shuffle = session.Shuffle, CanShuffle = true, SourceName = _state.SourceName ?? session.SourceName });
+        }
+
+        RaiseStateChanged();
+        return true;
     }
 
     public void RefreshSoon()
@@ -516,20 +576,31 @@ public sealed partial class PlayerController : IPlayer, IDisposable
 
         PlayerState before;
         long generation;
-        LastPlayed? resume;
+        LastPlayed? kept;
+        LastPlayed? resume = null;
+        ListSession? restored;
+        StartPlaybackBody? listBody = null;
         lock (_gate)
         {
             var now = _time.GetUtcNow();
             before = _state;
             generation = ++_generation;
             _playingHold = new Hold<bool>(true, now + PlayStateHold);
-
-            // The song kept from last time, still shown and with nothing playing it: Spotify is asked to play it from its place.
-            resume = _resumeFrom is { } last && last.TrackUri == _state.TrackUri && !_webConnected && !HasSong(Local) ? last : null;
+            kept = _resumeFrom;
             _resumeFrom = null;
-            if (resume is not null)
+            var position = (long)_state.PositionAt(now).TotalMilliseconds;
+            restored = UnsentSession();
+            if (restored is not null)
             {
-                resume.PositionMs = (long)_state.Position.TotalMilliseconds;
+                // The list kept from last time: Spotify gets it from the song shown, at its place.
+                listBody = restored.Sending().StartBody();
+                listBody.PositionMs = (int)Math.Min(position, int.MaxValue);
+                _sessionSettledAt = now + TrackHold;
+            }
+            else if (kept is { } last && last.TrackUri == _state.TrackUri && !_webConnected && !HasSong(Local))
+            {
+                // The song kept from last time, still shown and with nothing playing it: Spotify is asked to play it from its place.
+                resume = last.At(position);
             }
 
             SetState(_state with { IsPlaying = true, Position = _state.PositionAt(now), PositionTimestamp = now });
@@ -545,6 +616,10 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                     // Up next: the edited order starts where the song was paused, in one command.
                     await WithDeviceAsync((id, c) => SendUpNextAsync(edits, id, c), ct, starts: true).ConfigureAwait(false);
                 }
+                else if (restored is not null)
+                {
+                    await WithDeviceAsync((id, c) => SendListAsync(restored, listBody!, id, c), ct, starts: true).ConfigureAwait(false);
+                }
                 else if (resume is not null)
                 {
                     await PlayOnFromAsync(resume, ct).ConfigureAwait(false);
@@ -554,7 +629,195 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                     await WithDeviceAsync((id, c) => _api.StartPlaybackAsync(null, id, c), ct, starts: true).ConfigureAwait(false);
                 }
             },
-            () => RevertPlaying(generation, before.IsPlaying));
+            () =>
+            {
+                RevertPlaying(generation, before.IsPlaying);
+                KeepForNextTry(generation, kept, restored);
+            });
+    }
+
+    /// <summary>
+    /// Under the lock: the list kept from last time (see <see cref="RestoreList"/>)
+    /// at the song shown, while Spotify has none of it yet; null otherwise.
+    /// </summary>
+    private ListSession? UnsentSession() =>
+        _session is { Unsent: true, EditsPending: false } session
+        && !_state.IsPlaying
+        && session.Locate(_state.TrackUri, _state.Title) == session.Index
+            ? session
+            : null;
+
+    /// <summary>Spotify did not take the song (or list) kept from last time: the next Play, Next or Previous tries again from it.</summary>
+    private void KeepForNextTry(long generation, LastPlayed? kept, ListSession? restored, int? index = null)
+    {
+        lock (_gate)
+        {
+            if (_generation != generation)
+            {
+                return;
+            }
+
+            _resumeFrom ??= kept;
+            if (restored is not null)
+            {
+                _session = restored;
+                restored.Unsent = true;
+                if (index is { } at)
+                {
+                    restored.Index = at;
+                }
+            }
+        }
+    }
+
+    /// <summary>How far into a song Previous starts it again, rather than going back a song, as Spotify does.</summary>
+    internal static readonly TimeSpan PreviousRestartsAfter = TimeSpan.FromSeconds(3);
+
+    /// <summary>
+    /// Next (<paramref name="step"/> 1) or Previous (-1) before the song kept
+    /// from last time plays: the song next to it in the kept list starts, as
+    /// after a skip (Previous more than a few seconds into the song starts it
+    /// again), in one command. Without a kept list, the song starts in the
+    /// list Spotify still has, and Spotify skips there. Null when nothing kept waits.
+    /// </summary>
+    private Task? StepFromKept(int step)
+    {
+        LastPlayed? kept;
+        LastPlayed? alone = null;
+        bool restart;
+        ListSession? session = null;
+        StartPlaybackBody? body = null;
+        TrackInfo? song = null;
+        var index = -1;
+        lock (_gate)
+        {
+            if (_state.IsPlaying)
+            {
+                return null;
+            }
+
+            kept = _resumeFrom;
+            restart = step < 0 && _state.PositionAt(_time.GetUtcNow()) > PreviousRestartsAfter;
+            if (UnsentSession() is { } unsent)
+            {
+                var at = restart ? unsent.Index : Math.Max(0, unsent.Index + step);
+                if (at >= unsent.Order.Count)
+                {
+                    // The kept list ends with this song: nothing follows.
+                    return Task.CompletedTask;
+                }
+
+                _resumeFrom = null;
+                index = unsent.Index;
+                unsent.Index = at;
+                session = unsent.Sending();
+                body = session.StartBody();
+                song = session.Current;
+            }
+            else if (kept is { } last && last.TrackUri == _state.TrackUri && !_webConnected && !HasSong(Local))
+            {
+                alone = last;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        if (session is null || body is null)
+        {
+            return SkipFromKept(alone!, restart ? 0 : step);
+        }
+
+        return StartAsync(
+            song,
+            session.InContext ? session.ContextUri : null,
+            session,
+            session.SourceName ?? State.SourceName,
+            shuffle: null,
+            (id, c) => SendListAsync(session, body, id, c),
+            undo: generation => KeepForNextTry(generation, kept, session, index));
+    }
+
+    /// <summary>
+    /// Next or Previous before the song kept from last time plays, with no
+    /// list kept: it starts where Spotify still has its list, and Spotify
+    /// skips there. Null when something else happened meanwhile.
+    /// </summary>
+    /// <param name="step">1 for the next song, -1 for the one before, 0 to start this one again.</param>
+    private Task? SkipFromKept(LastPlayed last, int step)
+    {
+        long generation;
+        lock (_gate)
+        {
+            if (!ReferenceEquals(_resumeFrom, last) || _state.IsPlaying)
+            {
+                return null;
+            }
+
+            _resumeFrom = null;
+            var now = _time.GetUtcNow();
+            generation = ++_generation;
+            _playingHold = new Hold<bool>(true, now + PlayStateHold);
+            _positionHold = new Hold<TimeSpan>(TimeSpan.Zero, now + PositionHold);
+            SetState(_state with { IsPlaying = true, Position = TimeSpan.Zero, PositionTimestamp = now });
+        }
+
+        CountUserCommand();
+        RaiseStateChanged();
+        var from = last.At(0);
+        return RunTransportAsync(
+            async ct =>
+            {
+                await PlayOnFromAsync(from, ct).ConfigureAwait(false);
+                if (step != 0)
+                {
+                    await WithDeviceAsync(step > 0 ? _api.SkipToNextAsync : _api.SkipToPreviousAsync, ct).ConfigureAwait(false);
+                }
+            },
+            () =>
+            {
+                RevertPlaying(generation, wasPlaying: false);
+                KeepForNextTry(generation, last, restored: null);
+            });
+    }
+
+    /// <summary>
+    /// Sends a list Resonate plays, with Spotify's own shuffle switched off
+    /// first (a list started while it is on begins at a random song). If
+    /// Spotify will not start its context (it refuses some, such as Liked
+    /// Songs at times), the same songs go as a list instead, from the same place.
+    /// </summary>
+    private async Task SendListAsync(ListSession session, StartPlaybackBody body, string? deviceId, CancellationToken cancellationToken)
+    {
+        var shuffleOff = await TrySetSpotifyShuffleAsync(false, deviceId, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await _api.StartPlaybackAsync(body, deviceId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (SpotifyApiException ex) when (session.InContext && IsRefusedContext(ex))
+        {
+            // Spotify will not start this context: play the same songs as a list instead.
+            var songs = session.WithoutContext();
+            lock (_gate)
+            {
+                if (_session == session)
+                {
+                    _session = songs;
+                    SetState(_state with { ContextUri = null });
+                }
+            }
+
+            var instead = songs.StartBody();
+            instead.PositionMs = body.PositionMs;
+            await _api.StartPlaybackAsync(instead, deviceId, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (!shuffleOff)
+        {
+            // Spotify had nothing active to switch before; now it has.
+            await TrySetSpotifyShuffleAsync(false, deviceId, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     /// <summary>Carries on with the song kept from last time: in its list where Spotify still has it, else by itself, at its place.</summary>
@@ -568,9 +831,10 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                 await WithDeviceAsync((id, c) => _api.StartPlaybackAsync(inList, id, c), cancellationToken, starts: true).ConfigureAwait(false);
                 return;
             }
-            catch (SpotifyApiException) when (!cancellationToken.IsCancellationRequested)
+            catch (SpotifyApiException ex) when (!cancellationToken.IsCancellationRequested && ex.RetryAfter is null && !ex.IsPremiumRequired)
             {
                 // The list is gone or no longer has the song: the song alone.
+                // Not when Spotify asks Resonate to wait or wants Premium: the song alone would fail the same way.
             }
         }
 
@@ -610,6 +874,11 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             return edited;
         }
 
+        if (StepFromKept(1) is { } kept)
+        {
+            return kept;
+        }
+
         CountUserCommand();
         RestartPositionOptimistically();
         return RunTransportAsync(
@@ -625,6 +894,11 @@ public sealed partial class PlayerController : IPlayer, IDisposable
 
     public Task PreviousAsync()
     {
+        if (StepFromKept(-1) is { } kept)
+        {
+            return kept;
+        }
+
         CountUserCommand();
 
         // Spotify restarts the song when it is more than a few seconds in, and
@@ -758,7 +1032,15 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             previous = _session;
             _shuffleHold = new Hold<bool>(shuffle, now + PlayStateHold);
             var state = _state with { Shuffle = shuffle };
-            if (previous is { InContext: true, IsPartial: true })
+            if (previous is { Unsent: true })
+            {
+                // The list kept from last time, not sent yet: planned again here (from
+                // the songs kept), and sent with Play.
+                next = previous.WithShuffle(shuffle, playing: true);
+                next.Unsent = true;
+                _session = next;
+            }
+            else if (previous is { InContext: true, IsPartial: true })
             {
                 // Spotify plays the playlist or album itself, and Resonate has only its
                 // first songs: an order made from them would leave the rest out, so
@@ -975,36 +1257,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             session,
             request.SourceName,
             shuffle: null,
-            async (id, c) =>
-            {
-                var shuffleOff = await TrySetSpotifyShuffleAsync(false, id, c).ConfigureAwait(false);
-                try
-                {
-                    await _api.StartPlaybackAsync(body, id, c).ConfigureAwait(false);
-                }
-                catch (SpotifyApiException ex) when (session.InContext && IsRefusedContext(ex))
-                {
-                    // Spotify will not start this context (it refuses some, such as
-                    // Liked Songs at times): play the same songs as a list instead.
-                    var songs = session.WithoutContext();
-                    lock (_gate)
-                    {
-                        if (_session == session)
-                        {
-                            _session = songs;
-                            SetState(_state with { ContextUri = null });
-                        }
-                    }
-
-                    await _api.StartPlaybackAsync(songs.StartBody(), id, c).ConfigureAwait(false);
-                }
-
-                if (!shuffleOff)
-                {
-                    // Spotify had nothing active to switch before; now it has.
-                    await TrySetSpotifyShuffleAsync(false, id, c).ConfigureAwait(false);
-                }
-            });
+            (id, c) => SendListAsync(session, body, id, c));
     }
 
     /// <summary>Plays a whole playlist or album from its start.</summary>
@@ -1062,13 +1315,15 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     /// <paramref name="send"/>; if it fails, what was playing comes back.
     /// </summary>
     /// <param name="shuffle">What the shuffle button shows from now on, when the start changes it.</param>
+    /// <param name="undo">If it fails, also called (with the command's generation) to put back what the caller changed.</param>
     private Task StartAsync(
         TrackInfo? track,
         string? contextUri,
         ListSession? session,
         string? sourceName,
         bool? shuffle,
-        Func<string?, CancellationToken, Task> send)
+        Func<string?, CancellationToken, Task> send,
+        Action<long>? undo = null)
     {
         CountUserCommand();
         PlayerState before;
@@ -1120,7 +1375,13 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         }
 
         RaiseStateChanged();
-        return RunTransportAsync(ct => WithDeviceAsync(send, ct, starts: true), () => RevertTo(generation, before, previous));
+        return RunTransportAsync(
+            ct => WithDeviceAsync(send, ct, starts: true),
+            () =>
+            {
+                RevertTo(generation, before, previous);
+                undo?.Invoke(generation);
+            });
     }
 
     /// <summary>
@@ -1297,7 +1558,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     /// </summary>
     private void FollowSession()
     {
-        if (FollowUpNext())
+        if (DropUnsentList() || FollowUpNext())
         {
             return;
         }
@@ -1376,6 +1637,35 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                     starts: true),
                 revert: null);
         }
+    }
+
+    /// <summary>
+    /// The list kept from last time, before Resonate sent it: dropped when
+    /// Spotify says another song plays (on a phone, or in the Spotify app),
+    /// and taken as sent once Spotify plays a song of it (the Spotify app kept
+    /// the list itself). True when it was dropped.
+    /// </summary>
+    private bool DropUnsentList()
+    {
+        lock (_gate)
+        {
+            if (_session is not { Unsent: true } session || !_state.HasTrack)
+            {
+                return false;
+            }
+
+            if (session.Locate(_state.TrackUri, _state.Title) >= 0)
+            {
+                session.Unsent = !_state.IsPlaying;
+                return false;
+            }
+
+            _session = null;
+            SetState(_state with { SourceName = null });
+        }
+
+        RaiseStateChanged();
+        return true;
     }
 
     /// <summary>

@@ -98,15 +98,8 @@ internal sealed partial class ListSession
     public StartPlaybackBody TakeEdits()
     {
         EditsPending = false;
-        WindowStart = Math.Max(0, Index - SongsKeptBehind);
-        WindowEnd = Math.Min(Order.Count, WindowStart + WindowSize);
-        if (Index > WindowStart && IsListedTwice(Order.Skip(Index).Take(WindowEnd - Index), Current?.Uri))
-        {
-            // Spotify refuses to start a list at a song that comes again later in it.
-            WithWindowFrom(Index);
-        }
-
-        return StartBody();
+        Unsent = false;
+        return WithWindowBehind().StartBody();
     }
 
     /// <summary>Spotify did not take the edited order: it still has what it had, and the edits wait for another try.</summary>

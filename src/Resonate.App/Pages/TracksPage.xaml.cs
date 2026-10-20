@@ -447,7 +447,7 @@ public sealed partial class TracksPage : Page
         }
 
         _rows = new ObservableCollection<TrackRow>(rows);
-        TrackList.ItemsSource = _rows;
+        ShowRows(_rows);
         if (_revealOnRebuild)
         {
             // The new rows start at the top again: show the playing song there too.

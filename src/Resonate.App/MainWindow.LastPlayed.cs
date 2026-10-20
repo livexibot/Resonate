@@ -10,6 +10,9 @@ namespace Resonate.App;
 /// that played last and its place are kept in the settings, and Resonate
 /// opens showing it, paused there, until Spotify says something else
 /// plays; Play carries on from that place (<see cref="PlayerController.ShowLastPlayed"/>).
+/// The list around it is kept too (<see cref="KeptList"/>, in the cache
+/// folder), so after a restart Play, Next, Previous and Up next go on
+/// through it (the owner found only the kept song playing, 18 October 2026).
 /// </summary>
 public sealed partial class MainWindow
 {
@@ -17,6 +20,7 @@ public sealed partial class MainWindow
 
     private DispatcherQueueTimer? _lastPlayedTimer;
     private (string? Track, bool Playing) _lastPlayedSaved;
+    private KeptList? _keptSaved;
 
     private void SetUpLastPlayed()
     {
@@ -25,10 +29,31 @@ public sealed partial class MainWindow
             return;
         }
 
-        _services.Player.Spotify.ShowLastPlayed(_services.Settings.LastPlayed);
-        _lastPlayedSaved = (_services.Settings.LastPlayed?.TrackUri, false);
+        var last = _services.Settings.LastPlayed;
+        _services.Player.Spotify.ShowLastPlayed(last);
+        _lastPlayedSaved = (last?.TrackUri, false);
+        if (last is { SourceKey: { } key })
+        {
+            // So the player's title opens what it played from, as before the restart.
+            _lastPlayed = (key, last.SourceName);
+        }
+
+        if (last is not null)
+        {
+            // Off the interface thread: the list is a few hundred songs.
+            var player = _services.Player.Spotify;
+            var file = _services.KeptList;
+            _ = Task.Run(() =>
+            {
+                if (file.Load() is { } kept)
+                {
+                    player.RestoreList(kept);
+                }
+            });
+        }
+
         FollowPlayer(FollowLastPlayed);
-        Closed += (_, _) => KeepLastPlayed();
+        Closed += (_, _) => KeepLastPlayed(closing: true);
     }
 
     /// <summary>A new song or a pause is kept at once; while music plays its place is kept every 15 seconds.</summary>
@@ -60,7 +85,8 @@ public sealed partial class MainWindow
         }
     }
 
-    private void KeepLastPlayed()
+    /// <param name="closing">Resonate is closing: the list is written before it ends.</param>
+    private void KeepLastPlayed(bool closing = false)
     {
         var state = _services.Player.State;
         if (LastPlayed.From(state, DateTimeOffset.UtcNow) is not { } last)
@@ -68,8 +94,28 @@ public sealed partial class MainWindow
             return;
         }
 
+        if (_lastPlayed is { } played && state.SourceName is { } name && name == played.Name)
+        {
+            last.SourceKey = played.Key;
+        }
+
         _lastPlayedSaved = (state.TrackUri, state.IsPlaying);
         _services.Settings.LastPlayed = last;
         _services.SaveSettings();
+
+        // The list only when it changed (a new song, a new order), not with every place in the song.
+        var kept = _services.Player.Spotify.KeepList();
+        if (!KeptList.Same(kept, _keptSaved) || closing)
+        {
+            _keptSaved = kept;
+            if (closing)
+            {
+                _services.KeptList.SaveNow(kept);
+            }
+            else
+            {
+                _services.KeptList.SaveSoon(kept);
+            }
+        }
     }
 }
