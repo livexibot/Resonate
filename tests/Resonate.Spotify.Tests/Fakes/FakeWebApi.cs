@@ -356,9 +356,13 @@ internal sealed class FakeWebApi : ISpotifyWebApi
     /// <summary>Thrown when the releases of that artist are asked for.</summary>
     public Dictionary<string, Exception> ReleaseFailures { get; } = [];
 
+    /// <summary>Called with the artist's ID as each request for releases comes in, before it is answered.</summary>
+    public Action<string>? OnReleaseRequest { get; set; }
+
     public Task<Page<SimplifiedAlbum>> GetArtistReleasesAsync(string artistId, ReleaseGroups groups, int offset, int limit, CancellationToken cancellationToken)
     {
         ReleaseRequests.Add($"{artistId} {groups}");
+        OnReleaseRequest?.Invoke(artistId);
         if (ReleaseFailures.TryGetValue(artistId, out var failure))
         {
             return Task.FromException<Page<SimplifiedAlbum>>(failure);

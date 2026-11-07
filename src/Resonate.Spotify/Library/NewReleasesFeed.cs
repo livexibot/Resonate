@@ -132,13 +132,18 @@ public sealed class NewReleasesFeed
         }
     }
 
-    /// <summary>Forgets the artists and releases, in memory and on disk (signing out).</summary>
+    /// <summary>
+    /// Forgets the artists and releases, in memory and on disk (signing out).
+    /// Today's count of requests stays: the allowance belongs to the developer
+    /// app, whoever signs in next.
+    /// </summary>
     public void Forget()
     {
         lock (_gate)
         {
             _generation++;
-            _file = null;
+            var old = _file ?? Read();
+            _file = new NewReleasesFile { RequestDay = old?.RequestDay ?? default, RequestsThatDay = old?.RequestsThatDay ?? 0 };
             _refusedUntil = DateTimeOffset.MinValue;
             _retryAt = DateTimeOffset.MinValue;
             Volatile.Write(ref _view, NewReleasesView.Empty);
@@ -161,7 +166,7 @@ public sealed class NewReleasesFeed
 
     private async Task AskAsync(NewReleasesFile file, DateOnly today, int generation, CancellationToken cancellationToken)
     {
-        var round = new Round(this, file, today);
+        var round = new Round(this, file, today, generation);
         try
         {
             if (file.FollowedReadAt is not { } readAt || _time.GetUtcNow() - readAt >= NewReleasesBuilder.FollowedEvery)
@@ -211,8 +216,15 @@ public sealed class NewReleasesFeed
         var followed = new List<Artist>();
         string? after = null;
         var complete = false;
-        for (var page = 0; page < NewReleasesBuilder.MaxFollowedPages && round.CanAsk(1); page++)
+        var page = 0;
+        for (; page < NewReleasesBuilder.MaxFollowedPages && round.CanAsk(1); page++)
         {
+            if (round.Generation != Volatile.Read(ref _generation))
+            {
+                // Signed out meanwhile.
+                return false;
+            }
+
             CursorPage<Artist> answer;
             try
             {
@@ -222,7 +234,7 @@ public sealed class NewReleasesFeed
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
             {
-                Failed(ex);
+                Failed(ex, round.Generation);
                 return false;
             }
 
@@ -237,7 +249,9 @@ public sealed class NewReleasesFeed
 
         var file = round.File;
         file.Artists = NewReleasesBuilder.Merge(file.Artists, followed, complete);
-        if (complete)
+
+        // Read to its end, or as far as it is ever read (a thousand artists): not again until tomorrow.
+        if (complete || page == NewReleasesBuilder.MaxFollowedPages)
         {
             file.FollowedReadAt = _time.GetUtcNow();
         }
@@ -255,7 +269,7 @@ public sealed class NewReleasesFeed
                 c => _api.GetArtistReleasesAsync(id, ReleaseGroups.Albums | ReleaseGroups.Singles, 0, NewReleasesBuilder.ReleasesPageSize, c),
                 cancellationToken).ConfigureAwait(false);
             IEnumerable<SimplifiedAlbum?> albums = page.Items;
-            if (NewReleasesBuilder.NeedsSingles(page))
+            if (NewReleasesBuilder.NeedsSingles(page, round.Today))
             {
                 var singles = await round.AskAsync(
                     c => _api.GetArtistReleasesAsync(id, ReleaseGroups.Singles, 0, NewReleasesBuilder.ReleasesPageSize, c),
@@ -278,7 +292,13 @@ public sealed class NewReleasesFeed
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            Failed(ex);
+            if (ex is JsonException or SpotifyApiException { StatusCode: >= HttpStatusCode.InternalServerError })
+            {
+                // Spotify stumbled on this artist: the next round starts with the others, so one artist never holds them all back.
+                artist.CheckedAt = _time.GetUtcNow();
+            }
+
+            Failed(ex, round.Generation);
             return false;
         }
     }
@@ -286,27 +306,28 @@ public sealed class NewReleasesFeed
     /// <summary>
     /// Spotify could not be asked: a sign-in without the permission to read
     /// the followed artists shows "Sign in again"; anything else (no
-    /// connection, too many requests, signed out) waits a while.
+    /// connection, too many requests, signed out) waits a while. A round
+    /// from before a sign-out holds nothing back for the next account.
     /// </summary>
-    private void Failed(Exception ex)
+    private void Failed(Exception ex, int generation)
     {
-        var wait = RetryAfterFailure;
-        if (ex is SpotifyApiException { StatusCode: HttpStatusCode.Forbidden } refused
-            && refused.Message.Contains("scope", StringComparison.OrdinalIgnoreCase))
-        {
-            lock (_gate)
-            {
-                _refusedUntil = _time.GetUtcNow() + RefusedFor;
-            }
-        }
-        else if (ex is SpotifyApiException { RetryAfter: { } asked } && asked > wait)
-        {
-            wait = asked;
-        }
-
+        var refused = ex is SpotifyApiException { StatusCode: HttpStatusCode.Forbidden } forbidden
+            && forbidden.Message.Contains("scope", StringComparison.OrdinalIgnoreCase);
+        var wait = ex is SpotifyApiException { RetryAfter: { } asked } && asked > RetryAfterFailure ? asked : RetryAfterFailure;
         lock (_gate)
         {
-            _retryAt = _time.GetUtcNow() + wait;
+            if (generation != _generation)
+            {
+                return;
+            }
+
+            var now = _time.GetUtcNow();
+            if (refused)
+            {
+                _refusedUntil = now + RefusedFor;
+            }
+
+            _retryAt = now + wait;
         }
     }
 
@@ -353,7 +374,8 @@ public sealed class NewReleasesFeed
             }
             else if (_file.UserId != userId)
             {
-                _file = new NewReleasesFile { UserId = userId };
+                // Today's count of requests stays: the allowance belongs to the developer app.
+                _file = new NewReleasesFile { UserId = userId, RequestDay = _file.RequestDay, RequestsThatDay = _file.RequestsThatDay };
             }
         }
 
@@ -429,13 +451,16 @@ public sealed class NewReleasesFeed
     }
 
     /// <summary>One round of requests: keeps today's count in the file and the pause between requests.</summary>
-    private sealed class Round(NewReleasesFeed feed, NewReleasesFile file, DateOnly today)
+    private sealed class Round(NewReleasesFeed feed, NewReleasesFile file, DateOnly today, int generation)
     {
         private bool _asked;
 
         public NewReleasesFile File => file;
 
         public DateOnly Today => today;
+
+        /// <summary>The sign-in the round belongs to (see <see cref="Forget"/>).</summary>
+        public int Generation => generation;
 
         /// <summary>Whether <paramref name="requests"/> more fit in today's allowance.</summary>
         public bool CanAsk(int requests)

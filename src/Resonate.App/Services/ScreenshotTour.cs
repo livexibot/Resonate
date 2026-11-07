@@ -308,18 +308,22 @@ internal sealed class ScreenshotTour
 
         if (_window.CurrentPage is HomePage home)
         {
-            home.ScrollTo(HomeSection.Mixes);
+            // New releases sits between Made for you and Rediscover, so the row is scrolled to itself
+            // (again once its cards are in: it stays collapsed until then).
+            home.ScrollTo(HomeSection.Rediscover);
             await Task.Delay(800);
-            await CaptureAsync("6d-home-rediscover.png");
 
             // A picture cannot tell an empty card from no card: the cards once came out empty in the published app (v0.15).
             var rediscoverProblem = home.RediscoverProblem();
             for (var wait = 0; rediscoverProblem is not null && wait < 20; wait++)
             {
                 await Task.Delay(250);
+                home.ScrollTo(HomeSection.Rediscover);
                 rediscoverProblem = home.RediscoverProblem();
             }
 
+            await Task.Delay(300);
+            await CaptureAsync("6d-home-rediscover.png");
             if (rediscoverProblem is not null)
             {
                 Record("Rediscover's cards did not draw: " + rediscoverProblem);

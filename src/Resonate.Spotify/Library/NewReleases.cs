@@ -178,12 +178,15 @@ public static class NewReleasesBuilder
 
     /// <summary>
     /// Whether an artist's singles need a request of their own: Spotify lists
-    /// albums before singles, so a full page of albums with more to come hides them.
+    /// albums before singles, so a full page with more to come hides the
+    /// singles after its last one. They matter when the page holds no single,
+    /// or when its last (oldest) single is still new, so newer ones may follow.
     /// </summary>
-    public static bool NeedsSingles(Page<SimplifiedAlbum> page) =>
+    public static bool NeedsSingles(Page<SimplifiedAlbum> page, DateOnly today) =>
         page.Items.Count >= ReleasesPageSize
         && (page.HasMore || page.Total > page.Offset + page.Items.Count)
-        && !page.Items.Any(a => a?.AlbumType == "single");
+        && (page.Items.LastOrDefault(a => a?.AlbumType == "single") is not { } oldest
+            || (ParseDate(oldest.ReleaseDate) is { } released && IsNew(released, today)));
 
     /// <summary>An artist's releases as Spotify listed them: the new ones, and the date of the newest of all.</summary>
     public static (List<NewRelease> Recent, string? Latest) Read(IEnumerable<SimplifiedAlbum?> albums, DateOnly today)

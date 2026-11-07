@@ -29,8 +29,10 @@ public sealed partial class HomePage
     private DateOnly _newReleasesDay;
     private bool _newReleasesOn;
     private bool _newReleasesExpanded;
-    private bool _signingInAgain;
     private int _newReleasesQueued;
+
+    // The sign-in again waiting for the browser; the button cancels it meanwhile.
+    private CancellationTokenSource? _signingInAgain;
 
     /// <summary>The New releases cards that fit in the row (all of them once "Show all" is pressed).</summary>
     public ObservableCollection<NewReleaseTile> NewReleaseCards { get; } = [];
@@ -233,27 +235,27 @@ public sealed partial class HomePage
 
     /// <summary>
     /// Asks Spotify again in the browser, now with the permission to read the
-    /// followed artists, keeping everything else. Another account coming back
-    /// starts afresh, as signing out and in does.
+    /// followed artists, keeping everything else. While the browser is out
+    /// the button cancels it. Another account coming back starts afresh, as
+    /// signing out and in does.
     /// </summary>
     private async void OnNewReleasesSignInClick(object sender, RoutedEventArgs e)
     {
-        if (_signingInAgain)
+        if (_signingInAgain is { } pending)
         {
+            pending.Cancel();
             return;
         }
 
-        _signingInAgain = true;
-        NewReleasesSignInButton.IsEnabled = false;
+        using var waiting = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+        _signingInAgain = waiting;
+        NewReleasesSignInButton.Content = "Cancel";
         var services = _services;
         var before = services.Library.Snapshot?.User?.Id;
         try
         {
-            using (var waiting = new CancellationTokenSource(TimeSpan.FromMinutes(10)))
-            {
-                var token = waiting.Token;
-                await Task.Run(() => services.Account.SignInAsync(token), token);
-            }
+            var token = waiting.Token;
+            await Task.Run(() => services.Account.SignInAsync(token), token);
 
             SpotifyUser? user = null;
             try
@@ -276,13 +278,18 @@ public sealed partial class HomePage
             feed.SignedInAgain();
             _ = RefreshNewReleasesAsync(feed);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex) when (waiting.IsCancellationRequested || ex.InnerException is not TimeoutException)
         {
-            // Left alone in the browser too long.
+            // Cancelled, left alone in the browser too long, or replaced by another sign-in (or a sign-out).
         }
         catch (SpotifyAuthException ex)
         {
             App.MainWindow?.ShowMessage(ex.Message, InfoBarSeverity.Warning);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException)
+        {
+            // Offline, or Spotify took too long to answer.
+            App.MainWindow?.ShowMessage("Spotify could not be reached. Check the internet connection and try again.", InfoBarSeverity.Warning);
         }
         catch (Exception)
         {
@@ -291,8 +298,8 @@ public sealed partial class HomePage
         }
         finally
         {
-            _signingInAgain = false;
-            NewReleasesSignInButton.IsEnabled = true;
+            _signingInAgain = null;
+            NewReleasesSignInButton.Content = "Sign in again";
         }
     }
 }

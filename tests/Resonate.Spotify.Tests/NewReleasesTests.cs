@@ -58,18 +58,20 @@ public sealed class NewReleasesBuilderTests
     }
 
     [Fact]
-    public void Singles_need_their_own_request_only_behind_a_full_page_of_albums()
+    public void Singles_need_their_own_request_only_when_a_full_page_may_hide_new_ones()
     {
         var albums = Enumerable.Range(0, 10).Select(i => (SimplifiedAlbum?)Releases.Album($"a{i}", "x", Today.AddYears(-i))).ToList();
         var full = new Page<SimplifiedAlbum> { Items = albums, Total = 14, Next = "more" };
-        var withSingle = new Page<SimplifiedAlbum> { Items = [.. albums[..9], Releases.Single("s", "x", Today)], Total = 14, Next = "more" };
+        var endsOnNewSingle = new Page<SimplifiedAlbum> { Items = [.. albums[..9], Releases.Single("s", "x", Today)], Total = 14, Next = "more" };
+        var endsOnOldSingle = new Page<SimplifiedAlbum> { Items = [.. albums[..8], Releases.Single("s1", "x", Today), Releases.Single("s2", "x", Today.AddYears(-1))], Total = 14, Next = "more" };
         var short_ = new Page<SimplifiedAlbum> { Items = albums[..4], Total = 4 };
         var allOfThem = new Page<SimplifiedAlbum> { Items = albums, Total = 10 };
 
-        Assert.True(NewReleasesBuilder.NeedsSingles(full));
-        Assert.False(NewReleasesBuilder.NeedsSingles(withSingle));
-        Assert.False(NewReleasesBuilder.NeedsSingles(short_));
-        Assert.False(NewReleasesBuilder.NeedsSingles(allOfThem));
+        Assert.True(NewReleasesBuilder.NeedsSingles(full, Today));
+        Assert.True(NewReleasesBuilder.NeedsSingles(endsOnNewSingle, Today));
+        Assert.False(NewReleasesBuilder.NeedsSingles(endsOnOldSingle, Today));
+        Assert.False(NewReleasesBuilder.NeedsSingles(short_, Today));
+        Assert.False(NewReleasesBuilder.NeedsSingles(allOfThem, Today));
     }
 
     [Fact]
@@ -260,6 +262,98 @@ public sealed class NewReleasesFeedTests : IDisposable
 
         Assert.Equal(["a0 Albums, Singles", "a0 Singles", "a1 Albums, Singles"], _api.ReleaseRequests);
         Assert.Equal(["a0-single", "a1-single"], feed.View.Releases.Select(r => r.Id));
+    }
+
+    [Fact]
+    public async Task Every_new_single_shows_when_albums_and_singles_share_the_first_page()
+    {
+        Follow(1);
+        _api.ReleasesOf["a0"] =
+        [
+            .. Enumerable.Range(0, 9).Select(i => Releases.Album($"old{i}", "a0", Today.AddYears(-1 - i))),
+            Releases.Single("newest", "a0", Today),
+            Releases.Single("earlier", "a0", Today.AddDays(-21)),
+            Releases.Single("ancient", "a0", Today.AddYears(-4)),
+        ];
+        var feed = Feed();
+
+        await feed.RefreshAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(["a0 Albums, Singles", "a0 Singles"], _api.ReleaseRequests);
+        Assert.Equal(["newest", "earlier"], feed.View.Releases.Select(r => r.Id));
+    }
+
+    [Fact]
+    public async Task One_artist_Spotify_keeps_failing_on_does_not_hold_the_others_back()
+    {
+        Follow(3);
+        _api.ReleaseFailures["a0"] = new SpotifyApiException(HttpStatusCode.BadGateway, null, "Bad gateway");
+        _api.ReleasesOf["a2"] = [Releases.Single("a2-new", "a2", Today)];
+        var feed = Feed();
+        await feed.RefreshAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(["a0 Albums, Singles"], _api.ReleaseRequests);
+
+        _time.Advance(TimeSpan.FromMinutes(31));
+        await feed.RefreshAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(["a0 Albums, Singles", "a1 Albums, Singles", "a2 Albums, Singles"], _api.ReleaseRequests);
+        Assert.Equal("a2-new", Assert.Single(feed.View.Releases).Id);
+    }
+
+    [Fact]
+    public async Task Signing_out_during_a_round_holds_nothing_back_for_the_next_sign_in()
+    {
+        Follow(3);
+        var feed = Feed();
+        _api.OnReleaseRequest = id =>
+        {
+            if (id == "a1")
+            {
+                // Settings' Sign out while the round is under way: the next request finds no sign-in.
+                _api.OnReleaseRequest = null;
+                feed.Forget();
+                _api.ReleaseFailures["a1"] = new Resonate.Spotify.Auth.SpotifyAuthException("not_signed_in", "Sign in to Spotify first.");
+            }
+        };
+        await feed.RefreshAsync(TestContext.Current.CancellationToken);
+        _api.ReleaseFailures.Clear();
+        _api.FollowedRequests.Clear();
+
+        await feed.RefreshAsync(TestContext.Current.CancellationToken);
+
+        Assert.Single(_api.FollowedRequests);
+    }
+
+    [Fact]
+    public async Task Signing_out_and_in_again_keeps_the_days_count_of_requests()
+    {
+        Follow(200);
+        var feed = Feed();
+        await feed.RefreshAsync(TestContext.Current.CancellationToken);
+
+        feed.Forget();
+        await feed.RefreshAsync(TestContext.Current.CancellationToken);
+        _userId = "someone-else";
+        await feed.RefreshAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(Asked() <= NewReleasesBuilder.MaxRequestsPerDay, $"{Asked()} requests in a day");
+    }
+
+    [Fact]
+    public async Task A_thousand_followed_artists_are_read_once_a_day_like_fewer()
+    {
+        Follow(1200);
+        var feed = Feed();
+        await feed.RefreshAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(NewReleasesBuilder.MaxFollowedPages, _api.FollowedRequests.Count);
+
+        // After midnight the allowance is new, but the list was read 13 hours ago.
+        _api.ReleaseRequests.Clear();
+        _time.Advance(TimeSpan.FromHours(13));
+        await feed.RefreshAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(NewReleasesBuilder.MaxFollowedPages, _api.FollowedRequests.Count);
+        Assert.NotEmpty(_api.ReleaseRequests);
     }
 
     [Fact]

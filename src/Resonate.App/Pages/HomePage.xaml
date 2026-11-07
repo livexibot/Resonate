@@ -759,7 +759,6 @@
                             Click="OnNewReleasesSignInClick"
                             Content="Sign in again"
                             Style="{StaticResource ResonateAccentButtonStyle}"
-                            ToolTipService.ToolTip="Lets Resonate see the artists you follow"
                             Visibility="Collapsed" />
                         <Button
                             x:Name="NewReleasesMoreButton"

@@ -29,6 +29,7 @@ internal enum HomeSection
     NewReleases,
     Top,
     Recent,
+    Rediscover,
 }
 
 /// <summary>
@@ -241,6 +242,7 @@ public sealed partial class HomePage : Page
         {
             HomeSection.Mixes => MixesSection,
             HomeSection.NewReleases => NewReleasesSection,
+            HomeSection.Rediscover => RediscoverSection,
             HomeSection.Top => TopSection,
             HomeSection.Recent => RecentSection,
             _ => Overview,
