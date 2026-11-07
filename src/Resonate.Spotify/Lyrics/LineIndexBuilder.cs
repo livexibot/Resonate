@@ -185,7 +185,7 @@ public sealed class LineIndexBuilder
                 // An answer that cannot be read counts as none, so it is asked again in a month, not on every pass.
                 lyrics = null;
             }
-            catch (Exception ex) when (!cancellationToken.IsCancellationRequested && ex is HttpRequestException or IOException or TaskCanceledException or TimeoutException)
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested && ex is HttpRequestException or IOException or OperationCanceledException or TimeoutException)
             {
                 // Offline, or LRCLIB is busy: the song is tried again on a later
                 // pass, and lookups pause longer and longer while this goes on.

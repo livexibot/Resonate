@@ -21,7 +21,7 @@ public sealed class LineFinderTests : IDisposable
     private string IndexFile => Path.Combine(_folder, "line-finder.jsonl");
 
     [Theory]
-    [InlineData("Don't Stop Believin'", "dont stop believin")]
+    [InlineData("Don't Stop Dreamin'", "dont stop dreamin")]
     [InlineData("Café, déjà vu!", "cafe deja vu")]
     [InlineData("  Hello\tWORLD  ", "hello world")]
     [InlineData("(Oh-oh) — yeah…", "oh oh yeah")]
@@ -103,12 +103,12 @@ public sealed class LineFinderTests : IDisposable
     public void A_line_that_holds_too_little_of_what_was_typed_is_left_out()
     {
         var index = Index(
-            Song(1, "Umbrella", "Under my umbrella", "Rain keeps falling"),
+            Song(1, "Lantern", "Under a yellow lantern", "Rain keeps falling"),
             Song(2, "Sunny", "Bright and sunny days", "Nothing but the light"));
 
-        Assert.Equal("Under my umbrella", Assert.Single(index.Search("umbrella", 10, TestContext.Current.CancellationToken)).Line);
+        Assert.Equal("Under a yellow lantern", Assert.Single(index.Search("lantern", 10, TestContext.Current.CancellationToken)).Line);
         Assert.Empty(index.Search("xylophone", 10, TestContext.Current.CancellationToken));
-        Assert.Empty(index.Search("umbrella xylophone", 10, TestContext.Current.CancellationToken));
+        Assert.Empty(index.Search("lantern xylophone", 10, TestContext.Current.CancellationToken));
         Assert.Empty(index.Search("", 10, TestContext.Current.CancellationToken));
         Assert.Empty(index.Search("!!", 10, TestContext.Current.CancellationToken));
     }
@@ -116,11 +116,11 @@ public sealed class LineFinderTests : IDisposable
     [Fact]
     public void A_line_of_little_words_is_found_too()
     {
-        var index = Index(Song(1, "Be", "Whisper words of wisdom", "Let it be, let it be"), Song(2, "Other", "It is what it is"));
+        var index = Index(Song(1, "So", "Paper planes over the bay", "And so it was, and so it was"), Song(2, "Other", "It is what it is"));
 
-        var found = Assert.Single(index.Search("let it be", 10, TestContext.Current.CancellationToken));
+        var found = Assert.Single(index.Search("and so it was", 10, TestContext.Current.CancellationToken));
 
-        Assert.Equal("Let it be, let it be", found.Line);
+        Assert.Equal("And so it was, and so it was", found.Line);
     }
 
     [Fact]

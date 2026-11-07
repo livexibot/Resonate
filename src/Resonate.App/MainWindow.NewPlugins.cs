@@ -313,6 +313,19 @@ public sealed partial class MainWindow
         _skipTimer.Start();
     }
 
+    /// <summary>
+    /// A song started at a place the user chose (a line Line Finder found): its
+    /// intro is not skipped past that place, nor its end when the place is
+    /// already in it. Call right after starting it, on the interface thread.
+    /// </summary>
+    internal void StartedAtChosenPlace(TrackInfo track, TimeSpan start)
+    {
+        var settings = _services.Settings;
+        _skipSong = track.Uri ?? track.Title;
+        _introSkipped = true;
+        _outroSkipped = SkipRules.OutroReached(start, track.Duration, settings.SkipOutroSeconds, settings.SkipShortestSeconds);
+    }
+
     private void CheckOutro()
     {
         var settings = _services.Settings;

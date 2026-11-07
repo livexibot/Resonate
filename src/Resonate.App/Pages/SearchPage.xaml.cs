@@ -197,12 +197,21 @@ public sealed partial class SearchPage : Page
             return;
         }
 
-        RememberQuery();
         if (_filter == LyricsKind)
         {
+            // A held Enter repeats: only the press plays.
             e.Handled = true;
+            if (e.KeyStatus.WasKeyDown)
+            {
+                return;
+            }
+
+            RememberQuery();
             _ = PlayFirstLineAsync();
+            return;
         }
+
+        RememberQuery();
     }
 
     /// <summary>The first song found for what is typed now, from its line (searched again at once if typing was faster than the search).</summary>
@@ -484,6 +493,7 @@ public sealed partial class SearchPage : Page
         Remember(RecentSearchPick.Song(track));
         var start = match.At is { } at ? (at > LineLeadIn ? at - LineLeadIn : TimeSpan.Zero) : (TimeSpan?)null;
         _ = _services.Player.PlayAsync(new PlayRequest([track], 0, track.AlbumUri, track.Album) { StartPosition = start });
+        App.MainWindow?.StartedAtChosenPlace(track, start ?? TimeSpan.Zero);
     }
 
     private void Show(SearchMatches? results, string query)
