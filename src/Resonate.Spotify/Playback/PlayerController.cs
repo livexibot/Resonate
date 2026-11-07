@@ -56,6 +56,19 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     internal static readonly TimeSpan ShuffleConfirmInterval = TimeSpan.FromMilliseconds(300);
     internal const int ShuffleConfirmAttempts = 4;
 
+    /// <summary>
+    /// A list that hands over (<see cref="PlayRequest.HandsOver"/>) has ended
+    /// when, this close to the time its last song should end, Spotify stops
+    /// or plays something else (its autoplay, or its own queue).
+    /// </summary>
+    internal static readonly TimeSpan HandOverEndWindow = TimeSpan.FromSeconds(10);
+
+    /// <summary>A stopped song this close to its start or its end counts as stopped there (Spotify's end of a list).</summary>
+    internal static readonly TimeSpan HandOverBoundary = TimeSpan.FromSeconds(2);
+
+    /// <summary>When Spotify has said nothing this long after the last song should have ended, it is asked once.</summary>
+    internal static readonly TimeSpan HandOverCheckDelay = TimeSpan.FromSeconds(3);
+
     /// <summary>How many answers about another song a new song's details wait through (one poll each).</summary>
     internal const int MaxWebDetailsMisses = 4;
 
@@ -137,6 +150,9 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     // The device Spotify said plays, with "Spotify Web API only"; under _gate.
     private string? _webDeviceId;
 
+    // Asks Spotify once when the last song of a list that hands over should long have ended.
+    private ITimer? _handOverTimer;
+
     /// <param name="nextInt">Random numbers for shuffling, in [0, max); the system's cryptographic generator when null (tests pass their own).</param>
     public PlayerController(
         ILocalMediaChannel local,
@@ -165,6 +181,22 @@ public sealed partial class PlayerController : IPlayer, IDisposable
 
     /// <summary>Raised on any thread with a sentence to show when a command failed.</summary>
     public event EventHandler<string>? ErrorOccurred;
+
+    /// <summary>
+    /// Raised (on any thread) when a list played with <see cref="PlayRequest.HandsOver"/>
+    /// has ended: its last song ended (or was skipped) and Spotify stopped,
+    /// or moved on to something of its own. Nothing else is done about it.
+    /// </summary>
+    public event EventHandler<PlayRequest>? ListEnded;
+
+    /// <summary>Whether Spotify still plays the list <paramref name="request"/> started (one that hands over, not yet ended).</summary>
+    public bool IsPlayingList(PlayRequest request)
+    {
+        lock (_gate)
+        {
+            return _session is { HandOver: { } handOver } && ReferenceEquals(handOver, request);
+        }
+    }
 
     /// <summary>
     /// How commands and reports travel. Can change at any time; the player
@@ -586,6 +618,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             before = _state;
             generation = ++_generation;
             _playingHold = new Hold<bool>(true, now + PlayStateHold);
+            NoteUserPaused(false);
             kept = _resumeFrom;
             _resumeFrom = null;
             var position = (long)_state.PositionAt(now).TotalMilliseconds;
@@ -853,6 +886,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             generation = ++_generation;
             _playingHold = new Hold<bool>(false, now + PlayStateHold);
             SetState(_state with { IsPlaying = false, Position = _state.PositionAt(now), PositionTimestamp = now });
+            NoteUserPaused(true);
         }
 
         RaiseStateChanged();
@@ -880,6 +914,11 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         }
 
         CountUserCommand();
+        lock (_gate)
+        {
+            NoteUserPaused(false);
+        }
+
         RestartPositionOptimistically();
         return RunTransportAsync(
             async ct =>
@@ -900,6 +939,10 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         }
 
         CountUserCommand();
+        lock (_gate)
+        {
+            NoteUserPaused(false);
+        }
 
         // Spotify restarts the song when it is more than a few seconds in, and
         // goes to the previous one otherwise; either way the position is 0.
@@ -1250,14 +1293,26 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             return PlayInContextAsync(request);
         }
 
+        if (request.HandsOver && !session.InContext)
+        {
+            session.HandOver = request;
+        }
+
         var body = session.StartBody();
-        return StartAsync(
+        var started = StartAsync(
             session.Current,
             session.InContext ? session.ContextUri : null,
             session,
             request.SourceName,
             shuffle: null,
             (id, c) => SendListAsync(session, body, id, c));
+        if (session.HandOver is not null)
+        {
+            // A stretch that starts with its last song is followed from now on.
+            FollowHandOver();
+        }
+
+        return started;
     }
 
     /// <summary>Plays a whole playlist or album from its start.</summary>
@@ -1558,7 +1613,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     /// </summary>
     private void FollowSession()
     {
-        if (DropUnsentList() || FollowUpNext())
+        if (DropUnsentList() || FollowUpNext() || FollowHandOver())
         {
             return;
         }
@@ -1637,6 +1692,148 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                     starts: true),
                 revert: null);
         }
+    }
+
+    /// <summary>
+    /// Follows a list that hands over (<see cref="PlayRequest.HandsOver"/>)
+    /// to its end. Once its last song plays, Spotify stopping there (at that
+    /// song's start or end, or back at the list's start), or playing
+    /// something of its own (its autoplay, its queue), close to when that
+    /// song should end, is the list's end: <see cref="ListEnded"/> says so.
+    /// A pause the user made in Resonate never is. True when it ended.
+    /// </summary>
+    private bool FollowHandOver()
+    {
+        PlayRequest? ended = null;
+        TimeSpan? check = null;
+        lock (_gate)
+        {
+            if (_session is not { HandOver: { } handOver } session || !_state.HasTrack)
+            {
+                return false;
+            }
+
+            var now = _time.GetUtcNow();
+            var located = session.Locate(_state.TrackUri, _state.Title);
+            var last = session.Order.Count - 1;
+            if (located == last && _state.IsPlaying)
+            {
+                // The last song plays: its end is the list's.
+                var left = _state.Duration > TimeSpan.Zero ? _state.Duration - _state.PositionAt(now) : TimeSpan.Zero;
+                session.ReachedEnd = true;
+                session.LastSongEndsAt = now + left;
+                check = left + HandOverCheckDelay;
+            }
+            else if (!session.ReachedEnd || now < _sessionSettledAt || now < session.LastSongEndsAt - HandOverEndWindow)
+            {
+                // Not at the end yet (or Spotify may still describe what played before).
+            }
+            else if (located < 0)
+            {
+                if (_state.IsPlaying)
+                {
+                    // Spotify went on by itself after the last song.
+                    ended = handOver;
+                }
+            }
+            else if (_state.IsPlaying)
+            {
+                // Back to an earlier song of the list.
+                session.ReachedEnd = false;
+            }
+            else if (!session.PausedByUser && StoppedAtEnd(session, located, now))
+            {
+                ended = handOver;
+            }
+
+            if (ended is not null)
+            {
+                session.HandOver = null;
+            }
+        }
+
+        if (ended is not null)
+        {
+            ListEnded?.Invoke(this, ended);
+            return true;
+        }
+
+        ArmHandOverCheck(check);
+        return false;
+    }
+
+    /// <summary>Under the lock: Spotify stopped at the end of a list it played: on its last song's start or end, or back on its first song.</summary>
+    private bool StoppedAtEnd(ListSession session, int located, DateTimeOffset now)
+    {
+        var position = _state.PositionAt(now);
+        var atStart = position <= HandOverBoundary;
+        var atEnd = _state.Duration > TimeSpan.Zero && position >= _state.Duration - HandOverBoundary;
+        return located == session.Order.Count - 1
+            ? atStart || atEnd
+            : atStart && (located == session.WindowStart || located == 0);
+    }
+
+    /// <summary>Under the lock: notes that the user paused (or played, skipped) in Resonate while a list that hands over plays.</summary>
+    private void NoteUserPaused(bool paused)
+    {
+        if (_session is { HandOver: not null } session)
+        {
+            session.PausedByUser = paused;
+        }
+    }
+
+    /// <summary>Outside the lock: asks Spotify once if it has still said nothing a while after the last song should have ended.</summary>
+    private void ArmHandOverCheck(TimeSpan? due)
+    {
+        if (due is not { } delay || _stopping.IsCancellationRequested)
+        {
+            return;
+        }
+
+        var timer = _handOverTimer;
+        if (timer is null)
+        {
+            var created = _time.CreateTimer(_ => OnHandOverCheckDue(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            timer = Interlocked.CompareExchange(ref _handOverTimer, created, null) ?? created;
+            if (!ReferenceEquals(timer, created))
+            {
+                created.Dispose();
+            }
+        }
+
+        try
+        {
+            timer.Change(delay < TimeSpan.Zero ? TimeSpan.Zero : delay, Timeout.InfiniteTimeSpan);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Shutting down.
+        }
+    }
+
+    private void OnHandOverCheckDue()
+    {
+        if (_stopping.IsCancellationRequested)
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            var now = _time.GetUtcNow();
+            if (_session is not { HandOver: not null, ReachedEnd: true } session
+                || !_state.IsPlaying
+                || session.Locate(_state.TrackUri, _state.Title) != session.Order.Count - 1
+                || now < session.LastSongEndsAt + HandOverCheckDelay - TimeSpan.FromMilliseconds(100)
+                || session.EndCheckedFor == session.LastSongEndsAt)
+            {
+                return;
+            }
+
+            session.EndCheckedFor = session.LastSongEndsAt;
+        }
+
+        _ = RefreshFromWebApiAsync(_stopping.Token);
     }
 
     /// <summary>
@@ -1805,6 +2002,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         _local.Changed -= OnLocalChanged;
         _stopping.Cancel();
         _upNextTimer?.Dispose();
+        _handOverTimer?.Dispose();
         _transport.Dispose();
         _volumeLane.Dispose();
         _localLane.Dispose();

@@ -29,6 +29,14 @@ public sealed record PlayRequest(
     /// </summary>
     public bool IsPartial { get; init; }
 
+    /// <summary>
+    /// The list is one stretch of a longer list that another player carries
+    /// on (see <see cref="MixedList"/>): when its last song ends (or is
+    /// skipped), the player raises its ListEnded event with this request and
+    /// stays where it is, rather than going back to the start.
+    /// </summary>
+    public bool HandsOver { get; init; }
+
     /// <summary>The song to start with, when the user picked one.</summary>
     public TrackInfo? StartTrack => StartIndex >= 0 && StartIndex < Tracks.Count ? Tracks[StartIndex] : null;
 

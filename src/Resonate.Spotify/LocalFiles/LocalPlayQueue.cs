@@ -123,6 +123,9 @@ public sealed partial class LocalPlayQueue
         }
     }
 
+    /// <summary>The current song is the list's last one and nothing is queued after it (whatever repeat says).</summary>
+    public bool AtLastSong => _queued.Count == 0 && _order.Count > 0 && _position == _order.Count - 1;
+
     /// <summary>"Add to queue": plays after the current song and anything queued before it.</summary>
     public void AddToQueue(TrackInfo track) => _queued.Enqueue(track);
 

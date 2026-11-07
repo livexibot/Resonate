@@ -13,6 +13,9 @@ public sealed record UpNextList(TrackInfo? Current, IReadOnlyList<TrackInfo> Upc
 
     /// <summary>The list started before all its songs had loaded, so it can not be edited (otherwise <see cref="CanEdit"/> comes back with the next song).</summary>
     public bool PartlyKnown { get; init; }
+
+    /// <summary>The list mixes Spotify's songs and files from this computer, which play in turns on two players, so it can not be edited.</summary>
+    public bool Mixed { get; init; }
 }
 
 /// <summary>

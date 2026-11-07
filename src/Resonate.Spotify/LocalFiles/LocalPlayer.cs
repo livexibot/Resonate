@@ -47,6 +47,9 @@ public sealed partial class LocalPlayer : ILocalPlayer
 
     private PlayerState _state = PlayerState.Empty with { Source = PlaybackSource.LocalFiles, IsConnected = true, CanSeek = true };
     private string? _shownFolder;
+
+    // The list that plays, when it hands over at its end (PlayRequest.HandsOver).
+    private PlayRequest? _handOver;
     private string? _openPath;
     private long _track;
     private long _epoch;
@@ -101,6 +104,8 @@ public sealed partial class LocalPlayer : ILocalPlayer
     public event EventHandler? StateChanged;
 
     public event EventHandler<string>? ErrorOccurred;
+
+    public event EventHandler<PlayRequest>? ListEnded;
 
     public PlayerState State
     {
@@ -169,6 +174,7 @@ public sealed partial class LocalPlayer : ILocalPlayer
         lock (_gate)
         {
             var first = _queue.Load(tracks, start, request.Shuffle ?? _state.Shuffle)!;
+            _handOver = request.HandsOver ? request : null;
             _failures = 0;
             (track, epoch) = NextTrack();
             SetState(ForTrack(first, playing: true) with { SourceName = request.SourceName });
@@ -463,6 +469,7 @@ public sealed partial class LocalPlayer : ILocalPlayer
         long epoch;
         var restart = false;
         bool playing;
+        PlayRequest? ended = null;
         lock (_gate)
         {
             if (_queue.Current is not { } current)
@@ -488,8 +495,16 @@ public sealed partial class LocalPlayer : ILocalPlayer
             }
             else
             {
-                song = _queue.MoveNext(skipped: true);
-                if (song is null)
+                song = _handOver is not null && _queue.AtLastSong ? null : _queue.MoveNext(skipped: true);
+                if (song is null && _handOver is { } handOver)
+                {
+                    // The end of a stretch of a longer list: the next player carries on.
+                    ended = handOver;
+                    _handOver = null;
+                    ++_epoch;
+                    SetState(_state with { IsPlaying = false, Position = _state.PositionAt(now), PositionTimestamp = now });
+                }
+                else if (song is null)
                 {
                     // The end of the list: back to the start, stopped (as Spotify does).
                     song = _queue.ResetToStart();
@@ -497,7 +512,11 @@ public sealed partial class LocalPlayer : ILocalPlayer
                 }
             }
 
-            if (restart)
+            if (ended is not null)
+            {
+                // Stays where it is.
+            }
+            else if (restart)
             {
                 SetState(_state with { Position = TimeSpan.Zero, PositionTimestamp = now });
             }
@@ -509,6 +528,12 @@ public sealed partial class LocalPlayer : ILocalPlayer
         }
 
         Raise();
+        if (ended is not null)
+        {
+            ListEnded?.Invoke(this, ended);
+            return _transport.Enqueue(_ => _engine.PauseAsync());
+        }
+
         if (restart)
         {
             return SeekAsync(TimeSpan.Zero);
@@ -576,6 +601,7 @@ public sealed partial class LocalPlayer : ILocalPlayer
         long next;
         long epoch;
         bool playing;
+        PlayRequest? ended = null;
         lock (_gate)
         {
             if (track != _track)
@@ -597,6 +623,10 @@ public sealed partial class LocalPlayer : ILocalPlayer
                 next = 0;
                 epoch = 0;
                 playing = false;
+
+                // Nothing more of this stretch will play: the next player carries on.
+                ended = _handOver;
+                _handOver = null;
             }
             else
             {
@@ -612,6 +642,11 @@ public sealed partial class LocalPlayer : ILocalPlayer
         }
 
         Raise();
+        if (ended is not null)
+        {
+            ListEnded?.Invoke(this, ended);
+        }
+
         if (next != 0)
         {
             await OpenAsync(next, epoch, TimeSpan.Zero, playing, cancellationToken).ConfigureAwait(false);
@@ -670,16 +705,38 @@ public sealed partial class LocalPlayer : ILocalPlayer
         long epoch;
         TrackInfo song;
         bool playing;
+        PlayRequest? handedOver = null;
         lock (_gate)
         {
             var next = _queue.MoveNext(skipped: false);
-            playing = next is not null;
-            song = next ?? _queue.ResetToStart()!;
-            (track, epoch) = NextTrack();
-            SetState(ForTrack(song, playing));
+            if (next is null && _handOver is { } handOver)
+            {
+                // The end of a stretch of a longer list: it stays at the end of
+                // its last song, and the next player carries on.
+                handedOver = handOver;
+                _handOver = null;
+                ++_epoch;
+                SetState(_state with { IsPlaying = false, Position = _state.Duration, PositionTimestamp = _time.GetUtcNow() });
+                song = _queue.Current!;
+                playing = false;
+                (track, epoch) = (_track, _epoch);
+            }
+            else
+            {
+                playing = next is not null;
+                song = next ?? _queue.ResetToStart()!;
+                (track, epoch) = NextTrack();
+                SetState(ForTrack(song, playing));
+            }
         }
 
         Raise();
+        if (handedOver is not null)
+        {
+            ListEnded?.Invoke(this, handedOver);
+            return;
+        }
+
         if (playing && ended.NextPath is not null && string.Equals(song.FilePath, ended.NextPath, StringComparison.Ordinal))
         {
             // The engine already started it, without a gap. Its own length
@@ -915,6 +972,7 @@ public sealed partial class LocalPlayer : ILocalPlayer
             Artists = track.Artists,
             Album = track.Album,
             TrackUri = track.Uri,
+            FilePath = track.FilePath,
             ContextUri = null,
             ArtworkUrl = null,
             ArtworkBytes = sameAlbum ? _state.ArtworkBytes : null,

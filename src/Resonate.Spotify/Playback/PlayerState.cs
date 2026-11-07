@@ -20,6 +20,9 @@ public sealed record PlayerState
 
     public string? TrackUri { get; init; }
 
+    /// <summary>The file the local files player plays, when it plays one (its <see cref="TrackUri"/> may be a playlist's spotify:local: address).</summary>
+    public string? FilePath { get; init; }
+
     public string? ContextUri { get; init; }
 
     /// <summary>Preferred over <see cref="ArtworkBytes"/> when both are set.</summary>

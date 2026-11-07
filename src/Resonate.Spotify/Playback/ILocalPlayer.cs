@@ -12,6 +12,13 @@ namespace Resonate.Spotify.Playback;
 /// </summary>
 public interface ILocalPlayer : IPlayer, IDisposable
 {
+    /// <summary>
+    /// Raised (on any thread) when a list played with <see cref="PlayRequest.HandsOver"/>
+    /// ends: its last song ended or was skipped, or the rest would not play.
+    /// The player then stays paused where it is.
+    /// </summary>
+    event EventHandler<PlayRequest>? ListEnded;
+
     /// <summary>Plays <paramref name="request"/>'s songs (all must have a <see cref="TrackInfo.FilePath"/>).</summary>
     Task PlayAsync(PlayRequest request);
 
@@ -31,6 +38,12 @@ public interface ILocalPlayer : IPlayer, IDisposable
 /// <summary>For platforms and tests without a local files player.</summary>
 public sealed class NoLocalPlayer : ILocalPlayer
 {
+    public event EventHandler<PlayRequest>? ListEnded
+    {
+        add { }
+        remove { }
+    }
+
     public event EventHandler? StateChanged
     {
         add { }

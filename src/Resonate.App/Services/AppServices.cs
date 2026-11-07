@@ -90,6 +90,9 @@ public sealed class AppServices : IDisposable
         LocalFiles = localFiles;
         ConnectLocalPlayer();
 
+        // A playlist's local songs play from their files in Local Files.
+        player.LocalSongs = localFiles;
+
         OwnPlayer = ownPlayer;
         if (ownPlayer is not null)
         {

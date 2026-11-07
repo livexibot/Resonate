@@ -258,6 +258,14 @@ public sealed partial class QueuePanel : UserControl
             return;
         }
 
+        if (player.MixedUpcoming is { } mixed)
+        {
+            // A playlist with songs from this computer: both players' songs, in the order they play.
+            _nowTrack = null;
+            ShowRows(mixed, error: null);
+            return;
+        }
+
         if (player.ActiveSource == PlaybackSource.LocalFiles)
         {
             _nowTrack = null;

@@ -94,7 +94,7 @@ public sealed partial class QueuePanel
         _nowTrack = source == PlaybackSource.Spotify ? list.Current : null;
         LoadingRing.IsActive = false;
         ShowRows(list.Upcoming, error: null);
-        ShowUpNextState(list.CanEdit, list.CanEdit ? null : list.PartlyKnown ? PartNote : WaitNote, canSave);
+        ShowUpNextState(list.CanEdit, list.CanEdit || list.Mixed ? null : list.PartlyKnown ? PartNote : WaitNote, canSave && !list.Mixed);
         return true;
     }
 

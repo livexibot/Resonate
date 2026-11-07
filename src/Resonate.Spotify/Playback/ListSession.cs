@@ -105,6 +105,26 @@ internal sealed partial class ListSession
 
     public TrackInfo? Current => Index >= 0 && Index < Order.Count ? Order[Index] : null;
 
+    /// <summary>
+    /// The request this list came from when it is one stretch of a longer
+    /// list (<see cref="PlayRequest.HandsOver"/>): Spotify is followed to the
+    /// end of its last song, and the player says so. Null once said, or when
+    /// the music left the list.
+    /// </summary>
+    public PlayRequest? HandOver { get; set; }
+
+    /// <summary>The last song of a list that hands over played; see <see cref="LastSongEndsAt"/>.</summary>
+    public bool ReachedEnd { get; set; }
+
+    /// <summary>When the last song should end, from what Spotify last said while it played.</summary>
+    public DateTimeOffset LastSongEndsAt { get; set; }
+
+    /// <summary>The user paused (in Resonate) while this list played, so a pause is not its end.</summary>
+    public bool PausedByUser { get; set; }
+
+    /// <summary>Spotify was asked once what plays, after the last song should have ended without a word from it.</summary>
+    public DateTimeOffset EndCheckedFor { get; set; }
+
     /// <summary>A song Spotify can be told to play by its address (not a file on the computer, not a file Resonate plays).</summary>
     public static bool CanStartByUri(TrackInfo track) =>
         track.IsPlayable

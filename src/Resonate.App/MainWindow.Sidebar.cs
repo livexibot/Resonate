@@ -172,7 +172,7 @@ public sealed partial class MainWindow
 
     /// <summary>The playlist in the sidebar the music plays from, if any.</summary>
     private string? PlayingPlaylistId(PlayerState state) =>
-        state.Source == PlaybackSource.Spotify && NowPlayingKey(state) is { } key && Playlists.Any(p => p.Id == key) ? key : null;
+        NowPlayingKey(state) is { } key && Playlists.Any(p => p.Id == key) ? key : null;
 
     /// <summary>The navigation key of what the music plays from, if Resonate has a page for it.</summary>
     private string? NowPlayingKey(PlayerState state)

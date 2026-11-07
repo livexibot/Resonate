@@ -148,6 +148,7 @@ public sealed partial class PlayerController : IUpNext
     {
         UpNextSend? send = null;
         TimeSpan? waitFor = null;
+        PlayRequest? ended = null;
         lock (_gate)
         {
             if (_session is not { EditsPending: true } session)
@@ -171,6 +172,10 @@ public sealed partial class PlayerController : IUpNext
                     session.DropEdits();
                     _playingHold = new Hold<bool>(false, now + PlayStateHold);
                     SetState(_state with { IsPlaying = false, Position = _state.PositionAt(now), PositionTimestamp = now });
+
+                    // A stretch of a longer list: the next player carries on.
+                    ended = session.HandOver;
+                    session.HandOver = null;
                 }
                 else
                 {
@@ -209,6 +214,12 @@ public sealed partial class PlayerController : IUpNext
         {
             ArmUpNext(waitFor);
             return true;
+        }
+
+        if (ended is not null)
+        {
+            // Said before the change is shown: the next player is on its way by then.
+            ListEnded?.Invoke(this, ended);
         }
 
         RaiseStateChanged();
