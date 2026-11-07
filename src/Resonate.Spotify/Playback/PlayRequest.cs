@@ -30,6 +30,14 @@ public sealed record PlayRequest(
     public bool IsPartial { get; init; }
 
     /// <summary>
+    /// The list is one stretch of a longer list that another player carries
+    /// on (see <see cref="MixedList"/>): when its last song ends (or is
+    /// skipped), the player raises its ListEnded event with this request and
+    /// stays where it is, rather than going back to the start.
+    /// </summary>
+    public bool HandsOver { get; init; }
+
+    /// <summary>
     /// Where in the picked song to start (Line Finder starts a song at the
     /// line found), sent with the same command that starts it; null for its start.
     /// </summary>

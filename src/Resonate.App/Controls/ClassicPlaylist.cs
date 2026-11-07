@@ -277,6 +277,13 @@ internal sealed partial class ClassicPlaylist : Grid
             return;
         }
 
+        if (_player.MixedUpcoming is { } mixed)
+        {
+            _nowTrack = null;
+            ShowUpcoming(mixed);
+            return;
+        }
+
         if (_player.ActiveSource == PlaybackSource.LocalFiles)
         {
             _nowTrack = null;

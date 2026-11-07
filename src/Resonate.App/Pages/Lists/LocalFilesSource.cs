@@ -17,7 +17,7 @@ public sealed class LocalFilesSource : TrackListSource
     public override string Key => ListKey;
 
     public override string EmptyText => _localFiles.Folders.Count == 0
-        ? "Add a folder in Settings, Misc, Local Files."
+        ? "Add a folder in Settings, Playback, Local Files."
         : IsLooking
             ? $"Looking for music in {_localFiles.FolderNames}…"
             : $"No music files in {_localFiles.FolderNames}.";

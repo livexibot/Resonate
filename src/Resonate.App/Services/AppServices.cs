@@ -91,6 +91,9 @@ public sealed class AppServices : IDisposable
         LocalFiles = localFiles;
         ConnectLocalPlayer();
 
+        // A playlist's local songs play from their files in Local Files.
+        player.LocalSongs = localFiles;
+
         OwnPlayer = ownPlayer;
         if (ownPlayer is not null)
         {
@@ -377,6 +380,9 @@ public sealed class AppServices : IDisposable
         }
 
         _ = local.SetVolumeAsync(Settings.LocalVolume);
+
+        // The media keys go through the player bar's player, so they cross over in a list mixed with Spotify's songs.
+        local.ControlTarget = Player;
         Player.StateChanged += (_, _) =>
         {
             var active = Player.ActiveSource == PlaybackSource.LocalFiles;
@@ -384,6 +390,7 @@ public sealed class AppServices : IDisposable
             if (active)
             {
                 Settings.LocalVolume = local.State.Volume;
+                local.RefreshControls();
             }
         };
     }

@@ -16,7 +16,27 @@ internal sealed class FakeLocalChannel : ILocalMediaChannel, IAppVolume
 
     public bool AcceptsVolume { get; set; } = true;
 
-    public List<string> Commands { get; } = [];
+    private readonly List<string> _commands = [];
+
+    public void ClearCommands()
+    {
+        lock (_commands)
+        {
+            _commands.Clear();
+        }
+    }
+
+    /// <summary>The commands so far (a copy: the player sends some from other threads).</summary>
+    public IReadOnlyList<string> Commands
+    {
+        get
+        {
+            lock (_commands)
+            {
+                return [.. _commands];
+            }
+        }
+    }
 
     /// <summary>How often listening was started.</summary>
     public int StartCount { get; private set; }
@@ -65,7 +85,11 @@ internal sealed class FakeLocalChannel : ILocalMediaChannel, IAppVolume
             return false;
         }
 
-        Commands.Add($"volume {volume:0.##}");
+        lock (_commands)
+        {
+            _commands.Add($"volume {volume:0.##}");
+        }
+
         Volume = volume;
         return true;
     }
@@ -78,7 +102,10 @@ internal sealed class FakeLocalChannel : ILocalMediaChannel, IAppVolume
     {
         if (Accepts)
         {
-            Commands.Add(command);
+            lock (_commands)
+            {
+                _commands.Add(command);
+            }
         }
 
         return Task.FromResult(Accepts);

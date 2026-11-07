@@ -15,6 +15,8 @@ internal sealed class FakeLocalPlayer : ILocalPlayer
 
     public event EventHandler<string>? ErrorOccurred;
 
+    public event EventHandler<PlayRequest>? ListEnded;
+
     public List<string> Commands { get; } = [];
 
     public List<PlayRequest> Played { get; } = [];
@@ -37,10 +39,19 @@ internal sealed class FakeLocalPlayer : ILocalPlayer
 
     public void Fail(string message) => ErrorOccurred?.Invoke(this, message);
 
+    /// <summary>The list played last ends, as a list that hands over does.</summary>
+    public void EndList()
+    {
+        _state = _state with { IsPlaying = false };
+        StateChanged?.Invoke(this, EventArgs.Empty);
+        ListEnded?.Invoke(this, Played[^1]);
+    }
+
     public Task PlayAsync(PlayRequest request)
     {
         Played.Add(request);
-        Report(_state with { IsPlaying = true, Title = request.StartTrack?.Title ?? request.Tracks.FirstOrDefault()?.Title });
+        var song = request.StartTrack ?? request.Tracks.FirstOrDefault();
+        Report(_state with { IsPlaying = true, Title = song?.Title, TrackUri = song?.Uri, FilePath = song?.FilePath });
         return Task.CompletedTask;
     }
 
@@ -49,6 +60,8 @@ internal sealed class FakeLocalPlayer : ILocalPlayer
         Queued.Add(track);
         return Task.CompletedTask;
     }
+
+    public IReadOnlyList<TrackInfo> TakeQueued() => [];
 
     public void SetEqualizer(EqualizerSettings? settings)
     {
@@ -78,11 +91,19 @@ internal sealed class FakeLocalPlayer : ILocalPlayer
 
     public Task SeekAsync(TimeSpan position) => Record($"seek {position.TotalSeconds:0.##}");
 
-    public Task SetVolumeAsync(double volume) => Record($"volume {volume:0.##}");
+    public Task SetVolumeAsync(double volume)
+    {
+        _state = _state with { Volume = volume };
+        return Record($"volume {volume:0.##}");
+    }
 
     public Task SetShuffleAsync(bool shuffle) => Record($"shuffle {(shuffle ? "on" : "off")}");
 
-    public Task SetRepeatAsync(RepeatMode mode) => Record($"repeat {RepeatModes.ToSpotify(mode)}");
+    public Task SetRepeatAsync(RepeatMode mode)
+    {
+        _state = _state with { Repeat = mode };
+        return Record($"repeat {RepeatModes.ToSpotify(mode)}");
+    }
 
     public void Dispose()
     {

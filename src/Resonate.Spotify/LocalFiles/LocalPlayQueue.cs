@@ -123,8 +123,19 @@ public sealed partial class LocalPlayQueue
         }
     }
 
+    /// <summary>The current song is the list's last one and nothing is queued after it (whatever repeat says).</summary>
+    public bool AtLastSong => _queued.Count == 0 && _order.Count > 0 && _position == _order.Count - 1;
+
     /// <summary>"Add to queue": plays after the current song and anything queued before it.</summary>
     public void AddToQueue(TrackInfo track) => _queued.Enqueue(track);
+
+    /// <summary>Takes out the songs added with "Add to queue" that have not played yet.</summary>
+    public IReadOnlyList<TrackInfo> TakeQueued()
+    {
+        var queued = _queued.ToList();
+        _queued.Clear();
+        return queued;
+    }
 
     /// <summary>
     /// Moves on to the next song and returns it, or null at the end of the
@@ -196,10 +207,10 @@ public sealed partial class LocalPlayQueue
 
     /// <summary>
     /// Goes back one song and returns it: from a queued song to the list song
-    /// before it; from the first song to the last with repeat on, otherwise
+    /// before it; from the first song to the last with repeat on (and wrap), otherwise
     /// it stays on the first.
     /// </summary>
-    public TrackInfo? MovePrevious()
+    public TrackInfo? MovePrevious(bool wrap = true)
     {
         if (_order.Count == 0)
         {
@@ -214,7 +225,7 @@ public sealed partial class LocalPlayQueue
         {
             _position--;
         }
-        else if (Repeat != RepeatMode.Off)
+        else if (Repeat != RepeatMode.Off && wrap)
         {
             _position = _order.Count - 1;
         }

@@ -171,7 +171,7 @@ internal sealed class SignalPathMonitor : IDisposable
         }
         else if (state.Source == PlaybackSource.LocalFiles)
         {
-            var path = LocalPath(state.TrackUri);
+            var path = state.FilePath ?? LocalPath(state.TrackUri);
             if (!string.Equals(path, _formatPath, StringComparison.OrdinalIgnoreCase))
             {
                 _formatPath = path;

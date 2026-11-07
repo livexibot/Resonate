@@ -479,6 +479,169 @@ public sealed class LocalPlayerTests : IDisposable
         Assert.True(_engine.Disposed);
     }
 
+    [Fact]
+    public async Task A_list_that_hands_over_stays_at_the_end_of_its_last_song_and_says_so()
+    {
+        var ended = new List<PlayRequest>();
+        _player.ListEnded += (_, list) => ended.Add(list);
+        var request = new PlayRequest([SongA, SongB], 0, null, "Mix") { Shuffle = false, HandsOver = true };
+        await _player.PlayAsync(request);
+        await _player.WhenIdleAsync();
+
+        _engine.PlayToEnd(SongA.FilePath!);
+        await _player.WhenIdleAsync();
+        Assert.Equal("b", _player.State.Title);
+        Assert.Empty(ended);
+
+        _engine.PlayToEnd(SongB.FilePath!);
+        await _player.WhenIdleAsync();
+
+        Assert.Same(request, Assert.Single(ended));
+        Assert.Equal("b", _player.State.Title);
+        Assert.False(_player.State.IsPlaying);
+        Assert.Equal(_player.State.Duration, _player.State.Position);
+        Assert.Equal([SongA.FilePath!], _engine.Opened);
+    }
+
+    [Fact]
+    public async Task Next_on_the_last_song_of_a_list_that_hands_over_ends_it()
+    {
+        var ended = new List<PlayRequest>();
+        _player.ListEnded += (_, list) => ended.Add(list);
+        var request = new PlayRequest([SongA, SongB], 1, null, "Mix") { Shuffle = false, HandsOver = true };
+        await _player.PlayAsync(request);
+        await _player.WhenIdleAsync();
+
+        await _player.NextAsync();
+        await _player.WhenIdleAsync();
+
+        Assert.Same(request, Assert.Single(ended));
+        Assert.Equal("b", _player.State.Title);
+        Assert.False(_player.State.IsPlaying);
+        Assert.Equal("pause", _engine.Commands[^1]);
+    }
+
+    [Fact]
+    public async Task A_list_of_its_own_does_not_hand_over()
+    {
+        var ended = new List<PlayRequest>();
+        _player.ListEnded += (_, list) => ended.Add(list);
+        await Play(SongC);
+
+        _engine.PlayToEnd(SongC.FilePath!);
+        await _player.WhenIdleAsync();
+        await _player.NextAsync();
+        await _player.WhenIdleAsync();
+
+        Assert.Empty(ended);
+    }
+
+    [Fact]
+    public async Task A_list_that_hands_over_ends_at_its_last_song_even_with_repeat_on()
+    {
+        var ended = new List<PlayRequest>();
+        _player.ListEnded += (_, list) => ended.Add(list);
+        var request = new PlayRequest([SongA, SongB], 1, null, "Mix") { Shuffle = false, HandsOver = true };
+        await _player.PlayAsync(request);
+        await _player.SetRepeatAsync(RepeatMode.All);
+        await _player.WhenIdleAsync();
+        Assert.Null(_engine.Next);
+
+        _engine.PlayToEnd(SongB.FilePath!);
+        await _player.WhenIdleAsync();
+
+        Assert.Same(request, Assert.Single(ended));
+        Assert.False(_player.State.IsPlaying);
+    }
+
+    [Fact]
+    public async Task A_list_that_hands_over_ends_when_its_last_file_can_not_play_even_with_repeat_one()
+    {
+        var ended = new List<PlayRequest>();
+        _player.ListEnded += (_, list) => ended.Add(list);
+        _engine.Broken.Add(SongB.FilePath!);
+        await _player.SetRepeatAsync(RepeatMode.One);
+        var request = new PlayRequest([SongA, SongB], 0, null, "Mix") { Shuffle = false, HandsOver = true };
+        await _player.PlayAsync(request);
+        await _player.WhenIdleAsync();
+
+        await _player.NextAsync();
+        await _player.WhenIdleAsync();
+
+        Assert.Same(request, Assert.Single(ended));
+        Assert.Equal([SongA.FilePath!, SongB.FilePath!], _engine.Opened);
+        Assert.False(_player.State.IsPlaying);
+    }
+
+    [Fact]
+    public async Task Previous_on_the_first_song_of_a_list_that_hands_over_starts_it_again()
+    {
+        var request = new PlayRequest([SongA, SongB], 0, null, "Mix") { Shuffle = false, HandsOver = true };
+        await _player.PlayAsync(request);
+        await _player.SetRepeatAsync(RepeatMode.One);
+        await _player.WhenIdleAsync();
+
+        await _player.PreviousAsync();
+        await _player.WhenIdleAsync();
+
+        Assert.Equal("a", _player.State.Title);
+        Assert.Equal([SongA.FilePath!], _engine.Opened);
+    }
+
+    [Fact]
+    public async Task The_media_controls_show_shuffle_and_repeat_of_the_player_they_are_given()
+    {
+        var bar = new FakeLocalPlayer();
+        _player.ControlTarget = bar;
+        await Play(SongA);
+        _player.SystemControlsEnabled = true;
+        await _player.WhenIdleAsync();
+        Assert.False(_controls.Shown[^1]?.Shuffle);
+
+        bar.Report(bar.State with { Shuffle = true, Repeat = RepeatMode.All });
+        _player.RefreshControls();
+        await _player.WhenIdleAsync();
+
+        Assert.Equal("a", _controls.Shown[^1]?.Title);
+        Assert.True(_controls.Shown[^1]?.Shuffle);
+        Assert.Equal(RepeatMode.All, _controls.Shown[^1]?.Repeat);
+        Assert.False(_player.State.Shuffle);
+    }
+
+    [Fact]
+    public async Task The_media_controls_drive_the_player_they_are_given()
+    {
+        var bar = new FakeLocalPlayer();
+        _player.ControlTarget = bar;
+        await Play(SongA);
+
+        _controls.Press(LocalControlButton.Next);
+        _controls.Press(LocalControlButton.Previous);
+        _controls.Shuffle(true);
+        _controls.Repeat(RepeatMode.All);
+        await _player.WhenIdleAsync();
+
+        Assert.Equal(["next", "previous", "shuffle on", "repeat context"], bar.Commands);
+        Assert.Equal("a", _player.State.Title);
+        Assert.False(_player.State.Shuffle);
+    }
+
+    [Fact]
+    public async Task Queued_songs_can_be_taken_out_for_another_list()
+    {
+        await Play(SongA);
+        await _player.AddToQueueAsync(SongC);
+        await _player.WhenIdleAsync();
+        Assert.Equal(SongC.FilePath, _engine.Next);
+
+        Assert.Equal(["c"], Titles(_player.TakeQueued()));
+        await _player.WhenIdleAsync();
+
+        Assert.Equal(["b", "c"], Titles(_player.Upcoming));
+        Assert.Equal(SongB.FilePath, _engine.Next);
+        Assert.Empty(_player.TakeQueued());
+    }
+
     private async Task Play(TrackInfo song)
     {
         await _player.PlayAsync(new PlayRequest(Album, Array.IndexOf(Album, song), null, "Local Files") { Shuffle = false });

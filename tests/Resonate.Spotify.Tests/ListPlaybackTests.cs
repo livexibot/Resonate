@@ -619,6 +619,49 @@ public sealed class ListPlaybackTests : IDisposable
     }
 
     [Fact]
+    public async Task A_list_that_hands_over_says_when_Spotify_stops_after_its_last_song()
+    {
+        var songs = Songs(2);
+        var ended = new List<PlayRequest>();
+        _player.ListEnded += (_, list) => ended.Add(list);
+        await StartAsync();
+        var request = new PlayRequest(songs, 0, null, "Mix") { Shuffle = false, HandsOver = true };
+        await _player.PlayAsync(request);
+        Assert.True(_player.IsPlayingList(request));
+
+        _time.Advance(TimeSpan.FromSeconds(10));
+        Playing(songs[0], seconds: 10);
+        _time.Advance(TimeSpan.FromSeconds(190));
+        Playing(songs[1]);
+        Assert.Empty(ended);
+
+        // Spotify went back to the list's first song, stopped.
+        _time.Advance(TimeSpan.FromSeconds(200));
+        Paused(songs[0], seconds: 0);
+
+        Assert.Same(request, Assert.Single(ended));
+        Assert.False(_player.IsPlayingList(request));
+    }
+
+    [Fact]
+    public async Task A_list_that_hands_over_does_not_end_when_paused_on_its_last_song()
+    {
+        var songs = Songs(2);
+        var ended = new List<PlayRequest>();
+        _player.ListEnded += (_, list) => ended.Add(list);
+        await StartAsync();
+        await _player.PlayAsync(new PlayRequest(songs, 1, null, "Mix") { Shuffle = false, HandsOver = true });
+        _time.Advance(TimeSpan.FromSeconds(10));
+        Playing(songs[1], seconds: 199);
+
+        await _player.PauseAsync();
+        _time.Advance(TimeSpan.FromSeconds(30));
+        Paused(songs[1], seconds: 199.5);
+
+        Assert.Empty(ended);
+    }
+
+    [Fact]
     public async Task A_refused_context_plays_the_same_songs_as_a_list()
     {
         var songs = Songs(6);

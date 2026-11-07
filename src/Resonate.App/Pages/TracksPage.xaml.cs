@@ -818,9 +818,12 @@ public sealed partial class TracksPage : Page
         var picked = index >= 0 ? _shown[index] : null;
 
         // A random order needs every song; wait for the rest if only the first
-        // ones are here. In order, it plays at once (inside its playlist or
-        // album, Spotify has every song; the player is told the list is partial).
-        if ((shuffle ?? _services.Player.State.Shuffle) && !_complete && _fullLoad is { } full)
+        // ones are here. So does a list with songs from this computer, when
+        // Local Files may have them (Resonate plays them itself, in turns with
+        // Spotify's). Otherwise it plays at once (inside its playlist or album,
+        // Spotify has every song; the player is told the list is partial).
+        var localSongs = _services.LocalFiles.Folders.Count > 0 && _shown.Any(t => t.IsLocal);
+        if (((shuffle ?? _services.Player.State.Shuffle) || localSongs) && !_complete && _fullLoad is { } full)
         {
             try
             {

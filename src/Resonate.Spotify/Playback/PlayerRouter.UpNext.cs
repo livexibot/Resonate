@@ -8,10 +8,30 @@ namespace Resonate.Spotify.Playback;
 /// </summary>
 public sealed partial class PlayerRouter
 {
-    /// <summary>What plays next in the player that has the music, or null when it can not be edited (music started outside Resonate).</summary>
-    public UpNextList? UpNext => ActiveUpNext?.UpNext;
+    /// <summary>
+    /// What plays next in the player that has the music (across both while a
+    /// mixed list plays, which can not be edited), or null when it is not
+    /// known (music started outside Resonate).
+    /// </summary>
+    public UpNextList? UpNext
+    {
+        get
+        {
+            lock (_mixGate)
+            {
+                if (_mix is { } mix)
+                {
+                    return mix.UpNextList();
+                }
+            }
 
-    private IUpNext? ActiveUpNext => ActiveSource == PlaybackSource.LocalFiles ? _local as IUpNext : Spotify;
+            return ActiveUpNext?.UpNext;
+        }
+    }
+
+    // A mixed list's songs are already with their players: its order is not edited.
+    private IUpNext? ActiveUpNext => Volatile.Read(ref _mix) is not null ? null
+        : ActiveSource == PlaybackSource.LocalFiles ? _local as IUpNext : Spotify;
 
     public bool MoveUpNext(UpNextPick song, int to) => ActiveUpNext?.MoveUpNext(song, to) == true;
 
@@ -32,6 +52,12 @@ public sealed partial class PlayerRouter
     /// </summary>
     public async Task AddToUpNextAsync(TrackInfo track, bool playNext)
     {
+        if (AddToMix(track, playNext))
+        {
+            QueueChanged?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
         var player = track.FilePath is not null ? _local as IUpNext : Spotify;
         if (player?.AddToUpNext(track, playNext) == true)
         {

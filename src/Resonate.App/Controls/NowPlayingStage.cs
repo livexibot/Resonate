@@ -979,6 +979,13 @@ internal sealed partial class NowPlayingStage : Grid
             return;
         }
 
+        if (player.MixedUpcoming is { } mixed)
+        {
+            _upNextStale = false;
+            ShowUpNextRows(mixed);
+            return;
+        }
+
         if (player.ActiveSource == PlaybackSource.LocalFiles)
         {
             _upNextStale = false;

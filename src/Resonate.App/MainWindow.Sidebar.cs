@@ -68,7 +68,8 @@ public sealed partial class MainWindow
     {
         var source = TrackListSource.For(item.Id, _services);
         var sort = TrackSort.Parse(_services.Settings.TrackSorts.GetValueOrDefault(item.Id));
-        if (sort.IsDefault && !(shuffle ?? _services.Player.Spotify.State.Shuffle))
+        var shuffled = shuffle ?? _services.Player.State.Shuffle;
+        if (sort.IsDefault && !shuffled && !await Task.Run(() => HasLocalSongs(item.Id)))
         {
             // In its own order Spotify plays the playlist itself: it starts at once, with nothing to load.
             NoteListPlayed(item.Id, item.Name);
@@ -95,8 +96,14 @@ public sealed partial class MainWindow
         var ownOrder = sort.IsDefault || list.ItemsHidden;
         IReadOnlyList<TrackInfo> tracks = ownOrder ? list.Tracks : TrackSorter.Apply(list.Tracks, sort);
         NoteListPlayed(item.Id, item.Name);
-        await _services.Player.PlayAsync(new PlayRequest(tracks, -1, ownOrder ? source.ContextUri : null, item.Name) { Shuffle = shuffle });
+        await _services.Player.PlayAsync(new PlayRequest(tracks, -1, ownOrder ? source.ContextUri : null, item.Name) { Shuffle = shuffled });
     }
+
+    /// <summary>Whether a playlist (as last loaded) holds songs from this computer that Local Files may have, so Resonate plays them itself.</summary>
+    private bool HasLocalSongs(string playlistId) =>
+        _services.LocalFiles.Folders.Count > 0
+        && _services.Library.PeekStoredPlaylistTracks(playlistId) is { } stored
+        && stored.Any(t => t.IsLocal);
 
     /// <summary>On any thread: the player changed; the sidebar and the window's name follow once.</summary>
     private void OnNowPlayingChanged(object? sender, EventArgs e)
@@ -172,7 +179,7 @@ public sealed partial class MainWindow
 
     /// <summary>The playlist in the sidebar the music plays from, if any.</summary>
     private string? PlayingPlaylistId(PlayerState state) =>
-        state.Source == PlaybackSource.Spotify && NowPlayingKey(state) is { } key && Playlists.Any(p => p.Id == key) ? key : null;
+        NowPlayingKey(state) is { } key && Playlists.Any(p => p.Id == key) ? key : null;
 
     /// <summary>The navigation key of what the music plays from, if Resonate has a page for it.</summary>
     private string? NowPlayingKey(PlayerState state)

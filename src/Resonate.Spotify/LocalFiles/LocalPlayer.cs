@@ -47,6 +47,9 @@ public sealed partial class LocalPlayer : ILocalPlayer
 
     private PlayerState _state = PlayerState.Empty with { Source = PlaybackSource.LocalFiles, IsConnected = true, CanSeek = true };
     private string? _shownFolder;
+
+    // The list that plays, when it hands over at its end (PlayRequest.HandsOver).
+    private PlayRequest? _handOver;
     private string? _openPath;
     private long _track;
     private long _epoch;
@@ -101,6 +104,15 @@ public sealed partial class LocalPlayer : ILocalPlayer
     public event EventHandler? StateChanged;
 
     public event EventHandler<string>? ErrorOccurred;
+
+    public event EventHandler<PlayRequest>? ListEnded;
+
+    /// <summary>
+    /// What Windows' media controls drive; this player when null. The app's
+    /// player (the router), so a list that mixes in Spotify's songs crosses
+    /// over with the media keys too.
+    /// </summary>
+    public IPlayer? ControlTarget { get; set; }
 
     public PlayerState State
     {
@@ -169,6 +181,7 @@ public sealed partial class LocalPlayer : ILocalPlayer
         lock (_gate)
         {
             var first = _queue.Load(tracks, start, request.Shuffle ?? _state.Shuffle)!;
+            _handOver = request.HandsOver ? request : null;
             _failures = 0;
             (track, epoch) = NextTrack();
             SetState(ForTrack(first, playing: true) with { SourceName = request.SourceName });
@@ -176,6 +189,27 @@ public sealed partial class LocalPlayer : ILocalPlayer
 
         Raise();
         return _transport.Enqueue(ct => OpenAsync(track, epoch, TimeSpan.Zero, play: true, ct));
+    }
+
+    public IReadOnlyList<TrackInfo> TakeQueued()
+    {
+        IReadOnlyList<TrackInfo> queued;
+        lock (_gate)
+        {
+            queued = _queue.TakeQueued();
+        }
+
+        if (queued.Count > 0)
+        {
+            Raise();
+            _ = _transport.Enqueue(_ =>
+            {
+                UpdateNext();
+                return Task.CompletedTask;
+            });
+        }
+
+        return queued;
     }
 
     public Task AddToQueueAsync(TrackInfo track)
@@ -463,6 +497,7 @@ public sealed partial class LocalPlayer : ILocalPlayer
         long epoch;
         var restart = false;
         bool playing;
+        PlayRequest? ended = null;
         lock (_gate)
         {
             if (_queue.Current is not { } current)
@@ -482,14 +517,23 @@ public sealed partial class LocalPlayer : ILocalPlayer
             }
             else if (back)
             {
-                song = _queue.MovePrevious();
+                // A stretch of a longer list does not wrap round: the list before it is not its own.
+                song = _queue.MovePrevious(wrap: _handOver is null);
                 restart = ReferenceEquals(song, current);
                 playing = restart ? _state.IsPlaying : true;
             }
             else
             {
-                song = _queue.MoveNext(skipped: true);
-                if (song is null)
+                song = _handOver is not null && _queue.AtLastSong ? null : _queue.MoveNext(skipped: true);
+                if (song is null && _handOver is { } handOver)
+                {
+                    // The end of a stretch of a longer list: the next player carries on.
+                    ended = handOver;
+                    _handOver = null;
+                    ++_epoch;
+                    SetState(_state with { IsPlaying = false, Position = _state.PositionAt(now), PositionTimestamp = now });
+                }
+                else if (song is null)
                 {
                     // The end of the list: back to the start, stopped (as Spotify does).
                     song = _queue.ResetToStart();
@@ -497,7 +541,11 @@ public sealed partial class LocalPlayer : ILocalPlayer
                 }
             }
 
-            if (restart)
+            if (ended is not null)
+            {
+                // Stays where it is.
+            }
+            else if (restart)
             {
                 SetState(_state with { Position = TimeSpan.Zero, PositionTimestamp = now });
             }
@@ -509,6 +557,12 @@ public sealed partial class LocalPlayer : ILocalPlayer
         }
 
         Raise();
+        if (ended is not null)
+        {
+            ListEnded?.Invoke(this, ended);
+            return _transport.Enqueue(_ => _engine.PauseAsync());
+        }
+
         if (restart)
         {
             return SeekAsync(TimeSpan.Zero);
@@ -576,6 +630,7 @@ public sealed partial class LocalPlayer : ILocalPlayer
         long next;
         long epoch;
         bool playing;
+        PlayRequest? ended = null;
         lock (_gate)
         {
             if (track != _track)
@@ -590,13 +645,19 @@ public sealed partial class LocalPlayer : ILocalPlayer
 
             _failures++;
             var count = _queue.List.Count + _queue.Queued.Count;
-            var following = _failures < Math.Min(count, 25) ? _queue.MoveNext(skipped: true) : null;
+            var following = _failures < Math.Min(count, 25) && !(_handOver is not null && _queue.AtLastSong)
+                ? _queue.MoveNext(skipped: true)
+                : null;
             if (following is null)
             {
                 SetState(_state with { IsPlaying = false, Position = TimeSpan.Zero, PositionTimestamp = _time.GetUtcNow() });
                 next = 0;
                 epoch = 0;
                 playing = false;
+
+                // Nothing more of this stretch will play: the next player carries on.
+                ended = _handOver;
+                _handOver = null;
             }
             else
             {
@@ -612,6 +673,11 @@ public sealed partial class LocalPlayer : ILocalPlayer
         }
 
         Raise();
+        if (ended is not null)
+        {
+            ListEnded?.Invoke(this, ended);
+        }
+
         if (next != 0)
         {
             await OpenAsync(next, epoch, TimeSpan.Zero, playing, cancellationToken).ConfigureAwait(false);
@@ -648,8 +714,8 @@ public sealed partial class LocalPlayer : ILocalPlayer
         string? next;
         lock (_gate)
         {
-            // "Repeat one" loops inside the engine instead.
-            next = _queue.Repeat == RepeatMode.One ? null : _queue.PeekNext()?.FilePath;
+            // "Repeat one" loops inside the engine instead; after a stretch's last song the next player carries on.
+            next = _queue.Repeat == RepeatMode.One || (_handOver is not null && _queue.AtLastSong) ? null : _queue.PeekNext()?.FilePath;
         }
 
         _engine.SetNext(next);
@@ -670,16 +736,38 @@ public sealed partial class LocalPlayer : ILocalPlayer
         long epoch;
         TrackInfo song;
         bool playing;
+        PlayRequest? handedOver = null;
         lock (_gate)
         {
-            var next = _queue.MoveNext(skipped: false);
-            playing = next is not null;
-            song = next ?? _queue.ResetToStart()!;
-            (track, epoch) = NextTrack();
-            SetState(ForTrack(song, playing));
+            var next = _handOver is not null && _queue.AtLastSong && _queue.Repeat != RepeatMode.One ? null : _queue.MoveNext(skipped: false);
+            if (next is null && _handOver is { } handOver)
+            {
+                // The end of a stretch of a longer list: it stays at the end of
+                // its last song, and the next player carries on.
+                handedOver = handOver;
+                _handOver = null;
+                ++_epoch;
+                SetState(_state with { IsPlaying = false, Position = _state.Duration, PositionTimestamp = _time.GetUtcNow() });
+                song = _queue.Current!;
+                playing = false;
+                (track, epoch) = (_track, _epoch);
+            }
+            else
+            {
+                playing = next is not null;
+                song = next ?? _queue.ResetToStart()!;
+                (track, epoch) = NextTrack();
+                SetState(ForTrack(song, playing));
+            }
         }
 
         Raise();
+        if (handedOver is not null)
+        {
+            ListEnded?.Invoke(this, handedOver);
+            return;
+        }
+
         if (playing && ended.NextPath is not null && string.Equals(song.FilePath, ended.NextPath, StringComparison.Ordinal))
         {
             // The engine already started it, without a gap. Its own length
@@ -849,6 +937,9 @@ public sealed partial class LocalPlayer : ILocalPlayer
         Raise();
     }
 
+    /// <summary>Shows <see cref="ControlTarget"/>'s shuffle and repeat again in Windows' media controls.</summary>
+    public void RefreshControls() => UpdateControls();
+
     private void UpdateControls()
     {
         if (_controls is null || _disposed || Interlocked.Exchange(ref _controlsQueued, 1) == 1)
@@ -859,10 +950,15 @@ public sealed partial class LocalPlayer : ILocalPlayer
         _ = _side.Enqueue(async _ =>
         {
             Interlocked.Exchange(ref _controlsQueued, 0);
+
+            // Shuffle and repeat are the whole list's when this player plays part of a longer one.
+            var list = ControlTarget?.State;
             PlayerState? shown;
             lock (_gate)
             {
-                shown = _controlsEnabled && _queue.Current is not null ? _state : null;
+                shown = !_controlsEnabled || _queue.Current is null ? null
+                    : list is null ? _state
+                    : _state with { Shuffle = list.Shuffle, Repeat = list.Repeat };
             }
 
             try
@@ -876,20 +972,24 @@ public sealed partial class LocalPlayer : ILocalPlayer
         });
     }
 
-    private void OnControlButton(object? sender, LocalControlButton button) => _ = button switch
+    private void OnControlButton(object? sender, LocalControlButton button)
     {
-        LocalControlButton.Play => PlayAsync(),
-        LocalControlButton.Pause or LocalControlButton.Stop => PauseAsync(),
-        LocalControlButton.Next => NextAsync(),
-        LocalControlButton.Previous => PreviousAsync(),
-        _ => Task.CompletedTask,
-    };
+        var target = ControlTarget ?? this;
+        _ = button switch
+        {
+            LocalControlButton.Play => target.PlayAsync(),
+            LocalControlButton.Pause or LocalControlButton.Stop => target.PauseAsync(),
+            LocalControlButton.Next => target.NextAsync(),
+            LocalControlButton.Previous => target.PreviousAsync(),
+            _ => Task.CompletedTask,
+        };
+    }
 
-    private void OnControlSeek(object? sender, TimeSpan position) => _ = SeekAsync(position);
+    private void OnControlSeek(object? sender, TimeSpan position) => _ = (ControlTarget ?? this).SeekAsync(position);
 
-    private void OnControlShuffle(object? sender, bool shuffle) => _ = SetShuffleAsync(shuffle);
+    private void OnControlShuffle(object? sender, bool shuffle) => _ = (ControlTarget ?? this).SetShuffleAsync(shuffle);
 
-    private void OnControlRepeat(object? sender, RepeatMode mode) => _ = SetRepeatAsync(mode);
+    private void OnControlRepeat(object? sender, RepeatMode mode) => _ = (ControlTarget ?? this).SetRepeatAsync(mode);
 
     /// <summary>A new song: work still queued for the one before is dropped. Call under the lock.</summary>
     private (long Track, long Epoch) NextTrack()
@@ -915,6 +1015,7 @@ public sealed partial class LocalPlayer : ILocalPlayer
             Artists = track.Artists,
             Album = track.Album,
             TrackUri = track.Uri,
+            FilePath = track.FilePath,
             ContextUri = null,
             ArtworkUrl = null,
             ArtworkBytes = sameAlbum ? _state.ArtworkBytes : null,

@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Resonate.Spotify.Library;
 using Resonate.Spotify.LocalFiles;
+using Resonate.Spotify.Playback;
 using Resonate.Windows.LocalAudio;
 
 namespace Resonate.App.Services;
@@ -9,9 +10,10 @@ namespace Resonate.App.Services;
 /// Local Files: the user's own music files, from the folders chosen in
 /// Settings (Music and Downloads until they choose). The list comes from an
 /// index at once; scans run in the background after the window shows, and
-/// again by themselves when files in the folders change.
+/// again by themselves when files in the folders change. It also finds the
+/// files of the local songs in Spotify playlists, so Resonate plays them.
 /// </summary>
-public sealed class LocalFilesService : IDisposable
+public sealed class LocalFilesService : ILocalSongFinder, IDisposable
 {
     // One TrackInfo per file, so a rescan that keeps a file keeps its row.
     private static readonly ConditionalWeakTable<LocalFile, TrackInfo> Tracks = new();
@@ -204,6 +206,39 @@ public sealed class LocalFilesService : IDisposable
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// The files in Local Files that a playlist's local songs stand for
+    /// (<see cref="LocalLibrary.Match"/>), once the index is read; null for
+    /// a song with none, and for every other song.
+    /// </summary>
+    public Task<IReadOnlyList<string?>> FindAsync(IReadOnlyList<TrackInfo> songs, CancellationToken cancellationToken)
+    {
+        if (DemoTracks is not null || !songs.Any(s => s is { IsLocal: true, FilePath: null }))
+        {
+            return Task.FromResult<IReadOnlyList<string?>>(new string?[songs.Count]);
+        }
+
+        // Off the interface thread: the index may still be read from disk, and matching builds a lookup of every file.
+        return Task.Run<IReadOnlyList<string?>>(
+            async () =>
+            {
+                await LoadAsync(_lifetime.Token).ConfigureAwait(false);
+                var paths = new string?[songs.Count];
+                for (var i = 0; i < songs.Count; i++)
+                {
+                    // The same length too, when both are known: a live or other version of the song is not it.
+                    if (songs[i] is { IsLocal: true, FilePath: null } song
+                        && Library.Match(song.Title, song.Artists, song.Album, song.Duration, sameLength: true) is { } file)
+                    {
+                        paths[i] = file.Path;
+                    }
+                }
+
+                return paths;
+            },
+            cancellationToken);
     }
 
     public static TrackInfo ToTrack(LocalFile file) => Tracks.GetValue(file, f => f.ToTrackInfo());
