@@ -26,6 +26,7 @@ public sealed partial class MainWindow
         SetUpPauseOnLock();
         SetUpPauseOnUnplug();
         SetUpPlayerLyrics();
+        SetUpLineFinder();
         SetUpSongNotifications();
         SetUpKeepAwake();
         SetUpTaskbarControls();
@@ -75,6 +76,8 @@ public sealed partial class MainWindow
         };
 
     partial void SetUpLyrics();
+
+    partial void SetUpLineFinder();
 
     partial void SetUpHomeStage();
 

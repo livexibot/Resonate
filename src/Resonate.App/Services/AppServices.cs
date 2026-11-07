@@ -116,6 +116,7 @@ public sealed class AppServices : IDisposable
 
     private DjService? _dj;
     private NewReleasesFeed? _newReleases;
+    private LineFinderService? _lineFinder;
 
     /// <summary>Resonate's own DJ, made the first time it is asked for (on the interface thread).</summary>
     internal DjService Dj => _dj ??= new DjService(this);
@@ -144,12 +145,32 @@ public sealed class AppServices : IDisposable
         Likes.Forget();
         Home.Forget();
         NewReleases.Forget();
+        ForgetLineFinder();
         Settings.LastPlayed = null;
         SaveSettings();
         KeptList.SaveSoon(null);
         if (Covers.Store is { } covers)
         {
             _ = Task.Run(covers.Clear);
+        }
+    }
+
+    /// <summary>Line Finder (a built-in plugin), made the first time it is asked for (on the interface thread).</summary>
+    internal LineFinderService LineFinder => _lineFinder ??= new LineFinderService(this);
+
+    /// <summary>The plugin was turned off: Line Finder stops, if it was ever made.</summary>
+    internal void StopLineFinder() => _lineFinder?.Stop();
+
+    /// <summary>Signing out: Line Finder's words for this account go, made or not.</summary>
+    internal void ForgetLineFinder()
+    {
+        if (_lineFinder is { } lineFinder)
+        {
+            lineFinder.Forget();
+        }
+        else if (!IsDemo)
+        {
+            _ = Task.Run(() => new Resonate.Spotify.Lyrics.LineIndex(LineFinderService.IndexFile).Clear());
         }
     }
 
@@ -526,6 +547,8 @@ public sealed class AppServices : IDisposable
 
     public void Dispose()
     {
+        // Its background work stops before the services it reads.
+        _lineFinder?.Dispose();
         foreach (var item in _owned)
         {
             item.Dispose();

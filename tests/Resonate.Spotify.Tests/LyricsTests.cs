@@ -155,6 +155,16 @@ public sealed class LyricsTests : IDisposable
     }
 
     [Fact]
+    public async Task A_page_in_place_of_an_answer_throws_instead_of_finding_nothing()
+    {
+        var handler = new LrcLibServer().Answer(HttpStatusCode.OK, "<html><body>Sign in to the network</body></html>", "text/html");
+        using var http = new HttpClient(handler);
+        var client = new LrcLibClient(http);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => client.FindAsync(new LyricsQuery("Artist", "Song", string.Empty, TimeSpan.Zero), CancellationToken.None));
+    }
+
+    [Fact]
     public void A_song_without_a_title_or_artist_is_not_looked_up()
     {
         Assert.Null(LyricsQuery.For("Song", " ", "Album", TimeSpan.Zero));
@@ -233,24 +243,24 @@ public sealed class LyricsTests : IDisposable
     /// <summary>Answers in order and keeps what was asked, User-Agent included.</summary>
     private sealed class LrcLibServer : HttpMessageHandler
     {
-        private readonly Queue<(HttpStatusCode Status, string? Json)> _answers = new();
+        private readonly Queue<(HttpStatusCode Status, string? Body, string MediaType)> _answers = new();
 
         public List<(Uri Uri, string? UserAgent)> Requests { get; } = [];
 
-        public LrcLibServer Answer(HttpStatusCode status, string? json = null)
+        public LrcLibServer Answer(HttpStatusCode status, string? body = null, string mediaType = "application/json")
         {
-            _answers.Enqueue((status, json));
+            _answers.Enqueue((status, body, mediaType));
             return this;
         }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Requests.Add((request.RequestUri!, request.Headers.TryGetValues("User-Agent", out var agent) ? string.Join(' ', agent) : null));
-            var (status, json) = _answers.Dequeue();
+            var (status, body, mediaType) = _answers.Dequeue();
             var response = new HttpResponseMessage(status);
-            if (json is not null)
+            if (body is not null)
             {
-                response.Content = new StringContent(json, Encoding.UTF8, "application/json");
+                response.Content = new StringContent(body, Encoding.UTF8, mediaType);
             }
 
             return Task.FromResult(response);

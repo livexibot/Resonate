@@ -150,7 +150,8 @@ public sealed class LrcLibClient : ILyricsSource
             request.Headers.TryAddWithoutValidation("User-Agent", _userAgent);
         }
 
-        using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+        // The whole answer is read within the client's timeout, so one that stalls halfway fails instead of waiting for ever.
+        using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
         if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.BadRequest)
         {
             return null;
@@ -159,6 +160,12 @@ public sealed class LrcLibClient : ILyricsSource
         if (!response.IsSuccessStatusCode)
         {
             throw new HttpRequestException($"LRCLIB answered {(int)response.StatusCode}.", inner: null, response.StatusCode);
+        }
+
+        // A page in place of LRCLIB's answer (a network's sign-in or block page) is a failed lookup, not a song without words.
+        if (response.Content.Headers.ContentType?.MediaType is { } media && !media.Contains("json", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new HttpRequestException($"LRCLIB answered with {media}.", inner: null, response.StatusCode);
         }
 
         var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);

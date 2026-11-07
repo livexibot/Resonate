@@ -334,6 +334,7 @@ public sealed partial class SettingsPage : Page
     {
         // The next account to sign in must not see this one's playlists, songs or listening.
         _services.ForgetAccount();
+
         App.MainWindow?.ShowSignIn();
     }
 

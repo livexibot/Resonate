@@ -151,4 +151,5 @@ internal sealed class CachedLine
 [JsonSerializable(typeof(LrcLibRecord))]
 [JsonSerializable(typeof(List<LrcLibRecord>))]
 [JsonSerializable(typeof(CachedLyrics))]
+[JsonSerializable(typeof(LineRecord))]
 internal sealed partial class LyricsJsonContext : JsonSerializerContext;
