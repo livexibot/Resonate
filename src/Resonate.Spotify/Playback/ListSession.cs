@@ -142,14 +142,11 @@ internal sealed partial class ListSession
     /// <summary>When Previous was last pressed in Resonate (cleared once the music plays): stopping on an earlier song shortly after is that, not the end.</summary>
     public DateTimeOffset? SteppedBackAt { get; set; }
 
-    /// <summary>How many of the presses of Previous up to <see cref="SteppedBackAt"/> no stop on an earlier song has answered yet.</summary>
-    public int PreviousUnanswered { get; set; }
+    /// <summary>A Previous pressed in Resonate (not on the first song) that no stop on an earlier song has answered yet.</summary>
+    public bool PreviousUnanswered { get; set; }
 
     /// <summary>Since when Spotify shows the list stopped at the start of an earlier song (null otherwise): what that stop means is judged once, when it began.</summary>
     public DateTimeOffset? StoppedEarlierSince { get; set; }
-
-    /// <summary>Which song of <see cref="Order"/> the stop since <see cref="StoppedEarlierSince"/> is on.</summary>
-    public int StoppedEarlierOn { get; set; }
 
     /// <summary>A song Spotify can be told to play by its address (not a file on the computer, not a file Resonate plays).</summary>
     public static bool CanStartByUri(TrackInfo track) =>
