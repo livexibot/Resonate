@@ -78,7 +78,7 @@ internal sealed partial class PluginsPanel : StackPanel
     /// <summary>The group a plugin shows under, by its ID; a new plugin lands under "More plugins" until it is given one.</summary>
     private static string Category(string id) => id switch
     {
-        BuiltInPlugins.PlayerLyrics or BuiltInPlugins.DesktopLyrics => "Lyrics",
+        BuiltInPlugins.PlayerLyrics or BuiltInPlugins.DesktopLyrics or BuiltInPlugins.LineFinder => "Lyrics",
         BuiltInPlugins.AwayScreen or BuiltInPlugins.WindowShapes or BuiltInPlugins.BeatGlow or BuiltInPlugins.SignalPath => "Look and window",
         BuiltInPlugins.Rediscover or BuiltInPlugins.ArtistOrbit or BuiltInPlugins.SmartPlaylists => "Discover",
         BuiltInPlugins.QuietHours or BuiltInPlugins.DeviceVolume or BuiltInPlugins.PauseOnLock or BuiltInPlugins.PauseOnUnplug or BuiltInPlugins.PauseForSounds => "Volume and pausing",

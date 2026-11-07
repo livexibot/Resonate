@@ -15,6 +15,7 @@ time left.
 | --- | --- |
 | Lyrics in the player | Shows the sung line and the next one under the song in the player bar. |
 | Desktop lyrics | Shows the sung line in a small window that stays on top of every app. |
+| Line Finder | Finds a song in Search by a line of its words and plays it from that line. It gathers the words of your Liked Songs, your playlists and what you played from LRCLIB, slowly in the background, and keeps them on your PC. |
 
 ## Look and window
 

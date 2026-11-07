@@ -29,6 +29,12 @@ public sealed record PlayRequest(
     /// </summary>
     public bool IsPartial { get; init; }
 
+    /// <summary>
+    /// Where in the picked song to start (Line Finder starts a song at the
+    /// line found), sent with the same command that starts it; null for its start.
+    /// </summary>
+    public TimeSpan? StartPosition { get; init; }
+
     /// <summary>The song to start with, when the user picked one.</summary>
     public TrackInfo? StartTrack => StartIndex >= 0 && StartIndex < Tracks.Count ? Tracks[StartIndex] : null;
 
