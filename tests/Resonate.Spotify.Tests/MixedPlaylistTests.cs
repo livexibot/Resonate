@@ -934,6 +934,58 @@ public sealed class MixedPlaylistTests : IDisposable
         Assert.False(_router.State.Shuffle);
     }
 
+    [Fact]
+    public async Task Staying_paused_after_Previous_back_to_the_first_Spotify_song_does_not_start_the_files()
+    {
+        var list = new List<TrackInfo> { Song(0), Song(1), LocalSong(2) };
+        _finder.Add(list[2]);
+        await StartAsync();
+        await _router.PlayAsync(new PlayRequest(list, 0, Playlist, "Mine") { Shuffle = false });
+        _time.Advance(TimeSpan.FromSeconds(10));
+        Playing(list[0], seconds: 10);
+        _time.Advance(TimeSpan.FromSeconds(190));
+        Playing(list[1]);
+        _time.Advance(TimeSpan.FromSeconds(0.5));
+        await _router.PauseAsync();
+        Paused(list[1], seconds: 1);
+        await _router.PreviousAsync();
+        _time.Advance(TimeSpan.FromSeconds(1));
+        Paused(list[0], seconds: 0);
+
+        for (var i = 0; i < 50; i++)
+        {
+            _time.Advance(TimeSpan.FromSeconds(5));
+        }
+
+        Paused(list[0], seconds: 0);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        Assert.Empty(_engine.Opened);
+        Assert.Equal(PlaybackSource.Spotify, _router.ActiveSource);
+    }
+
+    [Fact]
+    public async Task While_Spotify_will_not_answer_a_skip_after_a_long_pause_in_Resonate_still_starts_the_files()
+    {
+        var list = new List<TrackInfo> { Song(0), LocalSong(1) };
+        _finder.Add(list[1]);
+        await StartAsync();
+        await _router.PlayAsync(new PlayRequest(list, 0, Playlist, "Mine") { Shuffle = false });
+        _time.Advance(TimeSpan.FromSeconds(10));
+        Playing(list[0], seconds: 10);
+        _time.Advance(TimeSpan.FromSeconds(20));
+        await _router.PauseAsync();
+        Paused(list[0], seconds: 30);
+        _time.Advance(TimeSpan.FromSeconds(300));
+        _web.PlaybackFailure = new SpotifyApiException(System.Net.HttpStatusCode.TooManyRequests, null, "Too many requests", TimeSpan.FromHours(1));
+        await _spotify.RefreshFromWebApiAsync(TestContext.Current.CancellationToken);
+
+        Playing(Song(500));
+
+        await WaitUntil(() => _engine.Opened.Count == 1);
+        Assert.Equal(PlaybackSource.LocalFiles, _router.ActiveSource);
+    }
+
     private static TrackInfo Song(int i) =>
         new($"spotify:track:{i}", $"Song {i}", "Band", "Record", null, TimeSpan.FromSeconds(200), null, null, IsExplicit: false, IsPlayable: true)
         {

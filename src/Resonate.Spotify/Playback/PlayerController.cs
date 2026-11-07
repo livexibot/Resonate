@@ -1729,6 +1729,11 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             var last = session.Order.Count - 1;
             var position = _state.PositionAt(now);
             var known = _state.Duration > TimeSpan.Zero;
+            if (_state.IsPlaying || located < 0 || located == last || position > HandOverBoundary)
+            {
+                session.StoppedEarlierSince = null;
+            }
+
             if (located == last && _state.IsPlaying)
             {
                 // The last song plays: its end is the list's. A position held at
@@ -1758,9 +1763,11 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                 {
                     // Something else, stopped.
                 }
-                else if (now >= session.LastSongEndsAt - HandOverEndWindow && !session.PausedMidLast)
+                else if (now >= session.LastSongEndsAt - HandOverEndWindow && (!session.PausedMidLast || WebRefused))
                 {
                     // Spotify went on by itself after the last song (its autoplay or its own queue).
+                    // (After a pause on it only Spotify's answer can tell; while Spotify will not
+                    // answer, the end time as it was decides.)
                     ended = handOver;
                 }
                 else
@@ -1803,7 +1810,9 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             {
                 // Back on the list's first song: Spotify stopped after the last
                 // one (played to its end, or skipped).
-                var steppedBack = session.SteppedBackAt is { } at && now - at <= TrackHold;
+                // A stop that began shortly after Previous in Resonate is that Previous, however long it lasts.
+                var stoppedSince = session.StoppedEarlierSince ??= now;
+                var steppedBack = session.SteppedBackAt is { } at && stoppedSince - at <= TrackHold;
                 if (position <= HandOverBoundary && (located == session.WindowStart || located == 0) && !steppedBack)
                 {
                     ended = handOver;
