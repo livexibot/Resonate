@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.24.0](https://github.com/livexibot/Resonate/compare/v0.23.1...v0.24.0) (2026-11-07)
+
+
+### New features
+
+* a listening calendar with each day's top cover ([#87](https://github.com/livexibot/Resonate/issues/87)) ([6e2ac71](https://github.com/livexibot/Resonate/commit/6e2ac71bf780bc937a757730b3480bfde13fa464))
+* Line Finder, find a song by a line of its words and play it from there ([#89](https://github.com/livexibot/Resonate/issues/89)) ([b5bf8db](https://github.com/livexibot/Resonate/commit/b5bf8dbfafa66b3f415b4cbc0f6468bfcb73eb95))
+* New releases on Home, from the artists you follow ([#86](https://github.com/livexibot/Resonate/issues/86)) ([9058793](https://github.com/livexibot/Resonate/commit/9058793e9b800d9f5263003d43473d030e9b6ca6))
+
 ## [0.23.1](https://github.com/livexibot/Resonate/compare/v0.23.0...v0.23.1) (2026-10-20)
 
 
