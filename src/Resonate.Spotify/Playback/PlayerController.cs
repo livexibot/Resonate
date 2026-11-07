@@ -941,9 +941,12 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         CountUserCommand();
         lock (_gate)
         {
-            // Only a Previous that goes back a song (not one that restarts it) can stop Spotify on an earlier one.
+            // Previous leaves Spotify stopped on an earlier song when it goes back a song, or
+            // restarts one that is not the last (only restarting the last song keeps it there).
             var now = _time.GetUtcNow();
-            if (_session is { HandOver: not null } session && _state.PositionAt(now) <= PreviousRestartsAfter + HandOverBoundary)
+            if (_session is { HandOver: not null } session
+                && (session.Locate(_state.TrackUri, _state.Title) != session.Order.Count - 1
+                    || _state.PositionAt(now) <= PreviousRestartsAfter + HandOverBoundary))
             {
                 session.SteppedBackAt = now;
             }

@@ -1075,6 +1075,36 @@ public sealed class MixedPlaylistTests : IDisposable
         Assert.Equal("Demo 2", _router.State.Title);
     }
 
+    [Fact]
+    public async Task Previous_restarting_the_first_Spotify_song_while_paused_is_not_the_end()
+    {
+        var list = new List<TrackInfo> { Song(0), Song(1), LocalSong(2) };
+        _finder.Add(list[2]);
+        await StartAsync();
+        await _router.PlayAsync(new PlayRequest(list, 0, Playlist, "Mine") { Shuffle = false });
+        _time.Advance(TimeSpan.FromSeconds(10));
+        Playing(list[0], seconds: 10);
+        _time.Advance(TimeSpan.FromSeconds(190));
+        Playing(list[1]);
+        _time.Advance(TimeSpan.FromSeconds(0.5));
+        await _router.PauseAsync();
+        Paused(list[1], seconds: 1);
+        await _router.PreviousAsync();
+        _time.Advance(TimeSpan.FromSeconds(1));
+        Paused(list[0], seconds: 0);
+
+        // Still paused: on into the first song, then Previous starts it again.
+        _time.Advance(TimeSpan.FromSeconds(20));
+        Paused(list[0], seconds: 60);
+        await _router.PreviousAsync();
+        _time.Advance(TimeSpan.FromSeconds(1));
+        Paused(list[0], seconds: 0);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        Assert.Empty(_engine.Opened);
+        Assert.Equal(PlaybackSource.Spotify, _router.ActiveSource);
+    }
+
     private static TrackInfo Song(int i) =>
         new($"spotify:track:{i}", $"Song {i}", "Band", "Record", null, TimeSpan.FromSeconds(200), null, null, IsExplicit: false, IsPlayable: true)
         {
