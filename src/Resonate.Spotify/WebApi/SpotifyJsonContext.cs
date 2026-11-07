@@ -33,6 +33,7 @@ namespace Resonate.Spotify.WebApi;
 [JsonSerializable(typeof(Page<Artist>))]
 [JsonSerializable(typeof(PlayerQueue))]
 [JsonSerializable(typeof(CursorPage<PlayHistoryItem>))]
+[JsonSerializable(typeof(FollowedArtists))]
 [JsonSerializable(typeof(List<bool>))]
 [JsonSerializable(typeof(ReorderItemsBody))]
 [JsonSerializable(typeof(AddItemsBody))]
@@ -45,4 +46,5 @@ namespace Resonate.Spotify.WebApi;
 [JsonSerializable(typeof(KeptList))]
 [JsonSerializable(typeof(HistoryFile))]
 [JsonSerializable(typeof(HomeContent))]
+[JsonSerializable(typeof(CalendarFile))]
 internal sealed partial class SpotifyJsonContext : JsonSerializerContext;

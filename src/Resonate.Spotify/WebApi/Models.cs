@@ -403,7 +403,16 @@ public sealed class CursorPage<T>
 
     public int Limit { get; set; }
 
+    /// <summary>How many there are in all, where Spotify says (the followed artists; not the listening history).</summary>
+    public int? Total { get; set; }
+
     public PageCursors? Cursors { get; set; }
+}
+
+/// <summary>The answer to "the artists the user follows": the page sits under "artists".</summary>
+public sealed class FollowedArtists
+{
+    public CursorPage<Artist>? Artists { get; set; }
 }
 
 public sealed class PageCursors

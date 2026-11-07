@@ -87,6 +87,30 @@ public interface ISpotifyWebApi
 
     /// <summary>The artist's albums, singles and compilations, newest first as Spotify lists them.</summary>
     Task<Page<SimplifiedAlbum>> GetArtistAlbumsAsync(string artistId, int offset, int limit, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The artist's releases of the kinds in <paramref name="groups"/> only. Spotify
+    /// lists them kind by kind (albums before singles), each newest first, at
+    /// most <see cref="SpotifyWebApi.MaxArtistAlbumsLimit"/> a page.
+    /// </summary>
+    Task<Page<SimplifiedAlbum>> GetArtistReleasesAsync(string artistId, ReleaseGroups groups, int offset, int limit, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The artists the user follows, <paramref name="limit"/> at a time (at most
+    /// 50); pass the last page's <see cref="PageCursors.After"/> for the next.
+    /// Needs the "user-follow-read" permission.
+    /// </summary>
+    Task<CursorPage<Artist>> GetFollowedArtistsAsync(string? after, int limit, CancellationToken cancellationToken);
+}
+
+/// <summary>Which of an artist's releases to list.</summary>
+[Flags]
+public enum ReleaseGroups
+{
+    None = 0,
+    Albums = 1,
+    Singles = 2,
+    Compilations = 4,
 }
 
 [Flags]

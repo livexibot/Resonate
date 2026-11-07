@@ -8,7 +8,7 @@ namespace Resonate.App;
 
 /// <summary>
 /// Smart playlists in the window (a built-in plugin, off until turned on in
-/// Settings, Plugins): each one under DJ in the sidebar with a spark, then
+/// Settings, Plugins): each one under the built-in links with a spark, then
 /// "New smart playlist". Their pages are song lists
 /// (<see cref="SmartPlaylistSource"/>, "smart:&lt;id&gt;").
 /// </summary>

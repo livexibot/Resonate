@@ -104,6 +104,45 @@ public class SpotifyWebApiTests
     }
 
     [Fact]
+    public async Task Asks_for_only_the_kinds_of_release_wanted()
+    {
+        _handler
+            .Respond(HttpStatusCode.OK, """{"items":[],"total":0}""")
+            .Respond(HttpStatusCode.OK, """{"items":[],"total":0}""");
+
+        await Api().GetArtistReleasesAsync("abc", ReleaseGroups.Albums | ReleaseGroups.Singles, 0, 10, TestContext.Current.CancellationToken);
+        await Api().GetArtistAlbumsAsync("abc", 0, 10, TestContext.Current.CancellationToken);
+
+        Assert.Contains("artists/abc/albums?include_groups=album,single&offset=0&limit=10", _handler.Requests[0].Uri.AbsoluteUri, StringComparison.Ordinal);
+        Assert.Contains("include_groups=album,single,compilation&", _handler.Requests[1].Uri.AbsoluteUri, StringComparison.Ordinal);
+        await Assert.ThrowsAsync<ArgumentException>(() => Api().GetArtistReleasesAsync("abc", ReleaseGroups.None, 0, 10, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Reads_the_followed_artists_page_by_page()
+    {
+        _handler
+            .Respond(HttpStatusCode.OK, """
+                { "artists": { "items": [ { "id": "a1", "name": "One", "uri": "spotify:artist:a1" }, { "id": "a2", "name": "Two", "uri": "spotify:artist:a2" } ],
+                  "next": "https://api.spotify.com/v1/me/following?type=artist&after=a2&limit=2", "total": 3, "limit": 2,
+                  "cursors": { "after": "a2" } } }
+                """)
+            .Respond(HttpStatusCode.OK, """
+                { "artists": { "items": [ { "id": "a3", "name": "Three", "uri": "spotify:artist:a3" } ], "next": null, "total": 3, "limit": 2, "cursors": { "after": null } } }
+                """);
+
+        var first = await Api().GetFollowedArtistsAsync(null, 2, TestContext.Current.CancellationToken);
+        var second = await Api().GetFollowedArtistsAsync(first.Cursors!.After, 2, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["One", "Two"], first.Items.Select(a => a!.Name));
+        Assert.Equal(3, first.Total);
+        Assert.Equal("Three", Assert.Single(second.Items)!.Name);
+        Assert.Null(second.Next);
+        Assert.Equal("https://api.spotify.com/v1/me/following?type=artist&limit=2", _handler.Requests[0].Uri.AbsoluteUri);
+        Assert.Equal("https://api.spotify.com/v1/me/following?type=artist&limit=2&after=a2", _handler.Requests[1].Uri.AbsoluteUri);
+    }
+
+    [Fact]
     public async Task Starts_a_song_in_its_playlist_on_the_chosen_device()
     {
         _handler.Respond(HttpStatusCode.NoContent);
