@@ -89,6 +89,7 @@ public sealed partial class LayoutSettings : UserControl
             LikedLinkSwitch.IsOn = !hidden.Contains(MainWindow.LikedSongsKey);
             LocalFilesLinkSwitch.IsOn = _services.LocalFiles.ShowInSidebar;
             DjLinkSwitch.IsOn = !hidden.Contains(MainWindow.DjKey);
+            CalendarLinkSwitch.IsOn = !hidden.Contains(MainWindow.CalendarKey);
             PlaylistCoversSwitch.IsOn = _services.Settings.ShowPlaylistCovers;
             SongCoversSwitch.IsOn = _services.Settings.ShowSongCovers;
             ColumnNamesSwitch.IsOn = _services.Settings.ShowColumnNames;
@@ -198,7 +199,8 @@ public sealed partial class LayoutSettings : UserControl
 
         var (key, on) = ReferenceEquals(sender, SearchLinkSwitch) ? (MainWindow.SearchKey, SearchLinkSwitch.IsOn)
             : ReferenceEquals(sender, LikedLinkSwitch) ? (MainWindow.LikedSongsKey, LikedLinkSwitch.IsOn)
-            : (MainWindow.DjKey, DjLinkSwitch.IsOn);
+            : ReferenceEquals(sender, DjLinkSwitch) ? (MainWindow.DjKey, DjLinkSwitch.IsOn)
+            : (MainWindow.CalendarKey, CalendarLinkSwitch.IsOn);
         var hidden = _services.Settings.HiddenSidebarLinks;
         hidden.RemoveAll(k => k == key);
         if (!on)

@@ -86,6 +86,15 @@
                         OnContent=""
                         Toggled="OnLinkToggled" />
                 </controls:SettingRow>
+                <controls:SettingRow Header="Calendar">
+                    <ToggleSwitch
+                        x:Name="CalendarLinkSwitch"
+                        MinWidth="0"
+                        AutomationProperties.Name="Calendar in the sidebar"
+                        OffContent=""
+                        OnContent=""
+                        Toggled="OnLinkToggled" />
+                </controls:SettingRow>
                 <controls:SettingRow Header="Playlist covers">
                     <ToggleSwitch
                         x:Name="PlaylistCoversSwitch"

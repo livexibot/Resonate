@@ -47,6 +47,7 @@ public sealed class AppServices : IDisposable
         Api = api;
         Library = library;
         Home = home;
+        Calendar = new ListeningCalendar(home.History, isDemo ? null : Path.Combine(AppPaths.CacheFolder, "calendar.json"));
         Likes = new LikedSongs(api, library);
         Player = player;
         Launcher = launcher;
@@ -136,6 +137,9 @@ public sealed class AppServices : IDisposable
 
     /// <summary>The listening history, stats and daily mixes on Home.</summary>
     public HomeFeed Home { get; }
+
+    /// <summary>Every day's listening, kept after the history forgets it (the Calendar page).</summary>
+    public ListeningCalendar Calendar { get; }
 
     /// <summary>Which songs are in Liked Songs, for every heart in the interface.</summary>
     public LikedSongs Likes { get; }
