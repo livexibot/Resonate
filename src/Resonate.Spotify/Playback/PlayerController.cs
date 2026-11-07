@@ -941,9 +941,11 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         CountUserCommand();
         lock (_gate)
         {
-            if (_session is { HandOver: not null } session)
+            // Only a Previous that goes back a song (not one that restarts it) can stop Spotify on an earlier one.
+            var now = _time.GetUtcNow();
+            if (_session is { HandOver: not null } session && _state.PositionAt(now) <= PreviousRestartsAfter + HandOverBoundary)
             {
-                session.SteppedBackAt = _time.GetUtcNow();
+                session.SteppedBackAt = now;
             }
         }
 
@@ -1729,9 +1731,11 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             var last = session.Order.Count - 1;
             var position = _state.PositionAt(now);
             var known = _state.Duration > TimeSpan.Zero;
-            if (_state.IsPlaying || located < 0 || located == last || position > HandOverBoundary)
+            if ((_state.IsPlaying || located < 0 || located == last || position > HandOverBoundary) && session.StoppedEarlierSince is not null)
             {
+                // Spotify left the stop on an earlier song: a Previous that led there is over too.
                 session.StoppedEarlierSince = null;
+                session.SteppedBackAt = null;
             }
 
             if (located == last && _state.IsPlaying)
@@ -1763,11 +1767,11 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                 {
                     // Something else, stopped.
                 }
-                else if (now >= session.LastSongEndsAt - HandOverEndWindow && (!session.PausedMidLast || WebRefused))
+                else if (now >= session.LastSongEndsAt - HandOverEndWindow && !session.PausedMidLast)
                 {
                     // Spotify went on by itself after the last song (its autoplay or its own queue).
                     // (After a pause on it only Spotify's answer can tell; while Spotify will not
-                    // answer, the end time as it was decides.)
+                    // answer, what plays is left alone, and its next answer decides.)
                     ended = handOver;
                 }
                 else

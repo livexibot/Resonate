@@ -965,7 +965,39 @@ public sealed class MixedPlaylistTests : IDisposable
     }
 
     [Fact]
-    public async Task While_Spotify_will_not_answer_a_skip_after_a_long_pause_in_Resonate_still_starts_the_files()
+    public async Task While_Spotify_will_not_answer_a_skip_after_a_long_pause_waits_for_its_answer()
+    {
+        var list = new List<TrackInfo> { Song(0), LocalSong(1) };
+        _finder.Add(list[1]);
+        await StartAsync();
+        await _router.PlayAsync(new PlayRequest(list, 0, Playlist, "Mine") { Shuffle = false });
+        _time.Advance(TimeSpan.FromSeconds(10));
+        Playing(list[0], seconds: 10);
+        _time.Advance(TimeSpan.FromSeconds(20));
+        await _router.PauseAsync();
+        Paused(list[0], seconds: 30);
+        _time.Advance(TimeSpan.FromSeconds(300));
+        _web.PlaybackFailure = new SpotifyApiException(System.Net.HttpStatusCode.TooManyRequests, null, "Too many requests", TimeSpan.FromMinutes(10));
+        await _spotify.RefreshFromWebApiAsync(TestContext.Current.CancellationToken);
+
+        Playing(Song(500));
+        _time.Advance(TimeSpan.FromSeconds(5));
+        Playing(Song(500), seconds: 5);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        Assert.Empty(_engine.Opened);
+
+        // Spotify answers again: its autoplay plays, so the files follow.
+        _web.PlaybackFailure = null;
+        _web.Playback = OnTheWeb(Song(500), 30);
+        _time.Advance(TimeSpan.FromMinutes(10));
+        await _spotify.RefreshFromWebApiAsync(TestContext.Current.CancellationToken);
+
+        await WaitUntil(() => _engine.Opened.Count == 1);
+        Assert.Equal(PlaybackSource.LocalFiles, _router.ActiveSource);
+    }
+
+    [Fact]
+    public async Task While_Spotify_will_not_answer_music_picked_in_the_Spotify_app_after_a_pause_is_left_alone()
     {
         var list = new List<TrackInfo> { Song(0), LocalSong(1) };
         _finder.Add(list[1]);
@@ -980,10 +1012,67 @@ public sealed class MixedPlaylistTests : IDisposable
         _web.PlaybackFailure = new SpotifyApiException(System.Net.HttpStatusCode.TooManyRequests, null, "Too many requests", TimeSpan.FromHours(1));
         await _spotify.RefreshFromWebApiAsync(TestContext.Current.CancellationToken);
 
-        Playing(Song(500));
+        Playing(Song(700));
+        _time.Advance(TimeSpan.FromSeconds(5));
+        Playing(Song(700), seconds: 5);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        Assert.Empty(_engine.Opened);
+        Assert.Single(_channel.Commands, c => c == "pause");
+    }
+
+    [Fact]
+    public async Task A_skip_soon_after_Previous_restarted_the_last_Spotify_song_starts_the_files()
+    {
+        var list = new List<TrackInfo> { Song(0), Song(1), LocalSong(2) };
+        _finder.Add(list[2]);
+        await StartAsync();
+        await _router.PlayAsync(new PlayRequest(list, 0, Playlist, "Mine") { Shuffle = false });
+        _time.Advance(TimeSpan.FromSeconds(10));
+        Playing(list[0], seconds: 10);
+        _time.Advance(TimeSpan.FromSeconds(190));
+        Playing(list[1]);
+        _time.Advance(TimeSpan.FromSeconds(30));
+        await _router.PauseAsync();
+        Paused(list[1], seconds: 30);
+        await _router.PreviousAsync();
+        Paused(list[1], seconds: 0);
+        _time.Advance(TimeSpan.FromSeconds(3));
+
+        // Next on the keyboard: Spotify (autoplay off) stops back on the first song.
+        Paused(list[0], seconds: 0);
 
         await WaitUntil(() => _engine.Opened.Count == 1);
-        Assert.Equal(PlaybackSource.LocalFiles, _router.ActiveSource);
+        Assert.Equal("Demo 2", _router.State.Title);
+    }
+
+    [Fact]
+    public async Task Once_Spotify_moved_on_from_where_Previous_led_a_later_stop_on_the_first_song_starts_the_files()
+    {
+        var list = new List<TrackInfo> { Song(0), Song(1), LocalSong(2) };
+        _finder.Add(list[2]);
+        await StartAsync();
+        await _router.PlayAsync(new PlayRequest(list, 0, Playlist, "Mine") { Shuffle = false });
+        _time.Advance(TimeSpan.FromSeconds(10));
+        Playing(list[0], seconds: 10);
+        _time.Advance(TimeSpan.FromSeconds(190));
+        Playing(list[1]);
+        _time.Advance(TimeSpan.FromSeconds(0.5));
+        await _router.PauseAsync();
+        Paused(list[1], seconds: 1);
+        await _router.PreviousAsync();
+        _time.Advance(TimeSpan.FromSeconds(1));
+        Paused(list[0], seconds: 0);
+        Assert.Empty(_engine.Opened);
+
+        // Next on the keyboard twice: back to the last song, then past it.
+        _time.Advance(TimeSpan.FromSeconds(1));
+        Paused(list[1], seconds: 0);
+        _time.Advance(TimeSpan.FromSeconds(1));
+        Paused(list[0], seconds: 0);
+
+        await WaitUntil(() => _engine.Opened.Count == 1);
+        Assert.Equal("Demo 2", _router.State.Title);
     }
 
     private static TrackInfo Song(int i) =>
