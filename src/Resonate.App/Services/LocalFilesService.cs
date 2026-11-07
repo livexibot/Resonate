@@ -230,8 +230,7 @@ public sealed class LocalFilesService : ILocalSongFinder, IDisposable
                 {
                     // The same length too, when both are known: a live or other version of the song is not it.
                     if (songs[i] is { IsLocal: true, FilePath: null } song
-                        && Library.Match(song.Title, song.Artists, song.Album, song.Duration) is { } file
-                        && (song.Duration <= TimeSpan.Zero || file.Duration <= TimeSpan.Zero || (file.Duration - song.Duration).Duration() <= LocalFileMatch.LengthSlack))
+                        && Library.Match(song.Title, song.Artists, song.Album, song.Duration, sameLength: true) is { } file)
                     {
                         paths[i] = file.Path;
                     }

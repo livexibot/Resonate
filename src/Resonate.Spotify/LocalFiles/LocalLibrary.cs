@@ -192,7 +192,7 @@ public sealed class LocalLibrary : IDisposable
     /// The file a local song in a Spotify playlist stands for, from what
     /// Spotify knows of it (see <see cref="LocalFileMatch"/>), when it is in the list.
     /// </summary>
-    public LocalFile? Match(string title, string artists, string album, TimeSpan duration)
+    public LocalFile? Match(string title, string artists, string album, TimeSpan duration, bool sameLength = false)
     {
         var version = Version;
         var match = _match;
@@ -201,7 +201,7 @@ public sealed class LocalLibrary : IDisposable
             _match = match = new MatchIndex(version, new LocalFileMatch(_files));
         }
 
-        return match.Files.Find(title, artists, album, duration);
+        return match.Files.Find(title, artists, album, duration, sameLength);
     }
 
     /// <summary>

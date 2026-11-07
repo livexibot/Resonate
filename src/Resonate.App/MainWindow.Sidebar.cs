@@ -68,7 +68,8 @@ public sealed partial class MainWindow
     {
         var source = TrackListSource.For(item.Id, _services);
         var sort = TrackSort.Parse(_services.Settings.TrackSorts.GetValueOrDefault(item.Id));
-        if (sort.IsDefault && !(shuffle ?? _services.Player.State.Shuffle) && !HasLocalSongs(item.Id))
+        var shuffled = shuffle ?? _services.Player.State.Shuffle;
+        if (sort.IsDefault && !shuffled && !await Task.Run(() => HasLocalSongs(item.Id)))
         {
             // In its own order Spotify plays the playlist itself: it starts at once, with nothing to load.
             NoteListPlayed(item.Id, item.Name);
@@ -95,7 +96,7 @@ public sealed partial class MainWindow
         var ownOrder = sort.IsDefault || list.ItemsHidden;
         IReadOnlyList<TrackInfo> tracks = ownOrder ? list.Tracks : TrackSorter.Apply(list.Tracks, sort);
         NoteListPlayed(item.Id, item.Name);
-        await _services.Player.PlayAsync(new PlayRequest(tracks, -1, ownOrder ? source.ContextUri : null, item.Name) { Shuffle = shuffle });
+        await _services.Player.PlayAsync(new PlayRequest(tracks, -1, ownOrder ? source.ContextUri : null, item.Name) { Shuffle = shuffled });
     }
 
     /// <summary>Whether a playlist (as last loaded) holds songs from this computer that Local Files may have, so Resonate plays them itself.</summary>

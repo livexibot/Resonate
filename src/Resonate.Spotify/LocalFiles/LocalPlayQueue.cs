@@ -207,10 +207,10 @@ public sealed partial class LocalPlayQueue
 
     /// <summary>
     /// Goes back one song and returns it: from a queued song to the list song
-    /// before it; from the first song to the last with repeat on, otherwise
+    /// before it; from the first song to the last with repeat on (and wrap), otherwise
     /// it stays on the first.
     /// </summary>
-    public TrackInfo? MovePrevious()
+    public TrackInfo? MovePrevious(bool wrap = true)
     {
         if (_order.Count == 0)
         {
@@ -225,7 +225,7 @@ public sealed partial class LocalPlayQueue
         {
             _position--;
         }
-        else if (Repeat != RepeatMode.Off)
+        else if (Repeat != RepeatMode.Off && wrap)
         {
             _position = _order.Count - 1;
         }

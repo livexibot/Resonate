@@ -153,9 +153,10 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     // Asks Spotify once when the last song of a list that hands over should long have ended.
     private ITimer? _handOverTimer;
 
-    // The song in Spotify's last answer, and when it was taken in; under _gate.
+    // The song and context in Spotify's last answer, and when it was asked for; under _gate.
     private TrackInfo? _webItem;
-    private DateTimeOffset _webAnsweredAt;
+    private string? _webContext;
+    private DateTimeOffset _webAskedAt;
 
     /// <param name="nextInt">Random numbers for shuffling, in [0, max); the system's cryptographic generator when null (tests pass their own).</param>
     public PlayerController(
@@ -275,7 +276,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             epoch = _commandEpoch;
         }
 
-        ApplyWeb(playback, request, epoch);
+        ApplyWeb(playback, request, epoch, _time.GetUtcNow());
     }
 
     /// <summary>
@@ -938,6 +939,13 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         }
 
         CountUserCommand();
+        lock (_gate)
+        {
+            if (_session is { HandOver: not null } session)
+            {
+                session.SteppedBack = true;
+            }
+        }
 
         // Spotify restarts the song when it is more than a few seconds in, and
         // goes to the previous one otherwise; either way the position is 0.
@@ -1701,8 +1709,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     {
         PlayRequest? ended = null;
         TimeSpan? check = null;
-        ListSession? askOutside = null;
-        DateTimeOffset asked = default;
+        var ask = false;
         lock (_gate)
         {
             if (_session is not { HandOver: { } handOver } session || !_state.HasTrack)
@@ -1715,6 +1722,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             {
                 // The music plays (again), whoever resumed it: a pause made before is over.
                 session.PausedByUser = false;
+                session.SteppedBack = false;
             }
 
             var located = session.Locate(_state.TrackUri, _state.Title);
@@ -1725,7 +1733,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             {
                 // The last song plays: its end is the list's. A position held at
                 // the song's end says nothing new (and asks Spotify nothing again).
-                if (!known || position < _state.Duration || !session.ReachedEnd)
+                if (!known || position < _state.Duration || !session.ReachedEnd || session.PausedMidLast)
                 {
                     var left = known ? _state.Duration - position : TimeSpan.Zero;
                     session.LastSongEndsAt = now + left;
@@ -1733,6 +1741,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                 }
 
                 session.ReachedEnd = true;
+                session.PausedMidLast = false;
             }
             else if (!session.ReachedEnd)
             {
@@ -1745,48 +1754,62 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             }
             else if (located < 0)
             {
-                var outside = $"{_state.TrackUri}|{_state.Title}";
                 if (!_state.IsPlaying)
                 {
                     // Something else, stopped.
                 }
-                else if (now >= session.LastSongEndsAt - HandOverEndWindow)
+                else if (now >= session.LastSongEndsAt - HandOverEndWindow && !session.PausedMidLast)
                 {
                     // Spotify went on by itself after the last song (its autoplay or its own queue).
                     ended = handOver;
                 }
-                else if (session.OutsideAskedFor != outside)
-                {
-                    // Before the last song could have ended: it was skipped (and Spotify's
-                    // autoplay plays), or music from elsewhere started. Spotify is asked
-                    // once which; a list of its own there lets the list go.
-                    session.OutsideAskedFor = outside;
-                    askOutside = session;
-                    asked = now;
-                }
                 else
                 {
-                    // Spotify's answer did not tell: looked at again when the last song should end.
-                    check = session.LastSongEndsAt - HandOverEndWindow - now;
+                    // Before the last song could have ended: it was skipped (and Spotify's
+                    // autoplay plays), or music from elsewhere started. Spotify's answer
+                    // tells which: a list of its own there lets the list go (IsElsewhere).
+                    if (!TitlesMatch(session.OutsideTitle, _state.Title))
+                    {
+                        session.OutsideTitle = _state.Title;
+                        session.OutsideSeenAt = now;
+                        ask = true;
+                    }
+
+                    if (_webAskedAt >= session.OutsideSeenAt - HandOverBoundary
+                        && _webAskedAt >= _sessionSettledAt
+                        && _webItem is { } item
+                        && TitlesMatch(item.Title, _state.Title)
+                        && session.Locate(item.Uri, item.Title) < 0
+                        && IsAutoplayContext(_webContext))
+                    {
+                        ended = handOver;
+                        ask = false;
+                    }
+                    else if (!ask)
+                    {
+                        // Spotify's answer did not tell: looked at again when the last song should end.
+                        check = session.LastSongEndsAt - HandOverEndWindow - now;
+                    }
                 }
             }
             else if (_state.IsPlaying)
             {
                 // Back to an earlier song of the list.
                 session.ReachedEnd = false;
-            }
-            else if (session.PausedByUser)
-            {
-                // Paused in Resonate: not the end, whatever Spotify shows.
+                session.PausedMidLast = false;
             }
             else if (located != last)
             {
                 // Back on the list's first song: Spotify stopped after the last
                 // one (played to its end, or skipped).
-                if (position <= HandOverBoundary && (located == session.WindowStart || located == 0))
+                if (position <= HandOverBoundary && (located == session.WindowStart || located == 0) && !session.SteppedBack)
                 {
                     ended = handOver;
                 }
+            }
+            else if (session.PausedByUser || session.PausedMidLast)
+            {
+                // Paused on the last song: not the end, whatever Spotify shows.
             }
             else if (known && position >= _state.Duration - HandOverBoundary)
             {
@@ -1803,8 +1826,8 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             }
             else
             {
-                // Paused (from a phone or a media key): followed again once it plays.
-                session.ReachedEnd = false;
+                // Paused partway (from a phone or a media key): followed again once it plays.
+                session.PausedMidLast = true;
             }
 
             if (ended is not null)
@@ -1819,22 +1842,25 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             return true;
         }
 
-        if (askOutside is not null)
+        if (ask)
         {
-            _ = AskOutsideAsync(askOutside, asked);
+            _ = AskOutsideAsync();
         }
 
         ArmHandOverCheck(check);
         return false;
     }
 
+    /// <summary>What Spotify's autoplay plays under: no context, or a station.</summary>
+    private static bool IsAutoplayContext(string? context) =>
+        context is null || context.StartsWith("spotify:station:", StringComparison.Ordinal);
+
     /// <summary>
-    /// Asks Spotify what plays while a song outside a list that hands over
-    /// plays before the list's end: when Spotify kept the list (no list of its
-    /// own plays, see <see cref="IsElsewhere"/>), its last song was skipped and
-    /// the list has ended.
+    /// Asks Spotify once what plays while a song outside a list that hands
+    /// over plays before the list's end; its answer is followed like any other
+    /// (see <see cref="FollowHandOver"/> and <see cref="IsElsewhere"/>).
     /// </summary>
-    private async Task AskOutsideAsync(ListSession session, DateTimeOffset asked)
+    private async Task AskOutsideAsync()
     {
         try
         {
@@ -1842,29 +1868,8 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         }
         catch (OperationCanceledException)
         {
-            return;
+            // Shutting down.
         }
-
-        PlayRequest? ended;
-        lock (_gate)
-        {
-            if (!ReferenceEquals(_session, session)
-                || session.HandOver is not { } handOver
-                || !_state.IsPlaying
-                || _webAnsweredAt < asked
-                || _webItem is not { } item
-                || !TitlesMatch(item.Title, _state.Title)
-                || session.Locate(item.Uri, item.Title) >= 0)
-            {
-                // Music from elsewhere (the list was let go), or the answer does not tell.
-                return;
-            }
-
-            ended = handOver;
-            session.HandOver = null;
-        }
-
-        ListEnded?.Invoke(this, ended);
     }
 
     /// <summary>Under the lock: notes that the user paused in Resonate while a list that hands over plays.</summary>
@@ -2069,16 +2074,18 @@ public sealed partial class PlayerController : IPlayer, IDisposable
 
         long request;
         long epoch;
+        DateTimeOffset askedAt;
         lock (_gate)
         {
             request = ++_webRequests;
             epoch = _commandEpoch;
+            askedAt = _time.GetUtcNow();
         }
 
         try
         {
             var playback = await _api.GetPlaybackStateAsync(cancellationToken).ConfigureAwait(false);
-            ApplyWeb(playback, request, epoch);
+            ApplyWeb(playback, request, epoch, askedAt);
         }
         catch (SpotifyAuthException)
         {
@@ -2229,7 +2236,8 @@ public sealed partial class PlayerController : IPlayer, IDisposable
 
     /// <param name="request">The number of the request this answers; an older answer than one already shown is dropped.</param>
     /// <param name="epoch">The command epoch when the request was sent.</param>
-    private void ApplyWeb(PlaybackState? playback, long request, long epoch)
+    /// <param name="askedAt">When Spotify was asked: an answer asked for before a list settled may still describe what played before it.</param>
+    private void ApplyWeb(PlaybackState? playback, long request, long epoch, DateTimeOffset askedAt)
     {
         // Read the mixer outside the lock; it is a call into the audio service.
         var mixerVolumeKnown = UseLocal && _appVolume.TryGetVolume() is not null;
@@ -2248,7 +2256,8 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             var item = TrackInfo.From(playback?.Item);
             var localIsTruth = HasSong(Local) && Local.HasTimeline;
             _webItem = item;
-            _webAnsweredAt = now;
+            _webContext = playback?.Context?.Uri;
+            _webAskedAt = askedAt;
 
             // Spotify's answer often still describes the song before; the next poll asks again.
             _needsWebDetails = localIsTruth && _needsWebDetails && item is not null && !TitlesMatch(item.Title, s.Title)
@@ -2310,7 +2319,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             return false;
         }
 
-        if (session is { HandOver: not null, ReachedEnd: true } && !IsListContext(context))
+        if (session is { HandOver: not null, ReachedEnd: true } && IsAutoplayContext(context))
         {
             // After the last song of a list that hands over: Spotify's autoplay, which is the list's end (see FollowHandOver).
             return false;

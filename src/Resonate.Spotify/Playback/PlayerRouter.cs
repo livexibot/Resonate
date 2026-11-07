@@ -21,6 +21,9 @@ public sealed partial class PlayerRouter : IPlayer, IDisposable
     // Counts lists started, so a start that waited (for Local Files) gives way to a newer one.
     private int _plays;
 
+    // The mixed list a start ended while it waited for Local Files: a newer start takes its shuffle and repeat over.
+    private MixedList? _endedWaiting;
+
     /// <param name="time">The clock (tests pass their own).</param>
     /// <param name="nextInt">Random numbers for shuffling a mixed list, in [0, max) (tests pass their own).</param>
     public PlayerRouter(PlayerController spotify, ILocalPlayer? local = null, TimeProvider? time = null, Func<int, int>? nextInt = null)
@@ -74,11 +77,12 @@ public sealed partial class PlayerRouter : IPlayer, IDisposable
         ListStarting?.Invoke(this, request.SourceName);
         var play = Interlocked.Increment(ref _plays);
         var shown = State;
-        var ended = EndMix();
+        var ended = EndMix() ?? Interlocked.Exchange(ref _endedWaiting, null);
         if (ended is not null)
         {
             // The mixed list's shuffle and repeat were the player bar's: they stay.
             request = request with { Shuffle = request.Shuffle ?? ended.Shuffle };
+            shown = shown with { Shuffle = ended.Shuffle, Repeat = ended.Repeat };
         }
 
         if (request.IsLocalFiles)
@@ -89,12 +93,15 @@ public sealed partial class PlayerRouter : IPlayer, IDisposable
             return;
         }
 
+        Volatile.Write(ref _endedWaiting, ended);
         var plan = await PlanAsync(request).ConfigureAwait(false);
         if (Volatile.Read(ref _plays) != play)
         {
             // Something else was started while the files were looked up.
             return;
         }
+
+        Interlocked.CompareExchange(ref _endedWaiting, null, ended);
 
         if (plan is not null)
         {

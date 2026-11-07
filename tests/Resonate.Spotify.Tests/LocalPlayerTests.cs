@@ -555,6 +555,60 @@ public sealed class LocalPlayerTests : IDisposable
     }
 
     [Fact]
+    public async Task A_list_that_hands_over_ends_when_its_last_file_can_not_play_even_with_repeat_one()
+    {
+        var ended = new List<PlayRequest>();
+        _player.ListEnded += (_, list) => ended.Add(list);
+        _engine.Broken.Add(SongB.FilePath!);
+        await _player.SetRepeatAsync(RepeatMode.One);
+        var request = new PlayRequest([SongA, SongB], 0, null, "Mix") { Shuffle = false, HandsOver = true };
+        await _player.PlayAsync(request);
+        await _player.WhenIdleAsync();
+
+        await _player.NextAsync();
+        await _player.WhenIdleAsync();
+
+        Assert.Same(request, Assert.Single(ended));
+        Assert.Equal([SongA.FilePath!, SongB.FilePath!], _engine.Opened);
+        Assert.False(_player.State.IsPlaying);
+    }
+
+    [Fact]
+    public async Task Previous_on_the_first_song_of_a_list_that_hands_over_starts_it_again()
+    {
+        var request = new PlayRequest([SongA, SongB], 0, null, "Mix") { Shuffle = false, HandsOver = true };
+        await _player.PlayAsync(request);
+        await _player.SetRepeatAsync(RepeatMode.One);
+        await _player.WhenIdleAsync();
+
+        await _player.PreviousAsync();
+        await _player.WhenIdleAsync();
+
+        Assert.Equal("a", _player.State.Title);
+        Assert.Equal([SongA.FilePath!], _engine.Opened);
+    }
+
+    [Fact]
+    public async Task The_media_controls_show_shuffle_and_repeat_of_the_player_they_are_given()
+    {
+        var bar = new FakeLocalPlayer();
+        _player.ControlTarget = bar;
+        await Play(SongA);
+        _player.SystemControlsEnabled = true;
+        await _player.WhenIdleAsync();
+        Assert.False(_controls.Shown[^1]?.Shuffle);
+
+        bar.Report(bar.State with { Shuffle = true, Repeat = RepeatMode.All });
+        _player.RefreshControls();
+        await _player.WhenIdleAsync();
+
+        Assert.Equal("a", _controls.Shown[^1]?.Title);
+        Assert.True(_controls.Shown[^1]?.Shuffle);
+        Assert.Equal(RepeatMode.All, _controls.Shown[^1]?.Repeat);
+        Assert.False(_player.State.Shuffle);
+    }
+
+    [Fact]
     public async Task The_media_controls_drive_the_player_they_are_given()
     {
         var bar = new FakeLocalPlayer();

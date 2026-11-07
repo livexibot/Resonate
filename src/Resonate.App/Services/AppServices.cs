@@ -331,6 +331,7 @@ public sealed class AppServices : IDisposable
             if (active)
             {
                 Settings.LocalVolume = local.State.Volume;
+                local.RefreshControls();
             }
         };
     }

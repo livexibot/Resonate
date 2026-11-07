@@ -19,7 +19,7 @@ public sealed partial class PlayerRouter
         {
             lock (_mixGate)
             {
-                if (_mix is { Finished: false } mix)
+                if (_mix is { } mix)
                 {
                     return mix.UpNextList();
                 }

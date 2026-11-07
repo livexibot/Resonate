@@ -76,4 +76,19 @@ public sealed class LocalFileMatchTests
         Assert.Null(match.Find("Another song", "Artist", "Album", TimeSpan.FromSeconds(200)));
         Assert.Null(match.Find(string.Empty, "Artist", "Album", TimeSpan.FromSeconds(200)));
     }
+
+    [Fact]
+    public void To_play_it_only_a_file_of_the_same_length_will_do()
+    {
+        var match = new LocalFileMatch([
+            File(@"C:\Music\remaster.mp3", "Song", "Artist", "Album", 220),
+            File(@"C:\Music\best of.mp3", "Song", "Artist", "Best Of", 180),
+            File(@"C:\Music\unknown length.mp3", "Other", "Artist", "Album", 0),
+        ]);
+
+        Assert.Equal(@"C:\Music\remaster.mp3", match.Find("Song", "Artist", "Album", TimeSpan.FromSeconds(181))?.Path);
+        Assert.Equal(@"C:\Music\best of.mp3", match.Find("Song", "Artist", "Album", TimeSpan.FromSeconds(181), sameLength: true)?.Path);
+        Assert.Null(match.Find("Song", "Artist", "Album", TimeSpan.FromSeconds(300), sameLength: true));
+        Assert.Equal(@"C:\Music\unknown length.mp3", match.Find("Other", "Artist", "Album", TimeSpan.FromSeconds(181), sameLength: true)?.Path);
+    }
 }

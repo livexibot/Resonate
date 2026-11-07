@@ -89,8 +89,9 @@ internal sealed class MixedList
     public static bool IsFile(TrackInfo song) => song.FilePath is not null;
 
     /// <summary>What plays next, as the Up next plugin shows it (not editable: the stretches are already with their players).</summary>
-    public UpNextList UpNextList() =>
-        new(Current, Upcoming, CanEdit: false) { Played = Order.Take(Index).ToList(), Mixed = true };
+    public UpNextList UpNextList() => Finished
+        ? new(Current, [], CanEdit: false) { Played = Order.Take(Index).ToList(), Mixed = true }
+        : new(Current, Upcoming, CanEdit: false) { Played = Order.Take(Index).ToList(), Mixed = true };
 
     /// <summary>Makes the stretch that holds <paramref name="index"/> the one that plays, from that song; returns what its player gets.</summary>
     public PlayRequest StartStretchAt(int index)

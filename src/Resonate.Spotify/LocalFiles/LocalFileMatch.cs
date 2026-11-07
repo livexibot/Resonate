@@ -38,7 +38,8 @@ public sealed class LocalFileMatch
 
     /// <summary>The best file for the song, or null when none is clearly it.</summary>
     /// <param name="artists">Spotify's artists, joined with ", " as lists show them.</param>
-    public LocalFile? Find(string title, string artists, string album, TimeSpan duration)
+    /// <param name="sameLength">Only files of the same length, when both lengths are known (to play it: a live or other version is not it).</param>
+    public LocalFile? Find(string title, string artists, string album, TimeSpan duration, bool sameLength = false)
     {
         if (!_byTitle.TryGetValue(Key(title), out var candidates))
         {
@@ -55,8 +56,13 @@ public sealed class LocalFileMatch
             have.UnionWith(Artists(file.AlbumArtist));
             var artist = wanted.Count > 0 && have.Overlaps(wanted);
             var sameAlbum = albumKey.Length > 0 && Key(file.Album) == albumKey;
-            var length = duration > TimeSpan.Zero && file.DurationMs > 0
-                && (file.Duration - duration).Duration() <= LengthSlack;
+            var known = duration > TimeSpan.Zero && file.DurationMs > 0;
+            var length = known && (file.Duration - duration).Duration() <= LengthSlack;
+            if (sameLength && known && !length)
+            {
+                continue;
+            }
+
             var unnamed = wanted.Count == 0 && have.Count == 0;
             if (!artist && !(sameAlbum && length) && !(unnamed && length))
             {

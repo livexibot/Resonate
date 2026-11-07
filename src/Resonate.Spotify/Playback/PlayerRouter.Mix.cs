@@ -43,14 +43,14 @@ public sealed partial class PlayerRouter
         }
     }
 
-    /// <summary>While a mixed list plays: the songs after the current one, from both players, in the order they play. Null otherwise.</summary>
+    /// <summary>While a mixed list plays: the songs after the current one, from both players, in the order they play (none once it ended). Null otherwise.</summary>
     public IReadOnlyList<TrackInfo>? MixedUpcoming
     {
         get
         {
             lock (_mixGate)
             {
-                return _mix is { Finished: false } mix ? mix.Upcoming : null;
+                return _mix is { } mix ? mix.Finished ? [] : mix.Upcoming : null;
             }
         }
     }
@@ -380,25 +380,32 @@ public sealed partial class PlayerRouter
         return StartStretchAsync(mix, next);
     }
 
-    /// <summary>Previous at the start of a stretch's first song: the stretch before, from its last song. Null to leave Previous to the player.</summary>
+    /// <summary>
+    /// Previous at the start of a stretch's first song (with no Next on its
+    /// way to the player): the stretch before, from its last song. Null to
+    /// leave Previous to the player.
+    /// </summary>
     private Task? PreviousInMix()
     {
-        var position = Active.State.PositionAt(_time.GetUtcNow());
+        var now = _time.GetUtcNow();
+        var position = Active.State.PositionAt(now);
         MixedList? mix;
         PlayRequest? previous;
         lock (_mixGate)
         {
             mix = _mix;
+            if (mix is { Finished: false } && now - mix.SkippedAt < PendingSkipTime && mix.PendingSkips > 0)
+            {
+                // A Next the player has not reported yet: Previous undoes it there.
+                mix.PendingSkips--;
+                return null;
+            }
+
             if (mix is not { Finished: false }
                 || !mix.AtStretchStart
                 || position > LocalFiles.LocalPlayer.RestartThreshold
                 || mix.PreviousStretch() is not { } before)
             {
-                if (mix is not null)
-                {
-                    mix.PendingSkips = 0;
-                }
-
                 return null;
             }
 

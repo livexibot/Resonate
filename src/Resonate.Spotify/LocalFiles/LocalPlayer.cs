@@ -517,7 +517,8 @@ public sealed partial class LocalPlayer : ILocalPlayer
             }
             else if (back)
             {
-                song = _queue.MovePrevious();
+                // A stretch of a longer list does not wrap round: the list before it is not its own.
+                song = _queue.MovePrevious(wrap: _handOver is null);
                 restart = ReferenceEquals(song, current);
                 playing = restart ? _state.IsPlaying : true;
             }
@@ -644,7 +645,9 @@ public sealed partial class LocalPlayer : ILocalPlayer
 
             _failures++;
             var count = _queue.List.Count + _queue.Queued.Count;
-            var following = _failures < Math.Min(count, 25) ? _queue.MoveNext(skipped: true) : null;
+            var following = _failures < Math.Min(count, 25) && !(_handOver is not null && _queue.AtLastSong)
+                ? _queue.MoveNext(skipped: true)
+                : null;
             if (following is null)
             {
                 SetState(_state with { IsPlaying = false, Position = TimeSpan.Zero, PositionTimestamp = _time.GetUtcNow() });
@@ -934,6 +937,9 @@ public sealed partial class LocalPlayer : ILocalPlayer
         Raise();
     }
 
+    /// <summary>Shows <see cref="ControlTarget"/>'s shuffle and repeat again in Windows' media controls.</summary>
+    public void RefreshControls() => UpdateControls();
+
     private void UpdateControls()
     {
         if (_controls is null || _disposed || Interlocked.Exchange(ref _controlsQueued, 1) == 1)
@@ -944,10 +950,15 @@ public sealed partial class LocalPlayer : ILocalPlayer
         _ = _side.Enqueue(async _ =>
         {
             Interlocked.Exchange(ref _controlsQueued, 0);
+
+            // Shuffle and repeat are the whole list's when this player plays part of a longer one.
+            var list = ControlTarget?.State;
             PlayerState? shown;
             lock (_gate)
             {
-                shown = _controlsEnabled && _queue.Current is not null ? _state : null;
+                shown = !_controlsEnabled || _queue.Current is null ? null
+                    : list is null ? _state
+                    : _state with { Shuffle = list.Shuffle, Repeat = list.Repeat };
             }
 
             try

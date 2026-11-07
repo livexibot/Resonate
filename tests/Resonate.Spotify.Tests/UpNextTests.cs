@@ -182,7 +182,7 @@ public sealed class UpNextTests : IDisposable
         var songs = Songs(6);
         await PlayAsync(songs);
         Assert.True(_player.MoveUpNext(new UpNextPick(3, songs[4]), 0));
-        _local.Commands.Clear();
+        _local.ClearCommands();
 
         await _player.NextAsync();
 
@@ -205,7 +205,7 @@ public sealed class UpNextTests : IDisposable
         _time.Advance(TimeSpan.FromSeconds(5));
         await AfterQueuedCommandsAsync();
         Assert.Single(_web.PlayBodies);
-        _local.Commands.Clear();
+        _local.ClearCommands();
 
         await _player.PlayAsync();
 
@@ -240,7 +240,7 @@ public sealed class UpNextTests : IDisposable
         await PlayAsync(songs);
         Assert.True(_player.ClearUpNext());
         Assert.Empty(_player.UpNext!.Upcoming);
-        _local.Commands.Clear();
+        _local.ClearCommands();
 
         Playing(songs[1]);
 

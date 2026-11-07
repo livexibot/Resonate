@@ -234,7 +234,11 @@ public sealed class MixedPlaylistTests : IDisposable
 
         Paused(list[1], seconds: 200);
         Assert.False(_router.State.IsPlaying);
-        Assert.Null(_router.MixedUpcoming);
+        Assert.Empty(_router.MixedUpcoming!);
+        var upNext = _router.UpNext!;
+        Assert.True(upNext.Mixed);
+        Assert.Empty(upNext.Upcoming);
+        Assert.Equal(["Demo 0"], Titles(upNext.Played));
         Assert.Single(_engine.Opened);
 
         await _router.PlayAsync();
@@ -621,6 +625,7 @@ public sealed class MixedPlaylistTests : IDisposable
         _spotify.Channel = ControlChannel.WebApi;
         await _spotify.StartAsync(TestContext.Current.CancellationToken);
         await _router.PlayAsync(new PlayRequest(list, 0, Playlist, "Mine") { Shuffle = false });
+        _web.Playback = OnTheWeb(list[0], 0);
         _time.Advance(TimeSpan.FromSeconds(10));
         _web.Playback = OnTheWeb(list[0], 10);
         await _spotify.RefreshFromWebApiAsync(TestContext.Current.CancellationToken);
@@ -667,6 +672,119 @@ public sealed class MixedPlaylistTests : IDisposable
         Assert.Equal(["spotify:track:0"], Assert.Single(_web.PlayBodies)!.Uris);
         Assert.Equal(["Demo 2", "Song 3"], Titles(_router.MixedUpcoming!));
         Assert.Empty(_errors);
+    }
+
+    [Fact]
+    public async Task Skipping_the_last_Spotify_song_after_a_pause_from_a_phone_starts_the_files()
+    {
+        var list = new List<TrackInfo> { Song(0), LocalSong(1) };
+        _finder.Add(list[1]);
+        await StartAsync();
+        await _router.PlayAsync(new PlayRequest(list, 0, Playlist, "Mine") { Shuffle = false });
+        _time.Advance(TimeSpan.FromSeconds(10));
+        Playing(list[0], seconds: 10);
+        _time.Advance(TimeSpan.FromSeconds(20));
+        Paused(list[0], seconds: 30);
+        _time.Advance(TimeSpan.FromSeconds(20));
+
+        // Next on the phone: Spotify went on with its autoplay.
+        _web.Playback = OnTheWeb(Song(500), 0.5);
+        var reads = _web.PlaybackStateReads;
+        Playing(Song(500));
+        await WaitUntil(() => _engine.Opened.Count == 1);
+
+        Assert.Equal(PlaybackSource.LocalFiles, _router.ActiveSource);
+        Assert.Equal("Demo 1", _router.State.Title);
+        Assert.Equal(1, _web.PlaybackStateReads - reads);
+    }
+
+    [Fact]
+    public async Task Skipping_the_last_Spotify_song_after_a_pause_in_Resonate_starts_the_files()
+    {
+        var list = new List<TrackInfo> { Song(0), Song(1), LocalSong(2) };
+        _finder.Add(list[2]);
+        await StartAsync();
+        await _router.PlayAsync(new PlayRequest(list, 0, Playlist, "Mine") { Shuffle = false });
+        _time.Advance(TimeSpan.FromSeconds(10));
+        Playing(list[0], seconds: 10);
+        _time.Advance(TimeSpan.FromSeconds(190));
+        Playing(list[1]);
+        _time.Advance(TimeSpan.FromSeconds(30));
+        await _router.PauseAsync();
+        Paused(list[1], seconds: 30);
+        _time.Advance(TimeSpan.FromSeconds(10));
+
+        // Next on the keyboard: Spotify (autoplay off) stops back on the first song.
+        Paused(list[0], seconds: 0);
+        await WaitUntil(() => _engine.Opened.Count == 1);
+
+        Assert.Equal(PlaybackSource.LocalFiles, _router.ActiveSource);
+        Assert.Equal("Demo 2", _router.State.Title);
+    }
+
+    [Fact]
+    public async Task Music_picked_in_the_Spotify_app_during_the_last_Spotify_song_lets_the_list_go()
+    {
+        var list = new List<TrackInfo> { Song(0), LocalSong(1) };
+        _finder.Add(list[1]);
+        await StartAsync();
+        await _router.PlayAsync(new PlayRequest(list, 0, Playlist, "Mine") { Shuffle = false });
+        _time.Advance(TimeSpan.FromSeconds(10));
+        Playing(list[0], seconds: 10);
+        _time.Advance(TimeSpan.FromSeconds(20));
+
+        _web.Playback = OnTheWeb(Song(700), 0.5, context: "spotify:album:other");
+        Playing(Song(700));
+        await WaitUntil(() => !_router.IsMixing);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        Assert.Empty(_engine.Opened);
+        Assert.Equal(PlaybackSource.Spotify, _router.ActiveSource);
+        Assert.DoesNotContain("pause", _channel.Commands);
+    }
+
+    [Fact]
+    public async Task Next_then_Previous_stays_with_the_Spotify_songs()
+    {
+        var list = new List<TrackInfo> { LocalSong(0), Song(1), Song(2), LocalSong(3) };
+        _finder.Add(list[0]);
+        _finder.Add(list[3]);
+        await StartAsync();
+        await _router.PlayAsync(new PlayRequest(list, 1, Playlist, "Mine") { Shuffle = false });
+        _time.Advance(TimeSpan.FromSeconds(10));
+        Playing(list[1], seconds: 0.5);
+
+        await _router.NextAsync();
+        await _router.PreviousAsync();
+
+        Assert.Equal(["next", "previous"], _channel.Commands.Where(c => c is "next" or "previous"));
+        Assert.Empty(_engine.Opened);
+        Assert.Single(_web.PlayBodies);
+        Assert.Equal(PlaybackSource.Spotify, _router.ActiveSource);
+    }
+
+    [Fact]
+    public async Task Repeat_and_shuffle_stay_when_a_newer_list_wins_over_one_looking_up_its_files()
+    {
+        var list = new List<TrackInfo> { LocalSong(0), Song(1) };
+        _finder.Add(list[0]);
+        await StartAsync();
+        await _router.SetRepeatAsync(RepeatMode.All);
+        await _router.PlayAsync(new PlayRequest(list, 0, Playlist, "Mine") { Shuffle = true });
+        await _files.WhenIdleAsync();
+        Assert.True(_router.IsMixing);
+
+        _finder.Gate = new TaskCompletionSource();
+        var first = _router.PlayAsync(new PlayRequest(list, 0, Playlist, "Mine again"));
+        var second = _router.PlayAsync(new PlayRequest([Song(5), Song(6)], 0, null, "Plain"));
+        _finder.Gate.SetResult();
+        await first;
+        await second;
+
+        Assert.False(_router.IsMixing);
+        Assert.Equal("Plain", _router.State.SourceName);
+        Assert.Equal(RepeatMode.All, _router.State.Repeat);
+        Assert.True(_router.State.Shuffle);
     }
 
     private static TrackInfo Song(int i) =>
