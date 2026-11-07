@@ -1774,7 +1774,11 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                 session.StoppedEarlierSince = null;
                 session.SteppedBackAt = null;
                 session.PreviousUnanswered = false;
-                session.RestartedMiddleAt = null;
+                if (located < 0 || located == last)
+                {
+                    // (A position report alone may be an old one from before the restart.)
+                    session.RestartedMiddleAt = null;
+                }
             }
 
             if (located == last && _state.IsPlaying)
