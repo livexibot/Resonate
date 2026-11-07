@@ -68,7 +68,7 @@ public sealed partial class MainWindow
     {
         var source = TrackListSource.For(item.Id, _services);
         var sort = TrackSort.Parse(_services.Settings.TrackSorts.GetValueOrDefault(item.Id));
-        if (sort.IsDefault && !(shuffle ?? _services.Player.Spotify.State.Shuffle))
+        if (sort.IsDefault && !(shuffle ?? _services.Player.State.Shuffle) && !HasLocalSongs(item.Id))
         {
             // In its own order Spotify plays the playlist itself: it starts at once, with nothing to load.
             NoteListPlayed(item.Id, item.Name);
@@ -97,6 +97,12 @@ public sealed partial class MainWindow
         NoteListPlayed(item.Id, item.Name);
         await _services.Player.PlayAsync(new PlayRequest(tracks, -1, ownOrder ? source.ContextUri : null, item.Name) { Shuffle = shuffle });
     }
+
+    /// <summary>Whether a playlist (as last loaded) holds songs from this computer that Local Files may have, so Resonate plays them itself.</summary>
+    private bool HasLocalSongs(string playlistId) =>
+        _services.LocalFiles.Folders.Count > 0
+        && _services.Library.PeekStoredPlaylistTracks(playlistId) is { } stored
+        && stored.Any(t => t.IsLocal);
 
     /// <summary>On any thread: the player changed; the sidebar and the window's name follow once.</summary>
     private void OnNowPlayingChanged(object? sender, EventArgs e)

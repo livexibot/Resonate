@@ -321,6 +321,9 @@ public sealed class AppServices : IDisposable
         }
 
         _ = local.SetVolumeAsync(Settings.LocalVolume);
+
+        // The media keys go through the player bar's player, so they cross over in a list mixed with Spotify's songs.
+        local.ControlTarget = Player;
         Player.StateChanged += (_, _) =>
         {
             var active = Player.ActiveSource == PlaybackSource.LocalFiles;

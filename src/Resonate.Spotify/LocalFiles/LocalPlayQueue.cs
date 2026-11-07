@@ -129,6 +129,14 @@ public sealed partial class LocalPlayQueue
     /// <summary>"Add to queue": plays after the current song and anything queued before it.</summary>
     public void AddToQueue(TrackInfo track) => _queued.Enqueue(track);
 
+    /// <summary>Takes out the songs added with "Add to queue" that have not played yet.</summary>
+    public IReadOnlyList<TrackInfo> TakeQueued()
+    {
+        var queued = _queued.ToList();
+        _queued.Clear();
+        return queued;
+    }
+
     /// <summary>
     /// Moves on to the next song and returns it, or null at the end of the
     /// list with repeat off. A song that ended by itself plays again with

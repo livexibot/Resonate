@@ -104,7 +104,8 @@ public sealed partial class MainWindow
         _services.SaveSettings();
 
         // The list only when it changed (a new song, a new order), not with every place in the song.
-        var kept = _services.Player.Spotify.KeepList();
+        // While a list mixed with Local Files plays, Spotify has only a stretch of it: none is kept.
+        var kept = _services.Player.IsMixing ? null : _services.Player.Spotify.KeepList();
         if (!KeptList.Same(kept, _keptSaved) || closing)
         {
             _keptSaved = kept;

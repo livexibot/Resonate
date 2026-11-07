@@ -25,6 +25,9 @@ public interface ILocalPlayer : IPlayer, IDisposable
     /// <summary>Adds a song after the ones queued so far.</summary>
     Task AddToQueueAsync(TrackInfo track);
 
+    /// <summary>Takes out the songs added with "Add to queue" that have not played yet (a mixed list plays them in its own order).</summary>
+    IReadOnlyList<TrackInfo> TakeQueued();
+
     /// <summary>The songs that play next, in order (the queue first, then the rest of the list).</summary>
     IReadOnlyList<TrackInfo> Upcoming { get; }
 
@@ -63,6 +66,8 @@ public sealed class NoLocalPlayer : ILocalPlayer
     public Task PlayAsync(PlayRequest request) => Task.CompletedTask;
 
     public Task AddToQueueAsync(TrackInfo track) => Task.CompletedTask;
+
+    public IReadOnlyList<TrackInfo> TakeQueued() => [];
 
     public void SetEqualizer(EqualizerSettings? settings)
     {

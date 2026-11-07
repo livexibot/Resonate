@@ -61,6 +61,8 @@ internal sealed class FakeLocalPlayer : ILocalPlayer
         return Task.CompletedTask;
     }
 
+    public IReadOnlyList<TrackInfo> TakeQueued() => [];
+
     public void SetEqualizer(EqualizerSettings? settings)
     {
     }

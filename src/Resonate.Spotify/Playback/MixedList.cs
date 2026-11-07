@@ -24,6 +24,7 @@ internal sealed class MixedList
     /// <param name="start">The song to start with, or -1 for the start (anywhere, when shuffled).</param>
     public MixedList(IReadOnlyList<TrackInfo> songs, int start, bool shuffle, RepeatMode repeat, string? sourceName, Func<int, int>? nextInt)
     {
+        songs = Distinct(songs);
         All = songs;
         Shuffle = shuffle;
         Repeat = repeat;
@@ -73,6 +74,12 @@ internal sealed class MixedList
     /// <summary>The last song played to its end with repeat off: the list waits at its start for Play.</summary>
     public bool Finished { get; private set; }
 
+    /// <summary>Next presses sent to the playing stretch's player that it has not reported yet (see <see cref="SkippedAt"/>).</summary>
+    public int PendingSkips { get; set; }
+
+    /// <summary>When the last of <see cref="PendingSkips"/> was sent.</summary>
+    public DateTimeOffset SkippedAt { get; set; }
+
     public TrackInfo Current => Order[Index];
 
     /// <summary>The songs after the current one, in the order they play.</summary>
@@ -89,7 +96,8 @@ internal sealed class MixedList
     public PlayRequest StartStretchAt(int index)
     {
         Finished = false;
-        Index = index;
+        MoveTo(index);
+        PendingSkips = 0;
         var file = IsFile(Order[index]);
         var start = index;
         while (start > 0 && IsFile(Order[start - 1]) == file)
@@ -105,7 +113,6 @@ internal sealed class MixedList
 
         StretchStart = start;
         StretchEnd = end;
-        _queueEnd = Math.Max(_queueEnd, Index + 1);
         StretchStarted = false;
         Stretch = new PlayRequest(Order.GetRange(start, end - start), index - start, ContextUri: null, SourceName)
         {
@@ -183,8 +190,9 @@ internal sealed class MixedList
             return false;
         }
 
-        Index = at;
-        _queueEnd = Math.Max(_queueEnd, Index + 1);
+        // The Next presses that got there are done.
+        PendingSkips = Math.Max(0, PendingSkips - Math.Max(0, at - Index));
+        MoveTo(at);
         return true;
     }
 
@@ -229,8 +237,9 @@ internal sealed class MixedList
     /// <summary>"Play next" (right after the current song) or "Add to queue" (after the songs queued before).</summary>
     public void Add(TrackInfo song, bool playNext)
     {
+        // Its own copy: the players find a stretch's first song by reference, and the list may hold this one already.
         var at = playNext ? Index + 1 : Math.Clamp(_queueEnd, Index + 1, Order.Count);
-        Order.Insert(at, song);
+        Order.Insert(at, song with { });
         _queueEnd = Math.Max(_queueEnd, Index + 1) + 1;
         StretchStart = Math.Min(StretchStart, Index);
         StretchEnd = Index + 1;
@@ -239,6 +248,8 @@ internal sealed class MixedList
     /// <summary>"Repeat all" or Play after the end: the whole list again, in a fresh random order when shuffled.</summary>
     private void NewPass()
     {
+        // Songs queued in the pass before have played (or are left behind with it).
+        _queueEnd = 0;
         if (!Shuffle)
         {
             Order = All.ToList();
@@ -254,6 +265,30 @@ internal sealed class MixedList
         }
 
         Order = pass;
+    }
+
+    /// <summary>
+    /// Makes <paramref name="index"/> the playing song. Going forward, the
+    /// songs queued after it stay queued; going back, they are no longer
+    /// told apart from the list (they play where they are).
+    /// </summary>
+    private void MoveTo(int index)
+    {
+        _queueEnd = index < Index ? index + 1 : Math.Max(_queueEnd, index + 1);
+        Index = index;
+    }
+
+    /// <summary>The list with every entry its own object (a list may hold the same song object twice).</summary>
+    private static List<TrackInfo> Distinct(IReadOnlyList<TrackInfo> songs)
+    {
+        var seen = new HashSet<TrackInfo>(ReferenceEqualityComparer.Instance);
+        var distinct = new List<TrackInfo>(songs.Count);
+        foreach (var song in songs)
+        {
+            distinct.Add(seen.Add(song) ? song : song with { });
+        }
+
+        return distinct;
     }
 
     /// <summary>The playing stretch's song that matches, from the current song on first (a list may hold a song twice); -1 for none.</summary>

@@ -125,6 +125,9 @@ internal sealed partial class ListSession
     /// <summary>Spotify was asked once what plays, after the last song should have ended without a word from it.</summary>
     public DateTimeOffset EndCheckedFor { get; set; }
 
+    /// <summary>The song outside the list Spotify was asked about (its autoplay after a skip, or music from elsewhere).</summary>
+    public string? OutsideAskedFor { get; set; }
+
     /// <summary>A song Spotify can be told to play by its address (not a file on the computer, not a file Resonate plays).</summary>
     public static bool CanStartByUri(TrackInfo track) =>
         track.IsPlayable

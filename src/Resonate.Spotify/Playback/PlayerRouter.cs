@@ -18,6 +18,9 @@ public sealed partial class PlayerRouter : IPlayer, IDisposable
     private readonly Func<int, int>? _nextInt;
     private IPlayer _active;
 
+    // Counts lists started, so a start that waited (for Local Files) gives way to a newer one.
+    private int _plays;
+
     /// <param name="time">The clock (tests pass their own).</param>
     /// <param name="nextInt">Random numbers for shuffling a mixed list, in [0, max) (tests pass their own).</param>
     public PlayerRouter(PlayerController spotify, ILocalPlayer? local = null, TimeProvider? time = null, Func<int, int>? nextInt = null)
@@ -69,6 +72,7 @@ public sealed partial class PlayerRouter : IPlayer, IDisposable
     public async Task PlayAsync(PlayRequest request)
     {
         ListStarting?.Invoke(this, request.SourceName);
+        var play = Interlocked.Increment(ref _plays);
         var shown = State;
         var ended = EndMix();
         if (ended is not null)
@@ -85,10 +89,20 @@ public sealed partial class PlayerRouter : IPlayer, IDisposable
             return;
         }
 
-        if (await PlanAsync(request).ConfigureAwait(false) is { } plan)
+        var plan = await PlanAsync(request).ConfigureAwait(false);
+        if (Volatile.Read(ref _plays) != play)
         {
+            // Something else was started while the files were looked up.
+            return;
+        }
+
+        if (plan is not null)
+        {
+            // The Spotify app plays a playlist's local songs itself, inside the playlist in its own
+            // order: when Local Files does not have them all, the app plays it as before.
             var shuffle = request.Shuffle ?? shown.Shuffle;
-            if (plan.HasFiles)
+            var appPlaysIt = plan.Missing > 0 && !shuffle && request.ContextUri is not null && Spotify.Channel == ControlChannel.Local;
+            if (plan.HasFiles && !appPlaysIt)
             {
                 if (plan.MissingPick is { } missing)
                 {
@@ -127,6 +141,7 @@ public sealed partial class PlayerRouter : IPlayer, IDisposable
     public Task PlayContextAsync(string contextUri)
     {
         ListStarting?.Invoke(this, null);
+        Interlocked.Increment(ref _plays);
         KeepRepeat(EndMix());
 
         Activate(Spotify);
@@ -214,7 +229,7 @@ public sealed partial class PlayerRouter : IPlayer, IDisposable
             // The other player started by itself: it takes over (and a mixed list is over).
             if (player.State.IsPlaying)
             {
-                EndMix();
+                KeepRepeat(EndMix());
                 Activate(player);
             }
 

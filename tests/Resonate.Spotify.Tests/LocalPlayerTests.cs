@@ -536,6 +536,58 @@ public sealed class LocalPlayerTests : IDisposable
         Assert.Empty(ended);
     }
 
+    [Fact]
+    public async Task A_list_that_hands_over_ends_at_its_last_song_even_with_repeat_on()
+    {
+        var ended = new List<PlayRequest>();
+        _player.ListEnded += (_, list) => ended.Add(list);
+        var request = new PlayRequest([SongA, SongB], 1, null, "Mix") { Shuffle = false, HandsOver = true };
+        await _player.PlayAsync(request);
+        await _player.SetRepeatAsync(RepeatMode.All);
+        await _player.WhenIdleAsync();
+        Assert.Null(_engine.Next);
+
+        _engine.PlayToEnd(SongB.FilePath!);
+        await _player.WhenIdleAsync();
+
+        Assert.Same(request, Assert.Single(ended));
+        Assert.False(_player.State.IsPlaying);
+    }
+
+    [Fact]
+    public async Task The_media_controls_drive_the_player_they_are_given()
+    {
+        var bar = new FakeLocalPlayer();
+        _player.ControlTarget = bar;
+        await Play(SongA);
+
+        _controls.Press(LocalControlButton.Next);
+        _controls.Press(LocalControlButton.Previous);
+        _controls.Shuffle(true);
+        _controls.Repeat(RepeatMode.All);
+        await _player.WhenIdleAsync();
+
+        Assert.Equal(["next", "previous", "shuffle on", "repeat context"], bar.Commands);
+        Assert.Equal("a", _player.State.Title);
+        Assert.False(_player.State.Shuffle);
+    }
+
+    [Fact]
+    public async Task Queued_songs_can_be_taken_out_for_another_list()
+    {
+        await Play(SongA);
+        await _player.AddToQueueAsync(SongC);
+        await _player.WhenIdleAsync();
+        Assert.Equal(SongC.FilePath, _engine.Next);
+
+        Assert.Equal(["c"], Titles(_player.TakeQueued()));
+        await _player.WhenIdleAsync();
+
+        Assert.Equal(["b", "c"], Titles(_player.Upcoming));
+        Assert.Equal(SongB.FilePath, _engine.Next);
+        Assert.Empty(_player.TakeQueued());
+    }
+
     private async Task Play(TrackInfo song)
     {
         await _player.PlayAsync(new PlayRequest(Album, Array.IndexOf(Album, song), null, "Local Files") { Shuffle = false });

@@ -78,6 +78,15 @@ public sealed partial class PlayerController : IUpNext
                 return false;
             }
 
+            if (session.HandOver is not null && _state.IsPlaying && session.Locate(_state.TrackUri, _state.Title) == session.Order.Count - 1)
+            {
+                // A list that hands over now ends with the song that plays: its end is the list's.
+                var now = _time.GetUtcNow();
+                var left = _state.Duration > TimeSpan.Zero ? _state.Duration - _state.PositionAt(now) : TimeSpan.Zero;
+                session.ReachedEnd = true;
+                session.LastSongEndsAt = now + left;
+            }
+
             delay = ScheduleUpNext();
         }
 

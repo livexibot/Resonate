@@ -13,6 +13,9 @@ namespace Resonate.Spotify.Playback;
 /// </summary>
 public sealed partial class PlayerRouter
 {
+    /// <summary>How long a Next sent to a stretch's player counts as on its way (Spotify says the new song within a second or two).</summary>
+    private static readonly TimeSpan PendingSkipTime = TimeSpan.FromSeconds(5);
+
     private readonly Lock _mixGate = new();
 
     // The mixed list that plays; null for none. Written under _mixGate.
@@ -24,6 +27,21 @@ public sealed partial class PlayerRouter
     /// inside their playlist).
     /// </summary>
     public ILocalSongFinder? LocalSongs { get; set; }
+
+    /// <summary>
+    /// Whether a mixed list plays (or waits at its end for Play): what Spotify
+    /// plays then is only a stretch of it, not a list to keep for next time.
+    /// </summary>
+    public bool IsMixing
+    {
+        get
+        {
+            lock (_mixGate)
+            {
+                return _mix is not null;
+            }
+        }
+    }
 
     /// <summary>While a mixed list plays: the songs after the current one, from both players, in the order they play. Null otherwise.</summary>
     public IReadOnlyList<TrackInfo>? MixedUpcoming
@@ -41,7 +59,8 @@ public sealed partial class PlayerRouter
     /// <param name="Songs">Songs Spotify can start and files (local songs with the file found), in the list's order.</param>
     /// <param name="Start">The picked song (or the next one that can play) in <paramref name="Songs"/>; -1 for none.</param>
     /// <param name="MissingPick">The picked song is a local song whose file was not found.</param>
-    private sealed record MixPlan(IReadOnlyList<TrackInfo> Songs, int Start, bool HasFiles, bool HasSpotifySongs, TrackInfo? MissingPick);
+    /// <param name="Missing">How many local songs have no file found.</param>
+    private sealed record MixPlan(IReadOnlyList<TrackInfo> Songs, int Start, bool HasFiles, bool HasSpotifySongs, TrackInfo? MissingPick, int Missing);
 
     /// <summary>
     /// Looks up the files of the request's local songs. Null when it has none
@@ -79,6 +98,7 @@ public sealed partial class PlayerRouter
         var hasFiles = false;
         var hasSpotify = false;
         TrackInfo? missing = null;
+        var missed = 0;
         for (var i = 0; i < tracks.Count; i++)
         {
             var track = tracks[i];
@@ -94,9 +114,13 @@ public sealed partial class PlayerRouter
                     // Keeps its spotify:local: address, so its row in the playlist shows it plays.
                     song = track with { FilePath = path };
                 }
-                else if (i == request.StartIndex)
+                else
                 {
-                    missing = track;
+                    missed++;
+                    if (i == request.StartIndex)
+                    {
+                        missing = track;
+                    }
                 }
             }
             else if (ListSession.CanStartByUri(track))
@@ -120,7 +144,7 @@ public sealed partial class PlayerRouter
             songs.Add(song);
         }
 
-        return new MixPlan(songs, start, hasFiles, hasSpotify, missing);
+        return new MixPlan(songs, start, hasFiles, hasSpotify, missing, missed);
     }
 
     /// <summary>What a mixed list shows over its players' own: its shuffle, repeat and name.</summary>
@@ -138,9 +162,16 @@ public sealed partial class PlayerRouter
 
     private Task StartMixAsync(MixedList mix)
     {
+        // Files queued before play after the first song, as Spotify's queue would.
+        var queued = _local.TakeQueued();
         PlayRequest stretch;
         lock (_mixGate)
         {
+            foreach (var song in queued)
+            {
+                mix.Add(song, playNext: false);
+            }
+
             _mix = mix;
             stretch = mix.StartStretchAt(mix.Index);
         }
@@ -156,6 +187,15 @@ public sealed partial class PlayerRouter
     /// </summary>
     private async Task StartStretchAsync(MixedList mix, PlayRequest stretch)
     {
+        lock (_mixGate)
+        {
+            if (!ReferenceEquals(_mix, mix) || !ReferenceEquals(mix.Stretch, stretch))
+            {
+                // Out of date: another list, or another stretch, started since.
+                return;
+            }
+        }
+
         IPlayer target = MixedList.IsFile(stretch.Tracks[0]) ? _local : Spotify;
         var previous = Active;
         if (previous != target && previous.State.IsPlaying)
@@ -204,11 +244,21 @@ public sealed partial class PlayerRouter
             }
 
             next = mix.NextStretch();
+            if (next is null && sender is IPlayer { State.IsPlaying: true })
+            {
+                // The end of the list, and Spotify went on with its autoplay: that is not the list's.
+                _mix = null;
+            }
         }
 
         if (next is null)
         {
             // The end of the list (repeat off): it waits, paused, for Play to start it again.
+            if (sender is IPlayer { State.IsPlaying: true })
+            {
+                KeepRepeat(mix);
+            }
+
             StateChanged?.Invoke(this, EventArgs.Empty);
             return;
         }
@@ -250,44 +300,77 @@ public sealed partial class PlayerRouter
 
     /// <summary>
     /// Follows the active player through the playing stretch. When Spotify no
-    /// longer plays the stretch it was given (music from elsewhere), the
-    /// mixed list is over.
+    /// longer plays the stretch it was given (music from elsewhere), or music
+    /// plays again after the list ended, the mixed list is over.
     /// </summary>
     private void FollowMix(IPlayer player)
     {
         var state = player.State;
+        MixedList? ended = null;
         lock (_mixGate)
         {
-            if (_mix is not { Finished: false, StretchStarted: true, Stretch: { } stretch } mix || !state.HasTrack)
+            if (_mix is not { } mix || !state.HasTrack)
             {
                 return;
             }
 
-            if (player == Spotify && MixedList.IsFile(stretch.Tracks[0]))
+            if (mix.Finished)
             {
-                return;
+                if (state.IsPlaying)
+                {
+                    // Started again outside Resonate (or something else plays): Play no longer restarts the list.
+                    ended = mix;
+                    _mix = null;
+                }
             }
-
-            if (player == Spotify && !Spotify.IsPlayingList(stretch))
+            else if (!mix.StretchStarted || mix.Stretch is not { } stretch || (player == Spotify && MixedList.IsFile(stretch.Tracks[0])))
             {
+                // What the player says is not about the stretch yet.
+            }
+            else if (player == Spotify && !Spotify.IsPlayingList(stretch))
+            {
+                ended = mix;
                 _mix = null;
-                return;
             }
-
-            mix.Follow(state.TrackUri, state.Title);
+            else
+            {
+                mix.Follow(state.TrackUri, state.Title);
+            }
         }
+
+        KeepRepeat(ended);
     }
 
-    /// <summary>Next on a stretch's last song: the next stretch, on the other player. Null to leave Next to the player.</summary>
+    /// <summary>
+    /// Next on a stretch's last song (counting Next presses its player has not
+    /// reported yet): the next stretch, on the other player. Null to leave Next
+    /// to the player.
+    /// </summary>
     private Task? NextInMix()
     {
+        var now = _time.GetUtcNow();
         MixedList? mix;
         PlayRequest? next;
         lock (_mixGate)
         {
             mix = _mix;
-            if (mix is not { Finished: false, AtStretchEnd: true, HasNextStretch: true } || mix.NextStretch() is not { } following)
+            if (mix is not { Finished: false })
             {
+                return null;
+            }
+
+            var pending = now - mix.SkippedAt < PendingSkipTime ? mix.PendingSkips : 0;
+            if (mix.Index + pending < mix.StretchEnd - 1)
+            {
+                // The player goes on within its stretch.
+                mix.PendingSkips = pending + 1;
+                mix.SkippedAt = now;
+                return null;
+            }
+
+            if (!mix.HasNextStretch || mix.NextStretch() is not { } following)
+            {
+                // The list's last song: its player ends it.
                 return null;
             }
 
@@ -311,6 +394,11 @@ public sealed partial class PlayerRouter
                 || position > LocalFiles.LocalPlayer.RestartThreshold
                 || mix.PreviousStretch() is not { } before)
             {
+                if (mix is not null)
+                {
+                    mix.PendingSkips = 0;
+                }
+
                 return null;
             }
 
