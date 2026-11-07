@@ -149,7 +149,7 @@ public sealed partial class PlayerRouter : IPlayer, IDisposable
     {
         ListStarting?.Invoke(this, null);
         Interlocked.Increment(ref _plays);
-        KeepRepeat(EndMix());
+        KeepRepeat(EndMix() ?? Interlocked.Exchange(ref _endedWaiting, null));
 
         Activate(Spotify);
         return Spotify.PlayContextAsync(contextUri);

@@ -125,7 +125,12 @@ internal sealed partial class ListSession
     /// <summary>Spotify was asked once what plays, after the last song should have ended without a word from it.</summary>
     public DateTimeOffset EndCheckedFor { get; set; }
 
-    /// <summary>The last song was paused partway (from a phone or a media key): stopping on it is not its end until it plays again.</summary>
+    /// <summary>
+    /// The last song was paused partway (in Resonate, from a phone or a media
+    /// key): stopping on it is not its end until it plays again, and when it
+    /// should end is no longer known, so only Spotify's answer can tell its
+    /// autoplay from music started elsewhere.
+    /// </summary>
     public bool PausedMidLast { get; set; }
 
     /// <summary>The song outside the list that plays before the list's end (its autoplay after a skip, or music from elsewhere), and since when.</summary>
@@ -134,8 +139,8 @@ internal sealed partial class ListSession
     /// <summary>When <see cref="OutsideTitle"/> was first seen.</summary>
     public DateTimeOffset OutsideSeenAt { get; set; }
 
-    /// <summary>Previous was pressed in Resonate since the music last played: stopping on an earlier song is that, not the end.</summary>
-    public bool SteppedBack { get; set; }
+    /// <summary>When Previous was last pressed in Resonate (cleared once the music plays): stopping on an earlier song shortly after is that, not the end.</summary>
+    public DateTimeOffset? SteppedBackAt { get; set; }
 
     /// <summary>A song Spotify can be told to play by its address (not a file on the computer, not a file Resonate plays).</summary>
     public static bool CanStartByUri(TrackInfo track) =>

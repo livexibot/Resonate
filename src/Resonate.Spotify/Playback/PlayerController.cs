@@ -943,7 +943,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         {
             if (_session is { HandOver: not null } session)
             {
-                session.SteppedBack = true;
+                session.SteppedBackAt = _time.GetUtcNow();
             }
         }
 
@@ -1722,7 +1722,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             {
                 // The music plays (again), whoever resumed it: a pause made before is over.
                 session.PausedByUser = false;
-                session.SteppedBack = false;
+                session.SteppedBackAt = null;
             }
 
             var located = session.Locate(_state.TrackUri, _state.Title);
@@ -1785,9 +1785,10 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                         ended = handOver;
                         ask = false;
                     }
-                    else if (!ask)
+                    else if (!ask && session.LastSongEndsAt - HandOverEndWindow > now)
                     {
                         // Spotify's answer did not tell: looked at again when the last song should end.
+                        // (After a pause on it that time is not known: Spotify's next answer tells.)
                         check = session.LastSongEndsAt - HandOverEndWindow - now;
                     }
                 }
@@ -1802,7 +1803,8 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             {
                 // Back on the list's first song: Spotify stopped after the last
                 // one (played to its end, or skipped).
-                if (position <= HandOverBoundary && (located == session.WindowStart || located == 0) && !session.SteppedBack)
+                var steppedBack = session.SteppedBackAt is { } at && now - at <= TrackHold;
+                if (position <= HandOverBoundary && (located == session.WindowStart || located == 0) && !steppedBack)
                 {
                     ended = handOver;
                 }
@@ -1810,6 +1812,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             else if (session.PausedByUser || session.PausedMidLast)
             {
                 // Paused on the last song: not the end, whatever Spotify shows.
+                session.PausedMidLast = true;
             }
             else if (known && position >= _state.Duration - HandOverBoundary)
             {
