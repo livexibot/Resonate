@@ -1375,6 +1375,50 @@ public sealed class MixedPlaylistTests : IDisposable
         Assert.Equal("Demo 3", _router.State.Title);
     }
 
+    [Fact]
+    public async Task A_Previous_on_the_keyboard_soon_after_Previous_restarted_a_middle_Spotify_song_is_not_the_end()
+    {
+        var list = await PausedBackOnTheMiddleSongAsync();
+        Paused(list[1], seconds: 60);
+        _time.Advance(TimeSpan.FromSeconds(1));
+        await _router.PreviousAsync();
+        _time.Advance(TimeSpan.FromSeconds(0.5));
+        Paused(list[1], seconds: 0);
+
+        // Previous on the keyboard (straight to Spotify): back to the first song.
+        _time.Advance(TimeSpan.FromSeconds(2));
+        Paused(list[0], seconds: 0);
+        _time.Advance(TimeSpan.FromSeconds(30));
+        Paused(list[0], seconds: 0);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        Assert.Empty(_engine.Opened);
+        Assert.Equal(PlaybackSource.Spotify, _router.ActiveSource);
+    }
+
+    [Fact]
+    public async Task Previous_twice_on_a_middle_Spotify_song_with_a_stale_position_is_not_the_end()
+    {
+        var list = await PausedBackOnTheMiddleSongAsync();
+        Paused(list[1], seconds: 60);
+        _time.Advance(TimeSpan.FromSeconds(1));
+        await _router.PreviousAsync();
+        _time.Advance(TimeSpan.FromSeconds(0.5));
+        Paused(list[1], seconds: 0);
+
+        // A late report still shows the old position; Previous again goes back to the first song.
+        _time.Advance(TimeSpan.FromSeconds(3));
+        Paused(list[1], seconds: 60);
+        _time.Advance(TimeSpan.FromSeconds(1));
+        await _router.PreviousAsync();
+        _time.Advance(TimeSpan.FromSeconds(0.5));
+        Paused(list[0], seconds: 0);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        Assert.Empty(_engine.Opened);
+        Assert.Equal(PlaybackSource.Spotify, _router.ActiveSource);
+    }
+
     /// <summary>As <see cref="PausedOnTheLastOfThreeSpotifySongsAsync"/>, with a Spotify app that shows no timeline (so the Web API's answers are taken).</summary>
     private async Task<List<TrackInfo>> PausedOnTheLastOfThreeSpotifySongsWithoutATimelineAsync()
     {

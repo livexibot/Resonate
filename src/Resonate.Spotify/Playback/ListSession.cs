@@ -145,6 +145,9 @@ internal sealed partial class ListSession
     /// <summary>A Previous pressed in Resonate (not on the first song) that no stop on an earlier song has answered yet.</summary>
     public bool PreviousUnanswered { get; set; }
 
+    /// <summary>When Previous in Resonate last started a middle song again (cleared once the music plays, or once Spotify shows the first song).</summary>
+    public DateTimeOffset? RestartedMiddleAt { get; set; }
+
     /// <summary>Since when Spotify shows the list stopped at the start of an earlier song (null otherwise): what that stop means is judged once, when it began.</summary>
     public DateTimeOffset? StoppedEarlierSince { get; set; }
 

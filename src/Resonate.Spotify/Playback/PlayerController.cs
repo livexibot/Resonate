@@ -958,6 +958,12 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                     session.SteppedBackAt = now;
                     session.PreviousUnanswered |= !first;
                 }
+                else if (at >= 0 && at != session.Order.Count - 1)
+                {
+                    // A middle song started again: Spotify going on to the first song soon after (a Previous
+                    // on the keyboard or a phone) is stepping back too.
+                    session.RestartedMiddleAt = now;
+                }
             }
         }
 
@@ -1755,6 +1761,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                 session.PausedByUser = false;
                 session.SteppedBackAt = null;
                 session.PreviousUnanswered = false;
+                session.RestartedMiddleAt = null;
             }
 
             var located = session.Locate(_state.TrackUri, _state.Title);
@@ -1767,6 +1774,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                 session.StoppedEarlierSince = null;
                 session.SteppedBackAt = null;
                 session.PreviousUnanswered = false;
+                session.RestartedMiddleAt = null;
             }
 
             if (located == last && _state.IsPlaying)
@@ -1859,6 +1867,17 @@ public sealed partial class PlayerController : IPlayer, IDisposable
 
                     session.PreviousUnanswered = false;
                     session.StoppedEarlierSince = stoppedSince;
+                }
+
+                if (session.RestartedMiddleAt is { } restarted && (located == session.WindowStart || located == 0))
+                {
+                    // Judged once, when Spotify first shows the first song after it.
+                    if (now - restarted <= TrackHold)
+                    {
+                        session.SteppedBackAt = stoppedSince;
+                    }
+
+                    session.RestartedMiddleAt = null;
                 }
 
                 var steppedBack = session.SteppedBackAt is { } at && stoppedSince - at <= TrackHold;
