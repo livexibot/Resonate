@@ -347,6 +347,80 @@ internal sealed class FakeWebApi : ISpotifyWebApi
     public Task<Page<SimplifiedAlbum>> GetArtistAlbumsAsync(string artistId, int offset, int limit, CancellationToken cancellationToken) =>
         Task.FromResult(Paged(ArtistAlbums.ToList<SimplifiedAlbum?>(), offset, limit));
 
+    /// <summary>Each artist's releases (any order): served as Spotify lists them, albums first, then singles, each newest first.</summary>
+    public Dictionary<string, List<SimplifiedAlbum>> ReleasesOf { get; } = [];
+
+    /// <summary>"artist groups" of each request for an artist's releases, in order.</summary>
+    public List<string> ReleaseRequests { get; } = [];
+
+    /// <summary>Thrown when the releases of that artist are asked for.</summary>
+    public Dictionary<string, Exception> ReleaseFailures { get; } = [];
+
+    public Task<Page<SimplifiedAlbum>> GetArtistReleasesAsync(string artistId, ReleaseGroups groups, int offset, int limit, CancellationToken cancellationToken)
+    {
+        ReleaseRequests.Add($"{artistId} {groups}");
+        if (ReleaseFailures.TryGetValue(artistId, out var failure))
+        {
+            return Task.FromException<Page<SimplifiedAlbum>>(failure);
+        }
+
+        if (limit > SpotifyWebApi.MaxArtistAlbumsLimit)
+        {
+            return Task.FromException<Page<SimplifiedAlbum>>(new SpotifyApiException(System.Net.HttpStatusCode.BadRequest, null, "Invalid limit"));
+        }
+
+        static int Group(SimplifiedAlbum album) => album.AlbumType switch
+        {
+            "album" => 0,
+            "single" => 1,
+            _ => 2,
+        };
+
+        bool Wanted(SimplifiedAlbum album) => album.AlbumType switch
+        {
+            "album" => groups.HasFlag(ReleaseGroups.Albums),
+            "single" => groups.HasFlag(ReleaseGroups.Singles),
+            _ => groups.HasFlag(ReleaseGroups.Compilations),
+        };
+
+        var listed = ReleasesOf.GetValueOrDefault(artistId, [])
+            .Where(Wanted)
+            .OrderBy(Group)
+            .ThenByDescending(a => a.ReleaseDate, StringComparer.Ordinal)
+            .ToList<SimplifiedAlbum?>();
+        return Task.FromResult(Paged(listed, offset, limit));
+    }
+
+    /// <summary>The artists the user follows, in Spotify's order.</summary>
+    public List<Artist> Followed { get; } = [];
+
+    /// <summary>The cursor of each request for the followed artists ("" for the first page), in order.</summary>
+    public List<string> FollowedRequests { get; } = [];
+
+    /// <summary>Thrown by every request for the followed artists while set.</summary>
+    public Exception? FollowedFailure { get; set; }
+
+    public Task<CursorPage<Artist>> GetFollowedArtistsAsync(string? after, int limit, CancellationToken cancellationToken)
+    {
+        FollowedRequests.Add(after ?? string.Empty);
+        if (FollowedFailure is { } failure)
+        {
+            return Task.FromException<CursorPage<Artist>>(failure);
+        }
+
+        var start = after is null ? 0 : Followed.FindIndex(a => a.Id == after) + 1;
+        var items = Followed.Skip(start).Take(limit).ToList<Artist?>();
+        var more = start + items.Count < Followed.Count;
+        return Task.FromResult(new CursorPage<Artist>
+        {
+            Items = items,
+            Limit = limit,
+            Total = Followed.Count,
+            Next = more ? "next" : null,
+            Cursors = new PageCursors { After = more ? items[^1]!.Id : null },
+        });
+    }
+
     private static DateTimeOffset TimeOf(PlayHistoryItem item) =>
         DateTimeOffset.Parse(item.PlayedAt!, System.Globalization.CultureInfo.InvariantCulture);
 

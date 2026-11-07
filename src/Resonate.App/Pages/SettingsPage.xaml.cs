@@ -332,20 +332,8 @@ public sealed partial class SettingsPage : Page
 
     private void OnSignOutClick(object sender, RoutedEventArgs e)
     {
-        _services.Account.SignOut();
-
         // The next account to sign in must not see this one's playlists, songs or listening.
-        _services.Library.Forget();
-        _services.Likes.Forget();
-        _services.Home.Forget();
-        _services.Settings.LastPlayed = null;
-        _services.SaveSettings();
-        _services.KeptList.SaveSoon(null);
-        if (_services.Covers.Store is { } covers)
-        {
-            _ = Task.Run(covers.Clear);
-        }
-
+        _services.ForgetAccount();
         App.MainWindow?.ShowSignIn();
     }
 

@@ -68,6 +68,13 @@ public static class DemoCatalog
 
     public static IReadOnlyList<string> AllArtists => Artists;
 
+    /// <summary>A made-up title for a demo artist's release ("Electric Tides").</summary>
+    public static string ReleaseTitle(int artistIndex, int release)
+    {
+        var seed = StableHash($"{artistIndex}:{release}");
+        return $"{Words[seed % Words.Length]} {Nouns[(seed / 7) % Nouns.Length]}";
+    }
+
     /// <summary>The songs of the demo listener's favourite artist (the most played on Home).</summary>
     public static IReadOnlyList<PlayableItem> FavouriteSongs()
     {
@@ -445,6 +452,85 @@ public sealed class DemoWebApi : ISpotifyWebApi
             .ToList();
         var next = offset + albums.Count < all.Count ? "demo:next" : null;
         return Task.FromResult(new Page<SimplifiedAlbum> { Items = albums, Total = all.Count, Offset = offset, Limit = limit, Next = next });
+    }
+
+    /// <summary>
+    /// The demo artist's releases: a single some days ago, and for every
+    /// other artist an album a few weeks ago (so New releases on Home has a
+    /// row), then their older albums. Albums first, then singles, as Spotify lists them.
+    /// </summary>
+    public Task<Page<SimplifiedAlbum>> GetArtistReleasesAsync(string artistId, ReleaseGroups groups, int offset, int limit, CancellationToken cancellationToken)
+    {
+        if (limit > SpotifyWebApi.MaxArtistAlbumsLimit)
+        {
+            return Task.FromException<Page<SimplifiedAlbum>>(new SpotifyApiException(System.Net.HttpStatusCode.BadRequest, null, "Invalid limit"));
+        }
+
+        var index = DemoCatalog.AllArtists.ToList().FindIndex(a => DemoCatalog.ArtistId(a) == artistId);
+        var name = index >= 0 ? DemoCatalog.AllArtists[index] : "Demo artist";
+        var artists = new List<SimplifiedArtist> { new() { Name = name, Id = artistId, Uri = $"demo:artist:{artistId}" } };
+        var today = DateOnly.FromDateTime(_historyEnd.LocalDateTime);
+        SimplifiedAlbum Release(string title, string type, int daysAgo, int tracks)
+        {
+            var id = DemoCatalog.AlbumId($"{name} {title}");
+            return new SimplifiedAlbum
+            {
+                Id = id,
+                Name = title,
+                Uri = $"demo:album:{id}",
+                AlbumType = type,
+                Artists = artists,
+                TotalTracks = tracks,
+                ReleaseDate = today.AddDays(-daysAgo).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+            };
+        }
+
+        var albums = new List<SimplifiedAlbum>();
+        var singles = new List<SimplifiedAlbum>();
+        if (index >= 0)
+        {
+            singles.Add(Release(DemoCatalog.ReleaseTitle(index, 0), "single", (index * 4) + 1, index % 3 == 2 ? 5 : 1));
+            if (index % 2 == 0)
+            {
+                albums.Add(Release(DemoCatalog.ReleaseTitle(index, 1), "album", (index * 5) + 9, 11));
+            }
+
+            albums.Add(Release(DemoCatalog.ReleaseTitle(index, 2), "album", 400 + (index * 30), 10));
+        }
+
+        var all = new List<SimplifiedAlbum>();
+        if (groups.HasFlag(ReleaseGroups.Albums))
+        {
+            all.AddRange(albums);
+        }
+
+        if (groups.HasFlag(ReleaseGroups.Singles))
+        {
+            all.AddRange(singles);
+        }
+
+        var page = all.Skip(offset).Take(limit).ToList<SimplifiedAlbum?>();
+        var next = offset + page.Count < all.Count ? "demo:next" : null;
+        return Task.FromResult(new Page<SimplifiedAlbum> { Items = page, Total = all.Count, Offset = offset, Limit = limit, Next = next });
+    }
+
+    /// <summary>Every demo artist, followed.</summary>
+    public Task<CursorPage<Artist>> GetFollowedArtistsAsync(string? after, int limit, CancellationToken cancellationToken)
+    {
+        var all = DemoCatalog.AllArtists
+            .Select(a => new Artist { Id = DemoCatalog.ArtistId(a), Name = a, Uri = $"demo:artist:{DemoCatalog.ArtistId(a)}" })
+            .ToList();
+        var start = after is null ? 0 : all.FindIndex(a => a.Id == after) + 1;
+        var items = all.Skip(start).Take(limit).ToList();
+        var more = start + items.Count < all.Count;
+        return Task.FromResult(new CursorPage<Artist>
+        {
+            Items = items.ToList<Artist?>(),
+            Limit = limit,
+            Total = all.Count,
+            Next = more ? "demo:next" : null,
+            Cursors = new PageCursors { After = more ? items[^1].Id : null },
+        });
     }
 }
 

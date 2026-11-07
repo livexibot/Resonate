@@ -26,6 +26,7 @@ internal enum HomeSection
 {
     Overview,
     Mixes,
+    NewReleases,
     Top,
     Recent,
 }
@@ -33,7 +34,8 @@ internal enum HomeSection
 /// <summary>
 /// Home: a greeting with what plays on a wash of its cover's colours,
 /// listening stats for the past day and week with a chart of each, the daily
-/// mixes, Spotify's own top artists and songs, and the songs played lately.
+/// mixes, new releases from the followed artists, Spotify's own top artists
+/// and songs, and the songs played lately.
 /// What is stored shows at once; Spotify is asked for what is new in the
 /// background. Nothing on the page moves by itself once it has settled
 /// (idle use is measured here), apart from the cards rising under the pointer.
@@ -181,6 +183,7 @@ public sealed partial class HomePage : Page
         _coverSizeShown = AppScale.Nearest(_services.Settings.CoverSize, AppScale.CoverSizes);
         TrackColumns.OptionsChanged += OnCoverOptionsChanged;
         OnStageNavigatedTo();
+        OnNewReleasesNavigatedTo();
         OnRediscoverNavigatedTo();
         _ = LoadAsync();
     }
@@ -193,6 +196,7 @@ public sealed partial class HomePage : Page
         _services.Theme.Changed -= OnThemeChanged;
         TrackColumns.OptionsChanged -= OnCoverOptionsChanged;
         OnStageNavigatedFrom();
+        OnNewReleasesNavigatedFrom();
         OnRediscoverNavigatedFrom();
         _leaving.Cancel();
     }
@@ -225,12 +229,18 @@ public sealed partial class HomePage : Page
 
     partial void OnRediscoverNavigatedFrom();
 
+    // New releases from the followed artists, in HomePage.NewReleases.cs.
+    partial void OnNewReleasesNavigatedTo();
+
+    partial void OnNewReleasesNavigatedFrom();
+
     /// <summary>For the screenshot tour: scrolls <paramref name="section"/> to the top of the page at once.</summary>
     internal void ScrollTo(HomeSection section)
     {
         FrameworkElement target = section switch
         {
             HomeSection.Mixes => MixesSection,
+            HomeSection.NewReleases => NewReleasesSection,
             HomeSection.Top => TopSection,
             HomeSection.Recent => RecentSection,
             _ => Overview,

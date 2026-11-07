@@ -316,6 +316,62 @@
             </controls:HoverLift>
         </DataTemplate>
 
+        <!--
+          New releases (HomePage.NewReleases.cs), like the other rows' cards: the
+          cover, the release, its artists, and what it is and when it came out.
+          A click opens it; the play button under the pointer plays it.
+        -->
+        <DataTemplate x:Key="NewReleaseCardTemplate" x:DataType="vm:NewReleaseTile">
+            <controls:HoverLift
+                Width="176"
+                Padding="0,0,0,10"
+                ToolTipService.ToolTip="{x:Bind Tooltip}">
+                <StackPanel Spacing="2">
+                    <Grid
+                        Width="176"
+                        Height="176"
+                        Margin="0,0,0,8"
+                        Background="{x:Bind Cover.Background, Mode=OneWay}"
+                        CornerRadius="{ThemeResource ResonateCornerLarge}">
+                        <Image Source="{x:Bind Cover.Image}" Stretch="UniformToFill" />
+                    </Grid>
+                    <TextBlock
+                        FontWeight="SemiBold"
+                        MaxLines="1"
+                        Style="{StaticResource ResonateBodyTextStyle}"
+                        Text="{x:Bind Title}"
+                        TextWrapping="NoWrap" />
+                    <TextBlock
+                        MaxLines="1"
+                        Style="{StaticResource ResonateSecondaryTextStyle}"
+                        Text="{x:Bind Subtitle}"
+                        TextWrapping="NoWrap" />
+                    <TextBlock
+                        MaxLines="1"
+                        Style="{StaticResource ResonateCaptionTextStyle}"
+                        Text="{x:Bind Caption}"
+                        TextWrapping="NoWrap" />
+                </StackPanel>
+                <controls:HoverReveal
+                    Margin="0,126,10,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top">
+                    <Button
+                        Width="40"
+                        Height="40"
+                        Padding="0"
+                        AutomationProperties.Name="{x:Bind PlayName}"
+                        Click="{x:Bind Play}"
+                        Content="&#xF5B0;"
+                        CornerRadius="{ThemeResource ResonatePlayButtonCorner}"
+                        FontFamily="{StaticResource ResonateIconFont}"
+                        FontSize="16"
+                        Style="{StaticResource ResonateAccentButtonStyle}"
+                        ToolTipService.ToolTip="Play" />
+                </controls:HoverReveal>
+            </controls:HoverLift>
+        </DataTemplate>
+
         <!-- One of the top artists on Spotify: a round portrait (initials until it loads) with its rank. A click opens the artist. -->
         <DataTemplate x:Key="TopArtistTemplate" x:DataType="vm:TopArtistRow">
             <controls:HoverLift Width="112" Padding="4,0,4,10">
@@ -674,6 +730,54 @@
                         ItemClick="OnMixClick"
                         ItemTemplate="{StaticResource MixCardTemplate}"
                         ItemsSource="{x:Bind Mixes}"
+                        SelectionMode="None" />
+                </StackPanel>
+
+                <!--
+                  New releases from the artists the user follows (HomePage.NewReleases.cs):
+                  shown while there are some, or with Sign in again while the sign-in
+                  predates the permission to read the followed artists.
+                -->
+                <StackPanel
+                    x:Name="NewReleasesSection"
+                    Spacing="12"
+                    Visibility="Collapsed">
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            Style="{StaticResource ResonateSectionTextStyle}"
+                            Text="New releases" />
+                        <Button
+                            x:Name="NewReleasesSignInButton"
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Click="OnNewReleasesSignInClick"
+                            Content="Sign in again"
+                            Style="{StaticResource ResonateAccentButtonStyle}"
+                            ToolTipService.ToolTip="Lets Resonate see the artists you follow"
+                            Visibility="Collapsed" />
+                        <Button
+                            x:Name="NewReleasesMoreButton"
+                            Grid.Column="2"
+                            VerticalAlignment="Center"
+                            Click="OnNewReleasesMoreClick"
+                            Content="Show all"
+                            Style="{StaticResource ResonateSubtleButtonStyle}"
+                            Visibility="Collapsed" />
+                    </Grid>
+                    <GridView
+                        x:Name="NewReleasesGrid"
+                        Margin="-4,0,0,0"
+                        Padding="4,6,0,0"
+                        IsItemClickEnabled="True"
+                        ItemClick="OnNewReleaseClick"
+                        ItemTemplate="{StaticResource NewReleaseCardTemplate}"
+                        ItemsSource="{x:Bind NewReleaseCards}"
                         SelectionMode="None" />
                 </StackPanel>
 

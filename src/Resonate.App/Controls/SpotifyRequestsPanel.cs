@@ -106,6 +106,7 @@ internal sealed partial class SpotifyRequestsPanel : StackPanel
         RequestKind.Search => "Search",
         RequestKind.AlbumsAndArtists => "Albums and artists",
         RequestKind.YourTop => "Your top",
+        RequestKind.NewReleases => "New releases",
         _ => "Account",
     };
 }
