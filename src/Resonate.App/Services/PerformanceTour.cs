@@ -82,6 +82,7 @@ internal sealed partial class PerformanceTour
         ("Daily mix", DailyMixSource.KeyFor(1)),
         ("Local Files", MainWindow.LocalFilesKey),
         ("DJ", MainWindow.DjKey),
+        ("Calendar", MainWindow.CalendarKey),
         ("Search", MainWindow.SearchKey),
         ("Home", MainWindow.HomeKey),
     ];

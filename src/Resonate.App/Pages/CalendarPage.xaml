@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Resonate.App.Pages.CalendarPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="{StaticResource ResonateTransparentBrush}">
+
+    <Page.Resources>
+        <!-- A day: its cover fills the button, which only adds focus and clicks. -->
+        <Style x:Key="CalendarDayStyle" TargetType="Button">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="UseSystemFocusVisuals" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"
+                            Content="{TemplateBinding Content}" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Page.Resources>
+
+    <!--
+      The listening calendar (ListeningCalendar): each day of the month shows
+      the cover of the song played most that day, brighter the longer it
+      was listened to; a day opens its sessions on a strip of the 24 hours,
+      each of which plays again. Built in code.
+    -->
+    <ScrollViewer>
+        <StackPanel Padding="{StaticResource ResonatePagePadding}" Spacing="16">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+                <TextBlock
+                    x:Name="MonthText"
+                    Margin="0,0,12,0"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource ResonateDisplayTextStyle}" />
+                <Button
+                    x:Name="PreviousButton"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="Previous month"
+                    Click="OnPreviousClick"
+                    Content="&#xE76B;"
+                    Style="{StaticResource ResonateIconButtonStyle}"
+                    ToolTipService.ToolTip="Previous month" />
+                <Button
+                    x:Name="NextButton"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="Next month"
+                    Click="OnNextClick"
+                    Content="&#xE76C;"
+                    Style="{StaticResource ResonateIconButtonStyle}"
+                    ToolTipService.ToolTip="Next month" />
+            </StackPanel>
+
+            <!-- The weekday names and the month's weeks (built in code). -->
+            <Grid x:Name="WeekdayRow" ColumnSpacing="8" />
+            <Grid
+                x:Name="MonthGrid"
+                ColumnSpacing="8"
+                RowSpacing="8"
+                SizeChanged="OnMonthGridSizeChanged" />
+
+            <!-- The chosen day: its sessions on the 24 hours (built in code). -->
+            <Border
+                x:Name="DayPanel"
+                Padding="20,16,20,14"
+                Background="{StaticResource ResonateControlBrush}"
+                CornerRadius="{ThemeResource ResonateCornerLarge}"
+                Visibility="Collapsed">
+                <StackPanel Spacing="10">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            x:Name="DayTitle"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource ResonateSectionTextStyle}" />
+                        <TextBlock
+                            x:Name="DaySummary"
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource ResonateSecondaryTextStyle}" />
+                        <Button
+                            x:Name="PlayDayButton"
+                            Grid.Column="2"
+                            Click="OnPlayDayClick"
+                            Style="{StaticResource ResonateSubtleButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon
+                                    FontFamily="{StaticResource ResonateIconFont}"
+                                    FontSize="12"
+                                    Glyph="&#xE768;" />
+                                <TextBlock Text="Play day" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                    <Grid x:Name="Strip" Height="48">
+                        <Border
+                            Height="2"
+                            VerticalAlignment="Center"
+                            Background="{StaticResource ResonateBorderBrush}"
+                            CornerRadius="1" />
+                    </Grid>
+                    <Grid x:Name="HourRow">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Style="{StaticResource ResonateCaptionTextStyle}" Text="00:00" />
+                        <TextBlock
+                            Grid.Column="1"
+                            Style="{StaticResource ResonateCaptionTextStyle}"
+                            Text="06:00" />
+                        <TextBlock
+                            Grid.Column="2"
+                            Style="{StaticResource ResonateCaptionTextStyle}"
+                            Text="12:00" />
+                        <TextBlock
+                            Grid.Column="3"
+                            Style="{StaticResource ResonateCaptionTextStyle}"
+                            Text="18:00" />
+                        <TextBlock
+                            Grid.Column="3"
+                            HorizontalAlignment="Right"
+                            Style="{StaticResource ResonateCaptionTextStyle}"
+                            Text="24:00" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Room for a player hovering over the page (see IPlayerInset). -->
+            <Border x:Name="PlayerSpace" Height="0" />
+        </StackPanel>
+    </ScrollViewer>
+</Page>

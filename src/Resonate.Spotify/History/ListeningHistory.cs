@@ -58,6 +58,9 @@ public sealed class ListeningHistory : IDisposable
     /// <summary>Raised on any thread when plays were added (or the history was cleared).</summary>
     public event EventHandler? Changed;
 
+    /// <summary>Raised on any thread when every play was forgotten (signing out), before <see cref="Changed"/>.</summary>
+    public event EventHandler? Cleared;
+
     /// <summary>Every known play, newest first. Empty until <see cref="Load"/> ran.</summary>
     public IReadOnlyList<PlayRecord> Plays => Volatile.Read(ref _plays);
 
@@ -146,6 +149,7 @@ public sealed class ListeningHistory : IDisposable
             Delete();
         }
 
+        Cleared?.Invoke(this, EventArgs.Empty);
         Changed?.Invoke(this, EventArgs.Empty);
     }
 

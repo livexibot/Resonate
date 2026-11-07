@@ -46,4 +46,5 @@ namespace Resonate.Spotify.WebApi;
 [JsonSerializable(typeof(KeptList))]
 [JsonSerializable(typeof(HistoryFile))]
 [JsonSerializable(typeof(HomeContent))]
+[JsonSerializable(typeof(CalendarFile))]
 internal sealed partial class SpotifyJsonContext : JsonSerializerContext;

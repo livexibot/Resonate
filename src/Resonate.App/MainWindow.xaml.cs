@@ -32,6 +32,7 @@ public sealed partial class MainWindow : Window
     public const string LikedSongsKey = LikedSongsSource.ListKey;
     public const string LocalFilesKey = "local";
     public const string DjKey = "dj";
+    public const string CalendarKey = "calendar";
     public const string SettingsKey = "settings";
     public const string ArtistPrefix = "artist:";
 
@@ -182,6 +183,7 @@ public sealed partial class MainWindow : Window
         new(LikedSongsKey, "\uEB51", "Liked Songs"),
         new(LocalFilesKey, "\uE8B7", "Local Files"),
         new(DjKey, "\uE7F6", "DJ"),
+        new(CalendarKey, "\uE787", "Calendar"),
     ];
 
     public ObservableCollection<PlaylistNavItem> Playlists { get; } = [];
@@ -555,7 +557,7 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Opens a page by its key: "home", "search", "liked", "local", "dj",
+    /// Opens a page by its key: "home", "search", "liked", "local", "dj", "calendar",
     /// "settings", "album:&lt;id&gt;", "artist:&lt;id&gt;", or a playlist ID.
     /// Its sidebar entry is selected when it has one.
     /// </summary>
@@ -694,6 +696,9 @@ public sealed partial class MainWindow : Window
                 break;
             case DjKey:
                 ContentFrame.Navigate(typeof(DjPage), null, transition);
+                break;
+            case CalendarKey:
+                ContentFrame.Navigate(typeof(CalendarPage), null, transition);
                 break;
             case not null when key.StartsWith(ArtistPrefix, StringComparison.Ordinal):
                 ContentFrame.Navigate(typeof(ArtistPage), key[ArtistPrefix.Length..], transition);
