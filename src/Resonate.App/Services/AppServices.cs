@@ -114,9 +114,43 @@ public sealed class AppServices : IDisposable
     public bool IsDemo { get; }
 
     private DjService? _dj;
+    private NewReleasesFeed? _newReleases;
 
     /// <summary>Resonate's own DJ, made the first time it is asked for (on the interface thread).</summary>
     internal DjService Dj => _dj ??= new DjService(this);
+
+    /// <summary>
+    /// New releases on Home: the newest releases of the artists the user
+    /// follows, kept in the cache folder. Made the first time it is asked for
+    /// (on the interface thread); demo mode keeps it in memory and asks without pausing.
+    /// </summary>
+    internal NewReleasesFeed NewReleases => _newReleases ??= new NewReleasesFeed(
+        Api,
+        () => Library.Snapshot?.User?.Id,
+        () => !Account.MissingScopes.Contains(SpotifyAuthOptions.FollowReadScope),
+        IsDemo ? null : Path.Combine(AppPaths.CacheFolder, "new-releases.json"),
+        IsDemo ? TimeSpan.Zero : TimeSpan.FromMilliseconds(600));
+
+    /// <summary>
+    /// Signs out and forgets the account's playlists, songs and listening, so
+    /// the next account to sign in sees none of it (Settings' Sign out, or a
+    /// sign-in again that came back as another account). The caller shows the sign-in page.
+    /// </summary>
+    internal void ForgetAccount()
+    {
+        Account.SignOut();
+        Library.Forget();
+        Likes.Forget();
+        Home.Forget();
+        NewReleases.Forget();
+        Settings.LastPlayed = null;
+        SaveSettings();
+        KeptList.SaveSoon(null);
+        if (Covers.Store is { } covers)
+        {
+            _ = Task.Run(covers.Clear);
+        }
+    }
 
     public SettingsStore SettingsStore { get; }
 

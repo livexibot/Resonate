@@ -17,6 +17,9 @@ public enum RequestKind
     AlbumsAndArtists,
     YourTop,
     Account,
+
+    /// <summary>The artists the user follows and their latest releases, for New releases on Home.</summary>
+    NewReleases,
 }
 
 /// <summary>
@@ -31,6 +34,9 @@ public sealed class RequestCounter
 {
     private const int DaysKept = 30;
     private static readonly TimeSpan SaveEvery = TimeSpan.FromSeconds(10);
+
+    // What the requests sent from the current flow of work are for, when its caller said (see CountAs).
+    private static readonly AsyncLocal<RequestKind?> Tagged = new();
 
     private readonly string? _path;
     private readonly TimeProvider _time;
@@ -53,13 +59,31 @@ public sealed class RequestCounter
     /// <summary>Raised on any thread after a request was counted (at most a few times a second is the caller's to ensure).</summary>
     public event EventHandler? Counted;
 
+    /// <summary>
+    /// Counts every request sent from the calling flow of work (and what it
+    /// awaits) as <paramref name="kind"/> until the result is disposed, so a
+    /// feature that asks for the same addresses as others shows on its own.
+    /// </summary>
+    public static IDisposable CountAs(RequestKind kind)
+    {
+        var before = Tagged.Value;
+        Tagged.Value = kind;
+        return new Restore(before);
+    }
+
     /// <summary>What a request to <paramref name="path"/> (relative to the API's address) is for.</summary>
     public static RequestKind KindOf(HttpMethod method, string path)
     {
+        if (Tagged.Value is { } tagged)
+        {
+            return tagged;
+        }
+
         var route = path.Split('?', 2)[0].TrimEnd('/');
         return route switch
         {
             "me/player" when method == HttpMethod.Get => RequestKind.WhatPlays,
+            "me/following" => RequestKind.NewReleases,
             "me/player/devices" => RequestKind.Devices,
             "me/player/queue" when method == HttpMethod.Get => RequestKind.Queue,
             "me/player/recently-played" => RequestKind.History,
@@ -204,6 +228,11 @@ public sealed class RequestCounter
         {
             return null;
         }
+    }
+
+    private sealed class Restore(RequestKind? before) : IDisposable
+    {
+        public void Dispose() => Tagged.Value = before;
     }
 
     /// <summary>The file: the total, the day counting began, and each day's counts by kind.</summary>

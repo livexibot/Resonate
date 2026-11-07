@@ -33,6 +33,7 @@ namespace Resonate.Spotify.WebApi;
 [JsonSerializable(typeof(Page<Artist>))]
 [JsonSerializable(typeof(PlayerQueue))]
 [JsonSerializable(typeof(CursorPage<PlayHistoryItem>))]
+[JsonSerializable(typeof(FollowedArtists))]
 [JsonSerializable(typeof(List<bool>))]
 [JsonSerializable(typeof(ReorderItemsBody))]
 [JsonSerializable(typeof(AddItemsBody))]
