@@ -33,8 +33,51 @@ public sealed class RequestCounterTests : IDisposable
     [InlineData("GET", "artists/abc/albums", RequestKind.AlbumsAndArtists)]
     [InlineData("GET", "me/top/tracks?time_range=short_term", RequestKind.YourTop)]
     [InlineData("GET", "me", RequestKind.Account)]
+    [InlineData("GET", "me/following?type=artist&limit=50", RequestKind.NewReleases)]
     public void Each_request_is_put_under_what_it_was_for(string method, string path, RequestKind expected) =>
         Assert.Equal(expected, RequestCounter.KindOf(new HttpMethod(method), path));
+
+    [Fact]
+    public async Task A_feature_can_count_its_requests_under_its_own_name_until_it_is_done()
+    {
+        var counter = new RequestCounter(null, _time);
+
+        using (RequestCounter.CountAs(RequestKind.NewReleases))
+        {
+            await Task.Yield();
+            counter.Count(HttpMethod.Get, "artists/abc/albums?include_groups=album,single");
+            await Task.Run(() => counter.Count(HttpMethod.Get, "albums/abc"), TestContext.Current.CancellationToken);
+        }
+
+        counter.Count(HttpMethod.Get, "artists/abc/albums");
+
+        var today = counter.Today(out var total);
+        Assert.Equal(3, total);
+        Assert.Contains((RequestKind.NewReleases, 2L), today);
+        Assert.Contains((RequestKind.AlbumsAndArtists, 1L), today);
+    }
+
+    [Fact]
+    public async Task Counting_under_a_name_stays_with_the_work_that_asked_for_it()
+    {
+        var counter = new RequestCounter(null, _time);
+        var tagged = Task.Run(
+            async () =>
+            {
+                using (RequestCounter.CountAs(RequestKind.NewReleases))
+                {
+                    await Task.Delay(50, TestContext.Current.CancellationToken);
+                    counter.Count(HttpMethod.Get, "artists/abc/albums");
+                }
+            },
+            TestContext.Current.CancellationToken);
+        counter.Count(HttpMethod.Get, "artists/xyz/albums");
+        await tagged;
+
+        var today = counter.Today(out _);
+        Assert.Contains((RequestKind.NewReleases, 1L), today);
+        Assert.Contains((RequestKind.AlbumsAndArtists, 1L), today);
+    }
 
     [Fact]
     public void Counts_today_by_kind_and_in_total_and_keeps_them_on_disk()

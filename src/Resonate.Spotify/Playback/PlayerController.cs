@@ -1316,13 +1316,16 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         }
 
         var body = session.StartBody();
+        var start = StartPositionOf(request, session.Current);
+        body.PositionMs = PositionMs(start);
         var started = StartAsync(
             session.Current,
             session.InContext ? session.ContextUri : null,
             session,
             request.SourceName,
             shuffle: null,
-            (id, c) => SendListAsync(session, body, id, c));
+            (id, c) => SendListAsync(session, body, id, c),
+            start: start);
         if (session.HandOver is not null)
         {
             // A stretch that starts with its last song is followed from now on.
@@ -1331,6 +1334,16 @@ public sealed partial class PlayerController : IPlayer, IDisposable
 
         return started;
     }
+
+    /// <summary>Where to start <paramref name="first"/>: the request's position when it is the song the user picked, else its start.</summary>
+    private static TimeSpan StartPositionOf(PlayRequest request, TrackInfo? first) =>
+        request.StartPosition is { } at && at > TimeSpan.Zero && first is not null && ReferenceEquals(first, request.StartTrack)
+            ? at
+            : TimeSpan.Zero;
+
+    /// <summary>A start position as Spotify takes it: null for the song's start.</summary>
+    private static int? PositionMs(TimeSpan start) =>
+        start > TimeSpan.Zero ? (int)Math.Min(start.TotalMilliseconds, int.MaxValue) : null;
 
     /// <summary>Plays a whole playlist or album from its start.</summary>
     public Task PlayContextAsync(string contextUri) =>
@@ -1362,7 +1375,8 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             { IsLocal: true } => new PlaybackOffset { Position = picked.Position ?? request.StartIndex },
             _ => null,
         };
-        var body = new StartPlaybackBody { ContextUri = contextUri, Offset = offset };
+        var start = StartPositionOf(request, picked);
+        var body = new StartPlaybackBody { ContextUri = contextUri, Offset = offset, PositionMs = PositionMs(start) };
         var shuffle = request.Shuffle;
         return StartAsync(
             picked,
@@ -1378,7 +1392,8 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                 {
                     await TrySetSpotifyShuffleAsync(shuffle!.Value, id, c).ConfigureAwait(false);
                 }
-            });
+            },
+            start: start);
     }
 
     /// <summary>
@@ -1388,6 +1403,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
     /// </summary>
     /// <param name="shuffle">What the shuffle button shows from now on, when the start changes it.</param>
     /// <param name="undo">If it fails, also called (with the command's generation) to put back what the caller changed.</param>
+    /// <param name="start">Where in <paramref name="track"/> it starts.</param>
     private Task StartAsync(
         TrackInfo? track,
         string? contextUri,
@@ -1395,7 +1411,8 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         string? sourceName,
         bool? shuffle,
         Func<string?, CancellationToken, Task> send,
-        Action<long>? undo = null)
+        Action<long>? undo = null,
+        TimeSpan start = default)
     {
         CountUserCommand();
         PlayerState before;
@@ -1427,7 +1444,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
             if (track is not null)
             {
                 _trackHold = new Hold<string>(track.Title, now + TrackHold);
-                _positionHold = new Hold<TimeSpan>(TimeSpan.Zero, now + TrackHold);
+                _positionHold = new Hold<TimeSpan>(start, now + TrackHold);
                 state = state with
                 {
                     Title = track.Title,
@@ -1438,7 +1455,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                     ArtworkBytes = null,
                     FullArtworkUrl = track.FullImageUrl,
                     Duration = track.Duration,
-                    Position = TimeSpan.Zero,
+                    Position = start,
                     PositionTimestamp = now,
                 };
             }

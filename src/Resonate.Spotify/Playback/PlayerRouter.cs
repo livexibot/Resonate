@@ -135,7 +135,7 @@ public sealed partial class PlayerRouter : IPlayer, IDisposable
                 // own order can play it (the Spotify app may, inside its playlist):
                 // the next song Spotify can start plays instead.
                 ErrorOccurred?.Invoke(this, NotFound(notFound));
-                request = request with { StartIndex = NextStartable(request.Tracks, request.StartIndex) };
+                request = request with { StartIndex = NextStartable(request.Tracks, request.StartIndex), StartPosition = null };
             }
         }
 

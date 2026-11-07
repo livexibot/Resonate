@@ -255,6 +255,9 @@ public sealed class LibraryService : IDisposable
     /// <summary>Liked Songs as last stored (to show at once while Spotify is asked for changes); null when none is stored. Costs no request.</summary>
     public IReadOnlyList<TrackInfo>? GetStoredLikedSongs() => _lists.Load(LikedSongsKey)?.Tracks;
 
+    /// <summary>Like <see cref="GetStoredLikedSongs"/>, but leaves the lists kept in memory as they are (for work in the background).</summary>
+    public IReadOnlyList<TrackInfo>? PeekStoredLikedSongs() => _lists.Peek(LikedSongsKey)?.Tracks;
+
     /// <summary>An album's header and all of its songs.</summary>
     public async Task<(Album Album, IReadOnlyList<TrackInfo> Tracks)> GetAlbumAsync(string albumId, CancellationToken cancellationToken)
     {

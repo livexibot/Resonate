@@ -26,6 +26,7 @@ public sealed record SpotifyAuthOptions
         "playlist-modify-public",
         "user-top-read",               // your top artists and songs, for the daily mixes
         "user-read-recently-played",   // listening statistics on the Home page
+        "user-follow-read",            // the artists you follow, for New releases on Home
         "streaming",                   // Resonate's own player with "Spotify Web API only" (Spotify's Web Playback SDK)
         "user-read-email",             // the Web Playback SDK asks for these two as well
         "user-read-private",
@@ -33,6 +34,9 @@ public sealed record SpotifyAuthOptions
 
     /// <summary>The permission Resonate's own player needs (see <see cref="Playback.OwnPlayer"/>).</summary>
     public const string StreamingScope = "streaming";
+
+    /// <summary>The permission New releases on Home needs to read the artists the user follows.</summary>
+    public const string FollowReadScope = "user-follow-read";
 
     public required string ClientId { get; init; }
 

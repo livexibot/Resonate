@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
@@ -11,6 +12,7 @@ using Resonate.App.Pages.Lists;
 using Resonate.App.Services;
 using Resonate.App.ViewModels;
 using Resonate.Spotify.Library;
+using Resonate.Spotify.Lyrics;
 using Resonate.Spotify.Playback;
 using Resonate.Spotify.WebApi;
 using VirtualKey = Windows.System.VirtualKey;
@@ -24,6 +26,9 @@ namespace Resonate.App.Pages;
 /// one kind (all its results). Before
 /// anything is typed it shows the last searches and what was opened from
 /// them (the owner's request, 9 October 2026), kept in the settings.
+/// With Line Finder on (a built-in plugin), Lyrics finds songs by a line of
+/// their words from the index on this PC instead, asking Spotify nothing,
+/// and a song found starts at that line.
 /// </summary>
 public sealed partial class SearchPage : Page
 {
@@ -39,6 +44,18 @@ public sealed partial class SearchPage : Page
     // The user's own playlists shown first.
     private const int OwnPlaylistLimit = 6;
 
+    // Lyrics are searched on this PC, so a short pause in typing is enough.
+    private static readonly TimeSpan LyricsTypingPause = TimeSpan.FromMilliseconds(150);
+
+    // A line starts this much before its time, so its first word is heard whole.
+    private static readonly TimeSpan LineLeadIn = TimeSpan.FromSeconds(1);
+
+    // The filter for Line Finder's songs found by a line of their words.
+    private const string LyricsKind = "Lyrics";
+
+    // The cover on a song found by a line.
+    private const int LineCoverSize = 76;
+
     private readonly AppServices _services = App.Services;
     private readonly List<TrackRow> _allSongs = [];
     private readonly SongRowActions _songActions;
@@ -47,6 +64,11 @@ public sealed partial class SearchPage : Page
     private string _filter = "All";
     private Action? _openTop;
     private (List<SimplifiedPlaylist> Playlists, int Count, QuickSearchIndex Index)? _ownIndex;
+
+    // What Spotify's results and Line Finder's lines were found for (null: none).
+    private string? _resultsFor;
+    private IReadOnlyList<LineMatch>? _lines;
+    private string? _linesFor;
 
     public SearchPage()
     {
@@ -60,6 +82,11 @@ public sealed partial class SearchPage : Page
 
     /// <summary>The query from the last visit, so going back keeps the results.</summary>
     private static string LastQuery { get; set; } = string.Empty;
+
+    /// <summary>Lyrics was the filter last time, so the next visit finds lines again.</summary>
+    private static bool LyricsChosen { get; set; }
+
+    private bool LineFinderOn => _services.BuiltIns.IsOn(BuiltInPlugins.LineFinder);
 
     public ObservableCollection<TrackRow> Songs { get; } = [];
 
@@ -86,10 +113,14 @@ public sealed partial class SearchPage : Page
     {
         var query = PendingQuery ?? LastQuery;
         PendingQuery = null;
+        _filter = LyricsChosen && LineFinderOn ? LyricsKind : "All";
         QueryBox.Text = query;
         QueryBox.SelectionStart = query.Length;
         QueryBox.Focus(FocusState.Programmatic);
         ShowFilter();
+        _services.BuiltIns.Changed += OnPluginChanged;
+        _services.LineFinder.ProgressChanged += OnLineFinderProgress;
+        ShowLineFinderProgress();
 
         // Setting the text before the page is shown does not always raise
         // TextChanged, so search for it here.
@@ -101,6 +132,39 @@ public sealed partial class SearchPage : Page
     {
         _search?.Cancel();
         TrackColumns.OptionsChanged -= OnColumnOptionsChanged;
+        _services.BuiltIns.Changed -= OnPluginChanged;
+        _services.LineFinder.ProgressChanged -= OnLineFinderProgress;
+    }
+
+    /// <summary>Line Finder turned on or off in Settings while the page shows: Lyrics comes or goes.</summary>
+    private void OnPluginChanged(object? sender, string id)
+    {
+        if (id != BuiltInPlugins.LineFinder)
+        {
+            return;
+        }
+
+        if (!LineFinderOn && _filter == LyricsKind)
+        {
+            ChooseFilter("All");
+        }
+
+        ShowLineFinderProgress();
+        ShowSections();
+    }
+
+    private void OnLineFinderProgress(object? sender, EventArgs e) => ShowLineFinderProgress();
+
+    /// <summary>While Line Finder's index fills: a ring on Lyrics, and how many songs of how many beside it while Lyrics is chosen.</summary>
+    private void ShowLineFinderProgress()
+    {
+        var progress = _services.LineFinder.Progress;
+        var building = LineFinderOn && progress.IsBuilding;
+        LyricsRing.IsActive = building;
+        LyricsRing.Visibility = building ? Visibility.Visible : Visibility.Collapsed;
+        LyricsRing.Value = progress.Total > 0 ? (double)progress.Done / progress.Total : 0;
+        LyricsCount.Text = building ? $"{progress.Done:N0} / {progress.Total:N0}" : string.Empty;
+        LyricsCount.Visibility = building && _filter == LyricsKind ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>Cover size changed in Settings: the songs and recently viewed take it at once.</summary>
@@ -125,12 +189,48 @@ public sealed partial class SearchPage : Page
         }
     }
 
-    /// <summary>Enter keeps the search among the recent ones.</summary>
+    /// <summary>Enter keeps the search among the recent ones; on Lyrics it also plays the first song found, from its line.</summary>
     private void OnQueryKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key == VirtualKey.Enter)
+        if (e.Key != VirtualKey.Enter)
         {
+            return;
+        }
+
+        if (_filter == LyricsKind)
+        {
+            // A held Enter repeats: only the press plays.
+            e.Handled = true;
+            if (e.KeyStatus.WasKeyDown)
+            {
+                return;
+            }
+
             RememberQuery();
+            _ = PlayFirstLineAsync();
+            return;
+        }
+
+        RememberQuery();
+    }
+
+    /// <summary>The first song found for what is typed now, from its line (searched again at once if typing was faster than the search).</summary>
+    private async Task PlayFirstLineAsync()
+    {
+        var query = QueryBox.Text.Trim();
+        if (query.Length == 0)
+        {
+            return;
+        }
+
+        if (_linesFor != query)
+        {
+            await SearchAsync(QueryBox.Text, TimeSpan.Zero);
+        }
+
+        if (_filter == LyricsKind && _linesFor == query && _lines is [var first, ..])
+        {
+            PlayLine(first);
         }
     }
 
@@ -147,7 +247,14 @@ public sealed partial class SearchPage : Page
         {
             // A search cancelled above leaves the ring to the newest call, which is this one.
             SearchingRing.IsActive = false;
+            ShowLines(null, query);
             Show(null, query);
+            return;
+        }
+
+        if (_filter == LyricsKind)
+        {
+            await SearchLinesAsync(query, wait == TimeSpan.Zero ? wait : LyricsTypingPause, token);
             return;
         }
 
@@ -182,9 +289,217 @@ public sealed partial class SearchPage : Page
         }
     }
 
+    /// <summary>
+    /// Line Finder: the songs with a line that fits what was typed, from the
+    /// index on this PC (no request to Spotify). Spotify's results for other
+    /// words go; they come back from Spotify only when another filter is chosen.
+    /// </summary>
+    private async Task SearchLinesAsync(string query, TimeSpan wait, CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(wait, token);
+            token.ThrowIfCancellationRequested();
+            SearchingRing.IsActive = false;
+            if (_results is not null && _resultsFor != query)
+            {
+                Show(null, query);
+            }
+
+            var lines = await _services.LineFinder.SearchAsync(query, token);
+            if (!token.IsCancellationRequested)
+            {
+                ShowLines(lines, query);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    /// <summary>The songs found by a line, as wide cards: the first one marked, as Enter plays it.</summary>
+    private void ShowLines(IReadOnlyList<LineMatch>? lines, string query)
+    {
+        _lines = lines;
+        _linesFor = lines is null ? null : query;
+        LyricsSection.Children.Clear();
+        if (lines is not null)
+        {
+            for (var i = 0; i < lines.Count; i++)
+            {
+                LyricsSection.Children.Add(LineCard(lines[i], first: i == 0));
+            }
+        }
+
+        ShowSections();
+    }
+
+    /// <summary>
+    /// One song found by a line: its cover, the line sung large with the words
+    /// typed in the accent colour between the lines before and after, then
+    /// the song, its artists and when the line comes. Built here, not from a
+    /// template, so the line can carry its coloured words.
+    /// </summary>
+    private Button LineCard(LineMatch match, bool first)
+    {
+        var resources = Application.Current.Resources;
+        var track = match.Track;
+
+        var cover = new Grid
+        {
+            Width = LineCoverSize,
+            Height = LineCoverSize,
+            VerticalAlignment = VerticalAlignment.Center,
+            CornerRadius = new CornerRadius(8),
+        };
+        var image = _services.Covers.Get(CoverImages.UrlFor(track, LineCoverSize), LineCoverSize, out var missing);
+        if (image is not null)
+        {
+            cover.Children.Add(new Image { Source = image, Stretch = Stretch.UniformToFill });
+        }
+
+        _ = ShowColourTileIfMissingAsync(cover, missing, track.Album.Length > 0 ? track.Album : track.Title);
+
+        var lines = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        if (match.Before is { } before)
+        {
+            lines.Children.Add(FadedLine(before, resources));
+        }
+
+        lines.Children.Add(SungLine(match, resources));
+        if (match.After is { } after)
+        {
+            lines.Children.Add(FadedLine(after, resources));
+        }
+
+        Grid.SetColumn(lines, 1);
+
+        var song = new StackPanel
+        {
+            Spacing = 8,
+            MaxWidth = 240,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        song.Children.Add(new TextBlock
+        {
+            Text = track.Title,
+            Style = (Style)resources["ResonateBodyTextStyle"],
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            TextAlignment = TextAlignment.Right,
+        });
+        song.Children.Add(new TextBlock
+        {
+            Text = track.Artists,
+            Style = (Style)resources["ResonateCaptionTextStyle"],
+            HorizontalAlignment = HorizontalAlignment.Right,
+            TextAlignment = TextAlignment.Right,
+        });
+        if (match.At is { } at)
+        {
+            song.Children.Add(new Border
+            {
+                Padding = new Thickness(10, 3, 10, 3),
+                HorizontalAlignment = HorizontalAlignment.Right,
+                CornerRadius = new CornerRadius(12),
+                Background = (Brush)resources["ResonateSurfaceHoverBrush"],
+                Child = new TextBlock
+                {
+                    Text = Format.Duration(at),
+                    Style = (Style)resources["ResonateCaptionTextStyle"],
+                    Foreground = (Brush)resources["ResonateTextPrimaryBrush"],
+                    FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                },
+            });
+        }
+
+        Grid.SetColumn(song, 2);
+
+        var card = new Button
+        {
+            Style = (Style)Resources["LineCardStyle"],
+            Content = new Grid
+            {
+                ColumnSpacing = 20,
+                ColumnDefinitions =
+                {
+                    new ColumnDefinition { Width = new GridLength(LineCoverSize) },
+                    new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                    new ColumnDefinition { Width = GridLength.Auto },
+                },
+                Children = { cover, lines, song },
+            },
+        };
+        if (first)
+        {
+            card.Background = (Brush)resources["ResonateAccentSoftBrush"];
+            card.BorderBrush = (Brush)resources["ResonateAccentBrush"];
+        }
+
+        AutomationProperties.SetName(card, $"{match.Line}, {track.Title}, {track.Artists}");
+        card.Click += (_, _) => PlayLine(match);
+        return card;
+    }
+
+    /// <summary>The line sung, large, with the words typed in the accent colour.</summary>
+    private static TextBlock SungLine(LineMatch match, ResourceDictionary resources)
+    {
+        var text = new TextBlock { Style = (Style)resources["ResonateSectionTextStyle"], Margin = new Thickness(0, 2, 0, 2) };
+        var accent = (Brush)resources["ResonateAccentTextBrush"];
+        var line = match.Line;
+        var at = 0;
+        foreach (var mark in match.Marks)
+        {
+            if (mark.Start < at || mark.Start + mark.Length > line.Length)
+            {
+                continue;
+            }
+
+            if (mark.Start > at)
+            {
+                text.Inlines.Add(new Run { Text = line[at..mark.Start] });
+            }
+
+            text.Inlines.Add(new Run { Text = line.Substring(mark.Start, mark.Length), Foreground = accent });
+            at = mark.Start + mark.Length;
+        }
+
+        if (at < line.Length)
+        {
+            text.Inlines.Add(new Run { Text = line[at..] });
+        }
+
+        return text;
+    }
+
+    /// <summary>The line before or after, quieter.</summary>
+    private static TextBlock FadedLine(string line, ResourceDictionary resources) =>
+        new() { Text = line, Style = (Style)resources["ResonateSecondaryTextStyle"], TextWrapping = TextWrapping.NoWrap };
+
+    /// <summary>A colour tile in place of a cover that can not be had (a picture never shows over one while it loads).</summary>
+    private static async Task ShowColourTileIfMissingAsync(Grid cover, Task<bool> missing, string name)
+    {
+        if (await missing)
+        {
+            cover.Background = Artwork.PlaceholderBrush(name);
+        }
+    }
+
+    /// <summary>Plays a song found by a line from just before that line (from its start for lyrics without timing), inside its album like any song found.</summary>
+    private void PlayLine(LineMatch match)
+    {
+        var track = match.Track;
+        Remember(RecentSearchPick.Song(track));
+        var start = match.At is { } at ? (at > LineLeadIn ? at - LineLeadIn : TimeSpan.Zero) : (TimeSpan?)null;
+        _ = _services.Player.PlayAsync(new PlayRequest([track], 0, track.AlbumUri, track.Album) { StartPosition = start });
+        App.MainWindow?.StartedAtChosenPlace(track, start ?? TimeSpan.Zero);
+    }
+
     private void Show(SearchMatches? results, string query)
     {
         _results = results;
+        _resultsFor = results is null ? null : query;
         _allSongs.Clear();
         PlaylistCards.Clear();
         AlbumCards.Clear();
@@ -279,8 +594,13 @@ public sealed partial class SearchPage : Page
     private void ShowSections()
     {
         var results = _results;
-        var searching = results is not null || OwnPlaylistCards.Count > 0;
-        FilterBar.Visibility = searching ? Visibility.Visible : Visibility.Collapsed;
+        var lyrics = _filter == LyricsKind;
+        var lineFinder = LineFinderOn;
+        var searching = results is not null || OwnPlaylistCards.Count > 0 || (lyrics && _linesFor is not null);
+
+        // With Line Finder on, Lyrics can be chosen before anything is typed, so no search goes to Spotify.
+        FilterBar.Visibility = searching || lineFinder ? Visibility.Visible : Visibility.Collapsed;
+        LyricsFilter.Visibility = lineFinder ? Visibility.Visible : Visibility.Collapsed;
         ShowRecent(!searching);
 
         // Only the kinds found get a filter; one that found nothing this time goes back to All.
@@ -288,7 +608,7 @@ public sealed partial class SearchPage : Page
         ArtistsFilter.Visibility = ArtistCards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         AlbumsFilter.Visibility = AlbumCards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         PlaylistsFilter.Visibility = PlaylistCards.Count + OwnPlaylistCards.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        if (searching && _filter != "All" && FilterButton(_filter).Visibility != Visibility.Visible)
+        if (searching && _filter is not "All" and not LyricsKind && FilterButton(_filter).Visibility != Visibility.Visible)
         {
             _filter = "All";
             ShowFilter();
@@ -312,7 +632,11 @@ public sealed partial class SearchPage : Page
         PlaylistsSection.Visibility = Shown("Playlists", PlaylistCards.Count);
         OwnPlaylistsSection.Visibility = Shown("Playlists", OwnPlaylistCards.Count);
 
-        var nothing = results is not null && _allSongs.Count + ArtistCards.Count + PlaylistCards.Count + AlbumCards.Count + OwnPlaylistCards.Count == 0;
+        LyricsSection.Visibility = lyrics && _lines is { Count: > 0 } ? Visibility.Visible : Visibility.Collapsed;
+
+        var nothing = lyrics
+            ? _lines is { Count: 0 }
+            : results is not null && _allSongs.Count + ArtistCards.Count + PlaylistCards.Count + AlbumCards.Count + OwnPlaylistCards.Count == 0;
         HintText.Visibility = nothing ? Visibility.Visible : Visibility.Collapsed;
 
         Visibility Shown(string kind, int count) =>
@@ -395,10 +719,29 @@ public sealed partial class SearchPage : Page
     {
         if (sender is RadioButton { Tag: string filter } && filter != _filter)
         {
-            _filter = filter;
-            ShowFilter();
-            ShowSections();
+            ChooseFilter(filter);
         }
+    }
+
+    /// <summary>
+    /// Shows one kind of result. Lyrics are found on this PC at once; leaving
+    /// Lyrics after typing there asks Spotify for the words now in the box
+    /// (one search, as typing would have).
+    /// </summary>
+    private void ChooseFilter(string filter)
+    {
+        var fromLyrics = _filter == LyricsKind;
+        _filter = filter;
+        LyricsChosen = filter == LyricsKind;
+        ShowFilter();
+        ShowLineFinderProgress();
+        var query = LastQuery.Trim();
+        if (filter == LyricsKind || (fromLyrics && query.Length > 0 && _resultsFor != query))
+        {
+            _ = SearchAsync(LastQuery, TimeSpan.Zero);
+        }
+
+        ShowSections();
     }
 
     private RadioButton FilterButton(string filter) => filter switch
@@ -407,16 +750,20 @@ public sealed partial class SearchPage : Page
         "Artists" => ArtistsFilter,
         "Albums" => AlbumsFilter,
         "Playlists" => PlaylistsFilter,
+        LyricsKind => LyricsFilter,
         _ => AllFilter,
     };
 
     /// <summary>The chosen filter is checked: filled with the accent, and selected for screen readers.</summary>
     private void ShowFilter()
     {
-        foreach (var button in (RadioButton[])[AllFilter, SongsFilter, ArtistsFilter, AlbumsFilter, PlaylistsFilter])
+        foreach (var button in (RadioButton[])[AllFilter, SongsFilter, ArtistsFilter, AlbumsFilter, PlaylistsFilter, LyricsFilter])
         {
             button.IsChecked = button.Tag as string == _filter;
         }
+
+        // The ring on Lyrics stays visible on the chip's accent fill.
+        LyricsRing.Foreground = (Brush)Application.Current.Resources[_filter == LyricsKind ? "ResonateOnAccentBrush" : "ResonateAccentBrush"];
     }
 
     /// <summary>The recent searches as chips (a click searches again, × forgets it) and what was opened from them.</summary>

@@ -8,6 +8,64 @@
     Background="{StaticResource ResonateTransparentBrush}">
 
     <Page.Resources>
+        <!-- A song found by a line of its words: a wide card the whole width of the page. -->
+        <Style x:Key="LineCardStyle" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource ResonateControlBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource ResonateTextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource ResonateTransparentBrush}" />
+            <Setter Property="BorderThickness" Value="1.5" />
+            <Setter Property="FontFamily" Value="{ThemeResource ResonateTextFont}" />
+            <Setter Property="Padding" Value="20,16" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="UseSystemFocusVisuals" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid
+                            x:Name="Root"
+                            Padding="{TemplateBinding Padding}"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                            <Grid.BackgroundTransition>
+                                <BrushTransition Duration="0:0:0.12" />
+                            </Grid.BackgroundTransition>
+                            <ContentPresenter
+                                x:Name="ContentPresenter"
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                Content="{TemplateBinding Content}"
+                                FontFamily="{TemplateBinding FontFamily}"
+                                Foreground="{TemplateBinding Foreground}" />
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="Root.Background" Value="{StaticResource ResonateSurfaceHoverBrush}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="Root.Background" Value="{StaticResource ResonateSurfacePressedBrush}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <VisualState.Setters>
+                                            <Setter Target="Root.Opacity" Value="0.45" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <DataTemplate x:Key="CardTemplate" x:DataType="vm:CardItem">
             <StackPanel
                 Width="168"
@@ -174,6 +232,37 @@
                 Padding="16,6"
                 Style="{StaticResource ResonateChipStyle}"
                 Tag="Playlists" />
+            <!-- Line Finder (a built-in plugin): songs by a line of their words, with how far its index is while it fills. -->
+            <RadioButton
+                x:Name="LyricsFilter"
+                AutomationProperties.Name="Lyrics"
+                Checked="OnFilterChecked"
+                CornerRadius="16"
+                GroupName="SearchFilter"
+                Padding="16,6"
+                Style="{StaticResource ResonateChipStyle}"
+                Tag="Lyrics"
+                Visibility="Collapsed">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Lyrics" />
+                    <ProgressRing
+                        x:Name="LyricsRing"
+                        Width="14"
+                        Height="14"
+                        MinWidth="0"
+                        MinHeight="0"
+                        VerticalAlignment="Center"
+                        IsActive="False"
+                        IsIndeterminate="False"
+                        Maximum="1"
+                        Visibility="Collapsed" />
+                </StackPanel>
+            </RadioButton>
+            <TextBlock
+                x:Name="LyricsCount"
+                VerticalAlignment="Center"
+                Style="{StaticResource ResonateCaptionTextStyle}"
+                Visibility="Collapsed" />
         </StackPanel>
 
         <ScrollViewer Grid.Row="2">
@@ -223,6 +312,13 @@
                     Style="{StaticResource ResonateSecondaryTextStyle}"
                     Text="Nothing found"
                     Visibility="Collapsed" />
+
+                <!-- Songs found by a line of their words (Line Finder), best first; Enter in the box plays the first. -->
+                <StackPanel
+                    x:Name="LyricsSection"
+                    Spacing="10"
+                    Visibility="Collapsed"
+                    XYFocusKeyboardNavigation="Enabled" />
 
                 <!-- The best match beside the first songs (stacked on a narrow page) -->
                 <Grid

@@ -4,7 +4,7 @@ namespace Resonate.App;
 
 /// <summary>
 /// The links at the top of the sidebar the user can hide (Settings, Layout):
-/// Search, Liked Songs, Local Files and DJ. Home always shows. Hidden pages
+/// Search, Liked Songs, Local Files, DJ and Calendar. Home always shows. Hidden pages
 /// still open from elsewhere (Ctrl+F, the player, the Summon bar).
 /// </summary>
 public sealed partial class MainWindow
@@ -14,7 +14,7 @@ public sealed partial class MainWindow
     /// <summary>Every built-in link, in order, kept from before any was hidden (smart playlists come after them).</summary>
     private NavItem[] Links => _links ??=
     [
-        .. NavItems.Where(n => n.Key is HomeKey or SearchKey or LikedSongsKey or LocalFilesKey or DjKey),
+        .. NavItems.Where(n => n.Key is HomeKey or SearchKey or LikedSongsKey or LocalFilesKey or DjKey or CalendarKey),
     ];
 
     private bool IsLinkShown(string key) => key switch

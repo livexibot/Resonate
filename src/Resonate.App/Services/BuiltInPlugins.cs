@@ -46,6 +46,7 @@ public sealed class BuiltInPlugins
     public const string FocusTimer = "focus-timer";
     public const string SkipIntros = "skip-intros";
     public const string DeviceVolume = "device-volume";
+    public const string LineFinder = "line-finder";
 
     // Downloaded JavaScript plugins until 10 October 2026: the IDs stay, so what was on stays on.
     public const string SleepTimer = "sleep-timer";
@@ -107,6 +108,7 @@ public sealed class BuiltInPlugins
         new(PauseOnUnplug, "Pause on unplug", "Pauses when your headphones or speaker disconnect."),
 
         new(PlayerLyrics, "Lyrics in the player", "Shows the sung line and the next one under the song in the player bar."),
+        new(LineFinder, "Line Finder", "Finds a song in Search by a line of its words and plays it from that line."),
         new(SongNotifications, "Song notifications", "Shows a Windows notification with the cover when a new song starts while Resonate is in the background."),
         new(KeepAwake, "Keep PC awake", "Stops your PC from going to sleep while music plays."),
 

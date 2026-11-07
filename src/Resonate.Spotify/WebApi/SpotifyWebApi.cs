@@ -317,10 +317,54 @@ public sealed class SpotifyWebApi : ISpotifyWebApi
         GetAsync($"artists/{Uri.EscapeDataString(artistId)}", SpotifyJsonContext.Default.Artist, cancellationToken);
 
     public Task<Page<SimplifiedAlbum>> GetArtistAlbumsAsync(string artistId, int offset, int limit, CancellationToken cancellationToken) =>
-        GetAsync(
-            $"artists/{Uri.EscapeDataString(artistId)}/albums?include_groups=album,single,compilation&offset={offset}&limit={Math.Clamp(limit, 1, MaxArtistAlbumsLimit)}",
+        GetArtistReleasesAsync(artistId, ReleaseGroups.Albums | ReleaseGroups.Singles | ReleaseGroups.Compilations, offset, limit, cancellationToken);
+
+    public Task<Page<SimplifiedAlbum>> GetArtistReleasesAsync(string artistId, ReleaseGroups groups, int offset, int limit, CancellationToken cancellationToken)
+    {
+        if (groups == ReleaseGroups.None)
+        {
+            throw new ArgumentException("Choose at least one kind of release.", nameof(groups));
+        }
+
+        return GetAsync(
+            $"artists/{Uri.EscapeDataString(artistId)}/albums?include_groups={GroupNames(groups)}&offset={offset}&limit={Math.Clamp(limit, 1, MaxArtistAlbumsLimit)}",
             SpotifyJsonContext.Default.PageSimplifiedAlbum,
             cancellationToken);
+    }
+
+    public async Task<CursorPage<Artist>> GetFollowedArtistsAsync(string? after, int limit, CancellationToken cancellationToken)
+    {
+        var path = $"me/following?type=artist&limit={ClampPage(limit)}";
+        if (!string.IsNullOrEmpty(after))
+        {
+            path += "&after=" + Uri.EscapeDataString(after);
+        }
+
+        var followed = await GetAsync(path, SpotifyJsonContext.Default.FollowedArtists, cancellationToken).ConfigureAwait(false);
+        return followed.Artists ?? new CursorPage<Artist>();
+    }
+
+    /// <summary>"album,single" for Spotify's include_groups, in Spotify's own order.</summary>
+    internal static string GroupNames(ReleaseGroups groups)
+    {
+        var names = new List<string>(3);
+        if (groups.HasFlag(ReleaseGroups.Albums))
+        {
+            names.Add("album");
+        }
+
+        if (groups.HasFlag(ReleaseGroups.Singles))
+        {
+            names.Add("single");
+        }
+
+        if (groups.HasFlag(ReleaseGroups.Compilations))
+        {
+            names.Add("compilation");
+        }
+
+        return string.Join(',', names);
+    }
 
     private static string RangeName(TopRange range) => range switch
     {

@@ -778,6 +778,43 @@ public sealed class ListPlaybackTests : IDisposable
         Assert.Empty(_web.PlayBodies);
     }
 
+    [Fact]
+    public async Task A_song_started_at_a_line_starts_there_inside_its_album_in_one_command()
+    {
+        var song = Song(3) with { AlbumUri = "spotify:album:a" };
+        await StartAsync();
+
+        var sent = _player.PlayAsync(new PlayRequest([song], 0, song.AlbumUri, song.Album) { StartPosition = TimeSpan.FromSeconds(72) });
+
+        Assert.Equal("Song 3", _player.State.Title);
+        Assert.InRange(_player.State.Position, TimeSpan.FromSeconds(72), TimeSpan.FromSeconds(73));
+        await sent;
+
+        Assert.Equal(["play@here"], _web.Commands);
+        var body = Assert.Single(_web.PlayBodies)!;
+        Assert.Equal("spotify:album:a", body.ContextUri);
+        Assert.Equal(song.Uri, body.Offset!.Uri);
+        Assert.Equal(72_000, body.PositionMs);
+    }
+
+    [Fact]
+    public async Task A_start_position_goes_with_the_picked_song_of_a_list_shuffled_or_not()
+    {
+        await StartAsync();
+
+        await _player.PlayAsync(new PlayRequest(Songs(3), 1, null, "Search") { StartPosition = TimeSpan.FromSeconds(30) });
+        await _player.PlayAsync(new PlayRequest(Songs(10), 4, Playlist, "Mix") { Shuffle = true, StartPosition = TimeSpan.FromSeconds(30) });
+        await _player.PlayAsync(new PlayRequest(Songs(10), -1, Playlist, "Mix") { Shuffle = true, StartPosition = TimeSpan.FromSeconds(30) });
+
+        var bodies = _web.PlayBodies.Select(b => b!).ToList();
+        Assert.Equal(3, bodies.Count);
+        Assert.Equal(1, bodies[0].Offset!.Position);
+        Assert.Equal(30_000, bodies[0].PositionMs);
+        Assert.Equal("spotify:track:4", bodies[1].Uris![0]);
+        Assert.Equal(30_000, bodies[1].PositionMs);
+        Assert.Null(bodies[2].PositionMs);
+    }
+
     private static TrackInfo Song(int i) =>
         new($"spotify:track:{i}", $"Song {i}", "Band", "Record", null, TimeSpan.FromSeconds(200), null, null, IsExplicit: false, IsPlayable: true)
         {

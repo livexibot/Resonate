@@ -47,6 +47,7 @@ public sealed class AppServices : IDisposable
         Api = api;
         Library = library;
         Home = home;
+        Calendar = new ListeningCalendar(home.History, isDemo ? null : Path.Combine(AppPaths.CacheFolder, "calendar.json"));
         Likes = new LikedSongs(api, library);
         Player = player;
         Launcher = launcher;
@@ -117,9 +118,64 @@ public sealed class AppServices : IDisposable
     public bool IsDemo { get; }
 
     private DjService? _dj;
+    private NewReleasesFeed? _newReleases;
+    private LineFinderService? _lineFinder;
 
     /// <summary>Resonate's own DJ, made the first time it is asked for (on the interface thread).</summary>
     internal DjService Dj => _dj ??= new DjService(this);
+
+    /// <summary>
+    /// New releases on Home: the newest releases of the artists the user
+    /// follows, kept in the cache folder. Made the first time it is asked for
+    /// (on the interface thread); demo mode keeps it in memory and asks without pausing.
+    /// </summary>
+    internal NewReleasesFeed NewReleases => _newReleases ??= new NewReleasesFeed(
+        Api,
+        () => Library.Snapshot?.User?.Id,
+        () => !Account.MissingScopes.Contains(SpotifyAuthOptions.FollowReadScope),
+        IsDemo ? null : Path.Combine(AppPaths.CacheFolder, "new-releases.json"),
+        IsDemo ? TimeSpan.Zero : TimeSpan.FromMilliseconds(600));
+
+    /// <summary>
+    /// Signs out and forgets the account's playlists, songs and listening, so
+    /// the next account to sign in sees none of it (Settings' Sign out, or a
+    /// sign-in again that came back as another account). The caller shows the sign-in page.
+    /// </summary>
+    internal void ForgetAccount()
+    {
+        Account.SignOut();
+        Library.Forget();
+        Likes.Forget();
+        Home.Forget();
+        NewReleases.Forget();
+        ForgetLineFinder();
+        Settings.LastPlayed = null;
+        SaveSettings();
+        KeptList.SaveSoon(null);
+        if (Covers.Store is { } covers)
+        {
+            _ = Task.Run(covers.Clear);
+        }
+    }
+
+    /// <summary>Line Finder (a built-in plugin), made the first time it is asked for (on the interface thread).</summary>
+    internal LineFinderService LineFinder => _lineFinder ??= new LineFinderService(this);
+
+    /// <summary>The plugin was turned off: Line Finder stops, if it was ever made.</summary>
+    internal void StopLineFinder() => _lineFinder?.Stop();
+
+    /// <summary>Signing out: Line Finder's words for this account go, made or not.</summary>
+    internal void ForgetLineFinder()
+    {
+        if (_lineFinder is { } lineFinder)
+        {
+            lineFinder.Forget();
+        }
+        else if (!IsDemo)
+        {
+            _ = Task.Run(() => new Resonate.Spotify.Lyrics.LineIndex(LineFinderService.IndexFile).Clear());
+        }
+    }
 
     public SettingsStore SettingsStore { get; }
 
@@ -139,6 +195,9 @@ public sealed class AppServices : IDisposable
 
     /// <summary>The listening history, stats and daily mixes on Home.</summary>
     public HomeFeed Home { get; }
+
+    /// <summary>Every day's listening, kept after the history forgets it (the Calendar page).</summary>
+    public ListeningCalendar Calendar { get; }
 
     /// <summary>Which songs are in Liked Songs, for every heart in the interface.</summary>
     public LikedSongs Likes { get; }
@@ -495,6 +554,8 @@ public sealed class AppServices : IDisposable
 
     public void Dispose()
     {
+        // Its background work stops before the services it reads.
+        _lineFinder?.Dispose();
         foreach (var item in _owned)
         {
             item.Dispose();
