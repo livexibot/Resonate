@@ -1188,6 +1188,166 @@ public sealed class MixedPlaylistTests : IDisposable
         Assert.Equal(PlaybackSource.Spotify, _router.ActiveSource);
     }
 
+    [Fact]
+    public async Task Previous_twice_while_paused_is_not_the_end_when_Spotify_reports_the_first_song_late()
+    {
+        var list = await PausedOnTheLastOfThreeSpotifySongsAsync();
+        await _router.PreviousAsync();
+        _time.Advance(TimeSpan.FromSeconds(0.3));
+        await _router.PreviousAsync();
+        _time.Advance(TimeSpan.FromSeconds(0.4));
+        Paused(list[1], seconds: 0);
+        _time.Advance(TimeSpan.FromSeconds(9));
+        Paused(list[0], seconds: 0);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        Assert.Empty(_engine.Opened);
+        Assert.Equal(PlaybackSource.Spotify, _router.ActiveSource);
+    }
+
+    [Fact]
+    public async Task Previous_three_times_while_paused_is_not_the_end_when_Spotify_reports_the_first_song_late()
+    {
+        var list = new List<TrackInfo> { Song(0), Song(1), Song(2), Song(3), LocalSong(4) };
+        _finder.Add(list[4]);
+        await StartAsync();
+        await _router.PlayAsync(new PlayRequest(list, 0, Playlist, "Mine") { Shuffle = false });
+        _time.Advance(TimeSpan.FromSeconds(10));
+        Playing(list[0], seconds: 10);
+        for (var i = 1; i <= 3; i++)
+        {
+            _time.Advance(TimeSpan.FromSeconds(i == 1 ? 190 : 200));
+            Playing(list[i]);
+        }
+
+        _time.Advance(TimeSpan.FromSeconds(0.5));
+        await _router.PauseAsync();
+        Paused(list[3], seconds: 1);
+        for (var i = 0; i < 3; i++)
+        {
+            await _router.PreviousAsync();
+            _time.Advance(TimeSpan.FromSeconds(0.3));
+        }
+
+        Paused(list[2], seconds: 0);
+        _time.Advance(TimeSpan.FromSeconds(0.4));
+        Paused(list[1], seconds: 0);
+        _time.Advance(TimeSpan.FromSeconds(15));
+        Paused(list[0], seconds: 0);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        Assert.Empty(_engine.Opened);
+        Assert.Equal(PlaybackSource.Spotify, _router.ActiveSource);
+    }
+
+    [Fact]
+    public async Task Previous_twice_while_paused_is_not_the_end_when_Spotify_answers_only_late()
+    {
+        var list = await PausedOnTheLastOfThreeSpotifySongsAsync();
+        await _router.PreviousAsync();
+        _time.Advance(TimeSpan.FromSeconds(0.3));
+        await _router.PreviousAsync();
+        _time.Advance(TimeSpan.FromSeconds(9.4));
+        Paused(list[0], seconds: 0);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        Assert.Empty(_engine.Opened);
+        Assert.Equal(PlaybackSource.Spotify, _router.ActiveSource);
+    }
+
+    [Fact]
+    public async Task With_Spotify_Web_API_only_Previous_twice_while_paused_is_not_the_end_when_the_first_song_is_seen_at_the_next_poll()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var list = new List<TrackInfo> { Song(0), Song(1), Song(2), LocalSong(3) };
+        _finder.Add(list[3]);
+        _web.Playback = OnTheWeb(Song(1000), 60);
+        _spotify.Channel = ControlChannel.WebApi;
+        await _spotify.StartAsync(ct);
+        await _router.PlayAsync(new PlayRequest(list, 0, Playlist, "Mine") { Shuffle = false });
+        _web.Playback = OnTheWeb(list[0], 0);
+        _time.Advance(TimeSpan.FromSeconds(10));
+        _web.Playback = OnTheWeb(list[0], 10);
+        await _spotify.RefreshFromWebApiAsync(ct);
+        _time.Advance(TimeSpan.FromSeconds(190));
+        _web.Playback = OnTheWeb(list[1], 0.5);
+        await _spotify.RefreshFromWebApiAsync(ct);
+        _time.Advance(TimeSpan.FromSeconds(200));
+        _web.Playback = OnTheWeb(list[2], 0.5);
+        await _spotify.RefreshFromWebApiAsync(ct);
+        _time.Advance(TimeSpan.FromSeconds(0.5));
+        await _router.PauseAsync();
+        _web.Playback = OnTheWeb(list[2], 1, playing: false);
+        await _router.PreviousAsync();
+        _time.Advance(TimeSpan.FromSeconds(0.3));
+        await _router.PreviousAsync();
+
+        // Spotify's answer still shows the first Previous only; the next poll while paused shows both.
+        _web.Playback = OnTheWeb(list[1], 0, playing: false);
+        _time.Advance(TimeSpan.FromSeconds(0.8));
+        await _spotify.RefreshFromWebApiAsync(ct);
+        await Task.Delay(50, ct);
+        Assert.Equal("Song 1", _spotify.State.Title);
+        _web.Playback = OnTheWeb(list[0], 0, playing: false);
+        _time.Advance(PlayerController.WebOnlyPollWhilePaused);
+        await _spotify.RefreshFromWebApiAsync(ct);
+        await Task.Delay(50, ct);
+
+        Assert.Equal("Song 0", _spotify.State.Title);
+        Assert.Empty(_engine.Opened);
+        Assert.Equal(PlaybackSource.Spotify, _router.ActiveSource);
+    }
+
+    [Fact]
+    public async Task Previous_pressed_again_on_the_first_Spotify_song_does_not_hide_a_later_end()
+    {
+        var list = await PausedOnTheLastOfThreeSpotifySongsAsync();
+        await _router.PreviousAsync();
+        _time.Advance(TimeSpan.FromSeconds(0.3));
+        await _router.PreviousAsync();
+        _time.Advance(TimeSpan.FromSeconds(0.4));
+        Paused(list[1], seconds: 0);
+        _time.Advance(TimeSpan.FromSeconds(0.4));
+        Paused(list[0], seconds: 0);
+
+        // More presses on the first song only start it again.
+        for (var i = 0; i < 3; i++)
+        {
+            _time.Advance(TimeSpan.FromSeconds(0.3));
+            await _router.PreviousAsync();
+            Paused(list[0], seconds: 0);
+        }
+
+        // Next three times from a phone; the last Spotify song is not heard of.
+        _time.Advance(TimeSpan.FromSeconds(30));
+        Paused(list[1], seconds: 0);
+        Assert.Empty(_engine.Opened);
+        _time.Advance(TimeSpan.FromSeconds(5));
+        Paused(list[0], seconds: 0);
+
+        await WaitUntil(() => _engine.Opened.Count == 1);
+        Assert.Equal("Demo 3", _router.State.Title);
+    }
+
+    /// <summary>Three Spotify songs and a file: the last Spotify song played, and is paused at its start.</summary>
+    private async Task<List<TrackInfo>> PausedOnTheLastOfThreeSpotifySongsAsync()
+    {
+        var list = new List<TrackInfo> { Song(0), Song(1), Song(2), LocalSong(3) };
+        _finder.Add(list[3]);
+        await StartAsync();
+        await _router.PlayAsync(new PlayRequest(list, 0, Playlist, "Mine") { Shuffle = false });
+        _time.Advance(TimeSpan.FromSeconds(10));
+        Playing(list[0], seconds: 10);
+        _time.Advance(TimeSpan.FromSeconds(190));
+        Playing(list[1]);
+        _time.Advance(TimeSpan.FromSeconds(200));
+        Playing(list[2]);
+        _time.Advance(TimeSpan.FromSeconds(0.5));
+        await _router.PauseAsync();
+        Paused(list[2], seconds: 1);
+        return list;
+    }
+
     /// <summary>Three Spotify songs and a file: the last Spotify song played, then Previous while paused led back to the middle one.</summary>
     private async Task<List<TrackInfo>> PausedBackOnTheMiddleSongAsync()
     {

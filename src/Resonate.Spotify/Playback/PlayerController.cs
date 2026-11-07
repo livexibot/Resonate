@@ -943,14 +943,20 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         {
             // Previous leaves Spotify stopped where the list's end does (on its first song) when
             // it goes back a song, or restarts the first song (restarting another keeps it there).
+            // On the first song it only ever restarts it, so no move to another song answers it.
             var now = _time.GetUtcNow();
             if (_session is { HandOver: not null } session)
             {
                 var at = session.Locate(_state.TrackUri, _state.Title);
+                var first = at == 0 || at == session.WindowStart;
                 if (_state.PositionAt(now) <= PreviousRestartsAfter + HandOverBoundary
-                    || (at != session.Order.Count - 1 && (at == 0 || at == session.WindowStart)))
+                    || (at != session.Order.Count - 1 && first))
                 {
                     session.SteppedBackAt = now;
+                    if (!first)
+                    {
+                        session.PreviousUnanswered++;
+                    }
                 }
             }
         }
@@ -1731,6 +1737,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                 // The music plays (again), whoever resumed it: a pause made before is over.
                 session.PausedByUser = false;
                 session.SteppedBackAt = null;
+                session.PreviousUnanswered = 0;
             }
 
             var located = session.Locate(_state.TrackUri, _state.Title);
@@ -1742,6 +1749,7 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                 // Spotify left the stop on an earlier song: a Previous that led there is over too.
                 session.StoppedEarlierSince = null;
                 session.SteppedBackAt = null;
+                session.PreviousUnanswered = 0;
             }
 
             if (located == last && _state.IsPlaying)
@@ -1821,11 +1829,18 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                 // Back on the list's first song: Spotify stopped after the last
                 // one (played to its end, or skipped).
                 // A stop that began shortly after Previous in Resonate is that Previous, however long it lasts.
-                // Spotify moving to another song while stopped (a phone, a media key) begins a new stop; when
-                // Previous was pressed during the stop it left, it is that Previous's (it began with it).
+                // Each stop on another song (Spotify moving on while stopped) answers one Previous pressed in
+                // Resonate that no stop answered yet, however late Spotify says so; with none left, a phone or
+                // a media key moved it, and it is judged by when it began.
                 if (session.StoppedEarlierSince is not { } stoppedSince || session.StoppedEarlierOn != located)
                 {
-                    stoppedSince = session.SteppedBackAt is { } pressed && session.StoppedEarlierSince is { } left && pressed > left ? pressed : now;
+                    stoppedSince = now;
+                    if (session.PreviousUnanswered > 0 && session.SteppedBackAt is { } pressed)
+                    {
+                        session.PreviousUnanswered--;
+                        stoppedSince = pressed;
+                    }
+
                     session.StoppedEarlierSince = stoppedSince;
                     session.StoppedEarlierOn = located;
                 }
