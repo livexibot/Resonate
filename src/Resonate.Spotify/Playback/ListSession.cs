@@ -145,6 +145,9 @@ internal sealed partial class ListSession
     /// <summary>Since when Spotify shows the list stopped at the start of an earlier song (null otherwise): what that stop means is judged once, when it began.</summary>
     public DateTimeOffset? StoppedEarlierSince { get; set; }
 
+    /// <summary>Which song of <see cref="Order"/> the stop since <see cref="StoppedEarlierSince"/> is on.</summary>
+    public int StoppedEarlierOn { get; set; }
+
     /// <summary>A song Spotify can be told to play by its address (not a file on the computer, not a file Resonate plays).</summary>
     public static bool CanStartByUri(TrackInfo track) =>
         track.IsPlayable

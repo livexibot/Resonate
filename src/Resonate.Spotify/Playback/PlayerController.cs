@@ -941,14 +941,17 @@ public sealed partial class PlayerController : IPlayer, IDisposable
         CountUserCommand();
         lock (_gate)
         {
-            // Previous leaves Spotify stopped on an earlier song when it goes back a song, or
-            // restarts one that is not the last (only restarting the last song keeps it there).
+            // Previous leaves Spotify stopped where the list's end does (on its first song) when
+            // it goes back a song, or restarts the first song (restarting another keeps it there).
             var now = _time.GetUtcNow();
-            if (_session is { HandOver: not null } session
-                && (session.Locate(_state.TrackUri, _state.Title) != session.Order.Count - 1
-                    || _state.PositionAt(now) <= PreviousRestartsAfter + HandOverBoundary))
+            if (_session is { HandOver: not null } session)
             {
-                session.SteppedBackAt = now;
+                var at = session.Locate(_state.TrackUri, _state.Title);
+                if (_state.PositionAt(now) <= PreviousRestartsAfter + HandOverBoundary
+                    || (at != session.Order.Count - 1 && (at == 0 || at == session.WindowStart)))
+                {
+                    session.SteppedBackAt = now;
+                }
             }
         }
 
@@ -1818,7 +1821,15 @@ public sealed partial class PlayerController : IPlayer, IDisposable
                 // Back on the list's first song: Spotify stopped after the last
                 // one (played to its end, or skipped).
                 // A stop that began shortly after Previous in Resonate is that Previous, however long it lasts.
-                var stoppedSince = session.StoppedEarlierSince ??= now;
+                // Spotify moving to another song while stopped (a phone, a media key) begins a new stop; when
+                // Previous was pressed during the stop it left, it is that Previous's (it began with it).
+                if (session.StoppedEarlierSince is not { } stoppedSince || session.StoppedEarlierOn != located)
+                {
+                    stoppedSince = session.SteppedBackAt is { } pressed && session.StoppedEarlierSince is { } left && pressed > left ? pressed : now;
+                    session.StoppedEarlierSince = stoppedSince;
+                    session.StoppedEarlierOn = located;
+                }
+
                 var steppedBack = session.SteppedBackAt is { } at && stoppedSince - at <= TrackHold;
                 if (position <= HandOverBoundary && (located == session.WindowStart || located == 0) && !steppedBack)
                 {
