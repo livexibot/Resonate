@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.0](https://github.com/livexibot/Resonate/compare/v0.24.0...v0.25.0) (2026-11-07)
+
+
+### New features
+
+* local songs in Spotify playlists play from Local Files ([#85](https://github.com/livexibot/Resonate/issues/85)) ([31a144f](https://github.com/livexibot/Resonate/commit/31a144f66fba9658a8c9b992fcd2224f59af255c))
+
 ## [0.24.0](https://github.com/livexibot/Resonate/compare/v0.23.1...v0.24.0) (2026-11-07)
 
 
